@@ -24,8 +24,8 @@ BGC-LOOM is a Nextflow pipeline for comprehensive analysis of biosynthetic gene 
 ### Option 1: Clone with Git (recommended)
 
 ```bash
-git clone https://github.com/alpole23/bgc-loom.git
-cd bgc-loom
+git clone https://github.com/alpole23/BGC_LOOM.git
+cd BGC_LOOM
 ```
 
 ### Option 2: Download ZIP
@@ -34,8 +34,8 @@ cd bgc-loom
 2. Select **Download ZIP**
 3. Extract and enter the directory:
    ```bash
-   unzip bgc-loom-main.zip
-   cd bgc-loom-main
+   unzip BGC_LOOM-main.zip
+   cd BGC_LOOM-main
    ```
 
 ### Setup Environment
