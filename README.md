@@ -7,7 +7,7 @@
 
 ClusterQuest is a Nextflow pipeline for comprehensive analysis of biosynthetic gene clusters (BGCs) in bacterial genomes. It integrates genome retrieval, BGC detection, clustering, and phylogenetic analysis into an integrated workflow with interactive visualization.
 
-![Pipeline Overview](docs/pipeline_overview.tiff)
+![Pipeline Overview](docs/pipeline_overview.jpeg)
 
 ## Features
 
