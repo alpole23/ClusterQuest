@@ -11,11 +11,14 @@ process GCF_BIOSYNTHETIC_TREE {
     path gtdbtk_summary
 
     output:
-    path "gcf_species_heatmap.png",       emit: heatmap_png,   optional: true
-    path "gcf_species_heatmap.svg",       emit: heatmap_svg,   optional: true
-    path "gcf_biosynthetic_tree.png",     emit: gcf_tree_png,  optional: true
-    path "gcf_biosynthetic_tree.svg",     emit: gcf_tree_svg,  optional: true
-    path "phosphonate_metadata.json",     emit: metadata,      optional: true
+    path "gcf_species_heatmap.png",                     emit: heatmap_png,          optional: true
+    path "gcf_species_heatmap.svg",                     emit: heatmap_svg,          optional: true
+    path "gcf_biosynthetic_tree.png",                   emit: gcf_tree_png,         optional: true
+    path "gcf_biosynthetic_tree.svg",                   emit: gcf_tree_svg,         optional: true
+    path "all_bgcs_biosynthetic_tree_circular.png",     emit: all_bgcs_tree_png,    optional: true
+    path "all_bgcs_biosynthetic_tree_circular.svg",     emit: all_bgcs_tree_svg,    optional: true
+    path "phosphonate_metadata.json",                   emit: metadata,             optional: true
+    path "phosphonate_itol_coupling.txt",               emit: coupling_annotation,  optional: true
 
     script:
     def tree_arg    = gtdbtk_tree.name    != 'NO_PHYLO_TREE'     ? "--gtdbtk_tree ${gtdbtk_tree}"      : ""
@@ -43,10 +46,17 @@ process GCF_BIOSYNTHETIC_TREE {
         ${summary_arg} \\
         --outdir .
 
-    # Step 4: Generate GCF biosynthetic NJ tree figure
+    # Step 4: Generate GCF biosynthetic NJ tree figure (GCF medoids)
     python ${projectDir}/scripts/bgc_gcf_tree.py \\
         --db ${bigscape_db} \\
         --coupling_annotation phosphonate_itol_coupling.txt \\
         --outdir .
+
+    # Step 5: Generate all-BGCs circular NJ tree (full distance matrix)
+    python ${projectDir}/scripts/bgc_all_bgcs_tree.py \\
+        --db ${bigscape_db} \\
+        --coupling_annotation phosphonate_itol_coupling.txt \\
+        --outdir . \\
+        --layout circular
     """
 }

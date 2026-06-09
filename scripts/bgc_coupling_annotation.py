@@ -9,23 +9,26 @@ with any tree whose leaf labels are {contig}.region{NNN} (as produced by
 bgc_pfam_tree.py or bgc_synteny_tree.py).
 
 Coupling enzyme classes detected (checked in priority order):
-  FrbC-like     SMCOG1271       Phosphonomethylmalate synthase-like (HMGL superfamily)
-                               phosphonopyruvate + acetyl-CoA → phosphonomethylmalate
-                               → phosphinothricin-type products
-  Ppd      SMCOG1055       Phosphonopyruvate decarboxylase-like (ThDP-dependent)
-                               → 2-phosphonoacetaldehyde; BGC lacks cytidylyltransferase
-  Ppd-CDP  SMCOG1055       Same ThDP decarboxylation as Ppd, but BGC additionally
-               + NTP_transf_3  encodes cytidylyltransferase(s) (NTP_transf_3) for
-                               CDP-activation of the phosphonate → phosphonolipid pathway
-  VlpB-like   Fe-ADH rule     Phosphonopyruvate reductase-like (iron-containing ADH)
-                               → phosphonolactate
-  PalB-like     SMCOG1013       PalB-like aminotransferase (Aminotran_3, fold type IV PLP)
-                               phosphonopyruvate → L-phosphonoalanine
-                               Co-occurs with sulfhydrylase (SMCOG1168) in all GCF-7 BGCs,
-                               suggesting further modification of phosphonoalanine.
-                               Note: SMCOG1013 also appears downstream in VlpB-like clusters
-                               (GCF-4); VlpB-like is checked first to avoid false positives.
-  Unknown  —               No coupling enzyme identified
+  Synthase      SMCOG1271          Phosphonomethylmalate synthase (HMGL superfamily)
+                                   phosphonopyruvate + acetyl-CoA → phosphonomethylmalate
+                                   → phosphinothricin-type products (refs: FrbC, HvrC)
+  Ppd-CDP       SMCOG1055          Same ThDP decarboxylation as Ppd, but BGC additionally
+                 + NTP_transf_3    encodes cytidylyltransferase(s) (NTP_transf_3) for
+                                   CDP-activation → phosphonolipid pathway.
+                                   Checked before plain Ppd because both share SMCOG1055.
+  Ppd           SMCOG1055          Phosphonopyruvate decarboxylase (ThDP-dependent)
+                                   → 2-phosphonoacetaldehyde; BGC lacks cytidylyltransferase.
+                                   Checked before Reductase: some BGCs contain an unrelated
+                                   Fe-ADH gene elsewhere in the region that would otherwise
+                                   mask the SMCOG1055-annotated coupling enzyme (e.g. GCF11).
+  Reductase     Fe-ADH rule        Phosphonopyruvate reductase (iron-containing ADH)
+                                   → phosphonolactate (ref: VlpB)
+  Transaminase  SMCOG1013          Phosphonopyruvate transaminase (Aminotran_3, fold type IV PLP)
+                                   phosphonopyruvate → L-phosphonoalanine (ref: PnaA)
+                                   Co-occurs with sulfhydrylase (SMCOG1168) in all GCF-7 BGCs.
+                                   Note: SMCOG1013 also appears downstream in Reductase clusters
+                                   (GCF-4); Reductase is checked first to avoid false positives.
+  Unknown       —                  No coupling enzyme identified
 
 Usage:
     python scripts/bgc_coupling_annotation.py \\
@@ -49,12 +52,12 @@ from collections import defaultdict
 
 CLASSES = [
     # (class_id, display_label, hex_color)
-    ('FrbC-like',    'FrbC-like — phosphonomethylmalate synthase (PnPyr + AcCoA)', '#e41a1c'),
-    ('Ppd',     'Ppd — phosphonopyruvate decarboxylase',                '#377eb8'),
-    ('Ppd-CDP', 'Ppd-CDP — phosphonopyruvate decarboxylase + CDP-activation', '#984ea3'),
-    ('VlpB-like',  'VlpB-like — phosphonopyruvate reductase (Fe-ADH)',         '#4daf4a'),
-    ('PalB-like',    'PalB-like — phosphonopyruvate transaminase, Aminotran_3 (→ PnAla)', '#ff7f00'),
-    ('Unknown',      'Unknown / not detected',                                    '#aaaaaa'),
+    ('Synthase',                        'Synthase — phosphonomethylmalate synthase (PnPyr + AcCoA)',            '#e41a1c'),
+    ('Decarboxylase',                   'Decarboxylase — phosphonopyruvate decarboxylase (ThDP-dependent)',     '#377eb8'),
+    ('Decarboxylase-Nucleotidyltransferase', 'Decarboxylase-Nucleotidyltransferase — phosphonopyruvate decarboxylase + CDP-activation', '#984ea3'),
+    ('Reductase',                       'Reductase — phosphonopyruvate reductase (Fe-ADH)',                    '#4daf4a'),
+    ('Transaminase',                    'Transaminase — phosphonopyruvate transaminase, Aminotran_3 (→ PnAla)','#ff7f00'),
+    ('Unknown',                         'Unknown / not detected',                                               '#aaaaaa'),
 ]
 
 CLASS_COLORS = {cid: color for cid, _, color in CLASSES}
@@ -130,25 +133,30 @@ def classify_bgc(json_path, contig_id, region_num):
 
         # Classification (checked in priority order)
         if 'SMCOG1271' in smcog_hits:
-            return 'FrbC-like'
-        if 'Fe-ADH' in rule_hits:
-            return 'VlpB-like'
-        # Ppd-CDP must be checked before plain Ppd: both have SMCOG1055, but Ppd-CDP
-        # additionally encodes cytidylyltransferase(s) (NTP_transf_3) for CDP-activation.
-        # Distinguishes phosphonolipid BGCs from plain Ppd BGCs by gene content,
-        # not by product (both can yield 2-AEP downstream).
+            return 'Synthase'
+        # Ppd-CDP before plain Ppd: both share SMCOG1055, but Ppd-CDP additionally
+        # encodes cytidylyltransferase(s) (NTP_transf_3) for CDP-activation.
         has_tpp = 'TPP_enzyme_C' in rule_hits or 'TPP_enzyme_M' in rule_hits
         has_ntp = 'NTP_transf_3' in rule_hits or 'NTP_transf_2' in rule_hits
         if has_tpp and has_ntp:
-            return 'Ppd-CDP'
+            return 'Decarboxylase-Nucleotidyltransferase'
         if 'SMCOG1055' in smcog_hits:
-            return 'Ppd'
-        # PalB-like: Aminotran_3-type (fold type IV PLP) acting on phosphonopyruvate
-        # → L-phosphonoalanine. Consistently annotated as SMCOG1013 in all GCF-7 BGCs,
-        # always co-occurring with a sulfhydrylase (SMCOG1168). SMCOG1013 also appears
-        # downstream in VlpB-like clusters (GCF-4), so VlpB-like is checked first.
+            return 'Decarboxylase'
+        # Fallback: TPP_enzyme_C alone is sufficient evidence for a decarboxylase
+        # coupling enzyme. Some BGCs have ThDP enzymes too divergent to score against
+        # the SMCOG1055 HMM but still carry the TPP_enzyme_C domain in antiSMASH's
+        # rule-based scan (e.g. GCF-1, GCF-12 singletons in Pantoea).
+        if has_tpp:
+            return 'Decarboxylase'
+        # Reductase after Ppd: some BGCs contain an unrelated Fe-ADH gene elsewhere
+        # in the antiSMASH region that would mask an SMCOG1055-annotated coupling enzyme.
+        # True Reductase BGCs (GCF4/9) carry Fe-ADH but no SMCOG1055.
+        if 'Fe-ADH' in rule_hits:
+            return 'Reductase'
+        # Transaminase: SMCOG1013 also appears downstream in Reductase clusters (GCF-4),
+        # so Reductase is checked first.
         if 'SMCOG1013' in smcog_hits:
-            return 'PalB-like'
+            return 'Transaminase'
 
         return 'Unknown'
 

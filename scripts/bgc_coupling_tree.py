@@ -16,18 +16,20 @@ HMM strategy (no external MSA tool required):
   2. hmmalign all references to initial HMM → aligned references
   3. hmmbuild from aligned references       → refined HMM
   4. hmmalign all (refs + queries)          → final alignment
-  5. BioPython NJ (BLOSUM62)               → .nwk tree
+  5. FastTree (LG model)                   → .nwk tree
 
 Usage:
     python scripts/bgc_coupling_tree.py \\
         --antismash_dir  results/antismash_results/Pantoea \\
         --metadata       results/bgc_trees/Pantoea/phosphonate_metadata.json \\
         --coupling_annotation results/bgc_trees/Pantoea/phosphonate_itol_coupling.txt \\
-        --ref_pepm_faa   results/bgc_trees/Pantoea/coupling_enzyme_trees/reference_pepM.faa \\
-        --ref_coupling_faa results/bgc_trees/Pantoea/coupling_enzyme_trees/reference_coupling_enzymes.faa \\
+        --ref_pepm_faa   assets/reference_sequences/reference_pepM.faa \\
+        --ref_coupling_faa assets/reference_sequences/reference_coupling_enzymes.faa \\
         --outdir         results/bgc_trees/Pantoea/coupling_enzyme_trees \\
         --hmmbuild       /path/to/hmmbuild \\
         --hmmalign       /path/to/hmmalign \\
+        --hmmsearch      /path/to/hmmsearch \\
+        --fasttree       /path/to/FastTree \\
         --tree           both
 """
 
@@ -41,74 +43,57 @@ from collections import defaultdict
 
 from pathlib import Path
 
-from Bio import AlignIO, Phylo, SeqIO
-from Bio.Phylo.TreeConstruction import DistanceCalculator, DistanceTreeConstructor
+from Bio import AlignIO, SeqIO
+from Bio.Align import MultipleSeqAlignment
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 sys.path.insert(0, str(Path(__file__).parent))
-from utils.constants import COUPLING_COLORS as _BASE_COUPLING_COLORS, LEGACY_CLASS_NAMES
+from utils.constants import (COUPLING_COLORS as _BASE_COUPLING_COLORS, LEGACY_CLASS_NAMES,
+                              GCF_PALETTE, load_coupling_classes)
 
 # Add the Reference class used only in coupling trees
 COUPLING_COLORS = {**_BASE_COUPLING_COLORS, 'Reference': '#333333'}
 
 # Coupling enzyme class for each reference pepM BGC
 REF_PEPM_CLASS = {
-    'BGC0000904':          'FrbC-like',   # FR-900098, FrbD pepM
-    'BGC0000897':          'Ppd',         # Dehydrophos, DhpE pepM
-    'BGC0000938':          'Ppd',         # Fosfomycin, Fom1 pepM
-    'BGC0000806':          'Ppd',         # 2-AEP, Glycomyces pepM
-    'Phosphonoalamide_BGC':'PalB-like',   # PnaD pepM
-    'Valinophos_BGC':      'VlpB-like',   # VlpA pepM
-    'Pantaphos_BGC':       'FrbC-like',   # Pantaphos, HvrA pepM
+    'BGC0000904':          'Synthase',      # FR-900098, FrbD pepM
+    'BGC0000897':          'Decarboxylase', # Dehydrophos, DhpE pepM
+    'BGC0000938':          'Decarboxylase', # Fosfomycin, Fom1 pepM
+    'BGC0000806':          'Decarboxylase', # 2-AEP, Glycomyces pepM
+    'Phosphonoalamide_BGC':'Transaminase',  # PnaD pepM
+    'Valinophos_BGC':      'Reductase',     # VlpA pepM
+    'Pantaphos_BGC':       'Synthase',      # Pantaphos, HvrA pepM
 }
 
 # Coupling enzyme class for each reference coupling enzyme entry (by protein name)
 REF_COUPLING_CLASS = {
-    'FrbC': 'FrbC-like',
-    'HvrC': 'FrbC-like',
-    'DhpF': 'Ppd',
-    'Fom2': 'Ppd',
-    'Ppd':  'Ppd',
-    'VlpB': 'VlpB-like',
-    'PnaA': 'PalB-like',
+    'FrbC': 'Synthase',
+    'HvrC': 'Synthase',
+    'DhpF': 'Decarboxylase',
+    'Fom2': 'Decarboxylase',
+    'Ppd':  'Decarboxylase',
+    'VlpB': 'Reductase',
+    'PnaA': 'Transaminase',
 }
 
-# SMCOG / domain markers for coupling enzyme CDS extraction
+# Markers for coupling enzyme CDS extraction.
+# TPP_enzyme_C (Pfam clusterhmmer) is used for Decarboxylase and
+# Decarboxylase-Nucleotidyltransferase rather than SMCOG1055: all Decarboxylase BGCs
+# carry both annotations, but Decarboxylase-Nucleotidyltransferase BGCs have
+# TPP_enzyme_C only — their ThDP decarboxylases are too divergent from the SMCOG1055
+# seed to get a hit. Both classes share one combined tree keyed as 'Decarboxylase'.
 CLASS_MARKERS = {
-    'FrbC-like': ('smcog',  'SMCOG1271'),
-    'Ppd':       ('smcog',  'SMCOG1055'),
-    'Ppd-CDP':   ('smcog',  'SMCOG1055'),
-    'VlpB-like': ('domain', 'Fe-ADH'),
-    'PalB-like': ('smcog',  'SMCOG1013'),
+    'Synthase':                             ('smcog',  'SMCOG1271'),
+    'Decarboxylase':                        ('domain', 'TPP_enzyme_C'),
+    'Decarboxylase-Nucleotidyltransferase': ('domain', 'TPP_enzyme_C'),
+    'Reductase':                            ('domain', 'Fe-ADH'),
+    'Transaminase':                         ('smcog',  'SMCOG1013'),
 }
-
-GCF_PALETTE = [
-    '#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e',
-    '#e6ab02', '#a6761d', '#666666', '#a6cee3', '#b2df8a',
-]
-
 
 # ─── Data loading ─────────────────────────────────────────────────────────────
 
 
-def load_coupling_classes(path):
-    """Read iTOL colorstrip file → {bgc_label: class_id}."""
-    classes = {}
-    in_data = False
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line == 'DATA':
-                in_data = True
-                continue
-            if in_data and line and not line.startswith('#'):
-                parts = line.split('\t')
-                if len(parts) >= 3:
-                    cls = parts[2]
-                    cls = LEGACY_CLASS_NAMES.get(cls, cls)
-                    classes[parts[0]] = cls
-    return classes
 
 
 def load_metadata(path):
@@ -246,6 +231,32 @@ def extract_cds_from_json(json_path, contig_id, region_num,
     return None, None
 
 
+def extract_all_cds_from_region(json_path, contig_id, region_num):
+    """Return all (translation, locus_tag) pairs for every CDS in the phosphonate region."""
+    try:
+        with open(json_path) as f:
+            data = json.load(f)
+    except Exception:
+        return []
+    results = []
+    for rec in data['records']:
+        if contig_id not in rec.get('id', ''):
+            continue
+        r_start, r_end = _get_region_bounds(rec, contig_id, region_num)
+        for feat in rec.get('features', []):
+            if feat.get('type') != 'CDS':
+                continue
+            if not _cds_in_region(feat, r_start, r_end):
+                continue
+            quals = feat.get('qualifiers', {})
+            translation = quals.get('translation', [''])[0]
+            if not translation:
+                continue
+            gene = quals.get('gene', [''])[0] or quals.get('locus_tag', [''])[0]
+            results.append((translation, gene))
+    return results
+
+
 # ─── HMM build and alignment ──────────────────────────────────────────────────
 
 def write_fasta(records, path):
@@ -273,72 +284,216 @@ def run_hmmalign(hmm, seqs_faa, out_afa, hmmalign_bin):
     return True
 
 
-def hmm_align_all(ref_records, query_records, workdir, hmmbuild_bin, hmmalign_bin, label):
+def run_hmmsearch(hmm_path, seqs_faa, out_tbl, hmmsearch_bin, evalue=1e-3):
+    cmd = [hmmsearch_bin, '--tblout', out_tbl, '--noali',
+           '-E', str(evalue), hmm_path, seqs_faa]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f'  hmmsearch failed:\n{r.stderr[:600]}', file=sys.stderr)
+        return False
+    return True
+
+
+def parse_hmmsearch_tbl(tbl_path):
+    """Parse hmmsearch --tblout → {seq_id: (bitscore, evalue)}."""
+    hits = {}
+    with open(tbl_path) as f:
+        for line in f:
+            if line.startswith('#') or not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) < 6:
+                continue
+            seq_id = parts[0]
+            try:
+                evalue   = float(parts[4])
+                bitscore = float(parts[5])
+            except ValueError:
+                continue
+            if seq_id not in hits or evalue < hits[seq_id][1]:
+                hits[seq_id] = (bitscore, evalue)
+    return hits
+
+
+def hmm_build_refs(ref_records, workdir, hmmbuild_bin, hmmalign_bin, label):
     """
-    Build a refined HMM from references and align refs + queries to it.
-    Returns (MultipleSeqAlignment, aligned_faa_path) or (None, None) on failure.
+    Build a refined HMM from reference sequences only.
+    Returns path to final.hmm, or None on failure.
     """
     os.makedirs(workdir, exist_ok=True)
-
     seed_faa  = os.path.join(workdir, 'seed.faa')
     refs_faa  = os.path.join(workdir, 'refs.faa')
-    all_faa   = os.path.join(workdir, 'all.faa')
     hmm_init  = os.path.join(workdir, 'init.hmm')
     refs_afa  = os.path.join(workdir, 'refs_aligned.faa')
     hmm_final = os.path.join(workdir, 'final.hmm')
-    all_afa   = os.path.join(workdir, 'all_aligned.faa')
 
     write_fasta([ref_records[0]], seed_faa)
     write_fasta(ref_records, refs_faa)
-    write_fasta(ref_records + query_records, all_faa)
 
     print(f'    [1/4] hmmbuild from seed: {ref_records[0].id}')
     if not run_hmmbuild(seed_faa, hmm_init, hmmbuild_bin, label + '_init'):
-        return None, None
+        return None
 
     print(f'    [2/4] hmmalign {len(ref_records)} references...')
     if not run_hmmalign(hmm_init, refs_faa, refs_afa, hmmalign_bin):
-        return None, None
+        return None
 
     print(f'    [3/4] hmmbuild refined HMM from aligned references...')
     if not run_hmmbuild(refs_afa, hmm_final, hmmbuild_bin, label):
-        return None, None
+        return None
 
-    print(f'    [4/4] hmmalign {len(ref_records) + len(query_records)} sequences...')
-    if not run_hmmalign(hmm_final, all_faa, all_afa, hmmalign_bin):
-        return None, None
+    return hmm_final
 
-    alignment = AlignIO.read(all_afa, 'fasta')
+
+def hmm_align_seqs(hmm_path, records, out_afa, hmmalign_bin):
+    """Align records to an existing HMM. Returns MultipleSeqAlignment or None."""
+    tmp_faa = out_afa + '.input.faa'
+    write_fasta(records, tmp_faa)
+    if not run_hmmalign(hmm_path, tmp_faa, out_afa, hmmalign_bin):
+        return None
+    alignment = AlignIO.read(out_afa, 'fasta')
     print(f'    Alignment: {len(alignment)} seqs × {alignment.get_alignment_length()} cols')
-    return alignment, all_afa
+    return alignment
+
+
+def hmm_align_all(ref_records, query_records, workdir, hmmbuild_bin, hmmalign_bin, label):
+    """Build refined HMM from refs then align all sequences. Returns (alignment, out_afa) or (None, None)."""
+    hmm_final = hmm_build_refs(ref_records, workdir, hmmbuild_bin, hmmalign_bin, label)
+    if hmm_final is None:
+        return None, None
+    all_records = ref_records + query_records
+    out_afa = os.path.join(workdir, f'{label}_all.afa')
+    print(f'    [4/4] hmmalign {len(all_records)} sequences...')
+    alignment = hmm_align_seqs(hmm_final, all_records, out_afa, hmmalign_bin)
+    if alignment is None:
+        return None, None
+    return alignment, out_afa
+
+
+# ─── Extraction methods ───────────────────────────────────────────────────────
+
+def extract_via_annotation(bgc_labels, metadata, json_index, marker_type, marker_value):
+    """Extract coupling enzyme CDS using antiSMASH annotation markers.
+    Returns (found_records, missing_labels).
+    """
+    found, missing = [], []
+    for lbl in bgc_labels:
+        meta = metadata.get(lbl, {})
+        contig_id, region_num = parse_label(lbl)
+        genome    = genome_from_gbk_path(meta.get('gbk_path', '')) if meta.get('gbk_path') else None
+        json_path = json_index.get(genome)
+        seq, _ = extract_cds_from_json(
+            json_path, contig_id, region_num,
+            smcog=marker_value  if marker_type == 'smcog'  else None,
+            domain=marker_value if marker_type == 'domain' else None,
+        ) if json_path else (None, None)
+        if seq:
+            found.append(SeqRecord(Seq(seq), id=lbl, description=''))
+        else:
+            missing.append(lbl)
+    return found, missing
+
+
+def extract_via_hmmsearch(bgc_labels, metadata, json_index, hmm_path, workdir, hmmsearch_bin,
+                           evalue=1e-3):
+    """Extract coupling enzyme CDS by hmmsearch against the class HMM.
+    All CDS in each region are searched; the highest-scoring hit per BGC is selected.
+    Returns (found_records, missing_labels).
+    """
+    os.makedirs(workdir, exist_ok=True)
+    all_cds_faa = os.path.join(workdir, 'all_cds.faa')
+    tbl_path    = os.path.join(workdir, 'hmmsearch.tbl')
+
+    cds_to_bgc  = {}   # cds_id → bgc_label
+    cds_seq_map = {}   # cds_id → sequence string
+    for lbl in bgc_labels:
+        meta = metadata.get(lbl, {})
+        contig_id, region_num = parse_label(lbl)
+        genome    = genome_from_gbk_path(meta.get('gbk_path', '')) if meta.get('gbk_path') else None
+        json_path = json_index.get(genome)
+        if not json_path:
+            continue
+        for idx, (seq, _) in enumerate(extract_all_cds_from_region(json_path, contig_id, region_num)):
+            cds_id = f'{lbl}__cds__{idx}'
+            cds_to_bgc[cds_id]  = lbl
+            cds_seq_map[cds_id] = seq
+
+    if not cds_seq_map:
+        return [], list(bgc_labels)
+
+    write_fasta(
+        [SeqRecord(Seq(s), id=i, description='') for i, s in cds_seq_map.items()],
+        all_cds_faa,
+    )
+    if not run_hmmsearch(hmm_path, all_cds_faa, tbl_path, hmmsearch_bin, evalue):
+        return [], list(bgc_labels)
+
+    hits = parse_hmmsearch_tbl(tbl_path)
+
+    best_hit = {}  # bgc_label → (bitscore, cds_id)
+    for cds_id, (bitscore, _) in hits.items():
+        lbl = cds_to_bgc.get(cds_id)
+        if lbl is None:
+            continue
+        if lbl not in best_hit or bitscore > best_hit[lbl][0]:
+            best_hit[lbl] = (bitscore, cds_id)
+
+    found, missing = [], []
+    for lbl in bgc_labels:
+        if lbl in best_hit:
+            cds_id = best_hit[lbl][1]
+            found.append(SeqRecord(Seq(cds_seq_map[cds_id]), id=lbl, description=''))
+        else:
+            missing.append(lbl)
+    return found, missing
+
+
+def extract_with_hmm_fallback(bgc_labels, metadata, json_index, marker_type, marker_value,
+                               hmm_path, workdir, hmmsearch_bin):
+    """Annotation-first extraction with HMM rescue for annotation-missing BGCs.
+
+    Uses antiSMASH annotation markers (SMCOG/domain) as the primary source — zero extra
+    compute since antiSMASH already ran those HMMs.  For any BGCs that annotation missed
+    (e.g. divergent sequences that fall below SMCOG thresholds), runs hmmsearch against
+    the class reference HMM and selects the highest-scoring CDS per BGC.
+    """
+    ann_found, ann_missing = extract_via_annotation(
+        bgc_labels, metadata, json_index, marker_type, marker_value)
+
+    if not ann_missing or not hmmsearch_bin:
+        return ann_found, ann_missing
+
+    print(f'      HMM fallback for {len(ann_missing)} annotation-missing BGCs...')
+    hmm_rescued, still_missing = extract_via_hmmsearch(
+        ann_missing, metadata, json_index, hmm_path,
+        os.path.join(workdir, 'fallback_search'), hmmsearch_bin)
+
+    if hmm_rescued:
+        print(f'      Rescued: {len(hmm_rescued)}  |  Still missing: {len(still_missing)}')
+    return ann_found + hmm_rescued, still_missing
 
 
 # ─── Tree building ─────────────────────────────────────────────────────────────
 
-def build_nj_tree(alignment, out_nwk):
-    # hmmalign uses '.' for insert-state gaps, '-' for match-state deletions,
-    # and lowercase letters for residues aligned to insert states.
-    # BioPython DistanceCalculator requires uppercase residues and '-' only.
-    from Bio.Align import MultipleSeqAlignment
+def build_fasttree(alignment, out_nwk, fasttree_bin):
+    # hmmalign uses '.' for insert-state gaps and lowercase for insert-state residues.
+    # FastTree requires uppercase residues and '-' only.
     cleaned = MultipleSeqAlignment([
         SeqRecord(Seq(str(r.seq).upper().replace('.', '-')), id=r.id, description='')
         for r in alignment
     ])
-    print(f'    Computing BLOSUM62 distance matrix ({len(cleaned)} × {len(cleaned)})...')
-    dm = DistanceCalculator('blosum62').get_distance(cleaned)
-    print(f'    Building NJ tree...')
-    tree = DistanceTreeConstructor().nj(dm)
-    # BioPython's Newick writer is recursive; large trees exceed the default limit.
-    import sys
-    old_limit = sys.getrecursionlimit()
-    sys.setrecursionlimit(max(old_limit, len(alignment) * 10))
-    try:
-        with open(out_nwk, 'w') as f:
-            Phylo.write(tree, f, 'newick')
-    finally:
-        sys.setrecursionlimit(old_limit)
+    tmp_faa = out_nwk + '.input.faa'
+    write_fasta(list(cleaned), tmp_faa)
+    print(f'    Running FastTree ({len(cleaned)} seqs × {cleaned.get_alignment_length()} cols)...')
+    cmd = [fasttree_bin, '-quiet', '-lg', tmp_faa]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f'  FastTree failed:\n{r.stderr[:600]}', file=sys.stderr)
+        return None
+    with open(out_nwk, 'w') as f:
+        f.write(r.stdout)
     print(f'    Written: {out_nwk}')
-    return tree
+    return out_nwk
 
 
 # ─── iTOL annotation writers ──────────────────────────────────────────────────
@@ -383,90 +538,21 @@ def write_itol_text(labels, text_fn, dataset_label, out_path):
                 f.write(f'{lbl}\t{text}\t1\t#333333\tnormal\t1\n')
 
 
-def write_tree_a_itol(seq_labels, coupling_classes, metadata, ref_records, outdir):
-    """Write all iTOL annotation files for Tree A."""
+def write_tree_itol(seq_labels, get_class_fn, metadata, ref_records, outdir):
+    """Write iTOL annotation files for a coupling enzyme tree.
 
-    # Determine coupling class for each label (including references)
-    def get_class(lbl):
-        if lbl.startswith('REF|'):
-            bgc_id = lbl.split('|')[1]  # e.g. BGC0000904
-            return REF_PEPM_CLASS.get(bgc_id, 'Reference')
-        return coupling_classes.get(lbl, 'Unknown')
-
-    present_classes = sorted(set(get_class(l) for l in seq_labels))
-    coupling_legend = [(cls, COUPLING_COLORS.get(cls, '#aaaaaa')) for cls in present_classes]
-
-    write_itol_colorstrip(
-        seq_labels,
-        color_fn   = lambda l: COUPLING_COLORS.get(get_class(l), '#aaaaaa'),
-        display_fn = get_class,
-        dataset_label = 'Coupling enzyme class',
-        legend_items  = coupling_legend,
-        out_path = os.path.join(outdir, 'itol_coupling_class.txt'),
-    )
-
-    # GCF colorstrip
-    gcf_set = sorted(set(
-        metadata[l]['gcf'] for l in seq_labels
-        if l in metadata and metadata[l]['gcf'] is not None
-    ))
-    gcf_color = {g: GCF_PALETTE[i % len(GCF_PALETTE)] for i, g in enumerate(gcf_set)}
-
-    write_itol_colorstrip(
-        seq_labels,
-        color_fn   = lambda l: gcf_color.get(metadata[l]['gcf'], '#dddddd')
-                               if l in metadata and metadata[l]['gcf'] is not None
-                               else '#333333' if l.startswith('REF|') else '#dddddd',
-        display_fn = lambda l: f'GCF-{metadata[l]["gcf"]}'
-                               if l in metadata and metadata[l]['gcf'] is not None
-                               else 'Reference' if l.startswith('REF|') else 'No GCF',
-        dataset_label = 'GCF family',
-        legend_items  = [(f'GCF-{g}', gcf_color[g]) for g in gcf_set],
-        out_path = os.path.join(outdir, 'itol_gcf.txt'),
-    )
-
-    # Source (reference vs query) colorstrip
-    write_itol_colorstrip(
-        seq_labels,
-        color_fn   = lambda l: '#333333' if l.startswith('REF|') else '#cccccc',
-        display_fn = lambda l: 'Reference' if l.startswith('REF|') else 'Query',
-        dataset_label = 'Source',
-        legend_items  = [('Reference', '#333333'), ('Query (Pantoea)', '#cccccc')],
-        out_path = os.path.join(outdir, 'itol_source.txt'),
-    )
-
-    # Text labels — organism name
-    ref_map = {}
-    for r in ref_records:
-        parts = r.id.split('|')  # BGC|acc|name|function|organism
-        org = parts[4].replace('_', ' ') if len(parts) > 4 else r.id
-        ref_map[f'REF|{r.id}'] = org
-
-    write_itol_text(
-        seq_labels,
-        text_fn = lambda l: ref_map.get(l) or
-                            metadata.get(l, {}).get('organism', ''),
-        dataset_label = 'Organism',
-        out_path = os.path.join(outdir, 'itol_organism.txt'),
-    )
-
-
-def write_tree_b_itol(seq_labels, coupling_classes, metadata, ref_records, outdir):
-    """Write iTOL annotation files for a Tree B class subtree."""
-
-    # For Tree B, coupling class is the class being analyzed; refs are anchors
-    def get_class(lbl):
-        if lbl.startswith('REF|'):
-            return 'Reference'
-        return coupling_classes.get(lbl, 'Unknown')
-
-    present = sorted(set(get_class(l) for l in seq_labels))
+    get_class_fn(label) → class string.  Caller supplies the reference-labeling
+    logic: Tree A maps REF| labels to their known coupling class via REF_PEPM_CLASS;
+    Tree B marks all REF| labels as 'Reference'.
+    ref_records: original reference SeqRecords without the REF| prefix.
+    """
+    present = sorted(set(get_class_fn(l) for l in seq_labels))
     coupling_legend = [(cls, COUPLING_COLORS.get(cls, '#aaaaaa')) for cls in present]
 
     write_itol_colorstrip(
         seq_labels,
-        color_fn   = lambda l: COUPLING_COLORS.get(get_class(l), '#aaaaaa'),
-        display_fn = get_class,
+        color_fn   = lambda l: COUPLING_COLORS.get(get_class_fn(l), '#aaaaaa'),
+        display_fn = get_class_fn,
         dataset_label = 'Coupling enzyme class',
         legend_items  = coupling_legend,
         out_path = os.path.join(outdir, 'itol_coupling_class.txt'),
@@ -502,7 +588,7 @@ def write_tree_b_itol(seq_labels, coupling_classes, metadata, ref_records, outdi
 
     ref_map = {}
     for r in ref_records:
-        parts = r.id.split('|')
+        parts = r.id.split('|')  # BGC|acc|name|function|organism
         org = parts[4].replace('_', ' ') if len(parts) > 4 else r.id
         ref_map[f'REF|{r.id}'] = org
 
@@ -557,14 +643,34 @@ def build_tree_a(args, metadata, coupling_classes, json_index, ref_pepm_records)
     )
     if alignment is None:
         print('Tree A: alignment failed.', file=sys.stderr)
-        return
+        return None
 
     seq_labels = [r.id for r in alignment]
-    build_nj_tree(alignment, os.path.join(outdir, 'pepm_tree.nwk'))
+    nwk_path = os.path.join(outdir, 'pepm_tree.nwk')
+    build_fasttree(alignment, nwk_path, args.fasttree)
 
     print('  Writing iTOL annotations...')
-    write_tree_a_itol(seq_labels, coupling_classes, metadata, ref_pepm_records, outdir)
+    get_class = lambda l: REF_PEPM_CLASS.get(l.split('|')[1], 'Reference') \
+                          if l.startswith('REF|') else coupling_classes.get(l, 'Unknown')
+    write_tree_itol(
+        seq_labels,
+        get_class_fn = get_class,
+        metadata     = metadata,
+        ref_records  = ref_pepm_records,
+        outdir       = outdir,
+    )
     print(f'Tree A complete → {outdir}')
+
+    newick = open(nwk_path).read() if os.path.exists(nwk_path) else None
+    leaf_meta = {
+        lbl: {
+            'class': get_class(lbl),
+            'gcf':   metadata.get(lbl, {}).get('gcf'),
+            'is_ref': lbl.startswith('REF|'),
+        }
+        for lbl in seq_labels
+    }
+    return {'n_bgcs': len(query_records), 'newick': newick, 'leaf_metadata': leaf_meta}
 
 
 # ─── Tree B ────────────────────────────────────────────────────────────────────
@@ -574,21 +680,27 @@ def build_tree_b(args, metadata, coupling_classes, json_index, ref_coupling_reco
     outdir_b = os.path.join(args.outdir, 'tree_B')
     os.makedirs(outdir_b, exist_ok=True)
 
-    # Group BGCs by class; merge Ppd + Ppd-CDP into one tree
+    # Group BGCs by class; merge Ppd + Ppd-CDP into one tree.
+    # Skip BiG-SCAPE sub-record duplicates (_1, _2, _3 suffixes) — they share the
+    # same CDS with the main region label and would produce duplicate sequences.
     class_bgcs = defaultdict(list)
     for lbl, cls in coupling_classes.items():
-        key = 'Ppd+Ppd-CDP' if cls in ('Ppd', 'Ppd-CDP') else cls
+        if re.search(r'_\d+$', lbl):
+            continue
+        key = 'Decarboxylase' if cls in ('Decarboxylase', 'Decarboxylase-Nucleotidyltransferase') else cls
         class_bgcs[key].append(lbl)
 
-    # Group reference sequences by class; merge Ppd + Ppd-CDP refs
+    # Group reference sequences by class; merge both Decarboxylase classes into one tree
     ref_by_class = defaultdict(list)
     for r in ref_coupling_records:
         parts = r.id.split('|')
         name = parts[2] if len(parts) > 2 else ''
         cls  = REF_COUPLING_CLASS.get(name)
         if cls:
-            key = 'Ppd+Ppd-CDP' if cls in ('Ppd', 'Ppd-CDP') else cls
+            key = 'Decarboxylase' if cls in ('Decarboxylase', 'Decarboxylase-Nucleotidyltransferase') else cls
             ref_by_class[key].append(r)
+
+    tree_b_results = []
 
     for class_key, bgc_labels in sorted(class_bgcs.items()):
         if class_key == 'Unknown':
@@ -598,34 +710,6 @@ def build_tree_b(args, metadata, coupling_classes, json_index, ref_coupling_reco
         print(f'\n  Class: {class_key} ({len(bgc_labels)} BGCs)')
         class_outdir = os.path.join(outdir_b, class_key.replace('+', '_'))
         os.makedirs(class_outdir, exist_ok=True)
-
-        # Determine extraction marker
-        if class_key == 'Ppd+Ppd-CDP':
-            marker_type, marker_value = 'smcog', 'SMCOG1055'
-        else:
-            marker_type, marker_value = CLASS_MARKERS[class_key]
-
-        # Extract coupling enzyme sequences
-        query_records = []
-        missing = []
-        for lbl in bgc_labels:
-            meta      = metadata.get(lbl, {})
-            contig_id, region_num = parse_label(lbl)
-            genome    = genome_from_gbk_path(meta.get('gbk_path', '')) if meta.get('gbk_path') else None
-            json_path = json_index.get(genome)
-
-            seq, _ = extract_cds_from_json(
-                json_path, contig_id, region_num,
-                smcog=marker_value  if marker_type == 'smcog'  else None,
-                domain=marker_value if marker_type == 'domain' else None,
-            ) if json_path else (None, None)
-
-            if seq:
-                query_records.append(SeqRecord(Seq(seq), id=lbl, description=''))
-            else:
-                missing.append(lbl)
-
-        print(f'    Extracted: {len(query_records)}  |  Missing: {len(missing)}')
 
         refs = ref_by_class.get(class_key, [])
         if not refs:
@@ -637,22 +721,67 @@ def build_tree_b(args, metadata, coupling_classes, json_index, ref_coupling_reco
             for r in refs
         ]
 
-        alignment, _ = hmm_align_all(
-            ref_records, query_records,
-            os.path.join(class_outdir, 'hmm_work'),
-            args.hmmbuild, args.hmmalign, class_key.lower().replace('+', '_'),
-        )
+        # Build HMM from references (steps 1–3; used by all extraction methods)
+        hmm_workdir = os.path.join(class_outdir, 'hmm_work')
+        label       = class_key.lower().replace('+', '_')
+        hmm_final   = hmm_build_refs(ref_records, hmm_workdir, args.hmmbuild, args.hmmalign, label)
+        if hmm_final is None:
+            print(f'    Tree B/{class_key}: HMM build failed.', file=sys.stderr)
+            continue
+
+        # Extract coupling enzyme CDS: annotation-first with HMM fallback for misses
+        marker_type, marker_value = CLASS_MARKERS[class_key]
+        query_records, missing = extract_with_hmm_fallback(
+            bgc_labels, metadata, json_index, marker_type, marker_value,
+            hmm_final, hmm_workdir, getattr(args, 'hmmsearch', None))
+        print(f'    Extracted: {len(query_records)}  |  Missing: {len(missing)}')
+
+        if not query_records:
+            print(f'    No sequences extracted for {class_key} — skipping tree.')
+            continue
+
+        # Align refs + query sequences against the class HMM (step 4)
+        all_records = ref_records + query_records
+        out_afa     = os.path.join(hmm_workdir, f'{label}_all.afa')
+        print(f'    [4/4] hmmalign {len(all_records)} sequences...')
+        alignment = hmm_align_seqs(hmm_final, all_records, out_afa, args.hmmalign)
         if alignment is None:
             print(f'    Tree B/{class_key}: alignment failed.', file=sys.stderr)
             continue
 
         seq_labels = [r.id for r in alignment]
         out_nwk = os.path.join(class_outdir, f'{class_key.replace("+", "_")}_tree.nwk')
-        build_nj_tree(alignment, out_nwk)
+        build_fasttree(alignment, out_nwk, args.fasttree)
 
         print(f'    Writing iTOL annotations...')
-        write_tree_b_itol(seq_labels, coupling_classes, metadata, refs, class_outdir)
+        get_class = lambda l: 'Reference' if l.startswith('REF|') \
+                              else coupling_classes.get(l, 'Unknown')
+        write_tree_itol(
+            seq_labels,
+            get_class_fn = get_class,
+            metadata     = metadata,
+            ref_records  = refs,
+            outdir       = class_outdir,
+        )
         print(f'    Tree B/{class_key} complete → {class_outdir}')
+
+        newick = open(out_nwk).read() if os.path.exists(out_nwk) else None
+        leaf_meta = {
+            lbl: {
+                'class': get_class(lbl),
+                'gcf':   metadata.get(lbl, {}).get('gcf'),
+                'is_ref': lbl.startswith('REF|'),
+            }
+            for lbl in seq_labels
+        }
+        tree_b_results.append({
+            'class_key':     class_key,
+            'n_bgcs':        len(query_records),
+            'newick':        newick,
+            'leaf_metadata': leaf_meta,
+        })
+
+    return tree_b_results
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
@@ -679,6 +808,10 @@ def main():
                         help='Path to hmmbuild binary')
     parser.add_argument('--hmmalign',            required=True,
                         help='Path to hmmalign binary')
+    parser.add_argument('--hmmsearch',           default=None,
+                        help='Path to hmmsearch binary (enables HMM fallback for annotation-missing BGCs)')
+    parser.add_argument('--fasttree',            required=True,
+                        help='Path to FastTree binary')
     parser.add_argument('--tree', default='both', choices=['A', 'B', 'both'],
                         help='Which tree(s) to build (default: both)')
     args = parser.parse_args()
@@ -700,11 +833,23 @@ def main():
     print(f'  {len(ref_pepm_records)} pepM reference sequences')
     print(f'  {len(ref_coupling_records)} coupling enzyme reference sequences')
 
+    manifest = {}
+
     if args.tree in ('A', 'both'):
-        build_tree_a(args, metadata, coupling_classes, json_index, ref_pepm_records)
+        tree_a = build_tree_a(args, metadata, coupling_classes, json_index, ref_pepm_records)
+        if tree_a:
+            manifest['tree_a'] = tree_a
 
     if args.tree in ('B', 'both'):
-        build_tree_b(args, metadata, coupling_classes, json_index, ref_coupling_records)
+        tree_b = build_tree_b(args, metadata, coupling_classes, json_index, ref_coupling_records)
+        if tree_b:
+            manifest['tree_b'] = tree_b
+
+    if manifest:
+        manifest_path = os.path.join(args.outdir, 'coupling_trees_manifest.json')
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f)
+        print(f'\nManifest written: {manifest_path}')
 
     print('\nDone.')
 

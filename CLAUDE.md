@@ -28,9 +28,11 @@ When analyzing a taxon that's a subset of a previously analyzed taxon, you can r
 # First run on broad taxon (e.g., family level)
 nextflow run main.nf --taxon "Erwiniaceae"
 
-# Later, run on subset taxon, reusing results
+# Later, run on subset taxon, reusing results from the broader run
 nextflow run main.nf --taxon "Pantoea" --reuse_antismash_from "Erwiniaceae" --reuse_gtdbtk_from "Erwiniaceae"
 ```
+
+**Direction matters:** reuse only works broad → narrow (superset → subset). Running Erwiniaceae after Pantoea can reuse antiSMASH results (`--reuse_antismash_from "Pantoea"`) since the check is per-genome and Pantoea genomes will get cache hits while other genera run fresh. But GTDB-Tk reuse will not work in this direction — it requires *all* genomes in the current run to exist in the prior results, which fails when the new taxon is broader.
 
 ### antiSMASH Reuse
 
@@ -122,6 +124,13 @@ Gene Cluster Family (GCF) clustering.
 | `bigscape_include_singletons` | true | Include unclustered BGCs |
 | `bigscape_mix` | false | Allow mixing BGC classes in same GCF |
 
+**Coupling Enzyme Trees** (when `clustering = "bigscape"`):
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `run_coupling_tree` | true | Build pepM + per-class coupling enzyme NJ trees |
+| `coupling_tree_type` | "both" | `"A"` (pepM only), `"B"` (per-class only), or `"both"` |
+
 ### PHYLOGENY
 
 Phylogenetic placement using GTDB-Tk. ⚠️ Requires ~140 GB disk and ~56-64 GB RAM.
@@ -163,12 +172,30 @@ results/
     ├── genomes/                 # Per-genome HTML pages
     ├── kcb_identification_chart.png
     ├── rarefaction_curve.png
-    └── gcf_heatmap/             # GCF biosynthetic tree and heatmap outputs
-        ├── gcf_biosynthetic_tree.png
-        ├── gcf_biosynthetic_tree.svg
-        ├── gcf_species_heatmap.png
-        ├── gcf_species_heatmap.svg
-        └── phosphonate_metadata.json
+    ├── gcf_heatmap/             # GCF biosynthetic tree and heatmap outputs
+    │   ├── gcf_biosynthetic_tree.png
+    │   ├── gcf_biosynthetic_tree.svg
+    │   ├── gcf_species_heatmap.png
+    │   ├── gcf_species_heatmap.svg
+    │   └── phosphonate_metadata.json
+    └── coupling_enzyme_trees/   # Coupling enzyme phylogenetic trees
+        ├── tree_A/              # Combined pepM tree (all BGCs + references)
+        │   ├── pepm_tree.nwk
+        │   ├── itol_coupling_class.txt
+        │   ├── itol_gcf.txt
+        │   ├── itol_source.txt
+        │   └── itol_organism.txt
+        └── tree_B/              # Per-class coupling enzyme trees
+            ├── FrbC-like/
+            │   ├── FrbC-like_tree.nwk
+            │   └── itol_*.txt
+            ├── Ppd_Ppd-CDP/
+            │   ├── Ppd_Ppd-CDP_tree.nwk
+            │   └── itol_*.txt
+            ├── VlpB-like/
+            │   └── ...
+            └── PalB-like/
+                └── ...
 ```
 
 ## SLURM HPC Execution
@@ -255,6 +282,11 @@ CI = mean ± (1.96 × std_dev / sqrt(n))
 main.nf                 # Main workflow (uses subworkflows)
 nextflow.config         # Parameters and SLURM profile
 
+assets/
+└── reference_sequences/
+    ├── reference_pepM.faa             # 7 PEP mutase references (Tree A anchors)
+    └── reference_coupling_enzymes.faa # 7 coupling enzyme references (Tree B anchors)
+
 conf/
 ├── conda.config        # Centralized conda environments by process
 └── labels.config       # Process labels (resource allocations, error handling)
@@ -266,6 +298,7 @@ modules/
 ├── databases/          # Database download processes (antiSMASH, GTDB-Tk, Pfam, etc.)
 ├── genome/             # Genome processing (NCBI download, rename, GenBank→FASTA)
 ├── analysis/           # BGC analysis (antiSMASH, counting, tabulation, reuse)
+│   └── coupling_enzyme_tree.nf  # COUPLING_ENZYME_TREE process
 ├── clustering/         # BiG-SCAPE clustering and stats extraction
 ├── phylogeny/          # GTDB-Tk classification (with reuse support)
 ├── visualization/      # HTML report generation
@@ -273,7 +306,10 @@ modules/
 
 scripts/
 ├── utils/              # Shared Python utilities
-│   ├── constants.py      # BGC_COLORS, GENE_COLORS, KCB_THRESHOLDS
+│   ├── constants.py      # BGC_COLORS (comprehensive ~110-entry palette), GENE_COLORS, KCB_THRESHOLDS,
+│   │                     # COUPLING_COLORS, COUPLING_ORDER, LEGACY_CLASS_NAMES, GCF_PALETTE,
+│   │                     # load_coupling_classes(path, region_only=False)
+│   ├── tree_building.py  # build_nj_tree(labels, dm_rows) — shared NJ tree construction
 │   ├── parsers.py        # Duration, memory, timestamp parsing
 │   └── antismash_parser.py  # antiSMASH JSON parsing
 ├── viz/                # Visualization modules
@@ -288,6 +324,7 @@ scripts/
 ├── clustering/         # Clustering statistics and GCF representative extraction
 ├── analysis/           # BGC counting and tabulation
 ├── phylogeny/          # GTDB-Tk result filtering
+├── bgc_coupling_tree.py  # Coupling enzyme NJ trees (Tree A: pepM, Tree B: per-class)
 └── visualize_results.py  # Main visualization entry point
 ```
 
@@ -327,7 +364,10 @@ workflow (entry point)
     │   └── FILTER_GTDBTK_RESULTS
     │
     ├── GCF_BIOSYNTHETIC_TREE # GCF biosynthetic NJ tree (when bigscape enabled, runs before visualization)
-    └── VISUALIZE_RESULTS     # HTML report generation (receives GCF tree PNG as input)
+    │                         # Also outputs phosphonate_itol_coupling.txt (coupling annotation)
+    ├── VISUALIZE_RESULTS     # HTML report generation (receives GCF tree PNG + coupling annotation)
+    └── COUPLING_ENZYME_TREE  # pepM + per-class coupling enzyme NJ trees (when run_coupling_tree=true)
+                              # Runs after GCF_BIOSYNTHETIC_TREE; uses HMMER + reference FASTAs
 ```
 
 **Invoking subworkflows directly:**
@@ -366,6 +406,7 @@ Versions are dynamically collected from installed tools. Most use `--version` fl
 | BiG-SCAPE | bioconda::bigscape | GCF clustering |
 | GTDB-Tk | bioconda::gtdbtk | Phylogenetic placement |
 | TaxonKit | bioconda::taxonkit | Taxonomy processing |
+| HMMER | bioconda::hmmer | Coupling enzyme HMM alignment and search |
 
 Version information is output to `results/pipeline_info/software_versions.json`.
 
@@ -378,7 +419,7 @@ The report uses 6 tabs:
 - **Overview**: Summary statistics grid, rarefaction curve, pipeline resource usage (collapsible) and software versions
 - **Phylogeny**: NCBI taxonomy tree + GTDB-Tk phylogenetic tree and BGC distribution
 - **Genomes**: Searchable genome table with links to individual genome pages
-- **GCF Analysis**: GCF biosynthetic NJ tree (embedded as base64), coupling enzyme table, BiG-SCAPE clustering statistics and GCF visualization
+- **GCF Analysis**: GCF biosynthetic NJ tree (embedded as base64), dynamic coupling enzyme class table, BiG-SCAPE clustering statistics and GCF visualization
 - **Novel BGCs**: BGC regions without KnownClusterBlast matches
 - **KCB Hits**: Known cluster matches grouped by MIBiG entry
 
@@ -401,6 +442,22 @@ The report uses 6 tabs:
 - The tree PNG is embedded as base64 in `bgc_report.html`, making the report self-contained
 - Published copies also exist in `gcf_heatmap/` for standalone use
 - `conf/conda.config` uses `withName: 'GCF_BIOSYNTHETIC_TREE'` for the conda environment
+- Also outputs `phosphonate_itol_coupling.txt` (coupling enzyme class colorstrip), which is passed to both `VISUALIZE_RESULTS` and `COUPLING_ENZYME_TREE`
+
+### Dynamic Coupling Enzyme Class Table
+- The coupling enzyme table in the GCF Analysis tab is built dynamically at report-generation time — not hardcoded
+- `build_coupling_table_rows()` in `visualize_results.py` queries the BiG-SCAPE SQLite DB to determine the dominant coupling class per GCF family, so the table remains accurate regardless of GCF family ID shifts between runs
+- Input: `phosphonate_itol_coupling.txt` (from `GCF_BIOSYNTHETIC_TREE`) + BiG-SCAPE DB
+- `load_coupling_classes(path, region_only=False)` is the shared parser for this file, defined in `utils/constants.py` and imported by all scripts that read the iTOL coupling colorstrip
+
+### `generate_html_report` Structure
+- CSS is stored as the module-level string constant `_REPORT_CSS` (not an f-string); JS as `_REPORT_JS`
+- Five helper functions handle the large content blocks, keeping `generate_html_report` to ~400 lines:
+  - `_build_kcb_content(kcb_stats, taxon_clean, gcf_data)` → `{kcb_mapping_section, novel_bgcs_tab_content, kcb_hits_tab_content}`
+  - `_build_bigscape_overview_cards(gcf_data)` → overview grid HTML
+  - `_build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean)` → GCF Analysis tab section
+  - `_build_versions_html(versions_data)` → software versions table
+  - `_build_rarefaction_section(rarefaction_stats)` → rarefaction curve block
 
 ### BGC Distribution Analysis
 - GCF × Genus heatmap showing BGC distribution across taxonomic groups
@@ -490,32 +547,71 @@ python scripts/bgc_coupling_annotation.py \
 
 **Note on PalA:** PalA (phosphonopyruvate hydrolase, a phosphonate degradation/resistance gene) does not confound the classification — all GCF types show clear biosynthetic markers.
 
-### Coupling Enzyme Reference Trees
+### `scripts/bgc_coupling_tree.py` — Coupling enzyme phylogenetic trees
 
-Protein sequence phylogenetic trees for each coupling enzyme class, with characterized MIBiG/literature reference sequences as anchors to place Pantoea BGC sequences.
+Builds NJ trees for pepM (Tree A) and per-class coupling enzymes (Tree B), with characterized reference sequences as phylogenetic anchors. Runs automatically as the `COUPLING_ENZYME_TREE` Nextflow process after BiG-SCAPE and `GCF_BIOSYNTHETIC_TREE`. Uses `load_coupling_classes` from `utils/constants.py` and delegates NJ construction to `utils/tree_building.build_nj_tree`.
 
-**Reference sequences:** `results/bgc_trees/Pantoea/coupling_enzyme_trees/reference_coupling_enzymes.faa`
+**HMM strategy (4 steps per class):**
+1. `hmmbuild` from a single seed reference → initial HMM
+2. `hmmalign` all references to initial HMM → aligned references
+3. `hmmbuild` from aligned references → refined HMM
+4. `hmmalign` refs + query sequences → final alignment → FastTree ML tree (LG model)
 
-Seven characterized coupling enzymes covering all four reaction types:
+**Sequence extraction (annotation-first with HMM fallback):**
+- Primary: antiSMASH annotation markers (SMCOG/domain hits from `gene_functions` / `sec_met_domain`) — zero extra compute, already in JSON
+- Fallback: for any BGCs the annotation missed, extract all CDS from the region and run `hmmsearch` against the class reference HMM; select the highest-scoring hit per BGC
+- This handles divergent sequences that escape SMCOG thresholds (e.g. Ppd-CDP ThDP decarboxylases, which carry `TPP_enzyme_C` but not `SMCOG1055`)
+
+**CLASS_MARKERS — extraction markers per class:**
+
+| Class | Marker type | Marker | Rationale |
+|-------|-------------|--------|-----------|
+| FrbC-like | smcog | SMCOG1271 | HMGL-like phosphonomethylmalate synthase |
+| Ppd / Ppd-CDP | domain | TPP_enzyme_C | Both classes carry this; Ppd-CDP lacks SMCOG1055 |
+| VlpB-like | domain | Fe-ADH | Phosphonopyruvate reductase (iron-containing ADH) |
+| PalB-like | smcog | SMCOG1013 | ⚠️ Provisional — see note below |
+
+**Tree outputs per class:** `{class}_tree.nwk` + four iTOL annotation files (coupling class colorstrip, GCF colorstrip, source colorstrip, organism text labels).
+
+**Reference sequences** (`assets/reference_sequences/`):
 
 | FASTA ID | Protein | Function | Source |
 |----------|---------|----------|--------|
-| `BGC0000904\|ABB90392\|FrbC` | FrbC | phosphonomethylmalate synthase | *Streptomyces rubellomurinus* (FR-900098) |
-| `BGC0000897\|ACZ13457\|DhpF` | DhpF | phosphonopyruvate decarboxylase | *Streptomyces luridus* (Dehydrophos) |
-| `BGC0000938\|ACG70832\|Fom2` | Fom2 | phosphonopyruvate decarboxylase | *Streptomyces fradiae* (Fosfomycin) |
-| `BGC0000806\|AHL24480\|Ppd` | Ppd | phosphonopyruvate decarboxylase | *Glycomyces* sp. NRRL B-16210 |
+| `BGC0000904\|ABB90393\|FrbD` | FrbD | PEP mutase | *Streptomyces rubellomurinus* (FR-900098) |
+| `BGC0000904\|ABB90392\|FrbC` | FrbC | phosphonomethylmalate synthase | *Streptomyces rubellomurinus* |
+| `BGC0000897\|ACZ13456\|DhpE` | DhpE | PEP mutase | *Streptomyces luridus* (Dehydrophos) |
+| `BGC0000897\|ACZ13457\|DhpF` | DhpF | phosphonopyruvate decarboxylase | *Streptomyces luridus* |
+| `BGC0000938\|ACG70831\|Fom1` | Fom1 | PEP mutase | *Streptomyces fradiae* (Fosfomycin) |
+| `BGC0000938\|ACG70832\|Fom2` | Fom2 | phosphonopyruvate decarboxylase | *Streptomyces fradiae* |
+| `BGC0000806\|AHL24479\|PepM` | PepM | PEP mutase | *Glycomyces* sp. NRRL B-16210 |
+| `BGC0000806\|AHL24480\|Ppd` | Ppd | phosphonopyruvate decarboxylase | *Glycomyces* sp. |
+| `Phosphonoalamide_BGC\|WP_030764868\|PnaD` | PnaD | PEP mutase | *Streptomyces* sp. NRRL B-2790 |
 | `Phosphonoalamide_BGC\|WP_051781701\|PnaA` | PnaA | phosphonopyruvate transaminase | *Streptomyces* sp. NRRL B-2790 |
-| `Valinophos_BGC\|WP_063765859\|VlpB` | VlpB | phosphonopyruvate reductase | *Streptomyces durhamensis* NRRL B-3309 |
+| `Valinophos_BGC\|WP_031174023\|VlpA` | VlpA | PEP mutase | *Streptomyces durhamensis* NRRL B-3309 |
+| `Valinophos_BGC\|WP_063765859\|VlpB` | VlpB | phosphonopyruvate reductase | *Streptomyces durhamensis* |
+| `Pantaphos_BGC\|WP_013027161\|HvrA` | HvrA | PEP mutase | *Pantoea ananatis* LMG 5342 |
 | `Pantaphos_BGC\|WP_013027159\|HvrC` | HvrC | phosphonomethylmalate synthase | *Pantoea ananatis* LMG 5342 |
 
-**Plan (pending):** Extract coupling enzyme CDS sequences from Pantoea antiSMASH JSONs for each class, align with references using MAFFT/MUSCLE, build ML or NJ trees (FastTree/IQ-TREE), and use phylogenetic placement to:
-1. Correctly classify GCF-7 (currently mislabeled "PalB" via SMCOG1013)
-2. Confirm or reclassify the 4 "Unknown" BGCs
-3. Identify true PalB-type (AAT superfamily, fold type I PLP) transaminase coupling enzymes in Pantoea
+**⚠️ PalB-like classification is provisional:** SMCOG1013 (Aminotran_3, fold type IV PLP) is used as a proxy, but true PalB is an AAT superfamily enzyme (fold type I PLP, SMCOG1019/Aminotran_1_2/PF00155). Tree B PalB-like is expected to reveal the correct phylogenetic placement.
+
+**Standalone usage:**
+```bash
+python scripts/bgc_coupling_tree.py \
+    --antismash_dir  results/antismash_results/Pantoea \
+    --metadata       results/main_analysis_results/Pantoea/gcf_heatmap/phosphonate_metadata.json \
+    --coupling_annotation <itol_coupling_colorstrip.txt> \
+    --ref_pepm_faa   assets/reference_sequences/reference_pepM.faa \
+    --ref_coupling_faa assets/reference_sequences/reference_coupling_enzymes.faa \
+    --outdir         results/main_analysis_results/Pantoea/coupling_enzyme_trees \
+    --hmmbuild       $(which hmmbuild) \
+    --hmmalign       $(which hmmalign) \
+    --hmmsearch      $(which hmmsearch) \
+    --tree           both    # "A", "B", or "both"
+```
 
 ### `scripts/bgc_gcf_heatmap.py` — GCF × Species presence/absence heatmap
 
-Generates a heatmap of GCF membership across organism groups, with a GTDB-Tk phylogenetic tree as column ordering and a Jaccard/complete-linkage row dendrogram matching BiG-SCAPE's clustering algorithm.
+Generates a heatmap of GCF membership across organism groups, with a GTDB-Tk phylogenetic tree as column ordering and a Jaccard/complete-linkage row dendrogram matching BiG-SCAPE's clustering algorithm. Uses `load_coupling_classes` from `utils/constants.py`.
 
 ```bash
 python scripts/bgc_gcf_heatmap.py \

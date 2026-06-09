@@ -1,31 +1,124 @@
 #!/usr/bin/env python3
 """Shared constants for BGC analysis pipeline."""
 
-# BGC type colors (matches antiSMASH conventions)
+# BGC type colors — comprehensive palette covering all antiSMASH product types
 BGC_COLORS = {
-    'NRPS': '#1f77b4',
-    'T1PKS': '#ff7f0e',
-    'T2PKS': '#2ca02c',
-    'T3PKS': '#d62728',
-    'terpene': '#9467bd',
-    'RiPP': '#8c564b',
-    'lanthipeptide': '#e377c2',
-    'bacteriocin': '#7f7f7f',
-    'siderophore': '#bcbd22',
-    'phosphonate': '#17becf',
-    'other': '#aec7e8',
-    'hybrid': '#ff9896',
-    'NAPAA': '#98df8a',
+    # PKS types - Blue family
+    'T1PKS': '#1f77b4',
+    'T2PKS': '#4a90d9',
+    'T3PKS': '#7eb3ed',
+    'transAT-PKS': '#2c5aa0',
+    'PKS-like': '#5dade2',
+    'hglE-KS': '#85c1e9',
+    # NRPS types - Red/Orange family
+    'NRPS': '#d62728',
+    'NRPS-like': '#ff6b6b',
+    'thioamide-NRP': '#e74c3c',
+    'NAPAA': '#c0392b',
+    # Hybrid types - Purple family
+    'PKS-NRPS_Hybrids': '#9b59b6',
+    'NRPS-PKS_Hybrids': '#8e44ad',
+    # RiPPs - Green family
+    'RiPP': '#27ae60',
+    'lanthipeptide': '#2ecc71',
+    'lanthipeptide-class-i': '#27ae60',
+    'lanthipeptide-class-ii': '#229954',
+    'lanthipeptide-class-iii': '#1e8449',
+    'lanthipeptide-class-iv': '#196f3d',
+    'lanthipeptide-class-v': '#145a32',
+    'thiopeptide': '#58d68d',
+    'LAP': '#82e0aa',
+    'lassopeptide': '#abebc6',
+    'sactipeptide': '#d5f5e3',
+    'bottromycin': '#a9dfbf',
+    'cyanobactin': '#73c6b6',
+    'microviridin': '#45b39d',
+    'proteusin': '#16a085',
+    'RRE-containing': '#138d75',
+    'fungal-RiPP': '#117a65',
+    'ranthipeptide': '#0e6655',
+    'redox-cofactor': '#0b5345',
+    'RiPP-like': '#7dcea0',
+    'thioamitides': '#52be80',
+    'epipeptide': '#48c9b0',
+    'guanidinotides': '#1abc9c',
+    'glycocin': '#17a589',
+    'triceptide': '#148f77',
+    'spliceotide': '#117864',
+    'methanobactin': '#0e6251',
+    'cyclic-lactone-autoinducer': '#85929e',
+    'darobactin': '#76d7c4',
+    'rcdpeptide': '#45b39d',
+    # Terpenes - Yellow/Gold family
+    'terpene': '#f39c12',
+    # Saccharides - Brown family
+    'saccharide': '#a0522d',
+    'oligosaccharide': '#cd853f',
+    'polysaccharide': '#8b4513',
+    'amglyccycl': '#d2691e',
+    # Alkaloids/Other nitrogen - Teal family
+    'alkaloid': '#008080',
+    'indole': '#20b2aa',
+    'NI-siderophore': '#40e0d0',
+    # Siderophores - Cyan family
+    'siderophore': '#00ced1',
+    'NAGGN': '#00bfff',
+    # Fatty acids / Lipids - Olive family
+    'fatty_acid': '#808000',
+    'PUFA': '#9acd32',
+    'ladderane': '#6b8e23',
+    'hserlactone': '#556b2f',
+    'acyl_amino_acids': '#8fbc8f',
+    'N-acyl amino acid': '#8fbc8f',
+    # Phosphonates - Pink family
+    'phosphonate': '#ff69b4',
+    'phosphonate-like': '#ffb6c1',
+    # Aromatic compounds - Magenta family
+    'arylpolyene': '#ff00ff',
+    'resorcinol': '#da70d6',
+    'stilbene': '#ee82ee',
+    'phenazine': '#dda0dd',
+    'aminocoumarin': '#ba55d3',
+    # Nucleosides - Gray family
+    'nucleoside': '#708090',
+    # Bacteriocins - Dark cyan
+    'bacteriocin': '#008b8b',
+    'RaS-RiPP': '#5f9ea0',
+    # Beta-lactams - Coral
+    'betalactam': '#ff7f50',
+    'beta-lactam': '#ff7f50',
+    # Ectoine - Light purple
+    'ectoine': '#dda0dd',
+    'ectoine-like': '#e6e6fa',
+    # Melanin - Dark gray
+    'melanin': '#2f4f4f',
+    # Butyrolactone - Peach
+    'butyrolactone': '#ffdab9',
+    # Blactam - Salmon
+    'blactam': '#fa8072',
+    # CDPS - Lavender
+    'CDPS': '#e6e6fa',
+    # Furan - Wheat
+    'furan': '#f5deb3',
+    # Prodigiosin - Crimson
+    'prodigiosin': '#dc143c',
+    # Cyanide - Light steel blue
+    'cyanide': '#b0c4de',
+    'hydrogen-cyanide': '#b0c4de',
+    # Linaridin - Medium purple
+    'linaridin': '#9370db',
+    'linear-azol(in)e-containing-peptide': '#9370db',
+    # Opine - Thistle
+    'opine-like-metallophore': '#d8bfd8',
+    # Other/Unknown - Gray
+    'other': '#95a5a6',
+    'Other': '#95a5a6',
+    'unknown': '#bdc3c7',
+    'Unknown': '#bdc3c7',
+    'NA': '#ecf0f1',
+    # Legacy names kept for backwards compatibility
+    'hybrid': '#9b59b6',
     'NRP-metallophore': '#c5b0d5',
-    'ladderane': '#c49c94',
-    'butyrolactone': '#f7b6d2',
-    'ectoine': '#c7c7c7',
-    'NAGGN': '#dbdb8d',
-    'hserlactone': '#9edae5',
-    'arylpolyene': '#393b79',
-    'resorcinol': '#637939',
-    'phenazine': '#8c6d31',
-    'melanin': '#843c39',
     'betalactone': '#7b4173',
 }
 
@@ -38,6 +131,12 @@ GENE_COLORS = {
     'resistance': '#9b59b6',              # Purple - resistance
     'other': '#95a5a6',                   # Gray - other/unknown
 }
+
+# GCF color palette for coupling enzyme tree iTOL annotations (10-color cycling palette)
+GCF_PALETTE = [
+    '#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e',
+    '#e6ab02', '#a6761d', '#666666', '#a6cee3', '#b2df8a',
+]
 
 # GCF color palette for tree visualization
 GCF_COLORS = [
@@ -76,23 +175,29 @@ KCB_COLORS = {
 # Coupling enzyme class colors (used across bgc_gcf_tree, bgc_gcf_heatmap,
 # bgc_all_bgcs_tree, bgc_coupling_tree, bgc_coupling_annotation)
 COUPLING_COLORS = {
-    'FrbC-like': '#e41a1c',
-    'Ppd':       '#377eb8',
-    'Ppd-CDP':   '#984ea3',
-    'VlpB-like': '#4daf4a',
-    'PalB-like': '#ff7f00',
-    'Unknown':   '#aaaaaa',
+    'Synthase':                        '#e41a1c',
+    'Decarboxylase':                   '#377eb8',
+    'Decarboxylase-Nucleotidyltransferase': '#984ea3',
+    'Reductase':                       '#4daf4a',
+    'Transaminase':                    '#ff7f00',
+    'Unknown':                         '#aaaaaa',
 }
 
 # Display order for coupling enzyme classes in legends
-COUPLING_ORDER = ['FrbC-like', 'VlpB-like', 'Ppd', 'Ppd-CDP', 'PalB-like', 'Unknown']
+COUPLING_ORDER = ['Synthase', 'Reductase', 'Decarboxylase', 'Decarboxylase-Nucleotidyltransferase', 'Transaminase', 'Unknown']
 
 # Normalize legacy coupling class names from older annotation files
 LEGACY_CLASS_NAMES = {
-    'Fe-ADH':  'VlpB-like',
-    'TPP+NTP': 'Ppd-CDP',
-    'PalB':    'PalB-like',
-    'FrbC':    'FrbC-like',
+    'Fe-ADH':    'Reductase',
+    'TPP+NTP':   'Decarboxylase-Nucleotidyltransferase',
+    'PalB':      'Transaminase',
+    'FrbC':      'Synthase',
+    # pre-rename class IDs
+    'FrbC-like': 'Synthase',
+    'VlpB-like': 'Reductase',
+    'PalB-like': 'Transaminase',
+    'Ppd':       'Decarboxylase',
+    'Ppd-CDP':   'Decarboxylase-Nucleotidyltransferase',
 }
 
 # Pfam accession → short human-readable name.
@@ -129,3 +234,31 @@ DOMAIN_NAMES = {
     'PF22617': 'PF22617',
     'PF05321': 'PF05321',
 }
+
+
+def load_coupling_classes(path, region_only=False):
+    """Parse iTOL coupling colorstrip → {gbk_basename: class_id}.
+
+    Args:
+        path:        Path to phosphonate_itol_coupling.txt
+        region_only: Skip sub-record labels (those ending in _0.._9).
+                     Use True when building trees where only region-level
+                     BGC records are leaves.
+    """
+    classes = {}
+    in_data = False
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line == 'DATA':
+                in_data = True
+                continue
+            if in_data and line and not line.startswith('#'):
+                parts = line.split('\t')
+                if len(parts) >= 3:
+                    label = parts[0]
+                    cls = LEGACY_CLASS_NAMES.get(parts[2], parts[2])
+                    if region_only and any(label.endswith(f'_{i}') for i in range(10)):
+                        continue
+                    classes[label] = cls
+    return classes

@@ -19,6 +19,10 @@ process VISUALIZE_RESULTS {
     path trace_file
     path versions_file
     path gcf_tree_png
+    path gcf_tree_svg
+    path all_bgcs_tree_png
+    path gcf_heatmap_svg
+    path coupling_annotation
 
     output:
     path "*.png", emit: plots, optional: true
@@ -44,8 +48,12 @@ process VISUALIZE_RESULTS {
     def mibig_arg = params.bigscape_mibig_version ? "--mibig_included" : ""
     def skip_tree_arg = params.skip_tree ? "--skip_tree" : ""
     def outgroup_arg = params.gtdbtk_outgroup ? "--outgroup '${params.gtdbtk_outgroup}'" : ""
-    def gcf_tree_arg = gcf_tree_png.name != 'NO_GCF_TREE' ? "--gcf_tree ${gcf_tree_png}" : ""
+    def gcf_tree_arg                  = gcf_tree_png.name             != 'NO_GCF_TREE'                    ? "--gcf_tree ${gcf_tree_png}" : ""
+    def gcf_tree_svg_arg              = gcf_tree_svg.name             != 'NO_GCF_TREE_SVG'                ? "--gcf_tree_svg ${gcf_tree_svg}" : ""
+    def all_bgcs_tree_arg             = all_bgcs_tree_png.name        != 'NO_ALL_BGCS_TREE'               ? "--all_bgcs_tree ${all_bgcs_tree_png}" : ""
+    def gcf_heatmap_svg_arg           = gcf_heatmap_svg.name          != 'NO_GCF_HEATMAP_SVG'            ? "--gcf_heatmap_svg ${gcf_heatmap_svg}" : ""
+    def coupling_annotation_arg       = coupling_annotation.name       != 'NO_COUPLING_ANNOTATION'        ? "--coupling_annotation ${coupling_annotation}" : ""
     """
-    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${phylo_tree_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${outgroup_arg} ${gcf_tree_arg} --outdir . --taxon "${taxon}"
+    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${phylo_tree_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${outgroup_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${all_bgcs_tree_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} --outdir . --taxon "${taxon}"
     """
 }

@@ -46,7 +46,7 @@ from scipy.spatial.distance import pdist
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils.constants import (COUPLING_COLORS, COUPLING_ORDER as CLASS_ORDER,
-                              LEGACY_CLASS_NAMES as LEGACY)
+                              LEGACY_CLASS_NAMES as LEGACY, load_coupling_classes)
 
 
 # ─── GCF biosynthetic tree helpers ────────────────────────────────────────────
@@ -147,22 +147,6 @@ def _draw_row_cladogram(ax, clade, color='#333333', lw=1.2):
 
 
 # ─── Data loading ─────────────────────────────────────────────────────────────
-
-def load_coupling_classes(path):
-    classes = {}
-    in_data = False
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line == 'DATA':
-                in_data = True
-                continue
-            if in_data and line and not line.startswith('#'):
-                parts = line.split('\t')
-                if len(parts) >= 3:
-                    cls = LEGACY.get(parts[2], parts[2])
-                    classes[parts[0]] = cls
-    return classes
 
 
 def species_from_organism(organism):

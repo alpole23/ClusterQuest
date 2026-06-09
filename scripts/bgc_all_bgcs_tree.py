@@ -2,19 +2,18 @@
 """
 Standalone NJ tree of ALL phosphonate BGCs using BiG-SCAPE pairwise distances.
 
-Leaves (one per region-level BGC) are annotated with two colored strips:
-  - Coupling enzyme class (from iTOL coupling annotation file)
-  - GCF membership (from BiG-SCAPE DB)
+Leaves (one per region-level BGC) are annotated with coupling enzyme class color.
 
 BiG-SCAPE stores all pairwise distances (not just those below the cutoff),
-so the full distance matrix is available for all 305 BGCs.
+so the full distance matrix is available for all BGCs.
 
 Usage:
     python scripts/bgc_all_bgcs_tree.py \\
         --db      work/57/.../Pantoea.db \\
         --coupling_annotation results/bgc_trees/Pantoea/phosphonate_itol_coupling.txt \\
         --outdir  results/bgc_trees/Pantoea \\
-        [--cutoff 0.3]
+        [--cutoff 0.3] \\
+        [--layout circular|linear]
 """
 
 import argparse
@@ -28,37 +27,13 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 from Bio import Phylo
-from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
 
 sys.path.insert(0, str(Path(__file__).parent))
-from utils.constants import COUPLING_COLORS, COUPLING_ORDER
-
-SINGLETON_COLOR = '#dddddd'  # kept for potential future use
+from utils.constants import COUPLING_COLORS, COUPLING_ORDER, load_coupling_classes
+from utils.tree_building import build_nj_tree as _build_nj_tree
 
 
 # ─── Data loading ─────────────────────────────────────────────────────────────
-
-def load_coupling_classes(path):
-    """Parse iTOL coupling annotation → {gbk_basename: class_name}."""
-    classes = {}
-    in_data = False
-    legacy = {'Fe-ADH': 'VlpB-like', 'TPP+NTP': 'Ppd-CDP',
-               'PalB': 'PalB-like', 'FrbC': 'FrbC-like'}
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line == 'DATA':
-                in_data = True
-                continue
-            if in_data and line and not line.startswith('#'):
-                parts = line.split('\t')
-                if len(parts) >= 3:
-                    label = parts[0]
-                    cls   = legacy.get(parts[2], parts[2])
-                    # Only keep region-level labels (no _1 _2 _3 suffixes)
-                    if not any(label.endswith(f'_{i}') for i in range(10)):
-                        classes[label] = cls
-    return classes
 
 
 def load_bgc_data(conn, cutoff):
@@ -116,8 +91,7 @@ def load_bgc_data(conn, cutoff):
 def build_nj_tree(bgc_ids, distances):
     """Build NJ tree from full pairwise distance matrix."""
     n      = len(bgc_ids)
-    labels = [str(i) for i in bgc_ids]   # use record IDs as leaf names
-
+    labels = [str(i) for i in bgc_ids]
     dm_rows = []
     for i in range(n):
         row = []
@@ -129,14 +103,11 @@ def build_nj_tree(bgc_ids, distances):
                 key  = (min(a, b), max(a, b))
                 row.append(distances.get(key, 1.0))
         dm_rows.append(row)
-
     print(f'  Building NJ tree for {n} BGCs...')
-    dm   = DistanceMatrix(labels, dm_rows)
-    tree = DistanceTreeConstructor().nj(dm)
-    return tree
+    return _build_nj_tree(labels, dm_rows)
 
 
-# ─── Layout helpers ───────────────────────────────────────────────────────────
+# ─── Layout helpers (linear) ──────────────────────────────────────────────────
 
 def assign_layout(clade, counter, depth=0):
     """Assign ._x (leaf y-position) and ._depth to every node."""
@@ -168,6 +139,48 @@ def draw_cladogram(ax, clade, color='#333333', lw=0.6):
         ax.plot([x_node, child._depth], [child._x, child._x],
                 color=color, lw=lw, solid_capstyle='round')
         draw_cladogram(ax, child, color, lw)
+
+
+# ─── Layout helpers (circular) ────────────────────────────────────────────────
+
+def assign_circular_layout(clade, leaf_angles, counter, depth=0):
+    """Assign ._angle and ._depth to every node for a fan/circular tree."""
+    clade._depth = depth
+    if clade.is_terminal():
+        clade._angle = leaf_angles[counter[0]]
+        counter[0] += 1
+        return
+    for child in clade.clades:
+        assign_circular_layout(child, leaf_angles, counter, depth + 1)
+    child_angles = [c._angle for c in clade.clades]
+    clade._angle = (min(child_angles) + max(child_angles)) / 2
+
+
+def max_depth_circ(clade):
+    if clade.is_terminal():
+        return clade._depth
+    return max(max_depth_circ(c) for c in clade.clades)
+
+
+def draw_circular_cladogram(ax, clade, md, color='#888888', lw=0.35):
+    """Draw fan-tree branches: arcs at parent radius + radial arms to children."""
+    if clade.is_terminal():
+        return
+    r_n = clade._depth / md
+    child_angles = [c._angle for c in clade.clades]
+    a_min, a_max = min(child_angles), max(child_angles)
+
+    # Arc at parent radius spanning all children
+    n_pts = max(3, int((a_max - a_min) * 100) + 2)
+    arc_θ = np.linspace(a_min, a_max, n_pts)
+    ax.plot(arc_θ, np.full(n_pts, r_n), color=color, lw=lw, solid_capstyle='butt')
+
+    # Radial arm from parent radius to each child radius
+    for child in clade.clades:
+        r_c = child._depth / md
+        ax.plot([child._angle, child._angle], [r_n, r_c],
+                color=color, lw=lw, solid_capstyle='butt')
+        draw_circular_cladogram(ax, child, md, color, lw)
 
 
 # ─── Figure ───────────────────────────────────────────────────────────────────
@@ -281,6 +294,90 @@ def plot_tree(tree, bgc_ids, id_to_meta, coupling_classes, outdir):
     plt.close(fig)
 
 
+# ─── Circular figure ──────────────────────────────────────────────────────────
+
+def plot_circular_tree(tree, bgc_ids, id_to_meta, coupling_classes, outdir):
+    """Draw a circular (fan) cladogram colored by coupling enzyme class."""
+    leaf_order = [int(clade.name) for clade in tree.get_terminals()]
+    n = len(leaf_order)
+
+    # Leaf angles: 0 = top (North), clockwise, with a small gap so first and
+    # last leaves don't overlap. theta_direction=-1 means CW in polar axes.
+    gap_frac = 0.015
+    leaf_angles = np.linspace(0, 2 * np.pi * (1 - gap_frac), n)
+
+    assign_circular_layout(tree.root, leaf_angles, [0])
+    md = max_depth_circ(tree.root)
+
+    fig_size = 18
+    fig, ax = plt.subplots(figsize=(fig_size, fig_size),
+                           subplot_kw={'projection': 'polar'})
+    ax.set_theta_zero_location('N')
+    ax.set_theta_direction(-1)   # clockwise
+
+    # Tree branches
+    draw_circular_cladogram(ax, tree.root, md)
+
+    # Leaf dots (coupling class) and labels
+    for i, rec_id in enumerate(leaf_order):
+        meta     = id_to_meta[rec_id]
+        gbk_base = meta['gbk_basename']
+        gcf_id   = meta['gcf_id']
+        genome   = meta['genome']
+        θ = leaf_angles[i]
+
+        cls   = coupling_classes.get(gbk_base, 'Unknown')
+        color = COUPLING_COLORS.get(cls, '#aaaaaa')
+
+        # Colored dot at leaf tip
+        ax.scatter([θ], [1.0], s=10, c=[color], zorder=5, linewidths=0)
+
+        # Label: compute readable rotation
+        deg     = np.degrees(θ) % 360
+        mpl_rot = 90 - deg          # convert CW-from-N to CCW-from-E
+        if 90 < deg < 270:          # left half: flip for readability
+            mpl_rot += 180
+            ha = 'right'
+        else:
+            ha = 'left'
+
+        gcf_text = f'GCF-{gcf_id}' if gcf_id is not None else '—'
+        label = f'{gcf_text}  {genome.replace("_", " ")}'
+        ax.text(θ, 1.035, label,
+                ha=ha, va='center',
+                fontsize=3.8, rotation=mpl_rot, rotation_mode='anchor',
+                family='monospace', color='#333333')
+
+    ax.set_ylim(0, 1.6)
+    ax.set_rmax(1.6)
+    ax.axis('off')
+
+    # Legend
+    present = set(coupling_classes.values())
+    patches = [mpatches.Patch(color=COUPLING_COLORS[c], label=c)
+               for c in COUPLING_ORDER if c in present]
+    ax.legend(handles=patches, title='Coupling enzyme class',
+              title_fontsize=8, fontsize=8, framealpha=0.92,
+              loc='upper left', bbox_to_anchor=(0.0, 1.0),
+              bbox_transform=ax.transAxes)
+
+    gcf_count = len(set(m['gcf_id'] for m in id_to_meta.values()
+                        if m['gcf_id'] is not None))
+    fig.suptitle(
+        f'Phosphonate BGC biosynthetic tree — all BGCs\n'
+        f'NJ circular tree · BiG-SCAPE pairwise distances · {n} BGCs · {gcf_count} GCFs',
+        fontsize=10, y=0.99, va='top')
+
+    os.makedirs(outdir, exist_ok=True)
+    out_png = os.path.join(outdir, 'all_bgcs_biosynthetic_tree_circular.png')
+    out_svg = os.path.join(outdir, 'all_bgcs_biosynthetic_tree_circular.svg')
+    fig.savefig(out_png, dpi=200, bbox_inches='tight')
+    fig.savefig(out_svg,           bbox_inches='tight')
+    print(f'Saved: {out_png}')
+    print(f'Saved: {out_svg}')
+    plt.close(fig)
+
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
@@ -293,10 +390,13 @@ def main():
     parser.add_argument('--coupling_annotation', required=True)
     parser.add_argument('--outdir',              required=True)
     parser.add_argument('--cutoff', type=float,  default=0.3)
+    parser.add_argument('--layout', choices=['circular', 'linear'],
+                        default='circular',
+                        help='Tree layout (default: circular)')
     args = parser.parse_args()
 
     print('Loading coupling annotations...')
-    coupling_classes = load_coupling_classes(args.coupling_annotation)
+    coupling_classes = load_coupling_classes(args.coupling_annotation, region_only=True)
     print(f'  {len(coupling_classes)} BGC coupling labels loaded')
 
     print('Loading BGC data from database...')
@@ -308,7 +408,10 @@ def main():
     tree = build_nj_tree(bgc_ids, distances)
 
     print('Plotting...')
-    plot_tree(tree, bgc_ids, id_to_meta, coupling_classes, args.outdir)
+    if args.layout == 'circular':
+        plot_circular_tree(tree, bgc_ids, id_to_meta, coupling_classes, args.outdir)
+    else:
+        plot_tree(tree, bgc_ids, id_to_meta, coupling_classes, args.outdir)
     print('Done.')
 
 

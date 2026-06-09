@@ -412,7 +412,11 @@ workflow BGC_ANALYSIS {
                 : Channel.value(file('NO_TRACE_FILE'))
 
             // --- GCF Biosynthetic Tree (runs before visualization so its output can be embedded) ---
-            gcf_tree_png_ch = placeholder('NO_GCF_TREE')
+            gcf_tree_png_ch         = placeholder('NO_GCF_TREE')
+            gcf_tree_svg_ch         = placeholder('NO_GCF_TREE_SVG')
+            all_bgcs_tree_ch        = placeholder('NO_ALL_BGCS_TREE')
+            gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
+            coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             if (clusteringEnabled("bigscape")) {
                 GCF_BIOSYNTHETIC_TREE(
                     taxon,
@@ -421,7 +425,11 @@ workflow BGC_ANALYSIS {
                     PHYLOGENY.out.tree,
                     PHYLOGENY.out.summary
                 )
-                gcf_tree_png_ch = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
+                gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
+                gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
+                all_bgcs_tree_ch       = GCF_BIOSYNTHETIC_TREE.out.all_bgcs_tree_png.ifEmpty(file('NO_ALL_BGCS_TREE'))
+                gcf_heatmap_svg_ch     = GCF_BIOSYNTHETIC_TREE.out.heatmap_svg.ifEmpty(file('NO_GCF_HEATMAP_SVG'))
+                coupling_annotation_ch = GCF_BIOSYNTHETIC_TREE.out.coupling_annotation.ifEmpty(file('NO_COUPLING_ANNOTATION'))
             }
 
             VISUALIZE_RESULTS(
@@ -439,7 +447,11 @@ workflow BGC_ANALYSIS {
                 PHYLOGENY.out.summary,
                 trace_file_ch,
                 versions_ch,
-                gcf_tree_png_ch
+                gcf_tree_png_ch,
+                gcf_tree_svg_ch,
+                all_bgcs_tree_ch,
+                gcf_heatmap_svg_ch,
+                coupling_annotation_ch
             )
         }
 }

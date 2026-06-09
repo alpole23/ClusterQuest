@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# BGC-LOOM SLURM Submission Script
+# ClusterQuest SLURM Submission Script
 # =============================================================================
 #
 # Usage:
@@ -17,9 +17,9 @@
 #SBATCH -N 1                         # Single node for head job
 #SBATCH --time=48:00:00              # Max wall time
 #SBATCH --mail-type=END,FAIL         # Email on completion or failure
-#SBATCH -J bgc-loom                  # Job name
-#SBATCH -o bgc-loom_%j.out           # Standard output
-#SBATCH -e bgc-loom_%j.err           # Standard error
+#SBATCH -J clusterquest              # Job name
+#SBATCH -o clusterquest_%j.out       # Standard output
+#SBATCH -e clusterquest_%j.err       # Standard error
 
 # ----------------Configuration-------------------
 # Modify these defaults or pass as arguments
@@ -53,7 +53,7 @@ fi
 
 # ----------------Run Pipeline--------------------
 echo "=============================================="
-echo "BGC-LOOM Pipeline"
+echo "ClusterQuest Pipeline"
 echo "=============================================="
 echo "Start time:  $(date)"
 echo "Taxon:       ${TAXON}"

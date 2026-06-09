@@ -18,13 +18,9 @@ Includes:
 import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import Wedge, FancyBboxPatch
-import seaborn as sns
 from pathlib import Path
 import json
 import numpy as np
-import shutil
 import re
 import sys
 import urllib.parse
@@ -40,178 +36,12 @@ from utils.parsers import (
 from utils.trace import (
     aggregate_trace_by_process, generate_resource_usage_html
 )
+from utils.constants import BGC_COLORS, load_coupling_classes
+from viz.charts import get_bgc_color
 
-# =============================================================================
-# BGC CLASS COLOR PALETTE
-# =============================================================================
-# Consistent color scheme inspired by antiSMASH conventions
-# These colors are used across all visualizations for easy pattern recognition
-
-BGC_COLORS = {
-    # PKS types - Blue family
-    'T1PKS': '#1f77b4',      # Strong blue
-    'T2PKS': '#4a90d9',      # Medium blue
-    'T3PKS': '#7eb3ed',      # Light blue
-    'transAT-PKS': '#2c5aa0', # Dark blue
-    'PKS-like': '#5dade2',   # Sky blue
-    'hglE-KS': '#85c1e9',    # Pale blue
-
-    # NRPS types - Red/Orange family
-    'NRPS': '#d62728',       # Strong red
-    'NRPS-like': '#ff6b6b',  # Light red
-    'thioamide-NRP': '#e74c3c', # Tomato red
-    'NAPAA': '#c0392b',      # Dark red
-
-    # Hybrid types - Purple family
-    'PKS-NRPS_Hybrids': '#9b59b6',  # Purple (for aggregated hybrids)
-    'NRPS-PKS_Hybrids': '#8e44ad',  # Dark purple
-
-    # RiPPs - Green family
-    'RiPP': '#27ae60',       # Strong green
-    'lanthipeptide': '#2ecc71',     # Emerald
-    'lanthipeptide-class-i': '#27ae60',
-    'lanthipeptide-class-ii': '#229954',
-    'lanthipeptide-class-iii': '#1e8449',
-    'lanthipeptide-class-iv': '#196f3d',
-    'lanthipeptide-class-v': '#145a32',
-    'thiopeptide': '#58d68d',
-    'LAP': '#82e0aa',
-    'lassopeptide': '#abebc6',
-    'sactipeptide': '#d5f5e3',
-    'bottromycin': '#a9dfbf',
-    'cyanobactin': '#73c6b6',
-    'microviridin': '#45b39d',
-    'proteusin': '#16a085',
-    'RRE-containing': '#138d75',
-    'fungal-RiPP': '#117a65',
-    'ranthipeptide': '#0e6655',
-    'redox-cofactor': '#0b5345',
-    'RiPP-like': '#7dcea0',
-    'thioamitides': '#52be80',
-    'epipeptide': '#48c9b0',
-    'guanidinotides': '#1abc9c',
-    'glycocin': '#17a589',
-    'triceptide': '#148f77',
-    'spliceotide': '#117864',
-    'methanobactin': '#0e6251',
-    'cyclic-lactone-autoinducer': '#85929e',
-    'darobactin': '#76d7c4',
-    'rcdpeptide': '#45b39d',
-
-    # Terpenes - Yellow/Gold family
-    'terpene': '#f39c12',    # Orange-yellow
-
-    # Saccharides - Brown family
-    'saccharide': '#a0522d', # Sienna brown
-    'oligosaccharide': '#cd853f',
-    'polysaccharide': '#8b4513',
-    'amglyccycl': '#d2691e',
-
-    # Alkaloids/Other nitrogen - Teal family
-    'alkaloid': '#008080',
-    'indole': '#20b2aa',
-    'NI-siderophore': '#40e0d0',
-
-    # Siderophores - Cyan family
-    'siderophore': '#00ced1',
-    'NAGGN': '#00bfff',
-
-    # Fatty acids / Lipids - Olive family
-    'fatty_acid': '#808000',
-    'PUFA': '#9acd32',
-    'ladderane': '#6b8e23',
-    'hserlactone': '#556b2f',
-    'acyl_amino_acids': '#8fbc8f',
-    'N-acyl amino acid': '#8fbc8f',
-
-    # Phosphonates - Pink family
-    'phosphonate': '#ff69b4',
-    'phosphonate-like': '#ffb6c1',
-
-    # Aromatic compounds - Magenta family
-    'arylpolyene': '#ff00ff',
-    'resorcinol': '#da70d6',
-    'stilbene': '#ee82ee',
-    'phenazine': '#dda0dd',
-    'aminocoumarin': '#ba55d3',
-
-    # Nucleosides - Gray family
-    'nucleoside': '#708090',
-
-    # Bacteriocins - Dark cyan
-    'bacteriocin': '#008b8b',
-    'RaS-RiPP': '#5f9ea0',
-
-    # Beta-lactams - Coral
-    'betalactam': '#ff7f50',
-    'beta-lactam': '#ff7f50',
-
-    # Ectoine - Light purple
-    'ectoine': '#dda0dd',
-    'ectoine-like': '#e6e6fa',
-
-    # Melanin - Dark gray
-    'melanin': '#2f4f4f',
-
-    # Butyrolactone - Peach
-    'butyrolactone': '#ffdab9',
-
-    # Blactam - Salmon
-    'blactam': '#fa8072',
-
-    # CDPS - Lavender
-    'CDPS': '#e6e6fa',
-
-    # Furan - Wheat
-    'furan': '#f5deb3',
-
-    # Prodigiosin - Crimson
-    'prodigiosin': '#dc143c',
-
-    # Cyanide - Light steel blue
-    'cyanide': '#b0c4de',
-    'hydrogen-cyanide': '#b0c4de',
-
-    # Linaridin - Medium purple
-    'linaridin': '#9370db',
-    'linear-azol(in)e-containing-peptide': '#9370db',
-
-    # Opine - Thistle
-    'opine-like-metallophore': '#d8bfd8',
-
-    # Other/Unknown - Gray
-    'other': '#95a5a6',
-    'Other': '#95a5a6',
-    'unknown': '#bdc3c7',
-    'Unknown': '#bdc3c7',
-    'NA': '#ecf0f1',
-}
-
-def get_bgc_color(bgc_type):
-    '''Get color for a BGC type, handling hybrids and unknown types'''
-    if bgc_type in BGC_COLORS:
-        return BGC_COLORS[bgc_type]
-
-    # Check if it's a hybrid (contains + or -)
-    if '+' in bgc_type or '-' in bgc_type:
-        # Try to match first component
-        parts = bgc_type.replace('+', '-').split('-')
-        for part in parts:
-            if part in BGC_COLORS:
-                return BGC_COLORS[part]
-        return '#9b59b6'  # Default purple for hybrids
-
-    # Check for partial matches
-    bgc_lower = bgc_type.lower()
-    for key, color in BGC_COLORS.items():
-        if key.lower() in bgc_lower or bgc_lower in key.lower():
-            return color
-
-    return '#95a5a6'  # Default gray for unknown
 
 def create_genome_metadata_pages(counts_file, assembly_info, name_map, outdir, taxon, taxonomy_map_data=None, tabulation_file=None):
     '''Create individual HTML pages for each genome with metadata and KCB data'''
-    import re
     genome_dir = outdir / 'genomes'
     genome_dir.mkdir(exist_ok=True)
 
@@ -666,735 +496,6 @@ def create_bgc_distribution_table(counts_file, outdir):
     return header, '\n'.join(html_rows)
 
 
-
-def plot_circular_taxonomy_tree(taxonomy_tree_data, counts_file, outdir):
-    '''Create circular taxonomy tree with BGC annotation rings'''
-    if not taxonomy_tree_data:
-        print("No taxonomy tree data for circular visualization")
-        return False
-
-    tree = taxonomy_tree_data.get('tree', {})
-    if not tree:
-        print("Empty taxonomy tree")
-        return False
-
-    # Read counts data to get BGC types
-    df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
-    numeric_cols = df.select_dtypes(include='number').columns
-    bgc_cols = [col for col in numeric_cols if col not in ['total_count']]
-
-    # Collect all leaf nodes (genomes) with their taxonomic path
-    leaves = []
-    taxonomic_groups = defaultdict(list)  # group_key -> list of leaf indices
-
-    def collect_leaves(node, path=None, level=0):
-        '''Recursively collect leaf nodes with their taxonomic paths'''
-        if path is None:
-            path = []
-
-        name = node.get('name', 'Unknown')
-        rank = node.get('rank', '')
-        children = node.get('children', {})
-        genomes = node.get('genomes', [])
-
-        current_path = path + [(name, rank, level)]
-
-        # If this is a species node with genomes, add them as leaves
-        if genomes and rank == 'species':
-            for genome in genomes:
-                genome_name = genome.get('name', 'Unknown')
-                total_bgcs = genome.get('total_bgcs', 0)
-                bgc_types = genome.get('bgc_types', {})
-                leaf_idx = len(leaves)
-                leaves.append({
-                    'name': genome_name,
-                    'path': current_path,
-                    'total_bgcs': total_bgcs,
-                    'bgc_types': bgc_types
-                })
-                # Track taxonomic groupings for arc drawing
-                for i, (tax_name, tax_rank, tax_level) in enumerate(current_path):
-                    group_key = (tax_name, tax_rank, tax_level)
-                    taxonomic_groups[group_key].append(leaf_idx)
-
-        # Recurse into children
-        for child_name, child_node in children.items():
-            collect_leaves(child_node, current_path, level + 1)
-
-    collect_leaves(tree)
-
-    if len(leaves) == 0:
-        print("No leaf nodes found in taxonomy tree")
-        return False
-
-    print(f"Found {len(leaves)} genomes for circular tree")
-
-    # Calculate angular positions for leaves
-    n_leaves = len(leaves)
-    angles = np.linspace(0, 2 * np.pi, n_leaves, endpoint=False)
-
-    # Assign angles to leaves
-    for i, leaf in enumerate(leaves):
-        leaf['angle'] = angles[i]
-
-    # Create figure with polar projection
-    fig = plt.figure(figsize=(16, 16), facecolor='white')
-
-    # Main circular tree axis
-    ax = fig.add_subplot(111, projection='polar')
-    ax.set_facecolor('white')
-
-    # Tree parameters
-    max_level = max(len(leaf['path']) for leaf in leaves)
-    inner_radius = 0.3
-    tree_radius = 0.6
-    level_step = (tree_radius - inner_radius) / (max_level + 1)
-
-    # Draw taxonomic arcs (from innermost to outermost)
-    # Group leaves by taxonomic level and draw arcs
-    arc_colors = {
-        'domain': '#e8e8e8',
-        'kingdom': '#d0d0d0',
-        'phylum': '#b8b8b8',
-        'class': '#a0a0a0',
-        'order': '#888888',
-        'family': '#707070',
-        'genus': '#585858',
-        'species': '#404040'
-    }
-
-    for (tax_name, tax_rank, tax_level), leaf_indices in taxonomic_groups.items():
-        if len(leaf_indices) < 1:
-            continue
-
-        # Get angles for this group
-        group_angles = [leaves[i]['angle'] for i in leaf_indices]
-        min_angle = min(group_angles)
-        max_angle = max(group_angles)
-
-        # Handle wrap-around case
-        angle_span = max_angle - min_angle
-        if angle_span > np.pi:
-            # Wrap around - need to handle differently
-            angles_sorted = sorted(group_angles)
-            gaps = [angles_sorted[i+1] - angles_sorted[i] for i in range(len(angles_sorted)-1)]
-            gaps.append(2*np.pi - angles_sorted[-1] + angles_sorted[0])
-            max_gap_idx = gaps.index(max(gaps))
-            if max_gap_idx == len(gaps) - 1:
-                min_angle = angles_sorted[0]
-                max_angle = angles_sorted[-1]
-            else:
-                min_angle = angles_sorted[max_gap_idx + 1]
-                max_angle = angles_sorted[max_gap_idx]
-                if max_angle < min_angle:
-                    max_angle += 2 * np.pi
-
-        # Calculate radius for this level
-        radius = inner_radius + (tax_level + 0.5) * level_step
-
-        # Draw arc
-        arc_color = arc_colors.get(tax_rank, '#cccccc')
-
-        # Add small padding to angles
-        pad = 0.01
-        theta1 = min_angle - pad
-        theta2 = max_angle + pad
-
-        # Draw arc segment
-        arc_angles = np.linspace(theta1, theta2, 50)
-        ax.plot(arc_angles, [radius] * len(arc_angles), color=arc_color, linewidth=3, alpha=0.7)
-
-    # Draw radial lines connecting leaves to center
-    for leaf in leaves:
-        angle = leaf['angle']
-        ax.plot([angle, angle], [inner_radius, tree_radius], color='#e0e0e0', linewidth=0.5, alpha=0.5)
-
-    # Draw BGC count ring (outer ring showing total BGCs per genome)
-    bgc_ring_inner = tree_radius + 0.05
-    bgc_ring_outer = tree_radius + 0.15
-
-    # Normalize BGC counts for ring height
-    max_bgcs = max(leaf['total_bgcs'] for leaf in leaves) if leaves else 1
-    max_bgcs = max(max_bgcs, 1)
-
-    # Draw BGC bars for each genome
-    bar_width = 2 * np.pi / n_leaves * 0.8
-
-    for leaf in leaves:
-        angle = leaf['angle']
-        total = leaf['total_bgcs']
-
-        if total > 0:
-            # Calculate bar height based on BGC count
-            bar_height = (total / max_bgcs) * (bgc_ring_outer - bgc_ring_inner)
-
-            # Draw stacked bar by BGC type
-            current_bottom = bgc_ring_inner
-            for bgc_type in bgc_cols:
-                count = leaf['bgc_types'].get(bgc_type, 0)
-                if count > 0:
-                    segment_height = (count / total) * bar_height
-                    color = get_bgc_color(bgc_type)
-
-                    # Draw wedge for this BGC type
-                    ax.bar(angle, segment_height, width=bar_width, bottom=current_bottom,
-                           color=color, edgecolor='white', linewidth=0.2, alpha=0.9)
-                    current_bottom += segment_height
-
-    # Draw genome labels (only if not too many)
-    if n_leaves <= 100:
-        label_radius = bgc_ring_outer + 0.08
-        for leaf in leaves:
-            angle = leaf['angle']
-            name = leaf['name']
-
-            # Truncate long names
-            if len(name) > 25:
-                name = name[:22] + '...'
-
-            # Rotate text to be readable
-            rotation = np.degrees(angle) - 90
-            if angle > np.pi/2 and angle < 3*np.pi/2:
-                rotation += 180
-                ha = 'right'
-            else:
-                ha = 'left'
-
-            ax.text(angle, label_radius, name, rotation=rotation, ha=ha, va='center',
-                    fontsize=6, color='#333', rotation_mode='anchor')
-
-    # Configure polar plot
-    ax.set_ylim(0, bgc_ring_outer + 0.3)
-    ax.set_theta_zero_location('N')
-    ax.set_theta_direction(-1)
-    ax.axis('off')
-
-    # Add title
-    fig.suptitle('Circular Taxonomy Tree with BGC Distribution',
-                 fontsize=18, fontweight='bold', color='#333', y=0.98)
-
-    # Add legend for BGC types (only show types present in data)
-    present_bgc_types = set()
-    for leaf in leaves:
-        present_bgc_types.update(leaf['bgc_types'].keys())
-
-    legend_handles = []
-    for bgc_type in sorted(present_bgc_types):
-        color = get_bgc_color(bgc_type)
-        patch = mpatches.Patch(color=color, label=bgc_type)
-        legend_handles.append(patch)
-
-    if legend_handles:
-        # Position legend outside the plot
-        legend = fig.legend(handles=legend_handles, title='BGC Types',
-                           loc='center left', bbox_to_anchor=(0.85, 0.5),
-                           fontsize=8, title_fontsize=10)
-        legend.get_frame().set_facecolor('white')
-        legend.get_frame().set_edgecolor('#ddd')
-
-    # Add note about what the rings represent
-    fig.text(0.02, 0.02,
-             'Inner rings: Taxonomic hierarchy (darker = lower rank)\n'
-             'Outer ring: BGC counts per genome (stacked by type, height = total BGCs)',
-             fontsize=9, color='#666', va='bottom', ha='left',
-             transform=fig.transFigure)
-
-    plt.tight_layout(rect=[0, 0.03, 0.85, 0.97])
-    plt.savefig(f'{outdir}/circular_taxonomy_tree.png', dpi=300, bbox_inches='tight', facecolor='white')
-    plt.close()
-    return True
-
-
-# =============================================================================
-# PHYLOGENETIC TREE VISUALIZATION (From Newick format - GTDB-Tk output)
-# =============================================================================
-
-def parse_newick(newick_str):
-    """
-    Parse a Newick format string into a tree structure.
-    Returns a dictionary representing the tree with nodes containing:
-    - name: node name (leaf names or internal node labels)
-    - branch_length: distance from parent
-    - children: list of child nodes
-    """
-    import re
-
-    # Clean up the string
-    newick_str = newick_str.strip()
-    if newick_str.endswith(';'):
-        newick_str = newick_str[:-1]
-
-    def parse_subtree(s, pos=0):
-        """Recursively parse a subtree from position pos"""
-        node = {'name': '', 'branch_length': 0.0, 'children': []}
-
-        if pos >= len(s):
-            return node, pos
-
-        # Check if this is an internal node (starts with '(')
-        if s[pos] == '(':
-            pos += 1  # skip '('
-
-            # Parse children
-            while True:
-                child, pos = parse_subtree(s, pos)
-                node['children'].append(child)
-
-                if pos >= len(s):
-                    break
-
-                if s[pos] == ',':
-                    pos += 1  # skip ',' and continue to next child
-                elif s[pos] == ')':
-                    pos += 1  # skip ')' and break
-                    break
-
-        # Parse node name (can be after ')' for internal nodes or at current position for leaves)
-        name_match = re.match(r"([^:,();\[\]]*)", s[pos:])
-        if name_match:
-            node['name'] = name_match.group(1).strip().strip("'\"")
-            pos += len(name_match.group(0))
-
-        # Parse branch length if present
-        if pos < len(s) and s[pos] == ':':
-            pos += 1
-            length_match = re.match(r"([0-9.eE+-]+)", s[pos:])
-            if length_match:
-                try:
-                    node['branch_length'] = float(length_match.group(1))
-                except ValueError:
-                    node['branch_length'] = 0.0
-                pos += len(length_match.group(0))
-
-        # Skip any trailing metadata in brackets (e.g., bootstrap values)
-        if pos < len(s) and s[pos] == '[':
-            bracket_count = 1
-            pos += 1
-            while pos < len(s) and bracket_count > 0:
-                if s[pos] == '[':
-                    bracket_count += 1
-                elif s[pos] == ']':
-                    bracket_count -= 1
-                pos += 1
-
-        return node, pos
-
-    tree, _ = parse_subtree(newick_str)
-    return tree
-
-
-def collect_phylo_leaves(node, depth=0.0):
-    """
-    Recursively collect leaf nodes with their cumulative distances from root.
-    Returns list of (leaf_name, cumulative_distance) tuples.
-    """
-    leaves = []
-    current_depth = depth + node.get('branch_length', 0.0)
-
-    if not node.get('children'):
-        # This is a leaf node
-        return [(node.get('name', ''), current_depth, node)]
-
-    for child in node.get('children', []):
-        leaves.extend(collect_phylo_leaves(child, current_depth))
-
-    return leaves
-
-
-def prune_tree_to_leaves(node, target_leaves):
-    """
-    Prune a tree to only include paths from root to specified leaf nodes.
-
-    Args:
-        node: Tree node dictionary with 'name', 'branch_length', 'children'
-        target_leaves: Set of leaf names to keep
-
-    Returns:
-        Pruned tree node, or None if this subtree contains no target leaves
-    """
-    # If this is a leaf node
-    if not node.get('children'):
-        leaf_name = node.get('name', '')
-        # Check if this leaf should be kept (exact match or partial match)
-        for target in target_leaves:
-            if leaf_name == target or target in leaf_name or leaf_name in target:
-                return {
-                    'name': node.get('name', ''),
-                    'branch_length': node.get('branch_length', 0.0),
-                    'children': []
-                }
-        return None
-
-    # Internal node - recursively prune children
-    pruned_children = []
-    for child in node.get('children', []):
-        pruned_child = prune_tree_to_leaves(child, target_leaves)
-        if pruned_child is not None:
-            pruned_children.append(pruned_child)
-
-    # If no children remain after pruning, this subtree is not needed
-    if not pruned_children:
-        return None
-
-    # If only one child remains, we can optionally collapse this node
-    # But for phylogenetic trees, we want to preserve branch lengths
-    # so we keep the node structure
-
-    return {
-        'name': node.get('name', ''),
-        'branch_length': node.get('branch_length', 0.0),
-        'children': pruned_children
-    }
-
-
-def tree_to_newick(node):
-    """
-    Convert a tree dictionary back to Newick format string.
-
-    Args:
-        node: Tree node dictionary with 'name', 'branch_length', 'children'
-
-    Returns:
-        Newick format string
-    """
-    if not node:
-        return ""
-
-    children = node.get('children', [])
-    name = node.get('name', '')
-    branch_length = node.get('branch_length', 0.0)
-
-    if not children:
-        # Leaf node
-        if branch_length > 0:
-            return f"{name}:{branch_length}"
-        return name
-
-    # Internal node
-    child_strings = [tree_to_newick(child) for child in children]
-    children_str = ','.join(child_strings)
-
-    if branch_length > 0:
-        return f"({children_str}){name}:{branch_length}"
-    elif name:
-        return f"({children_str}){name}"
-    else:
-        return f"({children_str})"
-
-
-def calculate_phylo_positions(node, leaf_angles, depth=0.0, angle_range=None):
-    """
-    Recursively calculate angular positions for all nodes.
-    Returns dict mapping node names to (angle, radius) tuples.
-    """
-    positions = {}
-    current_depth = depth + node.get('branch_length', 0.0)
-
-    if not node.get('children'):
-        # Leaf node - get pre-assigned angle
-        name = node.get('name', '')
-        if name in leaf_angles:
-            positions[name] = (leaf_angles[name], current_depth)
-        return positions
-
-    # Internal node - calculate angle as average of children's angles
-    child_angles = []
-    for child in node.get('children', []):
-        child_positions = calculate_phylo_positions(child, leaf_angles, current_depth)
-        positions.update(child_positions)
-
-        # Get the child's angle (either directly or from its descendants)
-        child_name = child.get('name', '')
-        if child_name in positions:
-            child_angles.append(positions[child_name][0])
-        elif child.get('children'):
-            # Average of grandchildren angles
-            grandchild_angles = [positions[gc.get('name', '')][0]
-                                for gc in child.get('children', [])
-                                if gc.get('name', '') in positions]
-            if grandchild_angles:
-                child_angles.append(np.mean(grandchild_angles))
-
-    # Position internal node at average of children angles
-    if child_angles:
-        node_angle = np.mean(child_angles)
-        node_name = node.get('name', '') or f"_internal_{id(node)}"
-        positions[node_name] = (node_angle, current_depth)
-
-    return positions
-
-
-def plot_circular_phylogenetic_tree(newick_file, counts_file, gtdbtk_summary, outdir):
-    """
-    Create circular phylogenetic tree from GTDB-Tk Newick output with BGC annotation rings.
-
-    Args:
-        newick_file: Path to Newick tree file from GTDB-Tk
-        counts_file: Path to region_counts.tsv for BGC data
-        gtdbtk_summary: Path to GTDB-Tk summary TSV for genome name mapping
-        outdir: Output directory for the plot
-    """
-    from pathlib import Path
-
-    newick_path = Path(newick_file)
-    if not newick_path.exists():
-        print(f"Newick file not found: {newick_file}")
-        return False
-
-    # Read GTDB-Tk summary to get user genome names (for pruning if needed)
-    user_genomes = set()
-    genome_name_map = {}  # Maps GTDB-Tk IDs to our genome names
-    if gtdbtk_summary and Path(gtdbtk_summary).exists():
-        try:
-            gtdbtk_df = pd.read_csv(gtdbtk_summary, sep='\t')
-            if 'user_genome' in gtdbtk_df.columns:
-                for _, row in gtdbtk_df.iterrows():
-                    user_genome = row['user_genome']
-                    user_genomes.add(user_genome)
-                    genome_name_map[user_genome] = user_genome
-            print(f"Found {len(user_genomes)} user genomes in GTDB-Tk summary")
-        except Exception as e:
-            print(f"Warning: Could not read GTDB-Tk summary: {e}")
-
-    # Read and parse Newick tree
-    print(f"Parsing phylogenetic tree from {newick_file}...")
-    with open(newick_file, 'r') as f:
-        newick_str = f.read()
-
-    tree = parse_newick(newick_str)
-
-    if not tree:
-        print("Failed to parse Newick tree")
-        return False
-
-    # Count leaves in tree
-    leaves_data = collect_phylo_leaves(tree)
-    n_leaves = len(leaves_data)
-    print(f"Tree has {n_leaves} leaves")
-
-    # Only prune if tree has significantly more leaves than user genomes
-    # (de_novo_wf with --skip_gtdb_refs produces trees with only user genomes)
-    if user_genomes and n_leaves > len(user_genomes) * 1.5:
-        print(f"Tree has more leaves than user genomes - pruning to {len(user_genomes)} user genomes...")
-        tree = prune_tree_to_leaves(tree, user_genomes)
-
-        if not tree:
-            print("Failed to prune tree - no user genomes found in tree")
-            return False
-
-        # Recollect leaves after pruning
-        leaves_data = collect_phylo_leaves(tree)
-        n_leaves = len(leaves_data)
-        print(f"Pruned tree has {n_leaves} leaves")
-
-    if n_leaves == 0:
-        print("No leaf nodes found in phylogenetic tree")
-        return False
-
-    # Read BGC counts data
-    bgc_data = {}
-    bgc_cols = []
-    if counts_file and Path(counts_file).exists():
-        df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
-        numeric_cols = df.select_dtypes(include='number').columns
-        bgc_cols = [col for col in numeric_cols if col not in ['total_count']]
-
-        for _, row in df.iterrows():
-            genome_name = row.get('genome', row.get('file', ''))
-            if genome_name:
-                # Clean up genome name for matching
-                clean_name = Path(genome_name).stem if '/' in str(genome_name) else genome_name
-                clean_name = clean_name.replace('.gbff', '').replace('.fna', '')
-                bgc_data[clean_name] = {
-                    'total_bgcs': row.get('total_count', 0),
-                    'bgc_types': {col: row.get(col, 0) for col in bgc_cols if row.get(col, 0) > 0}
-                }
-
-    # Assign angular positions to leaves (evenly spaced)
-    leaf_angles = {}
-    for i, (leaf_name, depth, node) in enumerate(leaves_data):
-        angle = 2 * np.pi * i / n_leaves
-        # Clean leaf name for matching
-        clean_name = leaf_name.replace('.fna', '').replace('.gbff', '')
-        leaf_angles[leaf_name] = angle
-        if clean_name not in bgc_data:
-            # Try to find matching genome
-            for genome_key in bgc_data.keys():
-                if clean_name in genome_key or genome_key in clean_name:
-                    bgc_data[clean_name] = bgc_data[genome_key]
-                    break
-
-    # Calculate positions for all nodes
-    positions = calculate_phylo_positions(tree, leaf_angles)
-
-    # Find maximum depth for scaling
-    max_depth = max(depth for _, depth, _ in leaves_data) if leaves_data else 1.0
-    max_depth = max(max_depth, 0.001)  # Avoid division by zero
-
-    # Create figure
-    fig = plt.figure(figsize=(18, 18), facecolor='white')
-    ax = fig.add_subplot(111, projection='polar')
-    ax.set_facecolor('white')
-
-    # Tree layout parameters
-    inner_radius = 0.15  # Start of tree
-    tree_radius = 0.55   # End of tree (leaves)
-    scale_factor = (tree_radius - inner_radius) / max_depth
-
-    def draw_branch(node, parent_angle=None, parent_radius=None, depth=0.0):
-        """Recursively draw tree branches"""
-        current_depth = depth + node.get('branch_length', 0.0)
-        current_radius = inner_radius + current_depth * scale_factor
-
-        node_name = node.get('name', '')
-        if not node_name:
-            node_name = f"_internal_{id(node)}"
-
-        # Get this node's angle
-        if node_name in positions:
-            node_angle = positions[node_name][0]
-        elif node_name in leaf_angles:
-            node_angle = leaf_angles[node_name]
-        else:
-            # For internal nodes, average children angles
-            child_angles = []
-            for child in node.get('children', []):
-                child_name = child.get('name', '') or f"_internal_{id(child)}"
-                if child_name in positions:
-                    child_angles.append(positions[child_name][0])
-                elif child_name in leaf_angles:
-                    child_angles.append(leaf_angles[child_name])
-            node_angle = np.mean(child_angles) if child_angles else 0
-
-        # Draw branch from parent to this node
-        if parent_angle is not None and parent_radius is not None:
-            # Draw arc at parent's radius from parent angle to this node's angle
-            if abs(node_angle - parent_angle) > 0.001:
-                # Determine arc direction (shortest path)
-                angle_diff = node_angle - parent_angle
-                if angle_diff > np.pi:
-                    angle_diff -= 2 * np.pi
-                elif angle_diff < -np.pi:
-                    angle_diff += 2 * np.pi
-
-                arc_angles = np.linspace(parent_angle, parent_angle + angle_diff, 20)
-                ax.plot(arc_angles, [parent_radius] * len(arc_angles),
-                       color='#505050', linewidth=0.8, alpha=0.8)
-
-            # Draw radial line from parent's arc to current node
-            ax.plot([node_angle, node_angle], [parent_radius, current_radius],
-                   color='#505050', linewidth=0.8, alpha=0.8)
-
-        # Recurse for children
-        for child in node.get('children', []):
-            draw_branch(child, node_angle, current_radius, current_depth)
-
-    # Draw the tree
-    print("Drawing phylogenetic tree branches...")
-    draw_branch(tree)
-
-    # Draw BGC annotation ring
-    bgc_ring_inner = tree_radius + 0.05
-    bgc_ring_outer = tree_radius + 0.18
-
-    # Calculate max BGCs for scaling
-    max_bgcs = max([bgc_data.get(Path(name).stem.replace('.fna', '').replace('.gbff', ''), {}).get('total_bgcs', 0)
-                   for name, _, _ in leaves_data]) if leaves_data else 1
-    max_bgcs = max(max_bgcs, 1)
-
-    bar_width = 2 * np.pi / n_leaves * 0.85
-
-    print("Drawing BGC annotation ring...")
-    present_bgc_types = set()
-
-    for leaf_name, depth, node in leaves_data:
-        angle = leaf_angles[leaf_name]
-        clean_name = leaf_name.replace('.fna', '').replace('.gbff', '')
-
-        # Try to find BGC data for this leaf
-        genome_bgc = bgc_data.get(clean_name, {})
-        if not genome_bgc:
-            # Try partial matching
-            for key, value in bgc_data.items():
-                if clean_name in key or key in clean_name:
-                    genome_bgc = value
-                    break
-
-        total = genome_bgc.get('total_bgcs', 0)
-
-        if total > 0:
-            bar_height = (total / max_bgcs) * (bgc_ring_outer - bgc_ring_inner)
-            current_bottom = bgc_ring_inner
-
-            for bgc_type, count in genome_bgc.get('bgc_types', {}).items():
-                if count > 0:
-                    segment_height = (count / total) * bar_height
-                    color = get_bgc_color(bgc_type)
-                    present_bgc_types.add(bgc_type)
-
-                    ax.bar(angle, segment_height, width=bar_width, bottom=current_bottom,
-                          color=color, edgecolor='white', linewidth=0.2, alpha=0.9)
-                    current_bottom += segment_height
-
-    # Draw leaf labels (only if not too many)
-    if n_leaves <= 80:
-        label_radius = bgc_ring_outer + 0.08
-        for leaf_name, depth, node in leaves_data:
-            angle = leaf_angles[leaf_name]
-            display_name = leaf_name.replace('.fna', '').replace('.gbff', '')
-
-            if len(display_name) > 30:
-                display_name = display_name[:27] + '...'
-
-            rotation = np.degrees(angle) - 90
-            if angle > np.pi/2 and angle < 3*np.pi/2:
-                rotation += 180
-                ha = 'right'
-            else:
-                ha = 'left'
-
-            ax.text(angle, label_radius, display_name, rotation=rotation, ha=ha, va='center',
-                   fontsize=5, color='#333', rotation_mode='anchor')
-
-    # Configure plot
-    ax.set_ylim(0, bgc_ring_outer + 0.35)
-    ax.set_theta_zero_location('N')
-    ax.set_theta_direction(-1)
-    ax.axis('off')
-
-    # Title
-    fig.suptitle('Circular Phylogenetic Tree with BGC Distribution\n(GTDB-Tk placement)',
-                fontsize=18, fontweight='bold', color='#333', y=0.98)
-
-    # Legend for BGC types
-    legend_handles = []
-    for bgc_type in sorted(present_bgc_types):
-        color = get_bgc_color(bgc_type)
-        patch = mpatches.Patch(color=color, label=bgc_type)
-        legend_handles.append(patch)
-
-    if legend_handles:
-        legend = fig.legend(handles=legend_handles, title='BGC Types',
-                           loc='center left', bbox_to_anchor=(0.85, 0.5),
-                           fontsize=8, title_fontsize=10)
-        legend.get_frame().set_facecolor('white')
-        legend.get_frame().set_edgecolor('#ddd')
-
-    # Add explanatory note
-    fig.text(0.02, 0.02,
-            'Branch lengths represent evolutionary distance (GTDB-Tk)\n'
-            'Outer ring: BGC counts per genome (stacked by type, height = total BGCs)',
-            fontsize=9, color='#666', va='bottom', ha='left',
-            transform=fig.transFigure)
-
-    plt.tight_layout(rect=[0, 0.03, 0.85, 0.97])
-    plt.savefig(f'{outdir}/circular_phylogenetic_tree.png', dpi=300, bbox_inches='tight', facecolor='white')
-    plt.close()
-
-    print(f"Saved circular phylogenetic tree to {outdir}/circular_phylogenetic_tree.png")
-    return True
-
-
 def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir, outgroup=None):
     """
     Prepare phylogenetic tree data for JavaScript visualization.
@@ -1602,7 +703,6 @@ def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir, 
         newick_str = f.read()
 
     # Quick estimate of tree size
-    import re
     leaf_pattern = re.compile(r'[(),]([A-Za-z_][^:(),]*):')
     estimated_leaves = len(leaf_pattern.findall(newick_str))
     print(f"Estimated tree size: ~{estimated_leaves} leaves")
@@ -1640,60 +740,6 @@ def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir, 
         'leaf_count': len(pruned_leaves)
     }
 
-
-def plot_kcb_identification_chart(kcb_stats, outdir):
-    '''Create pie chart showing proportion of identified vs unidentified BGCs'''
-    total_regions = kcb_stats.get('total_regions', 0)
-    regions_with_hits = kcb_stats.get('regions_with_hits', 0)
-
-    if total_regions == 0:
-        # No data available - create placeholder (same size as donut chart)
-        fig, ax = plt.subplots(figsize=(10, 8), facecolor='white')
-        ax.set_facecolor('white')
-        ax.text(0.5, 0.5, 'No KnownClusterBlast data available\nRun with --antismash_cb_knownclusters true',
-                ha='center', va='center', fontsize=16, color='#666', transform=ax.transAxes)
-        ax.axis('off')
-        plt.savefig(f'{outdir}/kcb_identification_chart.png', dpi=300, bbox_inches='tight', facecolor='white')
-        plt.close()
-        return
-
-    regions_without_hits = total_regions - regions_with_hits
-
-    # Same size as donut chart for consistency
-    fig, ax = plt.subplots(figsize=(10, 8), facecolor='white')
-    ax.set_facecolor('white')
-
-    # Create pie chart with identified vs unidentified
-    sizes = [regions_with_hits, regions_without_hits]
-    labels = [f'Known Cluster Matches\n({regions_with_hits})', f'Potentially Novel\n({regions_without_hits})']
-    colors = ['#2c5aa0', '#4a8f70']  # Deep blue for known, muted green for novel
-    explode = (0.02, 0.02)  # Slight separation
-
-    wedges, texts, autotexts = ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',
-                                       startangle=90, explode=explode,
-                                       textprops={'fontsize': 14, 'color': '#333'},
-                                       wedgeprops={'edgecolor': 'white', 'linewidth': 2})
-
-    # Style the percentage labels
-    for autotext in autotexts:
-        autotext.set_color('white')
-        autotext.set_fontweight('bold')
-        autotext.set_fontsize(16)
-
-    # Add similarity breakdown as legend if available
-    sim_breakdown = kcb_stats.get('similarity_breakdown', {})
-    if sim_breakdown:
-        legend_text = 'Similarity breakdown of matches:\n'
-        for sim_level in ['high', 'medium', 'low']:
-            if sim_level in sim_breakdown:
-                legend_text += f'  • {sim_level.capitalize()}: {sim_breakdown[sim_level]}\n'
-        ax.annotate(legend_text.strip(), xy=(0.5, -0.12), xycoords='axes fraction',
-                    ha='center', va='top', fontsize=12, color='#666',
-                    bbox=dict(boxstyle='round,pad=0.3', facecolor='#f8f9fa', edgecolor='#ddd'))
-
-    plt.tight_layout()
-    plt.savefig(f'{outdir}/kcb_identification_chart.png', dpi=300, bbox_inches='tight', facecolor='white')
-    plt.close()
 
 
 def generate_rarefaction_curve(bigscape_db_path, outdir, taxon, n_iterations=50):
@@ -1815,15 +861,23 @@ def generate_rarefaction_curve(bigscape_db_path, outdir, taxon, n_iterations=50)
 
         plt.tight_layout()
         output_path = Path(outdir) / 'rarefaction_curve.png'
-        plt.savefig(output_path, dpi=150, bbox_inches='tight', facecolor='white')
+        svg_path    = Path(outdir) / 'rarefaction_curve.svg'
+        plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
+        plt.savefig(svg_path,              bbox_inches='tight', facecolor='white')
         plt.close()
+
+        # Embed SVG as base64 for self-contained HTML
+        import base64
+        with open(svg_path, 'rb') as f:
+            rarefaction_svg_b64 = base64.b64encode(f.read()).decode('ascii')
 
         return {
             'generated': True,
             'n_genomes': n_genomes,
             'total_gcfs': total_gcfs,
             'saturation': saturation,
-            'top_types': top_types
+            'top_types': top_types,
+            'svg_b64': rarefaction_svg_b64,
         }
 
     except Exception as e:
@@ -1933,7 +987,6 @@ def generate_bigscape_stats_html(bigscape_stats_file, mibig_included=False):
 
 def extract_assembly_id_from_genome_name(genome_name):
     """Extract GCA/GCF assembly ID from genome name."""
-    import re
     # Look for GCA_XXXXXXXXX.X or GCF_XXXXXXXXX.X pattern
     match = re.search(r'(GC[AF]_\d+\.\d+)', genome_name)
     if match:
@@ -2028,7 +1081,7 @@ def build_gcf_taxonomy_distribution(gcf_data, taxonomy_map):
     }
 
 
-def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=None):
+def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=None, gcf_heatmap_b64=None):
     """
     Generate HTML for BGC Distribution tab (replaces Tree View).
     Shows GCF × Taxonomy heatmap and distribution insights.
@@ -2184,101 +1237,57 @@ def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=N
 
     <h3>GCF × Genus Heatmap</h3>
     <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
-        Top 30 GCFs (rows) vs top 20 genera (columns). Color intensity = number of BGCs.
+        {'Presence/absence of each Gene Cluster Family across genera. Rows: GCFs ordered by Jaccard-distance hierarchical clustering; columns: genera ordered by GTDB-Tk phylogeny.' if gcf_heatmap_b64 else 'Top 30 GCFs (rows) vs top 20 genera (columns). Color intensity = number of BGCs.'}
     </p>
+    {'<div style="margin-bottom: 30px;"><img src="data:image/svg+xml;base64,' + gcf_heatmap_b64 + '" alt="GCF × Genus Heatmap" style="max-width: 100%; height: auto; display: block;"></div>' if gcf_heatmap_b64 else f"""
     <div id="heatmap-container" style="width: 100%; overflow-x: auto; margin-bottom: 30px;">
         <canvas id="heatmap-canvas" style="max-width: 100%;"></canvas>
     </div>
-
     <script>
         (function() {{
             const data = {heatmap_json};
             const canvas = document.getElementById('heatmap-canvas');
             const ctx = canvas.getContext('2d');
-
-            const cellWidth = 45;
-            const cellHeight = 22;
-            const labelWidth = 180;
-            const labelHeight = 120;
-            const rows = data.rows;
-            const cols = data.columns;
-
+            const cellWidth = 45; const cellHeight = 22;
+            const labelWidth = 180; const labelHeight = 120;
+            const rows = data.rows; const cols = data.columns;
             canvas.width = labelWidth + cols.length * cellWidth + 80;
             canvas.height = labelHeight + rows.length * cellHeight + 20;
-
-            // Find max value for color scaling
             let maxVal = 1;
-            rows.forEach(row => {{
-                row.values.forEach(v => {{ if (v > maxVal) maxVal = v; }});
-            }});
-
-            // Color scale function (white to blue)
+            rows.forEach(row => {{ row.values.forEach(v => {{ if (v > maxVal) maxVal = v; }}); }});
             function getColor(value) {{
                 if (value === 0) return '#f8f9fa';
                 const intensity = Math.min(1, value / maxVal);
-                const r = Math.round(255 - intensity * 212);
-                const g = Math.round(255 - intensity * 165);
-                const b = Math.round(255 - intensity * 95);
-                return `rgb(${{r}}, ${{g}}, ${{b}})`;
+                return `rgb(${{Math.round(255 - intensity*212)}}, ${{Math.round(255 - intensity*165)}}, ${{Math.round(255 - intensity*95)}})`;
             }}
-
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw column labels (genera) - rotated
-            ctx.save();
-            ctx.font = '10px sans-serif';
-            ctx.fillStyle = '#333';
+            ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.save(); ctx.font = '10px sans-serif'; ctx.fillStyle = '#333';
             cols.forEach((col, i) => {{
-                ctx.save();
-                ctx.translate(labelWidth + i * cellWidth + cellWidth/2, labelHeight - 5);
-                ctx.rotate(-Math.PI / 3);
-                ctx.textAlign = 'left';
-                ctx.fillText(col.length > 15 ? col.slice(0, 15) + '...' : col, 0, 0);
-                ctx.restore();
-            }});
-            ctx.restore();
-
-            // Draw rows
+                ctx.save(); ctx.translate(labelWidth + i*cellWidth + cellWidth/2, labelHeight-5);
+                ctx.rotate(-Math.PI/3); ctx.textAlign = 'left';
+                ctx.fillText(col.length > 15 ? col.slice(0,15)+'...' : col, 0, 0); ctx.restore();
+            }}); ctx.restore();
             rows.forEach((row, i) => {{
                 const y = labelHeight + i * cellHeight;
-
-                // Row label (GCF)
-                ctx.font = '10px sans-serif';
-                ctx.fillStyle = '#333';
-                ctx.textAlign = 'right';
-                ctx.fillText(`GCF-${{row.gcf_id}} ${{row.product}}`, labelWidth - 5, y + cellHeight/2 + 3);
-
-                // Cells
+                ctx.font = '10px sans-serif'; ctx.fillStyle = '#333'; ctx.textAlign = 'right';
+                ctx.fillText(`GCF-${{row.gcf_id}} ${{row.product}}`, labelWidth-5, y+cellHeight/2+3);
                 row.values.forEach((value, j) => {{
                     const x = labelWidth + j * cellWidth;
-                    ctx.fillStyle = getColor(value);
-                    ctx.fillRect(x, y, cellWidth - 1, cellHeight - 1);
-
-                    // Show value if > 0
+                    ctx.fillStyle = getColor(value); ctx.fillRect(x, y, cellWidth-1, cellHeight-1);
                     if (value > 0) {{
-                        ctx.fillStyle = value > maxVal * 0.5 ? 'white' : '#333';
-                        ctx.font = '9px sans-serif';
-                        ctx.textAlign = 'center';
-                        ctx.fillText(value.toString(), x + cellWidth/2, y + cellHeight/2 + 3);
+                        ctx.fillStyle = value > maxVal*0.5 ? 'white' : '#333';
+                        ctx.font = '9px sans-serif'; ctx.textAlign = 'center';
+                        ctx.fillText(value.toString(), x+cellWidth/2, y+cellHeight/2+3);
                     }}
                 }});
-
-                // Member count on right
-                ctx.fillStyle = '#666';
-                ctx.font = '9px sans-serif';
-                ctx.textAlign = 'left';
-                ctx.fillText(`(${{row.member_count}})`, labelWidth + cols.length * cellWidth + 5, y + cellHeight/2 + 3);
+                ctx.fillStyle='#666'; ctx.font='9px sans-serif'; ctx.textAlign='left';
+                ctx.fillText(`(${{row.member_count}})`, labelWidth+cols.length*cellWidth+5, y+cellHeight/2+3);
             }});
-
-            // Legend
-            const legendY = labelHeight + rows.length * cellHeight + 10;
-            ctx.font = '10px sans-serif';
-            ctx.fillStyle = '#666';
-            ctx.textAlign = 'left';
+            const legendY = labelHeight + rows.length*cellHeight + 10;
+            ctx.font='10px sans-serif'; ctx.fillStyle='#666'; ctx.textAlign='left';
             ctx.fillText('Color: BGC count (darker = more)', labelWidth, legendY);
         }})();
-    </script>
+    </script>""" }
 
     <div style="display: flex; gap: 30px; flex-wrap: wrap; margin-top: 20px;">
         <div style="flex: 1; min-width: 400px;">
@@ -3031,98 +2040,134 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
 
     return tree_html
 
-def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
-                         bigscape_stats_html='', gcf_visualization_html='',
-                         phylo_tree_generated=False, genome_table_html='',
-                         resource_usage_html='', phylo_tree_data=None, gcf_data=None, taxonomy_map=None,
-                         versions_data=None, rarefaction_stats=None,
-                         gtdbtk_summary_path=None, gcf_tree_b64=None):
-    '''Generate tab-based HTML report combining all visualizations'''
 
-    # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
-    import re
-    taxon_clean = re.sub(r'[^a-zA-Z0-9_]', '_', taxon)
-    taxon_clean = re.sub(r'_+', '_', taxon_clean).strip('_')
+# Coupling class display metadata (class_id → (display_name, marker, pathway, reference_genes))
+_COUPLING_META = {
+    'Synthase':                        ('Synthase',                        'SMCOG1271 (HMGL-like)',          '→ phosphonomethylmalate → phosphinothricin-type', 'FrbC, HvrC'),
+    'Reductase':                       ('Reductase',                       'Fe-ADH rule',                    '→ phosphonolactate (reductase route)',            'VlpB'),
+    'Decarboxylase-Nucleotidyltransferase': ('Decarboxylase-Nucleotidyltransferase', 'SMCOG1055 + NTP_transf_3', '→ phosphonolipid (CDP-pathway)',             'DhpF, Fom2, Ppd'),
+    'Decarboxylase':                   ('Decarboxylase',                   'SMCOG1055 (ThDP-dependent)',      '→ 2-phosphonoacetaldehyde → 2-AEP',              'DhpF, Fom2, Ppd'),
+    'Transaminase':                    ('Transaminase',                    'SMCOG1013 (Aminotran_3)',         '→ L-phosphonoalanine',                           'PnaA'),
+    'Unknown':                         ('Unknown',                         '—',                               '—',                                              '—'),
+}
+_COUPLING_ROW_ORDER = ['Synthase', 'Reductase', 'Decarboxylase-Nucleotidyltransferase', 'Decarboxylase', 'Transaminase', 'Unknown']
 
-    # Circular tree display - only show when GTDB-Tk phylogenetic tree is available
-    tree_image = ''
-    tree_title = ''
-    tree_description = ''
 
-    if phylo_tree_generated:
-        tree_image = 'circular_tree.png'
-        tree_title = 'Phylogenetic Tree (GTDB-Tk)'
-        tree_description = '''Phylogenetic tree reconstructed using neighbor-joining from GTDB-Tk pairwise distances (120 marker genes).
-        Branch lengths represent evolutionary distance. The tree is unrooted; displayed with arbitrary root for visualization.'''
+def build_coupling_table_rows(coupling_annotation_path, bigscape_db_path, cutoff=0.3):
+    """Return HTML <tr> rows for the coupling enzyme table, driven by live data.
 
-    # Build KCB stats section for dashboard
-    kcb_stats = stats.get('kcb_stats', {})
-    kcb_section = ''
-    kcb_mapping_section = ''
+    Falls back to the static hardcoded rows when inputs are unavailable.
+    """
+    try:
+        import sqlite3 as _sqlite3
+        coupling_classes = load_coupling_classes(str(coupling_annotation_path), region_only=True)
+        conn = _sqlite3.connect(str(bigscape_db_path))
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT f.id, COUNT(rf.record_id) AS n
+            FROM family f
+            JOIN bgc_record_family rf ON rf.family_id = f.id
+            JOIN bgc_record br        ON br.id = rf.record_id
+            WHERE f.cutoff = ? AND br.record_type = 'region'
+            GROUP BY f.id
+        """, (cutoff,))
+        gcf_rows = cur.fetchall()
+
+        # For each GCF, tally coupling classes across its member BGCs
+        from collections import Counter as _Counter, defaultdict as _defaultdict
+        class_to_gcfs = _defaultdict(list)
+        for gcf_id, _ in gcf_rows:
+            cur.execute("""
+                SELECT g.path
+                FROM bgc_record_family rf
+                JOIN bgc_record br ON br.id = rf.record_id
+                JOIN gbk g         ON g.id = br.gbk_id
+                WHERE rf.family_id = ? AND br.record_type = 'region'
+            """, (gcf_id,))
+            counts = _Counter()
+            for (path,) in cur.fetchall():
+                import os as _os
+                gbk_base = _os.path.splitext(_os.path.basename(path))[0]
+                counts[coupling_classes.get(gbk_base, 'Unknown')] += 1
+            dominant = counts.most_common(1)[0][0] if counts else 'Unknown'
+            class_to_gcfs[dominant].append(gcf_id)
+        conn.close()
+
+        # Sort GCF IDs within each class and build HTML rows
+        rows_html = []
+        for i, cls_id in enumerate(_COUPLING_ROW_ORDER):
+            gcf_ids = sorted(class_to_gcfs.get(cls_id, []))
+            gcf_label = '/'.join(f'GCF-{g}' for g in gcf_ids) if gcf_ids else '—'
+            display, marker, pathway, refs = _COUPLING_META[cls_id]
+            bg = ' style="background:#fafafa;"' if i % 2 == 1 else ''
+            is_last = (i == len(_COUPLING_ROW_ORDER) - 1)
+            border = '' if is_last else 'border-bottom: 1px solid #eee; '
+            td = f'padding: 7px 12px; {border}'
+            rows_html.append(
+                f'<tr{bg}>'
+                f'<td style="{td}">{display}</td>'
+                f'<td style="{td}">{marker}</td>'
+                f'<td style="{td}">{pathway}</td>'
+                f'<td style="{td}">{refs}</td>'
+                f'<td style="{td}">{gcf_label}</td>'
+                f'</tr>'
+            )
+        return '\n'.join(rows_html)
+
+    except Exception as e:
+        print(f"Warning: could not build dynamic coupling table ({e}); using static fallback")
+        rows = []
+        for i, cls_id in enumerate(_COUPLING_ROW_ORDER):
+            display, marker, pathway, refs = _COUPLING_META[cls_id]
+            bg = ' style="background:#fafafa;"' if i % 2 == 1 else ''
+            is_last = (i == len(_COUPLING_ROW_ORDER) - 1)
+            border = '' if is_last else 'border-bottom: 1px solid #eee; '
+            td = f'padding: 7px 12px; {border}'
+            rows.append(
+                f'<tr{bg}>'
+                f'<td style="{td}">{display}</td>'
+                f'<td style="{td}">{marker}</td>'
+                f'<td style="{td}">{pathway}</td>'
+                f'<td style="{td}">{refs}</td>'
+                f'<td style="{td}">—</td>'
+                f'</tr>'
+            )
+        return '\n'.join(rows)
+
+
+
+
+
+def _build_kcb_content(kcb_stats, taxon_clean, gcf_data):
+    """Compute KCB tab contents.
+
+    Returns dict with keys: kcb_mapping_section, novel_bgcs_tab_content,
+    kcb_hits_tab_content.
+    """
+    kcb_mapping_section = ''''''
     novel_bgcs_tab_content = '''
             <h2>Potentially Novel BGCs</h2>
             <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to identify potentially novel BGCs.</p>'''
-    if kcb_stats.get('total_regions', 0) > 0:
-        sim_breakdown = kcb_stats.get('similarity_breakdown', {})
-        sim_html = ', '.join([f"{k}: {v}" for k, v in sim_breakdown.items()]) if sim_breakdown else 'N/A'
-        kcb_section = f'''
-        <div class="stat-box">
-            <div class="stat-value">{kcb_stats.get('hit_percentage', 0)}%</div>
-            <div class="stat-label">BGCs with Known Cluster Hits</div>
-            <div style="font-size: 0.8em; color: #666; margin-top: 5px;">({kcb_stats.get('regions_with_hits', 0)} of {kcb_stats.get('total_regions', 0)} regions)</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-value">{kcb_stats.get('unique_known_clusters', 0)}</div>
-            <div class="stat-label">Unique Known Clusters Matched</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-value">{kcb_stats.get('novel_bgc_count', 0)}</div>
-            <div class="stat-label">Potentially Novel BGCs</div>
-        </div>'''
+    kcb_hits_tab_content = '''
+            <h2>KnownClusterBlast Hits</h2>
+            <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to identify known cluster matches.</p>'''
 
-        # Build potentially novel BGCs summary (for Overview tab) and details (for separate tab)
+    if kcb_stats.get('total_regions', 0) > 0:
         novel_bgcs = kcb_stats.get('novel_bgcs', [])
         novel_count = kcb_stats.get('novel_bgc_count', 0)
 
-        # Build GCF lookup from gcf_data if available
-        # Maps (genome, region_name) -> {family_id, member_count}
         gcf_lookup = {}
         has_gcf_data = False
         if gcf_data and isinstance(gcf_data, dict):
-            # Use the pre-computed bgc_to_gcf mapping (keys are "genome|region_name" strings)
             bgc_to_gcf = gcf_data.get('bgc_to_gcf', {})
             if bgc_to_gcf:
                 for key_str, info in bgc_to_gcf.items():
-                    # Parse the key back to (genome, region_name)
                     parts = key_str.split('|')
                     if len(parts) == 2:
-                        genome = parts[0]
-                        region_name = parts[1]
-                        gcf_lookup[(genome, region_name)] = info
+                        gcf_lookup[(parts[0], parts[1])] = info
                         has_gcf_data = True
 
         if novel_bgcs:
-            # Group novel BGCs by product type for summary
-            product_counts = {}
-            for bgc in novel_bgcs:
-                product = bgc.get('product', 'Unknown')
-                product_counts[product] = product_counts.get(product, 0) + 1
-
-            # Sort products by count
-            sorted_products = sorted(product_counts.items(), key=lambda x: x[1], reverse=True)
-
-            # Build summary rows for Overview tab
-            summary_rows = ''
-            for product, count in sorted_products[:20]:  # Show top 20 product types
-                pct = round(count / novel_count * 100, 1) if novel_count > 0 else 0
-                summary_rows += f'''
-                <tr>
-                    <td style="font-weight: bold;">{product}</td>
-                    <td style="text-align: center;">{count}</td>
-                    <td style="text-align: center;">{pct}%</td>
-                </tr>'''
-
-            # Build detailed table rows with antiSMASH links (for Novel BGCs tab)
             detail_rows = ''
             for bgc in novel_bgcs:
                 genome = bgc.get('genome', 'unknown')
@@ -3131,17 +2176,10 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 record_index = bgc.get('record_index', 1)
                 product = bgc.get('product', 'Unknown')
                 contig_edge = bgc.get('contig_edge', '')
-                record_id = bgc.get('record_id', '')
                 edge_badge = '<span style="background: #e74c3c; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75em;">edge</span>' if str(contig_edge).lower() == 'true' else ''
-                # Build antiSMASH region link - format is #r{record_index}c{region} (e.g., #r11c1 for region 1 on record 11)
-                # Path: main_analysis_results/taxon/ -> main_analysis_results/ -> results/ -> antismash_results/
                 antismash_link = f'../../antismash_results/{taxon_clean}/{genome}/index.html#r{record_index}c{region}'
-
-                # Look up GCF info if available
                 gcf_cell = ''
                 if has_gcf_data:
-                    # Use region_name (e.g., "40.1") for unique lookup
-                    # Convert to string in case pandas read it as float
                     gcf_info = gcf_lookup.get((genome, str(region_name)), {})
                     if gcf_info:
                         fid = gcf_info.get('family_id', '')
@@ -3149,7 +2187,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                         gcf_cell = f'<td style="text-align: center;"><span style="background: #3498db; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">GCF {fid}</span></td><td style="text-align: center;">{mc}</td>'
                     else:
                         gcf_cell = '<td style="text-align: center; color: #999;">-</td><td style="text-align: center; color: #999;">-</td>'
-
                 detail_rows += f'''
                 <tr>
                     <td><a href="genomes/{genome}.html" style="color: #2c5aa0;">{genome[:40]}{"..." if len(genome) > 40 else ""}</a></td>
@@ -3159,14 +2196,9 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                     {gcf_cell}
                 </tr>'''
 
-            # Novel BGCs summary removed from Overview - details available in Novel BGCs tab
-            kcb_mapping_section = ''
-
-            # Build table header - include GCF columns if clustering data available
+            kcb_mapping_section = ''''''
             gcf_header = '<th>GCF Family</th><th>Members</th>' if has_gcf_data else ''
             gcf_description = ' When BiG-SCAPE clustering is enabled, the GCF (Gene Cluster Family) assignment shows how these novel BGCs group together.' if has_gcf_data else ''
-
-            # Novel BGCs details section (for separate tab)
             novel_bgcs_tab_content = f'''
             <h2>Potentially Novel BGCs</h2>
             <p style="color: #666; margin-bottom: 15px;">
@@ -3194,8 +2226,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 </table>
             </div>'''
         elif kcb_stats.get('total_regions', 0) > 0:
-            # All BGCs matched known clusters - no section needed on Overview
-            kcb_mapping_section = ''
+            kcb_mapping_section = ''''''
             novel_bgcs_tab_content = '''
             <h2>Potentially Novel BGCs</h2>
             <p style="color: #666;">All detected BGC regions matched characterized clusters in the MIBiG database. No potentially novel BGCs identified.</p>'''
@@ -3204,70 +2235,46 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             <h2>Potentially Novel BGCs</h2>
             <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to identify potentially novel BGCs.</p>'''
 
-    # Build KCB Hits tab content (grouped by known cluster for scalability)
-    kcb_hits_tab_content = '''
-            <h2>KnownClusterBlast Hits</h2>
-            <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to identify known cluster matches.</p>'''
-
-    if kcb_stats.get('total_regions', 0) > 0:
+        # Build KCB Hits tab content
         cluster_mapping = kcb_stats.get('cluster_mapping', [])
-        regions_with_hits = kcb_stats.get('regions_with_hits', 0)
         unique_clusters = kcb_stats.get('unique_known_clusters', 0)
         sim_breakdown = kcb_stats.get('similarity_breakdown', {})
-
-        # Build similarity breakdown display
         sim_badges = ''
         for sim_level, count in sim_breakdown.items():
             color = '#27ae60' if sim_level == 'high' else '#f39c12' if sim_level == 'medium' else '#95a5a6'
             sim_badges += f'<span style="background: {color}; color: white; padding: 4px 12px; border-radius: 4px; margin-right: 8px;">{sim_level}: {count}</span>'
-
-        # Build known clusters table rows (grouped by cluster - scales with MIBiG size, not genome count)
         kcb_table_rows = ''
         for item in cluster_mapping:
             known_cluster = item['known_cluster']
             mibig_acc = item['mibig_acc']
             hit_count = item['count']
             regions = item['regions']
-
-            # Get unique product types and genomes
             product_types = list(set(r['product'] for r in regions))
             products_display = ', '.join(product_types[:3])
             if len(product_types) > 3:
                 products_display += f' (+{len(product_types) - 3} more)'
-
-            # Build antiSMASH BGC region links
             bgc_links = []
             for r in regions[:5]:
-                genome = r['genome']
-                region = r['region']
-                region_name = r.get('region_name', region)
-                record_index = r.get('record_index', 1)
+                genome = r['genome']; region = r['region']
+                region_name = r.get('region_name', region); record_index = r.get('record_index', 1)
                 antismash_link = f'../../antismash_results/{taxon_clean}/{genome}/index.html#r{record_index}c{region}'
                 bgc_links.append(f'<a href="{antismash_link}" target="_blank" style="color: #28a745;">{genome} Region {region_name}</a>')
             bgc_display = ', '.join(bgc_links)
             if len(regions) > 5:
                 bgc_display += f' (+{len(regions) - 5} more)'
-
-            # Similarity breakdown for this cluster
             sim_counts = {}
             for r in regions:
-                sim = r.get('similarity', 'unknown')
-                sim_counts[sim] = sim_counts.get(sim, 0) + 1
+                sim = r.get('similarity', 'unknown'); sim_counts[sim] = sim_counts.get(sim, 0) + 1
             sim_display = ' / '.join([f'{k}: {v}' for k, v in sim_counts.items()])
-
-            # Determine row color based on highest similarity level
             if 'high' in sim_counts:
-                row_bg = 'background: rgba(39, 174, 96, 0.15);'  # Light green
+                row_bg = 'background: rgba(39, 174, 96, 0.15);'
             elif 'medium' in sim_counts:
-                row_bg = 'background: rgba(243, 156, 18, 0.15);'  # Light orange
+                row_bg = 'background: rgba(243, 156, 18, 0.15);'
             elif 'low' in sim_counts:
-                row_bg = 'background: rgba(149, 165, 166, 0.15);'  # Light gray
+                row_bg = 'background: rgba(149, 165, 166, 0.15);'
             else:
                 row_bg = ''
-
-            # MIBiG link - use full accession with version and trailing slash
             mibig_link = f'https://mibig.secondarymetabolites.org/repository/{mibig_acc}/' if mibig_acc else '#'
-
             kcb_table_rows += f'''
                 <tr style="{row_bg}">
                     <td><a href="{mibig_link}" target="_blank" style="color: #2c5aa0; font-weight: bold;">{known_cluster}</a></td>
@@ -3277,7 +2284,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                     <td>{sim_display}</td>
                     <td>{bgc_display}</td>
                 </tr>'''
-
         kcb_hits_tab_content = f'''
             <h2>KnownClusterBlast Hits</h2>
             <div style="margin-bottom: 20px;">
@@ -3318,35 +2324,32 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 Table shows {unique_clusters} unique known clusters from MIBiG database. Each row represents a characterized BGC that matched one or more regions in your dataset.
             </p>'''
 
-    # =========================================================================
-    # BUILD NEW OVERVIEW SECTIONS
-    # =========================================================================
+    return {
+        'kcb_mapping_section':    kcb_mapping_section,
+        'novel_bgcs_tab_content': novel_bgcs_tab_content,
+        'kcb_hits_tab_content':   kcb_hits_tab_content,
+    }
 
-    # --- Quick Stats (merged into Summary Statistics in template) ---
-    kcb_stats_data = stats.get('kcb_stats', {})
-    quick_stats_html = ''  # Merged into Summary Statistics
 
-    # --- Clustering Summary (cards inlined into overview grid) ---
-    clustering_summary_html = ''  # No longer used as a separate section
-    bigscape_overview_cards = ''
-    if gcf_data and isinstance(gcf_data, dict) and gcf_data.get('gcfs'):
-        gcfs = gcf_data['gcfs']
-        gcf_summary = gcf_data.get('summary', {})
-        total_gcfs = gcf_summary.get('total', len(gcfs))
-        singletons = gcf_summary.get('singletons', sum(1 for g in gcfs if g.get('is_singleton')))
-        clusters = total_gcfs - singletons
-        largest_gcf = max(gcfs, key=lambda x: x.get('member_count', 0)) if gcfs else None
-
-        largest_gcf_card = ''
-        if largest_gcf:
-            largest_gcf_card = f'''
+def _build_bigscape_overview_cards(gcf_data):
+    """Return overview-grid HTML cards for BiG-SCAPE GCF summary stats."""
+    if not (gcf_data and isinstance(gcf_data, dict) and gcf_data.get('gcfs')):
+        return ''
+    gcfs = gcf_data['gcfs']
+    gcf_summary = gcf_data.get('summary', {})
+    total_gcfs = gcf_summary.get('total', len(gcfs))
+    singletons = gcf_summary.get('singletons', sum(1 for g in gcfs if g.get('is_singleton')))
+    clusters = total_gcfs - singletons
+    largest_gcf = max(gcfs, key=lambda x: x.get('member_count', 0)) if gcfs else None
+    largest_gcf_card = ''
+    if largest_gcf:
+        largest_gcf_card = f'''
                 <div style="background: rgba(122, 104, 85, 0.15); border: 1px solid rgba(122, 104, 85, 0.3); padding: 10px 14px; border-radius: 8px;">
                     <div style="font-size: 1.5em; font-weight: bold; color: #7a6855;">{largest_gcf.get("member_count", 0)}</div>
                     <div style="color: #555; font-size: 0.85em;">Largest GCF Size</div>
                     <div style="font-size: 0.78em; margin-top: 2px; color: #777;">{largest_gcf.get("product", "")[:30]}</div>
                 </div>'''
-
-        bigscape_overview_cards = f'''
+    return f'''
                 <div style="background: rgba(92, 107, 122, 0.15); border: 1px solid rgba(92, 107, 122, 0.3); padding: 10px 14px; border-radius: 8px;">
                     <div style="font-size: 1.5em; font-weight: bold; color: #5c6b7a;">{total_gcfs}</div>
                     <div style="color: #555; font-size: 0.85em;">Gene Cluster Families</div>
@@ -3361,48 +2364,12 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 </div>
                 {largest_gcf_card}'''
 
-    # --- Taxonomic Coverage ---
-    taxonomic_coverage_html = ''
-    if taxonomy_map and isinstance(taxonomy_map, dict):
-        # Count unique values at each taxonomic level
-        # Handle nested lineage structure: {genome_id: {lineage: {level: {name: "..."}}}}
-        tax_levels = {}
-        for genome_id, tax_info in taxonomy_map.items():
-            if isinstance(tax_info, dict):
-                lineage = tax_info.get('lineage', {})
-                for level in ['phylum', 'class', 'order', 'family', 'genus', 'species']:
-                    level_data = lineage.get(level, {})
-                    level_name = level_data.get('name', '') if isinstance(level_data, dict) else level_data
-                    if level_name:
-                        if level not in tax_levels:
-                            tax_levels[level] = set()
-                        tax_levels[level].add(level_name)
 
-        if tax_levels:
-            # Proper plural forms for taxonomic levels
-            plurals = {
-                'phylum': 'Phyla', 'class': 'Classes', 'order': 'Orders',
-                'family': 'Families', 'genus': 'Genera', 'species': 'Species'
-            }
-            tax_stats = []
-            for level in ['phylum', 'class', 'order', 'family', 'genus', 'species']:
-                if level in tax_levels:
-                    count = len(tax_levels[level])
-                    plural_label = plurals.get(level, level.title() + 's')
-                    tax_stats.append(f'<div style="text-align: center;"><div style="font-size: 1.5em; font-weight: bold; color: #2c5aa0;">{count}</div><div style="color: #666;">{plural_label}</div></div>')
-
-            taxonomic_coverage_html = f'''
-    <div class="taxonomic-coverage-section" style="margin-top: 30px; background: #f0f7ff; padding: 20px; border-radius: 10px;">
-        <h3>Taxonomic Coverage</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 15px; margin-top: 15px;">
-            {''.join(tax_stats)}
-        </div>
-    </div>'''
-
-    # Build BiG-SCAPE section - only show if BiG-SCAPE data is available
-    bigscape_section_html = ''
-    if bigscape_stats_html or gcf_visualization_html:
-        bigscape_section_html = f'''
+def _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean):
+    """Return the BiG-SCAPE GCF section HTML for the GCF Analysis tab."""
+    if not (bigscape_stats_html or gcf_visualization_html):
+        return ''
+    return f'''
             <div class="clustering-section">
                 <h3>BiG-SCAPE Gene Cluster Families</h3>
                 {bigscape_stats_html if bigscape_stats_html else ''}
@@ -3417,28 +2384,24 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 </div>
             </div>'''
 
-    # Build software versions HTML section
-    versions_html = ''
-    if versions_data:
-        version_rows = []
-        # Define display names for tools
-        tool_names = {
-            'antismash': 'antiSMASH',
-            'bigscape': 'BiG-SCAPE',
-            'gtdbtk': 'GTDB-Tk',
-            'taxonkit': 'TaxonKit',
-            'nextflow': 'Nextflow',
-            'pipeline_version': 'Pipeline Version'
-        }
-        for tool, version in versions_data.items():
-            display_name = tool_names.get(tool, tool.title())
-            version_rows.append(f'''
+
+def _build_versions_html(versions_data):
+    """Return HTML table for software versions."""
+    if not versions_data:
+        return ''
+    tool_names = {
+        'antismash': 'antiSMASH', 'bigscape': 'BiG-SCAPE', 'gtdbtk': 'GTDB-Tk',
+        'taxonkit': 'TaxonKit', 'nextflow': 'Nextflow', 'pipeline_version': 'Pipeline Version',
+    }
+    version_rows = ''
+    for tool, version in versions_data.items():
+        display_name = tool_names.get(tool, tool.title())
+        version_rows += f'''
                 <tr>
                     <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-weight: 500;">{display_name}</td>
                     <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-family: monospace;">{version}</td>
-                </tr>''')
-
-        versions_html = f'''
+                </tr>'''
+    return f'''
             <div class="versions-section" style="margin-top: 30px;">
                 <h3>Software Versions</h3>
                 <p style="color: #666; margin-bottom: 15px;">
@@ -3452,71 +2415,51 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                         </tr>
                     </thead>
                     <tbody>
-                        {''.join(version_rows)}
+                        {version_rows}
                     </tbody>
                 </table>
             </div>'''
 
-    # Build rarefaction curve section for Overview tab
-    rarefaction_section = ''
-    if rarefaction_stats and rarefaction_stats.get('generated'):
-        saturation = rarefaction_stats.get('saturation', 0)
-        n_genomes = rarefaction_stats.get('n_genomes', 0)
-        total_gcfs = rarefaction_stats.get('total_gcfs', 0)
 
-        # Interpretation based on saturation level
-        if saturation >= 90:
-            interpretation = "GCF diversity is well-saturated. Additional sampling within this taxon is unlikely to discover many new gene cluster families."
-            interpretation_color = "#27ae60"
-        elif saturation >= 70:
-            interpretation = "GCF diversity is moderately saturated. Some new gene cluster families may still be discovered with additional sampling."
-            interpretation_color = "#f39c12"
-        else:
-            interpretation = "GCF diversity is not saturated. Significant new diversity may be discovered with additional sampling."
-            interpretation_color = "#e74c3c"
-
-        rarefaction_section = f'''
+def _build_rarefaction_section(rarefaction_stats):
+    """Return rarefaction curve HTML block for the Overview tab."""
+    if not (rarefaction_stats and rarefaction_stats.get('generated')):
+        return ''
+    _rarefaction_svg_b64 = rarefaction_stats.get('svg_b64')
+    _rarefaction_img = (
+        f'<img src="data:image/svg+xml;base64,{_rarefaction_svg_b64}" '
+        f'alt="GCF Rarefaction Curve" style="max-width: 100%; height: auto;">'
+        if _rarefaction_svg_b64
+        else '<img src="rarefaction_curve.png" alt="GCF Rarefaction Curve" style="max-width: 100%; height: auto;">'
+    )
+    return f'''
             <!-- GCF Rarefaction Curve -->
             <div class="plot" style="max-width: 800px; margin: 30px auto;">
                 <h3 style="margin-top: 0;">GCF Rarefaction Curve</h3>
                 <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
                     Shows how the number of unique Gene Cluster Families (GCFs) increases as more genomes are sampled.
-                    A plateau indicates sampling saturation - additional genomes would yield diminishing discovery of new GCFs.
+                    A plateau indicates sampling saturation — additional genomes would yield diminishing discovery of new GCFs.
                 </p>
-                <img src="rarefaction_curve.png" alt="GCF Rarefaction Curve" style="max-width: 100%; height: auto;">
+                {_rarefaction_img}
             </div>'''
 
-    # Build BGC Distribution section HTML (replaces Tree View)
-    distribution_section = generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path)
 
-    # Use distribution_section for the "BGC Distribution" tab (replaces old tree view)
-    tree_section = distribution_section  # Keep variable name for template compatibility
-
-    # Build genome table section (avoid nested f-strings)
-    genome_table_rows = genome_table_html if genome_table_html else '<tr><td colspan="6">No genome data available</td></tr>'
-
-    html_content = f'''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>BGC Analysis Report - {taxon}</title>
-    <style>
-        * {{ box-sizing: border-box; }}
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px 40px; background: #f8f9fa; color: #333; }}
-        h1 {{ color: #333; text-align: center; margin-bottom: 5px; }}
-        h2 {{ color: #333; border-bottom: 2px solid #5b8ac5; padding-bottom: 10px; margin-top: 30px; }}
-        h3 {{ color: #444; margin-top: 25px; }}
-        .subtitle {{ text-align: center; color: #666; font-size: 1.1em; margin-bottom: 20px; }}
+_REPORT_CSS = """\
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px 40px; background: #f8f9fa; color: #333; }
+        h1 { color: #333; text-align: center; margin-bottom: 5px; }
+        h2 { color: #333; border-bottom: 2px solid #5b8ac5; padding-bottom: 10px; margin-top: 30px; }
+        h3 { color: #444; margin-top: 25px; }
+        .subtitle { text-align: center; color: #666; font-size: 1.1em; margin-bottom: 20px; }
 
         /* Tab Styles */
-        .tabs {{
+        .tabs {
             margin-top: 20px;
-        }}
-        .tabs input[type="radio"] {{
+        }
+        .tabs input[type="radio"] {
             display: none;
-        }}
-        .tabs label {{
+        }
+        .tabs label {
             display: inline-block;
             padding: 12px 24px;
             background: #e9ecef;
@@ -3529,18 +2472,18 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             border: 1px solid #ddd;
             border-bottom: none;
             white-space: nowrap;
-        }}
-        .tabs label:hover {{
+        }
+        .tabs label:hover {
             background: #dee2e6;
             color: #333;
-        }}
-        .tabs input[type="radio"]:checked + label {{
+        }
+        .tabs input[type="radio"]:checked + label {
             background: white;
             color: #2c5aa0;
             border-color: #5b8ac5;
             font-weight: 600;
-        }}
-        .tab-content {{
+        }
+        .tab-content {
             display: none;
             background: white;
             padding: 30px;
@@ -3548,25 +2491,25 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             border-radius: 0 8px 8px 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             min-height: 400px;
-        }}
+        }
         #tab1:checked ~ #content1,
         #tab2:checked ~ #content2,
         #tab3:checked ~ #content3,
         #tab4:checked ~ #content4,
         #tab5:checked ~ #content5,
         #tab6:checked ~ #content6,
-        #tab7:checked ~ #content7 {{
+        #tab7:checked ~ #content7 {
             display: block;
-        }}
+        }
 
         /* Collapsible details block (Pipeline Info in Overview) */
-        details.pipeline-info {{
+        details.pipeline-info {
             margin-top: 30px;
             border: 1px solid #dee2e6;
             border-radius: 8px;
             overflow: hidden;
-        }}
-        details.pipeline-info > summary {{
+        }
+        details.pipeline-info > summary {
             padding: 12px 18px;
             background: #f8f9fa;
             cursor: pointer;
@@ -3577,123 +2520,123 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             display: flex;
             align-items: center;
             gap: 8px;
-        }}
-        details.pipeline-info > summary::-webkit-details-marker {{ display: none; }}
-        details.pipeline-info > summary::before {{
+        }
+        details.pipeline-info > summary::-webkit-details-marker { display: none; }
+        details.pipeline-info > summary::before {
             content: '▶';
             font-size: 0.75em;
             transition: transform 0.2s;
             display: inline-block;
-        }}
-        details.pipeline-info[open] > summary::before {{ transform: rotate(90deg); }}
-        details.pipeline-info > .details-body {{
+        }
+        details.pipeline-info[open] > summary::before { transform: rotate(90deg); }
+        details.pipeline-info > .details-body {
             padding: 20px 24px;
-        }}
+        }
 
         /* Section divider within merged tabs */
-        .tab-section-divider {{
+        .tab-section-divider {
             border: none;
             border-top: 2px solid #e9ecef;
             margin: 32px 0 28px;
-        }}
+        }
 
         /* Stats Dashboard */
-        .stats-container {{
+        .stats-container {
             display: grid;
             grid-template-columns: repeat(8, 1fr);
             gap: 8px;
             margin: 15px 0;
-        }}
-        @media (max-width: 1200px) {{
-            .stats-container {{
+        }
+        @media (max-width: 1200px) {
+            .stats-container {
                 grid-template-columns: repeat(4, 1fr);
-            }}
-        }}
-        @media (max-width: 768px) {{
-            .stats-container {{
+            }
+        }
+        @media (max-width: 768px) {
+            .stats-container {
                 grid-template-columns: repeat(2, 1fr);
-            }}
-        }}
-        .stat-box {{
+            }
+        }
+        .stat-box {
             background: #f8f9fa;
             padding: 12px 8px;
             border-radius: 6px;
             border: 1px solid #e9ecef;
             text-align: center;
-        }}
-        .stat-box.highlight {{
+        }
+        .stat-box.highlight {
             /* Same as regular stat-box */
-        }}
-        .stat-value {{
+        }
+        .stat-value {
             font-size: 1.4em;
             font-weight: bold;
             color: #2c5aa0;
-        }}
-        .stat-label {{
+        }
+        .stat-label {
             color: #666;
             margin-top: 3px;
             font-size: 0.8em;
-        }}
+        }
 
         /* Plots */
-        .plot {{
+        .plot {
             margin: 20px 0;
             text-align: center;
             background: #fafafa;
             padding: 20px;
             border-radius: 8px;
             border: 1px solid #eee;
-        }}
-        .plot img {{
+        }
+        .plot img {
             max-width: 100%;
             height: auto;
             border-radius: 4px;
-        }}
-        .plot-row {{
+        }
+        .plot-row {
             display: flex;
             gap: 20px;
             flex-wrap: wrap;
             justify-content: center;
-        }}
-        .plot-row .plot {{
+        }
+        .plot-row .plot {
             flex: 1;
             min-width: 300px;
             max-width: 500px;
-        }}
+        }
 
         /* Tables */
-        table {{
+        table {
             border-collapse: collapse;
             width: 100%;
             background: white;
             font-size: 0.9em;
-        }}
-        th, td {{
+        }
+        th, td {
             border: 1px solid #ddd;
             padding: 10px 12px;
             text-align: left;
-        }}
-        th {{
+        }
+        th {
             background: #2c5aa0;
             color: white;
             font-weight: 600;
             position: sticky;
             top: 0;
-        }}
-        tr:nth-child(even) {{ background-color: #f8f9fa; }}
-        tr:hover {{ background-color: #e3f2fd; }}
-        .table-container {{
+        }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr:hover { background-color: #e3f2fd; }
+        .table-container {
             max-height: 500px;
             overflow-y: auto;
             border: 1px solid #ddd;
             border-radius: 8px;
-        }}
+        }
 
         /* Search Box */
-        .search-box {{
+        .search-box {
             margin-bottom: 15px;
-        }}
-        .search-box input {{
+        }
+        .search-box input {
             width: 100%;
             max-width: 400px;
             padding: 10px 15px;
@@ -3702,28 +2645,28 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             border-radius: 6px;
             outline: none;
             transition: border-color 0.2s;
-        }}
-        .search-box input:focus {{
+        }
+        .search-box input:focus {
             border-color: #5b8ac5;
-        }}
+        }
 
         /* Info Box */
-        .info-box {{
+        .info-box {
             background: #e8f4f8;
             border-left: 4px solid #2c5aa0;
             padding: 20px;
             margin: 20px 0;
             border-radius: 0 8px 8px 0;
-        }}
-        .info-box.warning {{
+        }
+        .info-box.warning {
             background: #fff8e1;
             border-left-color: #ffc107;
-        }}
+        }
 
         /* Links & Buttons */
-        a {{ color: #2c5aa0; text-decoration: none; }}
-        a:hover {{ color: #5b8ac5; text-decoration: underline; }}
-        .btn {{
+        a { color: #2c5aa0; text-decoration: none; }
+        a:hover { color: #5b8ac5; text-decoration: underline; }
+        .btn {
             display: inline-block;
             padding: 10px 20px;
             background: #2c5aa0;
@@ -3732,27 +2675,164 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             font-weight: 500;
             text-decoration: none;
             transition: background 0.2s;
-        }}
-        .btn:hover {{ background: #5b8ac5; color: white; text-decoration: none; }}
-        code {{
+        }
+        .btn:hover { background: #5b8ac5; color: white; text-decoration: none; }
+        code {
             background: #f4f4f4;
             padding: 3px 8px;
             border-radius: 4px;
             font-family: 'Consolas', monospace;
             font-size: 0.9em;
             border: 1px solid #e0e0e0;
-        }}
+        }
 
         /* Clustering sections */
-        .clustering-section {{
+        .clustering-section {
             margin-bottom: 30px;
             padding-bottom: 30px;
             border-bottom: 1px solid #eee;
-        }}
-        .clustering-section:last-child {{
+        }
+        .clustering-section:last-child {
             border-bottom: none;
-        }}
-    </style>
+        }
+"""
+
+_REPORT_JS = """\
+            const input = document.getElementById('genomeSearch');
+            const filter = input.value.toLowerCase();
+            const tbody = document.getElementById('genomeTableBody');
+            const rows = tbody.getElementsByTagName('tr');
+
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                let found = false;
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+                rows[i].style.display = found ? '' : 'none';
+            }
+        }
+
+        function filterNovelBGCs() {
+            const input = document.getElementById('novelSearch');
+            const filter = input.value.toLowerCase();
+            const tbody = document.getElementById('novelTableBody');
+            const rows = tbody.getElementsByTagName('tr');
+
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                let found = false;
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+                rows[i].style.display = found ? '' : 'none';
+            }
+        }
+
+        function filterKCBHits() {
+            const input = document.getElementById('kcbSearch');
+            const filter = input.value.toLowerCase();
+            const tbody = document.getElementById('kcbTableBody');
+            const rows = tbody.getElementsByTagName('tr');
+
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                let found = false;
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+                rows[i].style.display = found ? '' : 'none';
+            }
+        }
+
+        function toggleNode(nodeId) {
+            const element = document.getElementById(nodeId);
+            const header = element.previousElementSibling;
+            const icon = header.querySelector('.toggle-icon');
+            if (element.style.display === 'none') {
+                element.style.display = 'block';
+                icon.innerHTML = '&#9660;';
+            } else {
+                element.style.display = 'none';
+                icon.innerHTML = '&#9654;';
+            }
+        }
+
+        // Initialize all tree nodes as collapsed except root
+        document.addEventListener('DOMContentLoaded', function() {
+            const nodeChildren = document.querySelectorAll('.node-children');
+            nodeChildren.forEach(function(node, index) {
+                if (index > 0) {
+                    node.style.display = 'none';
+                    const header = node.previousElementSibling;
+                    if (header) {
+                        const icon = header.querySelector('.toggle-icon');
+                        if (icon) icon.innerHTML = '&#9654;';
+                    }
+                }
+            });
+        });
+"""
+
+def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
+                         bigscape_stats_html='', gcf_visualization_html='',
+                         phylo_tree_generated=False, genome_table_html='',
+                         resource_usage_html='', phylo_tree_data=None, gcf_data=None, taxonomy_map=None,
+                         versions_data=None, rarefaction_stats=None,
+                         gtdbtk_summary_path=None, gcf_tree_b64=None,
+                         gcf_tree_mime='image/png',
+                         all_bgcs_tree_b64=None, all_bgcs_tree_mime='image/png',
+                         gcf_heatmap_b64=None,
+                         coupling_table_rows=None):
+    '''Generate tab-based HTML report combining all visualizations'''
+
+    # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
+    taxon_clean = re.sub(r'[^a-zA-Z0-9_]', '_', taxon)
+    taxon_clean = re.sub(r'_+', '_', taxon_clean).strip('_')
+
+    kcb_stats = stats.get('kcb_stats', {})
+    kcb = _build_kcb_content(kcb_stats, taxon_clean, gcf_data)
+    kcb_mapping_section    = kcb['kcb_mapping_section']
+    novel_bgcs_tab_content = kcb['novel_bgcs_tab_content']
+    kcb_hits_tab_content   = kcb['kcb_hits_tab_content']
+
+    bigscape_overview_cards = _build_bigscape_overview_cards(gcf_data)
+
+    bigscape_section_html = _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean)
+
+    versions_html = _build_versions_html(versions_data)
+
+    rarefaction_section = _build_rarefaction_section(rarefaction_stats)
+
+    # Build BGC Distribution section HTML (replaces Tree View)
+    distribution_section = generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path, gcf_heatmap_b64=gcf_heatmap_b64)
+
+    # Use distribution_section for the "BGC Distribution" tab (replaces old tree view)
+    tree_section = distribution_section  # Keep variable name for template compatibility
+
+    # Build genome table section (avoid nested f-strings)
+    genome_table_rows = genome_table_html if genome_table_html else '<tr><td colspan="6">No genome data available</td></tr>'
+
+    # Coupling table rows: use dynamic data when available, otherwise placeholder
+    if coupling_table_rows is None:
+        coupling_table_rows = '<tr><td colspan="4" style="padding: 7px 12px; color: #999;">Coupling enzyme data not available. Run the pipeline with <code>--clustering bigscape</code>.</td></tr>'
+
+    html_content = f'''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>BGC Analysis Report - {taxon}</title>
+    <style>{_REPORT_CSS}</style>
 </head>
 <body>
     <h1>BGC Analysis Report</h1>
@@ -3884,18 +2964,30 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
         <div class="tab-content" id="content4">
             <h2>GCF Analysis</h2>
 
-            <h3>Biosynthetic Phylogeny</h3>
+            <h3>GCF Biosynthetic Phylogeny</h3>
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Classification of phosphonate BGCs by the coupling enzyme acting on phosphonopyruvate — the branching step
                 immediately downstream of PEP mutase that determines the downstream biosynthetic pathway.</em>
             </p>
 
+            <!-- GCF medoid tree (top half) -->
             <div class="plot" style="margin-top: 20px;">
-                {'<img src="data:image/png;base64,' + gcf_tree_b64 + '" alt="GCF Biosynthetic Phylogeny" style="max-width: 100%; height: auto; display: block;">' if gcf_tree_b64 else '<div style="color: #999; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center;">GCF biosynthetic tree not generated. Run the pipeline with <code>--clustering bigscape</code> to generate this figure.</div>'}
-                <p style="color: #666; font-size: 0.9em; margin-top: 10px;">
-                    Neighbor-Joining tree of Gene Cluster Families built from BiG-SCAPE center-to-center pairwise distances.
-                    Each node represents one GCF; color indicates the dominant coupling enzyme class; circle size is proportional to GCF membership.
+                <h4 style="margin: 0 0 8px 0; color: #333;">GCF-Level Tree</h4>
+                <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
+                    One representative (medoid) per Gene Cluster Family. Circle size ∝ GCF membership.
                 </p>
+                {'<img src="data:' + gcf_tree_mime + ';base64,' + gcf_tree_b64 + '" alt="GCF Biosynthetic Phylogeny" style="max-width: 100%; height: auto; display: block;">' if gcf_tree_b64 else '<div style="color: #999; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; font-size: 0.9em;">GCF biosynthetic tree not generated.<br>Run with <code>--clustering bigscape</code> to enable.</div>'}
+            </div>
+
+            <hr class="tab-section-divider">
+
+            <!-- All-BGCs circular tree (bottom half) -->
+            <div class="plot">
+                <h4 style="margin: 0 0 8px 0; color: #333;">All-BGCs Circular Tree</h4>
+                <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
+                    Every BGC as a leaf. NJ tree from the full BiG-SCAPE pairwise distance matrix, colored by coupling enzyme class.
+                </p>
+                {'<img src="data:' + all_bgcs_tree_mime + ';base64,' + all_bgcs_tree_b64 + '" alt="All-BGCs Biosynthetic Tree" style="max-width: 100%; height: auto; display: block;">' if all_bgcs_tree_b64 else '<div style="color: #999; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; font-size: 0.9em;">All-BGCs tree not generated.<br>Run with <code>--clustering bigscape</code> to enable.</div>'}
             </div>
 
             <div style="margin-top: 24px; background: #f8f9fa; padding: 20px; border-radius: 10px;">
@@ -3906,15 +2998,12 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                             <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Class</th>
                             <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Marker</th>
                             <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Pathway</th>
+                            <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Reference Gene(s)</th>
                             <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">GCFs</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">FrbC</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">SMCOG1271 (HMGL-like)</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">→ phosphonomethylmalate → phosphinothricin-type</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">GCF-2/3</td></tr>
-                        <tr style="background:#fafafa;"><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">Fe-ADH</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">Fe-ADH rule</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">→ phosphonolactate (reductase route)</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">GCF-4/6</td></tr>
-                        <tr><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">TPP+NTP</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">TPP_enzyme_C + NTP_transf_3</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">→ phosphonolipid (CDP-pathway)</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">GCF-5</td></tr>
-                        <tr style="background:#fafafa;"><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">Ppd</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">SMCOG1055 (ThDP-decarboxylase)</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">→ 2-phosphonoacetaldehyde → 2-AEP</td><td style="padding: 7px 12px; border-bottom: 1px solid #eee;">GCF-1/8</td></tr>
-                        <tr><td style="padding: 7px 12px;">Unknown</td><td style="padding: 7px 12px;">—</td><td style="padding: 7px 12px;">—</td><td style="padding: 7px 12px;">—</td></tr>
+                        {coupling_table_rows}
                     </tbody>
                 </table>
             </div>
@@ -3945,94 +3034,10 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             {resource_usage_html if resource_usage_html else '<div class="info-box warning"><p>No resource usage data available. Trace data will appear here after running the pipeline.</p></div>'}
             {versions_html}
         </div>
+
     </div>
 
-    <script>
-        function filterGenomes() {{
-            const input = document.getElementById('genomeSearch');
-            const filter = input.value.toLowerCase();
-            const tbody = document.getElementById('genomeTableBody');
-            const rows = tbody.getElementsByTagName('tr');
-
-            for (let i = 0; i < rows.length; i++) {{
-                const cells = rows[i].getElementsByTagName('td');
-                let found = false;
-                for (let j = 0; j < cells.length; j++) {{
-                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {{
-                        found = true;
-                        break;
-                    }}
-                }}
-                rows[i].style.display = found ? '' : 'none';
-            }}
-        }}
-
-        function filterNovelBGCs() {{
-            const input = document.getElementById('novelSearch');
-            const filter = input.value.toLowerCase();
-            const tbody = document.getElementById('novelTableBody');
-            const rows = tbody.getElementsByTagName('tr');
-
-            for (let i = 0; i < rows.length; i++) {{
-                const cells = rows[i].getElementsByTagName('td');
-                let found = false;
-                for (let j = 0; j < cells.length; j++) {{
-                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {{
-                        found = true;
-                        break;
-                    }}
-                }}
-                rows[i].style.display = found ? '' : 'none';
-            }}
-        }}
-
-        function filterKCBHits() {{
-            const input = document.getElementById('kcbSearch');
-            const filter = input.value.toLowerCase();
-            const tbody = document.getElementById('kcbTableBody');
-            const rows = tbody.getElementsByTagName('tr');
-
-            for (let i = 0; i < rows.length; i++) {{
-                const cells = rows[i].getElementsByTagName('td');
-                let found = false;
-                for (let j = 0; j < cells.length; j++) {{
-                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {{
-                        found = true;
-                        break;
-                    }}
-                }}
-                rows[i].style.display = found ? '' : 'none';
-            }}
-        }}
-
-        function toggleNode(nodeId) {{
-            const element = document.getElementById(nodeId);
-            const header = element.previousElementSibling;
-            const icon = header.querySelector('.toggle-icon');
-            if (element.style.display === 'none') {{
-                element.style.display = 'block';
-                icon.innerHTML = '&#9660;';
-            }} else {{
-                element.style.display = 'none';
-                icon.innerHTML = '&#9654;';
-            }}
-        }}
-
-        // Initialize all tree nodes as collapsed except root
-        document.addEventListener('DOMContentLoaded', function() {{
-            const nodeChildren = document.querySelectorAll('.node-children');
-            nodeChildren.forEach(function(node, index) {{
-                if (index > 0) {{
-                    node.style.display = 'none';
-                    const header = node.previousElementSibling;
-                    if (header) {{
-                        const icon = header.querySelector('.toggle-icon');
-                        if (icon) icon.innerHTML = '&#9654;';
-                    }}
-                }}
-            }});
-        }});
-    </script>
+    <script>{_REPORT_JS}</script>
 </body>
 </html>
 '''
@@ -4061,6 +3066,10 @@ def main():
     parser.add_argument('--skip_tree', action='store_true', help='Skip phylogenetic tree visualization (useful for very large datasets)')
     parser.add_argument('--outgroup', type=str, help='Outgroup taxon pattern for tree pruning (e.g., "g__Escherichia")')
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
+    parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
+    parser.add_argument('--all_bgcs_tree', type=Path, help='Path to all-BGCs circular NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
+    parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
+    parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
 
     args = parser.parse_args()
 
@@ -4206,11 +3215,55 @@ def main():
             print(f"Warning: Could not load versions file: {e}")
 
     # Load GCF biosynthetic tree image as base64 for embedding in report
+    # Prefer SVG (vector, publication quality) over PNG when available
+    import base64
     gcf_tree_b64 = None
-    if args.gcf_tree and args.gcf_tree.exists():
-        import base64
+    gcf_tree_mime = 'image/png'
+    if args.gcf_tree_svg and args.gcf_tree_svg.exists():
+        with open(args.gcf_tree_svg, 'rb') as f:
+            gcf_tree_b64 = base64.b64encode(f.read()).decode('ascii')
+        gcf_tree_mime = 'image/svg+xml'
+    elif args.gcf_tree and args.gcf_tree.exists():
         with open(args.gcf_tree, 'rb') as f:
             gcf_tree_b64 = base64.b64encode(f.read()).decode('ascii')
+
+    # Load GCF × species heatmap SVG as base64
+    gcf_heatmap_b64 = None
+    if args.gcf_heatmap_svg and args.gcf_heatmap_svg.exists():
+        with open(args.gcf_heatmap_svg, 'rb') as f:
+            gcf_heatmap_b64 = base64.b64encode(f.read()).decode('ascii')
+
+    # Load all-BGCs circular tree image as base64
+    all_bgcs_tree_b64 = None
+    if args.all_bgcs_tree and args.all_bgcs_tree.exists():
+        # Prefer SVG sibling if it exists alongside the PNG
+        svg_sibling = args.all_bgcs_tree.with_suffix('.svg')
+        if svg_sibling.exists():
+            with open(svg_sibling, 'rb') as f:
+                all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
+            all_bgcs_tree_mime = 'image/svg+xml'
+        else:
+            with open(args.all_bgcs_tree, 'rb') as f:
+                all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
+            all_bgcs_tree_mime = 'image/png'
+    else:
+        all_bgcs_tree_mime = 'image/png'
+
+    # Build coupling enzyme table rows from live BiG-SCAPE data
+    coupling_table_rows = None
+    bigscape_db_for_coupling = None
+    if args.bigscape_db and args.bigscape_db.exists():
+        bigscape_db_for_coupling = args.bigscape_db
+    elif args.bigscape_stats and args.bigscape_stats.exists():
+        import glob as _glob
+        db_candidates = _glob.glob(str(args.bigscape_stats.parent / '*.db'))
+        if db_candidates:
+            bigscape_db_for_coupling = Path(db_candidates[0])
+    if (args.coupling_annotation and args.coupling_annotation.exists()
+            and bigscape_db_for_coupling):
+        print("Building coupling enzyme table from live data...")
+        coupling_table_rows = build_coupling_table_rows(
+            args.coupling_annotation, bigscape_db_for_coupling)
 
     if args.counts or args.tabulation:
         print(f"Generating HTML report...")
@@ -4222,7 +3275,12 @@ def main():
                             versions_data=versions_data,
                             rarefaction_stats=rarefaction_stats,
                             gtdbtk_summary_path=gtdbtk_summary_path,
-                            gcf_tree_b64=gcf_tree_b64)
+                            gcf_tree_b64=gcf_tree_b64,
+                            gcf_tree_mime=gcf_tree_mime,
+                            all_bgcs_tree_b64=all_bgcs_tree_b64,
+                            all_bgcs_tree_mime=all_bgcs_tree_mime,
+                            gcf_heatmap_b64=gcf_heatmap_b64,
+                            coupling_table_rows=coupling_table_rows)
         print(f"Visualizations complete! Open {args.outdir}/bgc_report.html in a browser.")
 
 if __name__ == '__main__':

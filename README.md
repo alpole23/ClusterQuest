@@ -73,11 +73,11 @@ nextflow run main.nf -profile slurm --taxon "Streptomyces"
 # Option 2: Submit via sbatch script
 sbatch submit_slurm.sh "Streptomyces"
 
-# Monitor progress
-./check_progress.sh
+# Monitor progress (tail the SLURM output file)
+tail -f clusterquest_JOBID.out
 
-# Watch mode (auto-refresh every 10s)
-./check_progress.sh -w
+# Or follow the most recent job automatically
+tail -f $(ls -t clusterquest_*.out | head -1)
 ```
 
 **Before running on SLURM**, edit `submit_slurm.sh` to configure:

@@ -34,10 +34,10 @@ from pathlib import Path
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from Bio import Phylo
-from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
 
 sys.path.insert(0, str(Path(__file__).parent))
-from utils.constants import COUPLING_COLORS, COUPLING_ORDER
+from utils.constants import COUPLING_COLORS, COUPLING_ORDER, load_coupling_classes
+from utils.tree_building import build_nj_tree as _build_nj_tree
 
 
 def get_gcf_info(conn, cutoff):
@@ -88,26 +88,15 @@ def get_center_distances(conn, gcf_info):
     return distances
 
 
-def build_nj_tree(gcf_ids, distances):
+def build_gcf_nj_tree(gcf_ids, distances):
     """Build a Neighbor-Joining tree from the center-to-center distance matrix."""
     labels = [f'GCF-{gid}' for gid in gcf_ids]
-
-    # Biopython DistanceMatrix expects a lower-triangular list of lists
     dm_rows = []
     for i, gcf_a in enumerate(gcf_ids):
-        row = []
-        for j in range(i + 1):
-            gcf_b = gcf_ids[j]
-            if gcf_a == gcf_b:
-                row.append(0.0)
-            else:
-                key = (min(gcf_a, gcf_b), max(gcf_a, gcf_b))
-                row.append(distances[key])
+        row = [0.0 if gcf_a == gcf_ids[j] else distances[(min(gcf_a, gcf_ids[j]), max(gcf_a, gcf_ids[j]))]
+               for j in range(i + 1)]
         dm_rows.append(row)
-
-    dm = DistanceMatrix(labels, dm_rows)
-    tree = DistanceTreeConstructor().nj(dm)
-    return tree, dm
+    return _build_nj_tree(labels, dm_rows)
 
 
 def save_distance_matrix(gcf_ids, distances, path):
@@ -124,26 +113,6 @@ def save_distance_matrix(gcf_ids, distances, path):
                     row.append(f'{distances[key]:.6f}')
             writer.writerow(row)
 
-
-def load_coupling_classes(path):
-    """Parse iTOL coupling annotation → {gbk_basename: class_name}."""
-    classes = {}
-    legacy = {'Fe-ADH': 'VlpB-like', 'TPP+NTP': 'Ppd-CDP',
-               'PalB': 'PalB-like', 'FrbC': 'FrbC-like'}
-    in_data = False
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line == 'DATA':
-                in_data = True; continue
-            if in_data and line and not line.startswith('#'):
-                parts = line.split('\t')
-                if len(parts) >= 3:
-                    label = parts[0]
-                    cls   = legacy.get(parts[2], parts[2])
-                    if not any(label.endswith(f'_{i}') for i in range(10)):
-                        classes[label] = cls
-    return classes
 
 
 def get_gcf_coupling_class(conn, gcf_info, cutoff, coupling_classes):
@@ -312,7 +281,7 @@ def main():
     print(f'\nSaved distance matrix: {out_tsv}')
 
     print('\nBuilding Neighbor-Joining tree...')
-    tree, dm = build_nj_tree(gcf_ids, distances)
+    tree = build_gcf_nj_tree(gcf_ids, distances)
 
     out_nwk = os.path.join(args.outdir, 'gcf_biosynthetic_tree.nwk')
     Phylo.write(tree, out_nwk, 'newick')
@@ -323,7 +292,7 @@ def main():
 
     if args.coupling_annotation:
         print('\nGenerating figure...')
-        coupling_classes = load_coupling_classes(args.coupling_annotation)
+        coupling_classes = load_coupling_classes(args.coupling_annotation, region_only=True)
         gcf_dominant = get_gcf_coupling_class(conn, gcf_info, args.cutoff, coupling_classes)
         plot_gcf_tree(tree, gcf_info, gcf_dominant, args.outdir)
 
