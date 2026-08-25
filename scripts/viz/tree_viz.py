@@ -746,7 +746,7 @@ def plot_circular_phylogenetic_tree(newick_file, counts_file, gtdbtk_summary, ou
     return True
 
 
-def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir):
+def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir, outgroup=None):
     """
     Prepare phylogenetic tree data for JavaScript visualization.
     Prunes the GTDB-Tk tree to only include user genomes and exports data for JS rendering.
@@ -757,10 +757,14 @@ def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir):
         gtdbtk_summary: Path to GTDB-Tk summary TSV
         counts_file: Path to region_counts.tsv for BGC data
         outdir: Output directory
+        outgroup: Optional outgroup taxon pattern (e.g., "g__Escherichia") to keep in pruned tree
 
     Returns:
         dict with 'newick' (pruned tree string) and 'metadata' (genome info), or None on failure
     """
+    from pathlib import Path
+    from io import StringIO
+
     newick_path = Path(newick_file)
     if not newick_path.exists():
         print(f"Newick file not found: {newick_file}")
@@ -791,7 +795,7 @@ def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir):
     # Read BGC counts
     if counts_file and Path(counts_file).exists():
         try:
-            df = pd.read_csv(counts_file, sep='\t', comment='#')
+            df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
             for _, row in df.iterrows():
                 genome_name = row.get('genome', row.get('file', ''))
                 if genome_name:
@@ -805,7 +809,11 @@ def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir):
     # Try to use Bio.Phylo for efficient parsing
     try:
         from Bio import Phylo
-        from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
+        import sys
+
+        # Increase recursion limit for large trees (GTDB reference trees can be very deep)
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(max(old_limit, 15000))
 
         print(f"Reading phylogenetic tree from {newick_file} using Bio.Phylo...")
 
@@ -827,55 +835,93 @@ def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir):
                 print(f"  Sample terminal: {t.name}")
             return None
 
-        # Prune tree to user genomes only
-        print(f"Pruning tree to {len(user_terminals)} user genomes...")
+        # Find outgroup terminal if specified
+        outgroup_terminal = None
+        if outgroup:
+            # Search for a terminal matching the outgroup pattern
+            # Pattern can be taxonomy rank (e.g., "g__Escherichia") or partial name
+            for t in terminals:
+                if t.name and outgroup in t.name:
+                    outgroup_terminal = t
+                    print(f"Found outgroup: {t.name} (matching pattern '{outgroup}')")
+                    break
+            if not outgroup_terminal:
+                print(f"Warning: No outgroup found matching pattern '{outgroup}'")
+
+        # Prune tree to user genomes (and outgroup if found)
+        terminals_to_keep = len(user_terminals) + (1 if outgroup_terminal else 0)
+        print(f"Pruning tree to {terminals_to_keep} terminals...")
 
         # For small numbers of genomes, build a simple tree with just their relationships
-        if len(user_terminals) == 1:
-            # Single genome - create simple tree
+        if len(user_terminals) == 1 and not outgroup_terminal:
+            # Single genome without outgroup - create simple tree
             name = user_terminals[0].name
             bl = user_terminals[0].branch_length or 0.0
             pruned_newick = f"({name}:{bl});"
         else:
-            # Build tree from pairwise distances using neighbor-joining
-            # Get pairwise distances using tree structure
-            names = [t.name for t in user_terminals]
-            n = len(names)
-            print(f"Computing pairwise distances for {n} genomes...")
+            # Use Bio.Phylo's built-in pruning - O(n) instead of O(n²) distance matrix
+            # Strategy: remove all terminals except user genomes and outgroup
+            terminals_to_keep = set(t.name for t in user_terminals)
+            if outgroup_terminal:
+                terminals_to_keep.add(outgroup_terminal.name)
+            non_user_terminals = [t for t in terminals if t.name not in terminals_to_keep]
 
-            # Build distance matrix from tree distances
-            # For large trees, compute in batches to show progress
-            matrix = []
-            for i in range(n):
-                if i % 50 == 0 and i > 0:
-                    print(f"  Distance matrix: {i}/{n} rows computed...")
-                row = []
-                for j in range(i + 1):
-                    if i == j:
-                        row.append(0.0)
-                    else:
-                        # Get distance between two terminals in tree
-                        try:
-                            dist = tree.distance(user_terminals[i], user_terminals[j])
-                        except:
-                            dist = 1.0  # Default if distance calc fails
-                        row.append(dist)
-                matrix.append(row)
+            print(f"Removing {len(non_user_terminals)} terminals from tree...")
 
-            print(f"Building neighbor-joining tree from distance matrix...")
-            # Create distance matrix and build tree
-            dm = DistanceMatrix(names, matrix)
-            constructor = DistanceTreeConstructor()
-            pruned_tree_obj = constructor.nj(dm)
+            # Remove non-user terminals in batches with progress reporting
+            removed_count = 0
+            total_to_remove = len(non_user_terminals)
+            report_interval = max(1, total_to_remove // 20)  # Report ~20 times
 
-            # Fix negative branch lengths (common in NJ trees)
-            for clade in pruned_tree_obj.find_clades():
-                if clade.branch_length is not None and clade.branch_length < 0:
-                    clade.branch_length = 0.0001  # Small positive value
+            for terminal in non_user_terminals:
+                try:
+                    tree.prune(terminal)
+                    removed_count += 1
+                    if removed_count % report_interval == 0:
+                        print(f"  Pruning progress: {removed_count}/{total_to_remove} ({100*removed_count//total_to_remove}%)")
+                except Exception as e:
+                    # Terminal may already be removed if it was part of a collapsed branch
+                    pass
+
+            print(f"Removed {removed_count} terminals")
+
+            # Collapse single-child internal nodes to clean up the tree
+            def collapse_single_child_clades(clade):
+                """Recursively collapse internal nodes with single children."""
+                if clade.is_terminal():
+                    return clade
+
+                # Process children first
+                new_clades = []
+                for child in clade.clades:
+                    collapsed_child = collapse_single_child_clades(child)
+                    if collapsed_child is not None:
+                        new_clades.append(collapsed_child)
+
+                clade.clades = new_clades
+
+                # If this node has only one child, merge branch lengths
+                if len(clade.clades) == 1:
+                    child = clade.clades[0]
+                    # Add this node's branch length to child
+                    if clade.branch_length and child.branch_length:
+                        child.branch_length += clade.branch_length
+                    elif clade.branch_length:
+                        child.branch_length = clade.branch_length
+                    return child
+
+                # If no children left, return None
+                if len(clade.clades) == 0:
+                    return None
+
+                return clade
+
+            print("Collapsing single-child internal nodes...")
+            tree.root = collapse_single_child_clades(tree.root)
 
             # Write to Newick
             output = StringIO()
-            Phylo.write(pruned_tree_obj, output, 'newick')
+            Phylo.write(tree, output, 'newick')
             pruned_newick = output.getvalue().strip()
 
         print(f"Pruned tree newick length: {len(pruned_newick)} chars")
@@ -910,13 +956,6 @@ def prepare_phylo_tree_for_js(newick_file, gtdbtk_summary, counts_file, outdir):
     leaf_pattern = re.compile(r'[(),]([A-Za-z_][^:(),]*):')
     estimated_leaves = len(leaf_pattern.findall(newick_str))
     print(f"Estimated tree size: ~{estimated_leaves} leaves")
-
-    # Skip if too large for custom parser
-    MAX_TREE_SIZE = 5000
-    if estimated_leaves > MAX_TREE_SIZE:
-        print(f"Tree too large for custom parser ({estimated_leaves} > {MAX_TREE_SIZE})")
-        print("Install biopython for large tree support: pip install biopython")
-        return {'skipped': True, 'reason': 'tree_too_large', 'leaf_count': estimated_leaves, 'user_genome_count': len(user_genomes)}
 
     # Parse Newick tree with custom parser
     print(f"Parsing phylogenetic tree...")

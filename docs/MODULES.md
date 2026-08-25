@@ -1,6 +1,6 @@
-# BGC-LOOM Module Reference
+# ClusterQuest Module Reference
 
-This document provides a detailed summary of each module in the BGC-LOOM pipeline.
+This document provides a detailed summary of each module in the ClusterQuest pipeline.
 
 ## Pipeline Architecture
 

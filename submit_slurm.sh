@@ -25,7 +25,7 @@
 # Modify these defaults or pass as arguments
 
 TAXON="${1:-Pantoea}"                # First argument or default
-CLUSTERING="${2:-bigscape}"          # Second argument or default (none/bigscape/bigslice/both)
+CLUSTERING="${2:-bigscape}"          # Second argument or default (none/bigscape)
 OUTDIR="results"
 RESUME="-resume"                     # Set to "" to start fresh
 

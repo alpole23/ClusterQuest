@@ -71,6 +71,7 @@ Parameters in `nextflow.config` are organized by subworkflow to make it easy to 
 |-----------|---------|-------------|
 | `workflow` | "full" | Pipeline mode: `download`, `bgc_analysis`, or `full` |
 | `outdir` | "results" | Output directory for all results |
+| `task_batch_size` | 100 | Genomes per task for the short per-genome steps (rename, GenBank→FASTA, antiSMASH result copy) |
 
 ### DOWNLOAD_GENOMES
 
@@ -128,7 +129,7 @@ Gene Cluster Family (GCF) clustering.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `run_coupling_tree` | true | Build pepM + per-class coupling enzyme NJ trees |
+| `run_coupling_tree` | true | Build pepM + per-class coupling enzyme trees |
 | `coupling_tree_type` | "both" | `"A"` (pepM only), `"B"` (per-class only), or `"both"` |
 
 ### PHYLOGENY
@@ -179,22 +180,24 @@ results/
     │   ├── gcf_species_heatmap.svg
     │   └── phosphonate_metadata.json
     └── coupling_enzyme_trees/   # Coupling enzyme phylogenetic trees
+        ├── coupling_trees_manifest.json
         ├── tree_A/              # Combined pepM tree (all BGCs + references)
         │   ├── pepm_tree.nwk
         │   ├── itol_coupling_class.txt
         │   ├── itol_gcf.txt
         │   ├── itol_source.txt
-        │   └── itol_organism.txt
+        │   ├── itol_organism.txt
+        │   └── missing_pepm.txt    # BGCs with no extractable pepM (if any)
         └── tree_B/              # Per-class coupling enzyme trees
-            ├── FrbC-like/
-            │   ├── FrbC-like_tree.nwk
+            ├── Synthase/
+            │   ├── Synthase_tree.nwk
             │   └── itol_*.txt
-            ├── Ppd_Ppd-CDP/
-            │   ├── Ppd_Ppd-CDP_tree.nwk
+            ├── Decarboxylase/   # Decarboxylase + Decarboxylase-Nucleotidyltransferase share one tree
+            │   ├── Decarboxylase_tree.nwk
             │   └── itol_*.txt
-            ├── VlpB-like/
+            ├── Reductase/
             │   └── ...
-            └── PalB-like/
+            └── Transaminase/
                 └── ...
 ```
 
@@ -210,6 +213,12 @@ The pipeline uses process labels from `conf/labels.config` with SLURM-specific o
 - Extended time limits for network-bound processes
 
 Default resources are defined by labels and can be overridden in the SLURM profile.
+
+**Submission rate is the scaling constraint, not compute.** At 20 submissions/min, job
+*count* matters more than job duration for large taxa — which is why the short per-genome
+steps are batched (see Task Batching) and why `ANTISMASH` is capped at 2 CPUs so more
+genomes run concurrently per allocation. Before adding a new per-genome process, check
+whether it should be batched instead.
 
 ### Running on SLURM
 
@@ -276,11 +285,43 @@ CI = mean ± (1.96 × std_dev / sqrt(n))
 - **Configuration**: Full analysis (antiSMASH + BiG-SCAPE + GTDB-Tk)
 - **Expected output**: Per-genome timing data for 3M genome extrapolation
 
+### Measured: Erwiniaceae (2,548 genomes, 2026-06)
+
+Local run, 5 h 01 m wall / 11.5 h task time over 7,951 tasks. Reference figures for
+sizing resources — re-measure after any change to the antiSMASH parameter set.
+
+| Process | Tasks | Mean | Max | %cpu (p50 / p99) | Peak RSS (p90 / p99) |
+|---------|-------|------|-----|------------------|----------------------|
+| `ANTISMASH` | 950 | 30 s | 9 m | 117% / 145% | 1.2 GB / 4.7 GB |
+| `GTDBTK_CLASSIFY` | 1 | 1 h 31 m | — | 164% | 103 GB |
+| `NCBI_DATASETS_DOWNLOAD` | 1 | 1 h 08 m | — | 13% | 24 MB |
+| `BIGSCAPE` | 1 | 68 s | — | 473% | 13.8 GB |
+
+Notes: antiSMASH never used two full cores, hence the 2-CPU override. GTDB-Tk's 103 GB
+peak exceeds the 48 GB `process_high_memory` default — it only survives locally because
+cgroups aren't enforced; the SLURM profile's 128 GB is the real requirement. The NCBI
+download is serial and network-bound, so its runtime is unaffected by CPU allocation.
+
 ## Module & Script Organization
 
 ```
-main.nf                 # Main workflow (uses subworkflows)
+main.nf                 # Parameter validation + entry point (~140 lines)
 nextflow.config         # Parameters and SLURM profile
+
+tests/                  # Test suite — run with: bash tests/run_tests.sh
+├── run_tests.sh        # Entry point; runs everything in a scratch dir
+├── test_utils.nf       # Utils.groovy helpers (optArg, isValidInput, sanitizeTaxon)
+├── test_batching.nf    # Batched per-genome processes end to end
+├── make_fixtures.py    # Synthetic genomes (incl. one corrupt) + fake reuse results
+└── check_undefined.py  # Static scan for calls to undefined/unimported names
+
+subworkflows/           # Workflow composition (one file per subworkflow)
+├── helpers.nf          # placeholder(), clusteringEnabled(), batchSize() — included like processes
+├── download_genomes.nf # DOWNLOAD_GENOMES
+├── antismash_analysis.nf # ANTISMASH_ANALYSIS (with reuse)
+├── clustering.nf       # CLUSTERING
+├── phylogeny.nf        # PHYLOGENY (with reuse)
+└── bgc_analysis.nf     # BGC_ANALYSIS (composes the four above)
 
 assets/
 └── reference_sequences/
@@ -308,17 +349,33 @@ scripts/
 ├── utils/              # Shared Python utilities
 │   ├── constants.py      # BGC_COLORS (comprehensive ~110-entry palette), GENE_COLORS, KCB_THRESHOLDS,
 │   │                     # COUPLING_COLORS, COUPLING_ORDER, LEGACY_CLASS_NAMES, GCF_PALETTE,
+│   │                     # DOMAIN_NAMES + domain_name(accession),
 │   │                     # load_coupling_classes(path, region_only=False)
 │   ├── tree_building.py  # build_nj_tree(labels, dm_rows) — shared NJ tree construction
-│   ├── parsers.py        # Duration, memory, timestamp parsing
-│   └── antismash_parser.py  # antiSMASH JSON parsing
-├── viz/                # Visualization modules
+│   ├── tree_layout.py    # Cladogram layout/drawing (linear + circular) for Bio.Phylo trees
+│   ├── bigscape_db.py    # BiG-SCAPE SQLite queries (BGC records, families, domains)
+│   ├── itol.py           # iTOL dataset writers (colorstrip, binary, simplebar, text)
+│   ├── bgc_labels.py     # label_from_path, make_labels_unique
+│   ├── colors.py         # family_color, genus_color
+│   ├── gene_diagram.py   # Gene arrow SVG generation
+│   ├── parsers.py        # Duration, memory, timestamp parsing; format_bytes(v, precision=1)
+│   ├── trace.py          # Nextflow trace aggregation + resource/Gantt HTML (single implementation;
+│   │                     # re-exported by viz/ for convenience)
+│   ├── plotting.py       # Deterministic matplotlib output: pins svg.hashsalt + Agg backend,
+│   │                     # exports SVG_METADATA for timestamp-free savefig
+│   └── antismash_parser.py  # antiSMASH JSON parsing + BGC label/region helpers
+├── viz/                # Visualization modules — every report section lives here;
+│   │                     # visualize_results.py only orchestrates them
 │   ├── charts.py         # KCB pie charts, BGC color utilities
-│   ├── tree_viz.py       # Phylogenetic/taxonomy tree visualization
-│   ├── tables.py         # Genome tables, statistics
-│   ├── clustering.py     # BiG-SCAPE stats HTML
+│   ├── tree_viz.py       # Phylogenetic/taxonomy tree parsing + rendering
+│   ├── tables.py         # Genome tables, summary statistics, distribution table
+│   ├── clustering.py     # BiG-SCAPE stats + GCF representative HTML
 │   ├── taxonomy.py       # Interactive taxonomy tree
-│   └── resources.py      # Resource usage visualization
+│   ├── distribution.py   # GCF × genus heatmap, genus-specific / widespread tables
+│   ├── genome_pages.py   # Per-genome HTML pages
+│   ├── rarefaction.py    # GCF rarefaction curve
+│   ├── report_assets.py  # REPORT_CSS / REPORT_JS for bgc_report.html
+│   └── report_sections.py # _build_* section builders + build_coupling_table_rows
 ├── taxonomy/           # Taxonomy processing scripts
 ├── genome/             # Genome processing scripts
 ├── clustering/         # Clustering statistics and GCF representative extraction
@@ -366,19 +423,22 @@ workflow (entry point)
     ├── GCF_BIOSYNTHETIC_TREE # GCF biosynthetic NJ tree (when bigscape enabled, runs before visualization)
     │                         # Also outputs phosphonate_itol_coupling.txt (coupling annotation)
     ├── VISUALIZE_RESULTS     # HTML report generation (receives GCF tree PNG + coupling annotation)
-    └── COUPLING_ENZYME_TREE  # pepM + per-class coupling enzyme NJ trees (when run_coupling_tree=true)
-                              # Runs after GCF_BIOSYNTHETIC_TREE; uses HMMER + reference FASTAs
+    └── COUPLING_ENZYME_TREE  # pepM + per-class coupling enzyme ML trees (when run_coupling_tree=true)
+                              # Runs after GCF_BIOSYNTHETIC_TREE; uses HMMER + FastTree + reference FASTAs
 ```
 
-**Invoking subworkflows directly:**
+**Running a single stage:**
 
 ```bash
 # Run only download
-nextflow run main.nf -entry DOWNLOAD_GENOMES --taxon "Pantoea"
+nextflow run main.nf --workflow download --taxon "Pantoea"
 
 # Run full pipeline (default)
 nextflow run main.nf --taxon "Pantoea"
 ```
+
+Note: Nextflow 26's strict parser rejects `-entry <WORKFLOW>`; select the stage with
+`--workflow` instead.
 
 ### Process Labels
 
@@ -388,9 +448,15 @@ Processes use labels for resource allocation and error handling:
 |-------|------|--------|-------------|
 | `process_local` | 1 | 1 GB | Runs on head node |
 | `process_low` | 1 | 2 GB | Light scripts |
-| `process_medium` | 4 | 8 GB | antiSMASH, visualization |
+| `process_medium` | 4 | 8 GB | Visualization, GCF trees |
 | `process_high` | 8 | 32 GB | BiG-SCAPE |
 | `process_high_memory` | 8 | 128 GB | GTDB-Tk pplacer |
+
+Per-process override in `conf/labels.config`:
+
+| Process | CPUs | Memory | Rationale |
+|---------|------|--------|-----------|
+| `ANTISMASH` | 2 | 6 GB × attempt | Measured over 950 genomes: %cpu p99 = 145% (never 2 full cores), peak RSS p99 = 4.7 GB. Escalates once on an OOM kill, then skips the genome. |
 
 Error handling labels:
 - `tolerant`: Individual failures don't stop pipeline (per-genome processes)
@@ -425,9 +491,30 @@ The report uses 6 tabs:
 
 ### Rarefaction Curve
 - Shows GCF discovery saturation across sampled genomes
-- Generated from BiG-SCAPE SQLite database (`{taxon}.db`)
-- Displays total GCFs and saturation percentage
-- Helps estimate diversity coverage and whether more sampling is needed
+- Generated from BiG-SCAPE SQLite database (`{taxon}.db`), plus `region_counts.tsv`
+- **Coverage is reported as Chao2**, the incidence-based asymptotic richness estimator
+  (`chao2()` in `viz/rarefaction.py`): `S_est = S_obs + ((m-1)/m)·Q1²/(2·Q2)`, with Q1/Q2
+  the GCFs seen in exactly one/two genomes. Coverage = `S_obs/S_est`. The report shows
+  S_obs, S_est, coverage, and Q1/Q2
+- The older `saturation` value — a ratio of the curve's early slope to its late slope —
+  is still returned and plotted for continuity, but it is **not** a calibrated coverage
+  estimate. Benchmarked against known ground truth it is directionally right and accurate
+  when genuinely saturated, but optimistic when undersampled (reported 71% against 61%
+  true; 39% against 19% true). Cite Chao2, not this
+- **The x-axis is every analysed genome, not just BGC-carrying ones.** Genomes with no
+  phosphonate BGC produce no region GBK, so they never reach the BiG-SCAPE DB — the
+  denominator has to come from `region_counts.tsv`, passed as `--counts`. Without it the
+  function falls back to BGC-positive genomes only and labels the axis and report text
+  accordingly instead of silently overstating coverage
+- Resampling is seeded (`--seed`, default 0) — see the reproducibility note in Known Issues
+
+**Measured on *P. ananatis* (343 genomes, 2026-08-25):** 192 genomes (56.0%) carry a
+phosphonate BGC, giving 225 regions in 6 GCFs with incidence 180/23/16/4/1/1. Chao2
+estimates 7.00 families → 85.8% coverage (Q1=2, Q2=0, so the no-doubleton branch fires).
+The slope-ratio saturation reads 92-97% on the same data — a 6-11 point overstatement,
+matching the simulated bias. Note the denominator change moved the slope ratio (96.8% →
+92.0%) but left Chao2 unchanged (85.8%): Chao2 depends on the incidence distribution
+rather than the axis length, which is a further reason to prefer it.
 
 ### GCF Visualization
 - Shows representative BGCs for each Gene Cluster Family
@@ -446,13 +533,36 @@ The report uses 6 tabs:
 
 ### Dynamic Coupling Enzyme Class Table
 - The coupling enzyme table in the GCF Analysis tab is built dynamically at report-generation time — not hardcoded
-- `build_coupling_table_rows()` in `visualize_results.py` queries the BiG-SCAPE SQLite DB to determine the dominant coupling class per GCF family, so the table remains accurate regardless of GCF family ID shifts between runs
+- `build_coupling_table_rows()` in `viz/report_sections.py` queries the BiG-SCAPE SQLite DB to determine the dominant coupling class per GCF family, so the table remains accurate regardless of GCF family ID shifts between runs
 - Input: `phosphonate_itol_coupling.txt` (from `GCF_BIOSYNTHETIC_TREE`) + BiG-SCAPE DB
 - `load_coupling_classes(path, region_only=False)` is the shared parser for this file, defined in `utils/constants.py` and imported by all scripts that read the iTOL coupling colorstrip
 
 ### `generate_html_report` Structure
-- CSS is stored as the module-level string constant `_REPORT_CSS` (not an f-string); JS as `_REPORT_JS`
-- Five helper functions handle the large content blocks, keeping `generate_html_report` to ~400 lines:
+
+`scripts/visualize_results.py` is an orchestrator (~555 lines, two functions:
+`generate_html_report` and `main`). It parses arguments, calls the section builders in
+`viz/`, and assembles the page.
+
+**Report content belongs in a `viz/` module, not here.** The file previously grew to
+3,300 lines by keeping its own copies of functions that also existed in `viz/`; because
+nothing imported the `viz/` versions, the two drifted apart and the package looked live
+while being dead. Every section builder is now imported from `viz/`:
+
+| Import from | Provides |
+|-------------|----------|
+| `viz.tables` | genome table, summary statistics, BGC distribution table |
+| `viz.clustering` | BiG-SCAPE statistics, GCF representative visualisation |
+| `viz.taxonomy` | interactive taxonomy tree |
+| `viz.tree_viz` | `prepare_phylo_tree_for_js` (+ the Newick parse/prune helpers behind it) |
+| `viz.distribution` | GCF × genus heatmap, genus-specific and widespread tables |
+| `viz.genome_pages` | per-genome HTML pages |
+| `viz.rarefaction` | rarefaction curve |
+| `viz.report_assets` | `REPORT_CSS`, `REPORT_JS` |
+| `viz.report_sections` | `_build_*` blocks, `build_coupling_table_rows` |
+| `utils.trace` | trace aggregation + resource-usage HTML |
+
+- CSS and JS live in `viz/report_assets.py` as the module-level string constants `REPORT_CSS` / `REPORT_JS` (plain strings, not f-strings, so braces need no escaping)
+- Five helper functions in `viz/report_sections.py` handle the large content blocks, keeping `generate_html_report` to ~260 lines:
   - `_build_kcb_content(kcb_stats, taxon_clean, gcf_data)` → `{kcb_mapping_section, novel_bgcs_tab_content, kcb_hits_tab_content}`
   - `_build_bigscape_overview_cards(gcf_data)` → overview grid HTML
   - `_build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean)` → GCF Analysis tab section
@@ -469,6 +579,22 @@ The report uses 6 tabs:
 ## Post-Pipeline BGC Analysis Scripts
 
 These standalone scripts (in `scripts/`) perform additional analyses after the main pipeline completes. They operate on the BiG-SCAPE SQLite database and antiSMASH outputs.
+
+**Shared building blocks** — extend these rather than re-implementing per script:
+
+| Module | Provides | Used by |
+|--------|----------|---------|
+| `utils/bigscape_db.py` | `connect`, `fetch_bgc_records`, `fetch_families`, `fetch_domain_set`, `fetch_best_domain_per_cds`, `record_metadata` | pfam / synteny / architecture trees |
+| `utils/itol.py` | `write_dataset` plus `write_colorstrip` / `write_binary` / `write_simplebar` / `write_text`, `simple_legend`, `dataset_path` | every script that emits iTOL files |
+| `utils/tree_layout.py` | `assign_layout`, `max_depth`, `draw_cladogram` and their circular counterparts | gcf / all-BGCs trees |
+| `utils/tree_building.py` | `build_nj_tree(labels, dm_rows)` | all NJ trees |
+| `utils/antismash_parser.py` | JSON loading, `build_json_index`, `parse_bgc_label`, `parse_location_bounds`, `find_region_feature`, `region_bounds`, `cds_in_region` | coupling annotation / coupling trees |
+| `utils/constants.py` | palettes, `DOMAIN_NAMES` + `domain_name(accession)`, `load_coupling_classes` | synteny / architecture trees, every coupling script |
+| `utils/trace.py` | `parse_timestamp`, `aggregate_trace_by_process`, `generate_resource_usage_html`, `generate_gantt_chart_html` | HTML report |
+| `utils/plotting.py` | `SVG_METADATA`; pins `svg.hashsalt` and the Agg backend on import | every script that writes an SVG |
+
+`bgc_all_bgcs_tree.py` and `bgc_gcf_tree.py` still query SQLite directly — they read the
+`distance` table and family centers, which the shared query set does not cover.
 
 ### `scripts/bgc_pfam_tree.py` — Jaccard-distance NJ tree of BGCs
 
@@ -526,6 +652,20 @@ python scripts/bgc_coupling_annotation.py \
     --bgc_type phosphonate
 ```
 
+**⚠️ The GCF numbers below are run-specific and will not match your output.**
+`family.id` in the BiG-SCAPE database is an `INTEGER PRIMARY KEY AUTOINCREMENT` — it
+records the order families happened to be written, not a stable biological identity.
+It shifts between runs, between taxa, and whenever the genome set changes: the table
+below is from a Pantoea run with at least 8 families, while a *P. ananatis* run
+(2026-08-25, 343 genomes) produced only 6. Treat the **class → pathway → marker**
+columns as the durable content and the GCF column as an example. Within a single run
+`family.center_id` is a better handle, since it points at the BGC record serving as
+the family center rather than at write order.
+
+The rendered report does not have this problem: `build_coupling_table_rows()` re-derives
+the dominant coupling class per family from the database at report time, so the HTML
+table self-corrects. Only the hard-coded numbers in this file go stale.
+
 **Coupling enzyme classes detected (Pantoea, n=1212 BGCs):**
 
 | Class | Marker | Pathway | GCF | Count |
@@ -537,11 +677,16 @@ python scripts/bgc_coupling_annotation.py \
 | PalB* | SMCOG1013 | → phosphonoalanine? | GCF-7 | 20 |
 | Unknown | — | — | — | 4 |
 
+**Region boundary reading:** CDS scanning is limited to the region feature's extent, read
+with `parse_location_bounds(..., span=False)` — the first coordinate pair only. This is
+deliberately narrower than what `bgc_coupling_tree.py` uses (see Known Issues); widening
+it reclassifies BGCs whose region feature has a compound location.
+
 **Key insights:**
 - Classification maps almost perfectly onto BiG-SCAPE GCF families — coupling enzyme type is the primary determinant of GCF membership.
 - The `Fe-ADH` rule-based marker (iron-containing alcohol dehydrogenase / 2-Hacid_dh_C) is antiSMASH's marker for the phosphonopyruvate reductase (→ phosphonolactate) pathway.
-- GCF-5 (TPP+NTP) confirmed as **phosphonolipid BGCs**: Ppd-type ThDP enzyme + two NTP_transf_3 cytidylyltransferases + CDP-alcohol phosphatidyltransferases + Asn_synthase (CDP-phosphonate pathway). Well-annotated NCBI genomes explicitly label the ThDP enzyme as "phosphonopyruvate decarboxylase".
-- AEP-pathway BGCs (GCF-1/8) use Ppd as coupling enzyme regardless of tailoring enzymes downstream.
+- GCF-5 in that run (TPP+NTP) confirmed as **phosphonolipid BGCs**: Ppd-type ThDP enzyme + two NTP_transf_3 cytidylyltransferases + CDP-alcohol phosphatidyltransferases + Asn_synthase (CDP-phosphonate pathway). Well-annotated NCBI genomes explicitly label the ThDP enzyme as "phosphonopyruvate decarboxylase".
+- AEP-pathway BGCs (GCF-1/8 in that run) use Ppd as coupling enzyme regardless of tailoring enzymes downstream.
 
 **⚠️ PalB classification is pending correction:** The current script uses SMCOG1013 (Aminotran_3, fold type IV PLP) to detect PalB. However, PalB is an **AAT superfamily enzyme (fold type I PLP)** annotated as Aminotran_1_2 / PF00155 / SMCOG1019 — a completely different aminotransferase class. Additionally, coupling enzymes are not always adjacent to pepM in the BGC (the phosphonoalamide BGC architecture shows PalB far from pepM). The correct approach is protein sequence phylogenetic placement against characterized references (see "Coupling Enzyme Reference Trees" below).
 
@@ -549,7 +694,7 @@ python scripts/bgc_coupling_annotation.py \
 
 ### `scripts/bgc_coupling_tree.py` — Coupling enzyme phylogenetic trees
 
-Builds NJ trees for pepM (Tree A) and per-class coupling enzymes (Tree B), with characterized reference sequences as phylogenetic anchors. Runs automatically as the `COUPLING_ENZYME_TREE` Nextflow process after BiG-SCAPE and `GCF_BIOSYNTHETIC_TREE`. Uses `load_coupling_classes` from `utils/constants.py` and delegates NJ construction to `utils/tree_building.build_nj_tree`.
+Builds FastTree ML trees (LG model) for pepM (Tree A) and per-class coupling enzymes (Tree B), with characterized reference sequences as phylogenetic anchors. Runs automatically as the `COUPLING_ENZYME_TREE` Nextflow process (`modules/analysis/coupling_enzyme_tree.nf`) after `GCF_BIOSYNTHETIC_TREE`, consuming its `phosphonate_metadata.json` and `phosphonate_itol_coupling.txt`. Uses `load_coupling_classes` from `utils/constants.py`. Skipped automatically when `clustering != "bigscape"` or when the annotation inputs are absent.
 
 **HMM strategy (4 steps per class):**
 1. `hmmbuild` from a single seed reference → initial HMM
@@ -566,10 +711,10 @@ Builds NJ trees for pepM (Tree A) and per-class coupling enzymes (Tree B), with 
 
 | Class | Marker type | Marker | Rationale |
 |-------|-------------|--------|-----------|
-| FrbC-like | smcog | SMCOG1271 | HMGL-like phosphonomethylmalate synthase |
-| Ppd / Ppd-CDP | domain | TPP_enzyme_C | Both classes carry this; Ppd-CDP lacks SMCOG1055 |
-| VlpB-like | domain | Fe-ADH | Phosphonopyruvate reductase (iron-containing ADH) |
-| PalB-like | smcog | SMCOG1013 | ⚠️ Provisional — see note below |
+| Synthase (FrbC-like) | smcog | SMCOG1271 | HMGL-like phosphonomethylmalate synthase |
+| Decarboxylase / Decarboxylase-Nucleotidyltransferase | domain | TPP_enzyme_C | Both classes carry this; the nucleotidyltransferase variant lacks SMCOG1055 |
+| Reductase (VlpB-like) | domain | Fe-ADH | Phosphonopyruvate reductase (iron-containing ADH) |
+| Transaminase (PalB-like) | smcog | SMCOG1013 | ⚠️ Provisional — see note below |
 
 **Tree outputs per class:** `{class}_tree.nwk` + four iTOL annotation files (coupling class colorstrip, GCF colorstrip, source colorstrip, organism text labels).
 
@@ -606,6 +751,7 @@ python scripts/bgc_coupling_tree.py \
     --hmmbuild       $(which hmmbuild) \
     --hmmalign       $(which hmmalign) \
     --hmmsearch      $(which hmmsearch) \
+    --fasttree       $(which FastTree) \
     --tree           both    # "A", "B", or "both"
 ```
 
@@ -675,6 +821,14 @@ Verified from antiSMASH clusterhmmer output on Pantoea phosphonate clusters:
 - `Utils.antismashParamsHash(params)`: Generate MD5 hash of antiSMASH parameters for reuse tracking
 - `Utils.buildReusePath(params, projectDir, tool, taxon, subPath)`: Build absolute path for result reuse
 - `Utils.isValidInput(input)`: Check if input is valid (not a placeholder)
+- `Utils.optArg(flag, input)`: Build `"--flag path"` for a real input, `""` for a placeholder — use this instead of comparing against a specific `NO_*` name, which silently passes the sentinel through when the names drift apart
+
+Workflow-level helpers live in `subworkflows/helpers.nf` and are included like processes
+(`include { placeholder } from './helpers'`), since Nextflow functions are file-scoped:
+
+- `placeholder(name)`: Value channel holding a sentinel file for an optional input
+- `clusteringEnabled(method)`: `params.clustering == method`
+- `batchSize()`: `params.task_batch_size` coerced to Integer
 
 ### Module Guidelines
 
@@ -684,6 +838,75 @@ Verified from antiSMASH clusterhmmer output on Pantoea phosphonate clusters:
 - antiSMASH uses `cache 'lenient'` for directory inputs
 - COLLECT_VERSIONS searches `work/conda/` for installed tool versions
 - BiG-SCAPE database (`bigscape_db`) is passed explicitly through pipeline for rarefaction curve generation
+- Build optional arguments with `Utils.optArg('--flag', input)` rather than comparing a
+  staged file against a specific sentinel name. Placeholders are only guaranteed to start
+  with `NO_`; hardcoding `!= 'NO_FILE'` passes the sentinel through as a real path once
+  the workflow emits a differently-named one
+
+### Testing
+
+```bash
+bash tests/run_tests.sh          # full suite (~1 min)
+TEST_SCRATCH=/tmp/t bash tests/run_tests.sh   # keep the scratch dir for debugging
+BATCH_SIZE=2 bash tests/run_tests.sh          # exercise a different batch size
+```
+
+Everything runs in a scratch directory, never in `results/`, so a test run cannot
+truncate `pipeline_info/`. The suite covers:
+
+- `Utils` helpers — `optArg` across real/placeholder/list/empty/null inputs, `isValidInput`, `sanitizeTaxon`, and that `batchSize()` yields a real Integer (`collate()` silently fails otherwise)
+- Batched per-genome processes — assembly-ID pairing across a batch, one output per genome after `.flatten()`, a corrupt genome skipped without losing its batch, and reuse-copy fidelity for hidden and nested files
+- Static checks — every script compiles, and `check_undefined.py` finds calls to names that are never defined or imported (this is what surfaced the phylo-fallback `NameError`)
+
+Notes on the runner: Nextflow derives `projectDir` from the entry script's location, so
+the test scripts are staged into the scratch dir with a `scripts/` symlink — otherwise
+modules would look for `tests/scripts/...`. GenBank→FASTA needs biopython; the runner
+borrows an interpreter that has it (system python or a cached conda env) and skips those
+two assertions if none is available.
+
+### Task Batching
+
+Steps whose per-genome work is under a couple of seconds are batched — one job per
+genome is almost entirely scheduler overhead, and at 3M genomes the submission rate
+limit becomes the bottleneck rather than the compute.
+
+Batched processes: `RENAME_GENOMES`, `GENBANK_TO_FASTA`, `COPY_ANTISMASH_RESULT`
+(`params.task_batch_size`, default 100). `CHECK_ANTISMASH_REUSE` is not batched because
+it already runs with `executor 'local'`.
+
+When adding or changing a batched process:
+
+- **Flatten downstream.** A batched process emits one list per task; consumers that work
+  per genome need `.flatten()` (see `DOWNLOAD_GENOMES.out.renamed_genomes`)
+- **Keep failures per-genome.** The batch script must catch per-item errors and continue,
+  exiting non-zero only if every item failed — otherwise batching turns one bad genome
+  into 100 lost ones
+- **Watch for input name collisions.** NCBI genomes are all named `genomic.gbff`, so
+  `RENAME_GENOMES` stages them as `genome?.gbff` and pairs staging order against the
+  assembly-ID list via a manifest
+- **`collate()` needs a real Integer.** Params given on the command line arrive as
+  strings, which silently fail to dispatch — always go through `batchSize()`
+
+### Genome Name Conventions
+
+Two different spellings of a genome name coexist, and they do **not** compare equal:
+
+| Source | Form | Example |
+|--------|------|---------|
+| `region_counts.tsv` `record` column | **with** file extension | `Pantoea_ananatis_01-1.gbff` |
+| `renamed_genomes/` filenames | **with** extension | `Pantoea_ananatis_01-1.gbff` |
+| antiSMASH result directory | **without** | `Pantoea_ananatis_01-1` |
+| BiG-SCAPE `gbk.path` component | **without** | `Pantoea_ananatis_01-1` |
+
+`PHYLOGENY` joins `row.record` against `genome.name` — both extension-bearing, so that
+join is correct. But anything correlating the BiG-SCAPE DB with `region_counts.tsv` must
+normalise first: `viz/rarefaction.py` uses `strip_genome_suffix()`, which removes only
+known genbank suffixes (`.gbff`, `.gbk`, `.gb`, `.genbank`). Do **not** use `Path.stem` —
+it eats the version off accession-style names (`..._GCA_963520565.1` → `..._GCA_963520565`).
+
+An unnormalised comparison does not fail loudly; it silently yields an empty intersection
+and, if you are merging sets, doubles your genome count. `generate_rarefaction_curve`
+guards against this by refusing to pad when the two name sets share nothing.
 
 ### Data Key Conventions
 
@@ -714,6 +937,32 @@ This is set in `scripts/clustering/extract_gcf_representatives.py` (`antismash_l
 - **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module includes validation with `sync` + retry logic, but if corruption persists, delete the cached work directory and re-run
 - **pyhmmer/BiG-SCAPE compatibility**: pyhmmer 0.12+ changed `profile.accession` from bytes to str, breaking BiG-SCAPE. The module pins `pyhmmer<0.11`
 - **GTDB-Tk duplicate taxon labels**: GTDB-Tk normalizes genome names case-insensitively. If two genomes have names differing only in case (e.g., `MDCuke` vs `MDcuke`), GTDB-Tk will fail with `NewickReaderDuplicateTaxonError`. The `create_name_map.py` script now handles this by tracking names case-insensitively and adding numeric suffixes to duplicates
+- **`-preview` overwrites `pipeline_info/`**: `trace`, `report`, and `timeline` all set `overwrite = true`, and a preview run truncates them even though it executes nothing — a previous run's benchmark data is lost. Disable the reports for preview runs (see Troubleshooting). A clobbered trace can be regenerated from Nextflow's cache: `nextflow log <run_name> -f task_id,hash,name,status,exit,submit,start,complete,realtime,cpus,memory,peak_rss,peak_vmem,pcpu,pmem,rchar,wchar` (note `pcpu`/`pmem` — the template parser rejects `%cpu`/`%mem`)
+- **Report output is reproducible as of 2026-08-25** (was not before): three sources of run-to-run drift were pinned. `generate_rarefaction_curve` now resamples from a local `random.Random(seed)` (`seed=0` default, `--seed` on `visualize_results.py`) instead of the global RNG; taxonomy `node_<id>` values use an md5 digest rather than the `PYTHONHASHSEED`-salted builtin `hash()`; and every SVG writer imports `utils/plotting.py`, which pins `svg.hashsalt`, plus passes `metadata=SVG_METADATA` to drop matplotlib's `<dc:date>` stamp. Two runs over the same data now produce byte-identical `rarefaction_curve.svg` and `bgc_report.html`. If you add a figure, import `utils.plotting` and pass `metadata=SVG_METADATA` to any SVG `savefig` or you reintroduce the drift
+- **matplotlib clip-path ids are not covered by `svg.hashsalt`**: the salt pins marker and
+  hatch ids, but clip paths are keyed on `(id(clippath), str(clippath_trans))` in
+  `backend_svg.py` — `id()` being a CPython memory address. Addresses often repeat when the
+  allocation sequence is identical, so simple figures compare equal *by luck*; anything that
+  perturbs allocation order (a bigger distance matrix, different dict/set traffic) shifts
+  them. `all_bgcs_biosynthetic_tree_circular.svg` diverged this way while
+  `gcf_biosynthetic_tree.svg` did not. `utils/plotting.canonicalise_svg(path)` rewrites the
+  ids in order of first appearance and is called after every SVG `savefig`; rendering is
+  unaffected because definitions and references are rewritten together. **Testing note:**
+  two calls in one Python process can reuse the same address and falsely pass — always
+  compare across *separate* processes
+- **The rarefaction query does not filter `record_type` or cutoff**: `viz/rarefaction.py`
+  selects from `bgc_record_family` with no `record_type = 'region'` filter and no join to
+  `family.cutoff`, unlike the six other query sites that do. **Measured on the real
+  *P. ananatis* database (2026-08-25): both filters are currently no-ops.** BiG-SCAPE
+  assigns families *only* to `region` records — of the 225 each of `region`,
+  `protocluster`, `proto_core` and `cand_cluster` rows, only the 225 regions appear in
+  `bgc_record_family`, so zero families are reachable via sub-records. And the `family`
+  table held a single cutoff (0.3, 6 families), so nothing merges. The filtered and
+  unfiltered queries both returned 6 GCFs. The cutoff risk stays latent: a comma-separated
+  `bigscape_cutoffs` merges family IDs across every cutoff into one set (1.4× inflation in
+  a two-cutoff test). Adding `WHERE f.cutoff = ? AND br.record_type = 'region'` is still
+  worth doing for consistency, but it is not currently producing wrong numbers
+- **Coupling region bounds differ between the two coupling scripts**: `bgc_coupling_tree.py` reads a region feature's extent as min-start → max-end across every coordinate pair, while `bgc_coupling_annotation.py` uses only the first pair (`parse_location_bounds(..., span=False)`). They disagree for BGCs whose region feature has a compound location — on Erwiniaceae, the wider reading reclassifies 20 BGCs from `Unknown` to `Synthase`. The narrower reading is kept for backwards compatibility with published annotations; switch `span` if the wider extent is preferred
 
 ## Troubleshooting
 
@@ -721,6 +970,19 @@ This is set in `scripts/clustering/extract_gcf_representatives.py` (`antismash_l
 nextflow clean -f -k              # Clear cache if -resume fails
 rm -rf work/                      # Remove intermediate files (keeps databases)
 du -sh work/                      # Check work dir size
+```
+
+**Preview a run without destroying `pipeline_info/`** — put this in a scratch config and
+pass it with `-c`:
+
+```groovy
+trace    { enabled = false }
+report   { enabled = false }
+timeline { enabled = false }
+```
+
+```bash
+nextflow run main.nf -preview -c no_reports.config --taxon "Pantoea"
 ```
 
 - **GTDB-Tk OOM**: Requires 56-64GB RAM; keep `--pplacer_cpus 1`

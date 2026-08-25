@@ -61,22 +61,25 @@ process CHECK_ANTISMASH_REUSE {
 
 /**
  * Copy antiSMASH results from a previous taxon directory to the current one.
+ *
+ * Batched (params.task_batch_size): each copy takes ~1 s, so one job per genome is
+ * almost entirely scheduler overhead.
  */
 process COPY_ANTISMASH_RESULT {
-    tag "$genome_name"
+    tag "${batch.size()} genomes"
     label 'process_low'
     publishDir "${params.outdir}/antismash_results/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
 
     input:
     val taxon
-    val genome_name
-    val existing_result_path  // Use val instead of path to avoid symlink staging issues
+    val batch  // list of [genome_name, existing_result_path]; val avoids symlink staging issues
 
     output:
-    path "${genome_name}/", emit: result_dir
+    path "*", type: 'dir', emit: result_dir
 
     script:
+    def copies = batch.collect { name, src -> "cp -rL \"${src}\" \"${name}\"" }.join('\n    ')
     """
-    cp -rL "${existing_result_path}" "${genome_name}"
+    ${copies}
     """
 }

@@ -45,7 +45,14 @@ import argparse
 import json
 import os
 import re
+import sys
 from collections import defaultdict
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from utils import itol
+from utils.antismash_parser import (build_json_index, find_region_feature,
+                                    genome_from_gbk_path, parse_bgc_label, parse_location_bounds)
 
 
 # ─── Coupling enzyme class definitions ──────────────────────────────────────
@@ -82,22 +89,18 @@ def classify_bgc(json_path, contig_id, region_num):
             continue
 
         # Find the matching phosphonate region
-        region_match = None
-        for feat in rec.get('features', []):
-            if feat.get('type') == 'region':
-                rnum = str(feat.get('qualifiers', {}).get('region_number', ['?'])[0]).zfill(3)
-                products = feat.get('qualifiers', {}).get('product', [])
-                if rnum == str(region_num).zfill(3) and any('phosphonate' in p for p in products):
-                    region_match = feat
-                    break
+        region_match = find_region_feature(rec, region_num, product_filter='phosphonate')
         if region_match is None:
             continue
 
-        # Parse region boundaries so we only inspect CDSes within this region
-        region_loc = region_match.get('location', '')
-        region_m = re.search(r'\[(\d+):(\d+)\]', region_loc)
-        region_start = int(region_m.group(1)) if region_m else 0
-        region_end   = int(region_m.group(2)) if region_m else float('inf')
+        # Parse region boundaries so we only inspect CDSes within this region.
+        # span=False keeps the original first-coordinate-pair reading (see
+        # parse_location_bounds); widening it reclassifies BGCs whose region feature
+        # has a compound location.
+        region_start, region_end = parse_location_bounds(region_match.get('location', ''),
+                                                         span=False)
+        if region_start is None:
+            region_start, region_end = 0, float('inf')
 
         # Collect biosynthetic rule hits and SMCOG annotations from CDSes in region
         rule_hits = set()
@@ -165,45 +168,6 @@ def classify_bgc(json_path, contig_id, region_num):
 
 # ─── Build genome → antiSMASH JSON index ─────────────────────────────────────
 
-def build_json_index(antismash_dir, bgc_type='phosphonate'):
-    """
-    Walk antismash_dir and return a dict:
-        genome_name → json_path
-    where genome_name is the subdirectory name (e.g. 'Pantoea_ananatis_LMG2665').
-    """
-    index = {}
-    for genome in os.listdir(antismash_dir):
-        json_path = os.path.join(antismash_dir, genome, f'{genome}.json')
-        if os.path.exists(json_path):
-            index[genome] = json_path
-    return index
-
-
-def genome_from_gbk_path(gbk_path):
-    """
-    Extract the genome folder name from a gbk_path stored in metadata.
-    Paths look like:
-      /…/antismash_input/Pantoea_ananatis_LMG2665/CONTIG.region001.gbk
-    or results/antismash_results/Pantoea/Pantoea_ananatis_LMG2665/…
-    """
-    # Walk up from the .gbk file — genome is the directory one level up
-    return os.path.basename(os.path.dirname(gbk_path))
-
-
-def parse_bgc_label(label):
-    """
-    Extract contig_id and region_number from a BGC label like:
-      JBBJSA010000012.1.region001  → ('JBBJSA010000012.1', '001')
-      JBBJSA010000012.1.region001_1 (duplicate suffix) → strip suffix first
-    """
-    # Strip numeric duplicate suffix added by make_labels_unique
-    label = re.sub(r'_\d+$', '', label)
-    m = re.search(r'^(.+?)\.region(\d+)$', label)
-    if m:
-        return m.group(1), m.group(2)
-    return label, '001'
-
-
 # ─── iTOL output ─────────────────────────────────────────────────────────────
 
 def write_colorstrip(metadata, classifications, outpath, bgc_type):
@@ -211,33 +175,20 @@ def write_colorstrip(metadata, classifications, outpath, bgc_type):
     for cls in classifications.values():
         counts[cls] += 1
 
-    with open(outpath, 'w') as f:
-        f.write('DATASET_COLORSTRIP\n')
-        f.write('SEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\tCoupling enzyme ({bgc_type})\n')
-        f.write('COLOR\t#333333\n')
-        f.write('STRIP_WIDTH\t40\n')
-        f.write('SHOW_BORDER\t1\n')
-        f.write('BORDER_WIDTH\t0.5\n')
+    # Legend — only include classes that appear in the data
+    present = [c for c in CLASSES if counts.get(c[0], 0) > 0]
+    legend_items = [(f'{lbl} (n={counts[cid]})', color) for cid, lbl, color in present]
 
-        # Legend — only include classes that appear in the data
-        present = [c for c in CLASSES if counts.get(c[0], 0) > 0]
-        legend_shapes  = '\t'.join('1' for _ in present)
-        legend_colors  = '\t'.join(c[2] for c in present)
-        legend_labels  = '\t'.join(
-            f'{c[1]} (n={counts[c[0]]})' for c in present
-        )
-        f.write(f'LEGEND_TITLE\tCoupling enzyme\n')
-        f.write(f'LEGEND_SHAPES\t{legend_shapes}\n')
-        f.write(f'LEGEND_COLORS\t{legend_colors}\n')
-        f.write(f'LEGEND_LABELS\t{legend_labels}\n')
-        f.write('DATA\n')
-
-        for bgc in metadata:
-            lbl = bgc['label']
-            cls = classifications.get(lbl, 'Unknown')
-            color = CLASS_COLORS[cls]
-            f.write(f'{lbl}\t{color}\t{cls}\n')
+    itol.write_colorstrip(
+        outpath, f'Coupling enzyme ({bgc_type})',
+        entries=[(bgc['label'],
+                  CLASS_COLORS[classifications.get(bgc['label'], 'Unknown')],
+                  classifications.get(bgc['label'], 'Unknown'))
+                 for bgc in metadata],
+        legend=('Coupling enzyme', itol.simple_legend(legend_items)),
+        color='#333333',
+        options=[('STRIP_WIDTH', 40), ('SHOW_BORDER', 1), ('BORDER_WIDTH', 0.5)],
+    )
 
     n_classified = sum(1 for c in classifications.values() if c != 'Unknown')
     print(f'  Coupling enzyme strip: {outpath}')
@@ -269,7 +220,7 @@ def main():
         metadata = json.load(f)
 
     print(f'Building antiSMASH JSON index from: {args.antismash_dir}')
-    json_index = build_json_index(args.antismash_dir, args.bgc_type)
+    json_index = build_json_index(args.antismash_dir)
     print(f'  Found {len(json_index)} genome JSON files')
 
     print(f'Classifying coupling enzymes for {len(metadata)} BGCs...')

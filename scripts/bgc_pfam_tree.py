@@ -19,7 +19,6 @@ Output files:
 """
 
 import argparse
-import sqlite3
 import os
 import sys
 import json
@@ -32,60 +31,12 @@ from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
 from io import StringIO
 
 sys.path.insert(0, str(Path(__file__).parent))
+from utils import bigscape_db as db
 from utils.bgc_labels import label_from_path, make_labels_unique
 from utils.tree_building import build_nj_tree
 
 # NJ trees for large datasets can be deeply nested; raise the limit
 sys.setrecursionlimit(10000)
-
-
-# ─── Database queries ────────────────────────────────────────────────────────
-
-BGC_QUERY = """
-    SELECT
-        br.id       AS bgc_id,
-        br.product,
-        g.id        AS gbk_id,
-        g.path      AS gbk_path,
-        g.organism
-    FROM bgc_record br
-    JOIN gbk g ON br.gbk_id = g.id
-    WHERE LOWER(br.product) LIKE ?
-    ORDER BY g.path
-"""
-
-BGC_QUERY_FAMILY = """
-    SELECT
-        br.id       AS bgc_id,
-        br.product,
-        g.id        AS gbk_id,
-        g.path      AS gbk_path,
-        g.organism
-    FROM bgc_record br
-    JOIN gbk g ON br.gbk_id = g.id
-    JOIN bgc_record_family brf ON br.id = brf.record_id
-    WHERE LOWER(br.product) LIKE ?
-      AND brf.family_id = ?
-    ORDER BY g.path
-"""
-
-DOMAIN_QUERY = """
-    SELECT DISTINCT h.accession
-    FROM cds c
-    JOIN scanned_cds sc ON sc.cds_id = c.id
-    JOIN hsp h ON h.cds_id = c.id
-    WHERE c.gbk_id = ?
-      AND h.accession != ''
-      AND h.bit_score >= 20
-"""
-
-FAMILY_QUERY = """
-    SELECT brf.family_id, f.cutoff
-    FROM bgc_record_family brf
-    JOIN family f ON brf.family_id = f.id
-    WHERE brf.record_id = ?
-    ORDER BY f.cutoff
-"""
 
 
 # ─── Core logic ──────────────────────────────────────────────────────────────
@@ -105,16 +56,12 @@ def load_bgc_domains(db_path, bgc_type_filter, family_id=None):
     bgc_metadata = []
     skipped = 0
 
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
+    with db.connect(db_path) as conn:
         cur = conn.cursor()
 
         if family_id is not None:
-            cur.execute(BGC_QUERY_FAMILY, (f'%{bgc_type_filter.lower()}%', family_id))
             print(f"  Filtering to GCF family {family_id}")
-        else:
-            cur.execute(BGC_QUERY, (f'%{bgc_type_filter.lower()}%',))
-        bgc_rows = cur.fetchall()
+        bgc_rows = db.fetch_bgc_records(cur, bgc_type_filter, family_id)
 
         if not bgc_rows:
             raise ValueError(f"No BGCs found matching '{bgc_type_filter}' in {db_path}")
@@ -122,29 +69,19 @@ def load_bgc_domains(db_path, bgc_type_filter, family_id=None):
         print(f"  Found {len(bgc_rows)} BGCs matching '{bgc_type_filter}'")
 
         for row in bgc_rows:
-            # Get Pfam domains for this BGC's GBK
-            cur.execute(DOMAIN_QUERY, (row['gbk_id'],))
-            domains = {r[0] for r in cur.fetchall()}
+            domains = db.fetch_domain_set(cur, row['gbk_id'])
 
             if not domains:
                 skipped += 1
                 continue
 
-            # Get GCF family assignment(s) for metadata
-            cur.execute(FAMILY_QUERY, (row['bgc_id'],))
-            families = [{'family_id': r['family_id'], 'cutoff': r['cutoff']}
-                        for r in cur.fetchall()]
-
             label = label_from_path(row['gbk_path'])
             bgc_labels.append(label)
             bgc_domains.append(domains)
             bgc_metadata.append({
-                'label':     label,
-                'product':   row['product'],
-                'organism':  row['organism'] or os.path.basename(os.path.dirname(row['gbk_path'])),
-                'gbk_path':  row['gbk_path'],
+                **db.record_metadata(row, label),
                 'n_domains': len(domains),
-                'families':  families,
+                'families':  db.fetch_families(cur, row['bgc_id']),
             })
 
     if skipped:

@@ -236,6 +236,12 @@ DOMAIN_NAMES = {
 }
 
 
+def domain_name(accession):
+    """Readable name for a Pfam accession, stripping any version suffix."""
+    base = accession.split('.')[0]
+    return DOMAIN_NAMES.get(base, base)
+
+
 def load_coupling_classes(path, region_only=False):
     """Parse iTOL coupling colorstrip → {gbk_basename: class_id}.
 

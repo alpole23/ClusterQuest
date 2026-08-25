@@ -14,7 +14,7 @@ process EXTRACT_GCF_REPRESENTATIVES {
 
     script:
     def taxon_clean = Utils.sanitizeTaxon(params.taxon)
-    def tabulation_arg = tabulation_file.name != 'NO_TABULATION' ? "--tabulation ${tabulation_file}" : ""
+    def tabulation_arg = Utils.optArg('--tabulation', tabulation_file)
     """
     python ${projectDir}/scripts/clustering/extract_gcf_representatives.py ${bigscape_dir} antismash_input gcf_representatives.json --taxon "${taxon_clean}" ${tabulation_arg}
     """

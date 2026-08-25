@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Taxonomy tree visualization functions."""
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -9,12 +10,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def generate_taxonomy_tree_html(taxonomy_tree_data):
-    """Generate interactive HTML for the taxonomy tree with genome-level data."""
+    '''Generate interactive HTML for the taxonomy tree with genome-level data'''
     tree = taxonomy_tree_data.get('tree', {})
     metadata = taxonomy_tree_data.get('metadata', {})
 
     def render_genome_list(genomes, level):
-        """Render genome list under a species node with heatmap coloring."""
+        '''Render genome list under a species node with heatmap coloring'''
         if not genomes:
             return ''
 
@@ -39,7 +40,7 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
         total_max = total_max if total_max > 0 else 1
 
         def get_green_bg_color(count, max_count):
-            """Convert count to sequential green background color for Total BGCs."""
+            '''Convert count to sequential green background color for Total BGCs'''
             if count == 0:
                 return ''
             intensity = count / max_count
@@ -55,7 +56,7 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
                 return '#2e7d32'
 
         def get_red_font_color(count, max_count):
-            """Convert count to sequential red font color for BGC types."""
+            '''Convert count to sequential red font color for BGC types'''
             if count == 0:
                 return ''
             intensity = count / max_count
@@ -103,7 +104,7 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
         return genome_list_html
 
     def render_node(node, level=0):
-        """Recursively render tree nodes."""
+        '''Recursively render tree nodes'''
         name = node.get('name', 'Unknown')
         rank = node.get('rank', '')
         stats = node.get('stats', {})
@@ -127,7 +128,10 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
             if len(bgc_distribution) > 3:
                 bgc_types_html += f" (+{len(bgc_distribution)-3} more)"
 
-        node_id = f"node_{abs(hash(name + rank + str(level)))}"
+        # md5 (not builtin hash) so ids are stable across processes:
+        # PYTHONHASHSEED randomises str hashing, which made every report differ
+        node_key = f"{name}{rank}{level}".encode("utf-8")
+        node_id = f"node_{hashlib.md5(node_key).hexdigest()[:12]}"
         has_children = len(children) > 0
         has_genomes = len(genomes) > 0 and rank == 'species'
 

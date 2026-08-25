@@ -67,7 +67,7 @@ def parse_memory(mem_str):
     return 0
 
 
-def format_bytes(bytes_val):
+def format_bytes(bytes_val, precision=1):
     """Format bytes to human-readable string."""
     if bytes_val == 0:
         return "0 B"
@@ -77,7 +77,7 @@ def format_bytes(bytes_val):
     while val >= 1024 and i < len(units) - 1:
         val /= 1024
         i += 1
-    return f"{val:.1f} {units[i]}"
+    return f"{val:.{precision}f} {units[i]}"
 
 
 def format_duration_str(seconds):

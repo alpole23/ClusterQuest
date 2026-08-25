@@ -18,9 +18,10 @@ def get_genome_count(counts_file):
 
 
 def generate_genome_table_html(counts_file, assembly_info, name_map, taxonomy_map_data=None):
-    """Generate HTML for a searchable genome table."""
+    '''Generate HTML for a searchable genome table'''
+
     # Read counts to get genome list with BGC data
-    counts_df = pd.read_csv(counts_file, sep='\t', comment='#')
+    counts_df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
 
     # Read assembly info
     assembly_df = pd.read_csv(assembly_info, sep='\t')
@@ -40,6 +41,8 @@ def generate_genome_table_html(counts_file, assembly_info, name_map, taxonomy_ma
         genome_name = row['record'].replace('.gbff', '')
         assembly_id = reverse_map.get(genome_name, 'N/A')
         total_bgcs = row.get('total_count', 0)
+        if pd.isna(total_bgcs):
+            total_bgcs = 0
 
         # Get top BGC types for this genome
         bgc_counts = {col: row.get(col, 0) for col in bgc_cols if row.get(col, 0) > 0}
@@ -94,8 +97,8 @@ def generate_genome_table_html(counts_file, assembly_info, name_map, taxonomy_ma
 
 
 def calculate_summary_statistics(counts_file, tabulation_file=None):
-    """Calculate summary statistics for the dataset including tabulation stats."""
-    df = pd.read_csv(counts_file, sep='\t', comment='#')
+    '''Calculate summary statistics for the dataset including tabulation stats'''
+    df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
 
     # Select BGC columns
     numeric_cols = df.select_dtypes(include='number').columns
@@ -103,10 +106,12 @@ def calculate_summary_statistics(counts_file, tabulation_file=None):
 
     total_genomes = len(df)
     total_bgcs = df['total_count'].sum()
+    if pd.isna(total_bgcs):
+        total_bgcs = 0
     avg_bgcs = df['total_count'].mean()
     std_bgcs = df['total_count'].std()
-    min_bgcs = int(df['total_count'].min())
-    max_bgcs = int(df['total_count'].max())
+    min_bgcs = int(df['total_count'].min()) if not pd.isna(df['total_count'].min()) else 0
+    max_bgcs = int(df['total_count'].max()) if not pd.isna(df['total_count'].max()) else 0
     median_bgcs = df['total_count'].median()
     genomes_with_no_bgcs = len(df[df['total_count'] == 0])
     genomes_with_bgcs = total_genomes - genomes_with_no_bgcs
@@ -234,8 +239,8 @@ def calculate_summary_statistics(counts_file, tabulation_file=None):
 
 
 def create_bgc_distribution_table(counts_file, outdir):
-    """Create interactive HTML table for BGC distribution with clickable genome links and color-coding."""
-    df = pd.read_csv(counts_file, sep='\t', comment='#')
+    '''Create interactive HTML table for BGC distribution with clickable genome links and color-coding'''
+    df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
 
     # Select BGC columns
     numeric_cols = df.select_dtypes(include='number').columns
@@ -248,7 +253,7 @@ def create_bgc_distribution_table(counts_file, outdir):
         max_values[col] = df[col].max() if df[col].max() > 0 else 1
 
     def get_color(value, max_val):
-        """Generate color based on value using sequential green palette."""
+        '''Generate color based on value using sequential green palette'''
         if value == 0 or pd.isna(value):
             return ''
         # Scale from light green to dark green
@@ -271,8 +276,9 @@ def create_bgc_distribution_table(counts_file, outdir):
         row_html = f'<tr><td><a href="{genome_link}">{genome_name}</a></td>'
 
         # Total count with color
-        total_color = get_color(row["total_count"], max_total)
-        row_html += f'<td style="{total_color}">{int(row["total_count"])}</td>'
+        total_count = row["total_count"] if not pd.isna(row["total_count"]) else 0
+        total_color = get_color(total_count, max_total)
+        row_html += f'<td style="{total_color}">{int(total_count)}</td>'
 
         # Add BGC counts for each type with color coding
         for bgc_type in bgc_cols:
@@ -291,3 +297,5 @@ def create_bgc_distribution_table(counts_file, outdir):
     header += '</tr>'
 
     return header, '\n'.join(html_rows)
+
+

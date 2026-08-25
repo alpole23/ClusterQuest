@@ -36,8 +36,10 @@ import matplotlib.pyplot as plt
 from Bio import Phylo
 
 sys.path.insert(0, str(Path(__file__).parent))
+from utils.plotting import SVG_METADATA, canonicalise_svg
 from utils.constants import COUPLING_COLORS, COUPLING_ORDER, load_coupling_classes
 from utils.tree_building import build_nj_tree as _build_nj_tree
+from utils.tree_layout import assign_layout, draw_cladogram, max_depth
 
 
 def get_gcf_info(conn, cutoff):
@@ -135,36 +137,6 @@ def get_gcf_coupling_class(conn, gcf_info, cutoff, coupling_classes):
     return gcf_dominant
 
 
-def assign_layout(clade, counter, depth=0):
-    clade._depth = depth
-    if clade.is_terminal():
-        clade._x = counter[0]
-        counter[0] += 1
-        return
-    for child in clade.clades:
-        assign_layout(child, counter, depth + 1)
-    clade._x = sum(c._x for c in clade.clades) / len(clade.clades)
-
-
-def max_depth(clade):
-    if clade.is_terminal():
-        return clade._depth
-    return max(max_depth(c) for c in clade.clades)
-
-
-def draw_cladogram(ax, clade, color='#333333', lw=1.2):
-    if clade.is_terminal():
-        return
-    x_node   = clade._depth
-    child_ys = [c._x for c in clade.clades]
-    ax.plot([x_node, x_node], [min(child_ys), max(child_ys)],
-            color=color, lw=lw, solid_capstyle='round')
-    for child in clade.clades:
-        ax.plot([x_node, child._depth], [child._x, child._x],
-                color=color, lw=lw, solid_capstyle='round')
-        draw_cladogram(ax, child, color, lw)
-
-
 def plot_gcf_tree(tree, gcf_info, gcf_dominant, outdir):
     """Draw the GCF biosynthetic NJ tree with coupling-enzyme coloring."""
     assign_layout(tree.root, [0])
@@ -177,7 +149,7 @@ def plot_gcf_tree(tree, gcf_info, gcf_dominant, outdir):
     fig_h = max(3.0, n * 0.45)
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
-    draw_cladogram(ax, tree.root)
+    draw_cladogram(ax, tree.root, lw=1.2)
 
     # Draw leaf nodes as colored circles + labels
     max_members = max(info['n_members'] for info in gcf_info.values())
@@ -229,7 +201,8 @@ def plot_gcf_tree(tree, gcf_info, gcf_dominant, outdir):
     out_png = os.path.join(outdir, 'gcf_biosynthetic_tree.png')
     out_svg = os.path.join(outdir, 'gcf_biosynthetic_tree.svg')
     fig.savefig(out_png, dpi=180, bbox_inches='tight')
-    fig.savefig(out_svg,           bbox_inches='tight')
+    fig.savefig(out_svg,           bbox_inches='tight', metadata=SVG_METADATA)
+    canonicalise_svg(out_svg)
     print(f'Saved: {out_png}')
     print(f'Saved: {out_svg}')
     plt.close(fig)

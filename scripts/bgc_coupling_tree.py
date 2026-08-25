@@ -49,6 +49,10 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 sys.path.insert(0, str(Path(__file__).parent))
+from utils import itol
+from utils.antismash_parser import (build_json_index, cds_in_region as _cds_in_region,
+                                    genome_from_gbk_path, parse_bgc_label as parse_label,
+                                    parse_location_bounds, region_bounds)
 from utils.constants import (COUPLING_COLORS as _BASE_COUPLING_COLORS, LEGACY_CLASS_NAMES,
                               GCF_PALETTE, load_coupling_classes)
 
@@ -115,62 +119,7 @@ def load_metadata(path):
     return meta
 
 
-def build_json_index(antismash_dir):
-    """Walk antismash_dir → {genome_name: json_path}."""
-    index = {}
-    for genome in os.listdir(antismash_dir):
-        jp = os.path.join(antismash_dir, genome, f'{genome}.json')
-        if os.path.exists(jp):
-            index[genome] = jp
-    return index
-
-
-def genome_from_gbk_path(gbk_path):
-    return os.path.basename(os.path.dirname(gbk_path))
-
-
-def parse_label(label):
-    """'CONTIG.regionNNN' → (contig_id, zero-padded region str)."""
-    label = re.sub(r'_\d+$', '', label)
-    m = re.search(r'^(.+?)\.region(\d+)$', label)
-    if m:
-        return m.group(1), m.group(2).zfill(3)
-    return label, '001'
-
-
-def parse_location_bounds(loc_str):
-    """Extract (min_start, max_end) from an antiSMASH location string."""
-    coords = re.findall(r'\[(\d+):(\d+)\]', str(loc_str))
-    if not coords:
-        return None, None
-    starts = [int(s) for s, _ in coords]
-    ends   = [int(e) for _, e in coords]
-    return min(starts), max(ends)
-
-
 # ─── Sequence extraction ──────────────────────────────────────────────────────
-
-def _cds_in_region(feat, region_start, region_end):
-    """Return True if a CDS feature overlaps the region."""
-    if region_start is None:
-        return True
-    start, end = parse_location_bounds(feat.get('location', ''))
-    if start is None:
-        return True
-    return not (end < region_start or start > region_end)
-
-
-def _get_region_bounds(rec, contig_id, region_num):
-    """Find the phosphonate region and return its (start, end)."""
-    for feat in rec.get('features', []):
-        if feat.get('type') != 'region':
-            continue
-        rnum = str(feat.get('qualifiers', {}).get('region_number', ['?'])[0]).zfill(3)
-        products = feat.get('qualifiers', {}).get('product', [])
-        if rnum == region_num and any('phosphonate' in p for p in products):
-            return parse_location_bounds(feat.get('location', ''))
-    return None, None
-
 
 def extract_cds_from_json(json_path, contig_id, region_num,
                            is_pepm=False, smcog=None, domain=None):
@@ -193,7 +142,7 @@ def extract_cds_from_json(json_path, contig_id, region_num,
         if contig_id not in rec.get('id', ''):
             continue
 
-        r_start, r_end = _get_region_bounds(rec, contig_id, region_num)
+        r_start, r_end = region_bounds(rec, region_num, product_filter='phosphonate')
 
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
@@ -242,7 +191,7 @@ def extract_all_cds_from_region(json_path, contig_id, region_num):
     for rec in data['records']:
         if contig_id not in rec.get('id', ''):
             continue
-        r_start, r_end = _get_region_bounds(rec, contig_id, region_num)
+        r_start, r_end = region_bounds(rec, region_num, product_filter='phosphonate')
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
                 continue
@@ -498,44 +447,31 @@ def build_fasttree(alignment, out_nwk, fasttree_bin):
 
 # ─── iTOL annotation writers ──────────────────────────────────────────────────
 
+# Colorstrips on the coupling trees are drawn wider and bordered so the class
+# blocks stay readable on trees with hundreds of leaves.
+STRIP_OPTIONS = [('STRIP_WIDTH', 40), ('SHOW_BORDER', 1), ('BORDER_WIDTH', 0.5)]
+
+
 def write_itol_colorstrip(labels, color_fn, display_fn, dataset_label, legend_items, out_path):
     """
-    Generic DATASET_COLORSTRIP writer.
+    DATASET_COLORSTRIP for a tree, driven by per-label callbacks.
     color_fn(label)   → hex color string
     display_fn(label) → display label string (shown in strip tooltip)
     legend_items      → [(label_str, color_str), ...]
     """
-    with open(out_path, 'w') as f:
-        f.write('DATASET_COLORSTRIP\n')
-        f.write('SEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\t{dataset_label}\n')
-        f.write('COLOR\t#333333\n')
-        f.write('STRIP_WIDTH\t40\n')
-        f.write('SHOW_BORDER\t1\n')
-        f.write('BORDER_WIDTH\t0.5\n')
-        if legend_items:
-            f.write(f'LEGEND_TITLE\t{dataset_label}\n')
-            f.write('LEGEND_SHAPES\t' + '\t'.join('1' for _ in legend_items) + '\n')
-            f.write('LEGEND_COLORS\t' + '\t'.join(c for _, c in legend_items) + '\n')
-            f.write('LEGEND_LABELS\t' + '\t'.join(l for l, _ in legend_items) + '\n')
-        f.write('DATA\n')
-        for lbl in labels:
-            f.write(f'{lbl}\t{color_fn(lbl)}\t{display_fn(lbl)}\n')
+    itol.write_colorstrip(
+        out_path, dataset_label,
+        entries=[(lbl, color_fn(lbl), display_fn(lbl)) for lbl in labels],
+        legend=(dataset_label, itol.simple_legend(legend_items)) if legend_items else None,
+        color='#333333',
+        options=STRIP_OPTIONS,
+    )
 
 
 def write_itol_text(labels, text_fn, dataset_label, out_path):
     """DATASET_TEXT writer for leaf label annotations (e.g. organism names)."""
-    with open(out_path, 'w') as f:
-        f.write('DATASET_TEXT\n')
-        f.write('SEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\t{dataset_label}\n')
-        f.write('COLOR\t#333333\n')
-        f.write('DATA\n')
-        for lbl in labels:
-            text = text_fn(lbl)
-            if text:
-                # node_id, text, position (1=after), color, style, size_factor
-                f.write(f'{lbl}\t{text}\t1\t#333333\tnormal\t1\n')
+    itol.write_text(out_path, dataset_label,
+                    entries=[(lbl, text_fn(lbl)) for lbl in labels])
 
 
 def write_tree_itol(seq_labels, get_class_fn, metadata, ref_records, outdir):

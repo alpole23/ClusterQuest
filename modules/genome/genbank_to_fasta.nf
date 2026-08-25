@@ -1,17 +1,22 @@
+/**
+ * Convert a batch of GenBank files to FASTA.
+ *
+ * Batched (params.task_batch_size) because the per-genome work is ~1.5 s.
+ * Conversion failures are per-genome: a bad genome is skipped, not fatal for the batch.
+ */
 process GENBANK_TO_FASTA {
-    tag "$genome.baseName"
+    tag "${genomes instanceof List ? genomes.size() : 1} genomes"
     label 'process_low'
     label 'tolerant'
 
     input:
-    path genome
+    path genomes
 
     output:
     path "*.fna", emit: fasta
 
     script:
-    def output_name = genome.baseName + ".fna"
     """
-    python ${projectDir}/scripts/genome/genbank_to_fasta.py ${genome} ${output_name}
+    python ${projectDir}/scripts/genome/genbank_to_fasta.py ${genomes}
     """
 }

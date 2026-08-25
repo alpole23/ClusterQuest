@@ -21,8 +21,8 @@ process GCF_BIOSYNTHETIC_TREE {
     path "phosphonate_itol_coupling.txt",               emit: coupling_annotation,  optional: true
 
     script:
-    def tree_arg    = gtdbtk_tree.name    != 'NO_PHYLO_TREE'     ? "--gtdbtk_tree ${gtdbtk_tree}"      : ""
-    def summary_arg = gtdbtk_summary.name != 'NO_GTDBTK_SUMMARY' ? "--gtdbtk_summary ${gtdbtk_summary}" : ""
+    def tree_arg    = Utils.optArg('--gtdbtk_tree',    gtdbtk_tree)
+    def summary_arg = Utils.optArg('--gtdbtk_summary', gtdbtk_summary)
     """
     # Step 1: Generate BGC metadata from BiG-SCAPE database (metadata only — skip slow NJ tree)
     python ${projectDir}/scripts/bgc_pfam_tree.py \\

@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from utils import itol
 from utils.colors import family_color
 
 
@@ -61,34 +62,21 @@ def write_gcf_colorstrip(metadata, outpath, bgc_type):
     family_rank = {fid: i for i, fid in enumerate(ranked)}
     n_top = min(20, len(ranked))
 
-    with open(outpath, 'w') as f:
-        f.write('DATASET_COLORSTRIP\n')
-        f.write('SEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\tGCF Family ({bgc_type})\n')
-        f.write('COLOR\t#777777\n')
-        f.write('LEGEND_TITLE\tGCF Family\n')
+    def color_of(fid):
+        return family_color(fid, family_rank.get(fid, len(ranked)), n_top)
 
-        # Legend for top families
-        legend_shapes = '\t'.join(['1'] * n_top + ['1'])
-        legend_colors = '\t'.join(
-            [family_color(fid, family_rank[fid], n_top) for fid in ranked[:n_top]]
-            + ['#cccccc']
-        )
-        legend_labels = '\t'.join(
-            [f'GCF-{fid} ({family_counts[fid]} BGCs)' for fid in ranked[:n_top]]
-            + ['Singleton / unclustered']
-        )
-        f.write(f'LEGEND_SHAPES\t{legend_shapes}\n')
-        f.write(f'LEGEND_COLORS\t{legend_colors}\n')
-        f.write(f'LEGEND_LABELS\t{legend_labels}\n')
-        f.write('DATA\n')
+    legend_items = [(f'GCF-{fid} ({family_counts[fid]} BGCs)', color_of(fid))
+                    for fid in ranked[:n_top]]
+    legend_items.append(('Singleton / unclustered', '#cccccc'))
 
-        for bgc in metadata:
-            fid = bgc['families'][0]['family_id'] if bgc['families'] else None
-            rank = family_rank.get(fid, len(ranked))
-            color = family_color(fid, rank, n_top)
-            label = f"GCF-{fid}" if fid is not None else "Singleton"
-            f.write(f"{bgc['label']}\t{color}\t{label}\n")
+    entries = []
+    for bgc in metadata:
+        fid = bgc['families'][0]['family_id'] if bgc['families'] else None
+        label = f"GCF-{fid}" if fid is not None else "Singleton"
+        entries.append((bgc['label'], color_of(fid), label))
+
+    itol.write_colorstrip(outpath, f'GCF Family ({bgc_type})', entries,
+                          legend=('GCF Family', itol.simple_legend(legend_items)))
 
     print(f"  GCF color strip:  {outpath}  ({len(set(family_counts))} families, "
           f"{sum(1 for b in metadata if not b['families'])} singletons)")
@@ -137,26 +125,15 @@ def write_domain_binary(metadata, domain_matrix_path, outpath, bgc_type):
             for bgc in metadata
         }
 
-    with open(outpath, 'w') as f:
-        f.write('DATASET_BINARY\n')
-        f.write('SEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\tKey domains ({bgc_type})\n')
-        f.write('COLOR\t#333333\n')
+    fields = [(shp, lbl, col) for _, lbl, col, shp in active]
+    entries = []
+    for bgc in metadata:
+        presence = bgc_presence.get(bgc['label'], {acc: 0 for acc, *_ in active})
+        entries.append((bgc['label'], [presence.get(acc, 0) for acc, *_ in active]))
 
-        f.write('FIELD_SHAPES\t' + '\t'.join(str(shp) for _, _, _, shp in active) + '\n')
-        f.write('FIELD_LABELS\t' + '\t'.join(lbl for _, lbl, _, _ in active) + '\n')
-        f.write('FIELD_COLORS\t' + '\t'.join(col for _, _, col, _ in active) + '\n')
-
-        f.write('LEGEND_TITLE\tPathway domains\n')
-        f.write('LEGEND_SHAPES\t' + '\t'.join(str(shp) for _, _, _, shp in active) + '\n')
-        f.write('LEGEND_COLORS\t' + '\t'.join(col for _, _, col, _ in active) + '\n')
-        f.write('LEGEND_LABELS\t' + '\t'.join(lbl for _, lbl, _, _ in active) + '\n')
-
-        f.write('DATA\n')
-        for bgc in metadata:
-            presence = bgc_presence.get(bgc['label'], {acc: 0 for acc, *_ in active})
-            vals = '\t'.join(str(presence.get(acc, 0)) for acc, *_ in active)
-            f.write(f"{bgc['label']}\t{vals}\n")
+    itol.write_binary(outpath, f'Key domains ({bgc_type})', fields, entries,
+                      legend=('Pathway domains',
+                              [(lbl, col, shp) for _, lbl, col, shp in active]))
 
     print(f"  Domain binary:    {outpath}  ({len(active)} domains shown)")
 
@@ -166,16 +143,8 @@ def write_domain_count_bar(metadata, outpath, bgc_type, count_field='n_domains')
     DATASET_SIMPLEBAR: total domain/gene count per BGC.
     """
     label_str = 'Gene count' if count_field == 'n_genes' else 'Pfam domain count'
-    with open(outpath, 'w') as f:
-        f.write('DATASET_SIMPLEBAR\n')
-        f.write('SEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\t{label_str} ({bgc_type})\n')
-        f.write('COLOR\t#5b5ea6\n')
-        f.write('WIDTH\t200\n')
-        f.write('SHOW_INTERNAL\t0\n')
-        f.write('DATA\n')
-        for bgc in metadata:
-            f.write(f"{bgc['label']}\t{bgc[count_field]}\n")
+    itol.write_simplebar(outpath, f'{label_str} ({bgc_type})',
+                         [(bgc['label'], bgc[count_field]) for bgc in metadata])
 
     counts = [b[count_field] for b in metadata]
     print(f"  Domain count bar: {outpath}  "

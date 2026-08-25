@@ -45,6 +45,7 @@ from scipy.cluster.hierarchy import dendrogram, leaves_list, linkage
 from scipy.spatial.distance import pdist
 
 sys.path.insert(0, str(Path(__file__).parent))
+from utils.plotting import SVG_METADATA, canonicalise_svg
 from utils.constants import (COUPLING_COLORS, COUPLING_ORDER as CLASS_ORDER,
                               LEGACY_CLASS_NAMES as LEGACY, load_coupling_classes)
 
@@ -604,7 +605,8 @@ def plot_heatmap(rows, species_list, gcf_species, singleton_species, outdir,
     out_png = os.path.join(outdir, 'gcf_species_heatmap.png')
     out_svg = os.path.join(outdir, 'gcf_species_heatmap.svg')
     fig.savefig(out_png, dpi=180, bbox_inches='tight')
-    fig.savefig(out_svg,           bbox_inches='tight')
+    fig.savefig(out_svg,           bbox_inches='tight', metadata=SVG_METADATA)
+    canonicalise_svg(out_svg)
     print(f'Saved: {out_png}')
     print(f'Saved: {out_svg}')
     plt.close(fig)

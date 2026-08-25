@@ -2,6 +2,7 @@
 """Shared antiSMASH JSON parsing utilities."""
 
 import json
+import os
 import re
 from pathlib import Path
 from .constants import GENE_COLORS
@@ -346,3 +347,84 @@ def build_record_index_map(antismash_dir):
             continue
 
     return record_index_map
+
+
+# ─── BGC label / region helpers ───────────────────────────────────────────────
+# Shared by bgc_coupling_annotation.py and bgc_coupling_tree.py, which both walk
+# antiSMASH JSON output to find the CDSes inside a named BGC region.
+
+def build_json_index(antismash_dir):
+    """Walk antismash_dir → {genome_name: json_path}."""
+    index = {}
+    for genome in os.listdir(antismash_dir):
+        json_path = os.path.join(antismash_dir, genome, f'{genome}.json')
+        if os.path.exists(json_path):
+            index[genome] = json_path
+    return index
+
+
+def genome_from_gbk_path(gbk_path):
+    """Genome folder name from a metadata gbk_path (…/<genome>/<contig>.regionNNN.gbk)."""
+    return os.path.basename(os.path.dirname(gbk_path))
+
+
+def parse_bgc_label(label):
+    """'CONTIG.regionNNN' → (contig_id, zero-padded region string).
+
+    Trailing '_N' duplicate suffixes (added by make_labels_unique) are stripped.
+    """
+    label = re.sub(r'_\d+$', '', label)
+    m = re.search(r'^(.+?)\.region(\d+)$', label)
+    if m:
+        return m.group(1), m.group(2).zfill(3)
+    return label, '001'
+
+
+def parse_location_bounds(loc_str, span=True):
+    """Bounds of an antiSMASH location string, or (None, None) if it has no coordinates.
+
+    span=True  → (min_start, max_end) across every coordinate pair, so compound
+                 locations (joins, origin-spanning regions) report their full extent.
+    span=False → the first coordinate pair only. bgc_coupling_annotation.py uses this
+                 to keep its historical classifications; the two readings disagree for
+                 the handful of BGCs whose region feature has a compound location.
+    """
+    coords = re.findall(r'\[(\d+):(\d+)\]', str(loc_str))
+    if not coords:
+        return None, None
+    if not span:
+        return int(coords[0][0]), int(coords[0][1])
+    return min(int(s) for s, _ in coords), max(int(e) for _, e in coords)
+
+
+def find_region_feature(record, region_num, product_filter=None):
+    """The region feature with this number, optionally requiring a product substring."""
+    for feat in record.get('features', []):
+        if feat.get('type') != 'region':
+            continue
+        qualifiers = feat.get('qualifiers', {})
+        rnum = str(qualifiers.get('region_number', ['?'])[0]).zfill(3)
+        if rnum != str(region_num).zfill(3):
+            continue
+        if product_filter and not any(product_filter in p for p in qualifiers.get('product', [])):
+            continue
+        return feat
+    return None
+
+
+def region_bounds(record, region_num, product_filter=None):
+    """(start, end) of a region feature, or (None, None) if not found."""
+    feat = find_region_feature(record, region_num, product_filter)
+    if feat is None:
+        return None, None
+    return parse_location_bounds(feat.get('location', ''))
+
+
+def cds_in_region(feat, region_start, region_end):
+    """True if a CDS feature overlaps the region (or bounds are unknown)."""
+    if region_start is None:
+        return True
+    start, end = parse_location_bounds(feat.get('location', ''))
+    if start is None:
+        return True
+    return not (end < region_start or start > region_end)

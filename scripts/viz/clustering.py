@@ -12,7 +12,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def generate_bigscape_stats_html(bigscape_stats_file, mibig_included=False):
-    """Generate HTML for BiG-SCAPE clustering statistics."""
+    '''Generate HTML for BiG-SCAPE clustering statistics'''
+    import os
+
     if not os.path.exists(bigscape_stats_file) or os.path.basename(bigscape_stats_file).startswith('NO_'):
         return ''
 
@@ -25,6 +27,7 @@ def generate_bigscape_stats_html(bigscape_stats_file, mibig_included=False):
 
     if 'error' in stats:
         return f'''
+    <h3>BiG-SCAPE Clustering Statistics</h3>
     <div class="info-box" style="background-color: #fff3cd; border-left: 4px solid #ffc107;">
         <p><strong>Note:</strong> {stats['error']}</p>
     </div>
@@ -64,6 +67,7 @@ def generate_bigscape_stats_html(bigscape_stats_file, mibig_included=False):
         mibig_families_display = '<span style="color: #999;" title="MIBiG references were not included in this analysis">N/A</span>'
 
     return f'''
+    <h3>BiG-SCAPE Clustering Statistics</h3>
     <div class="info-box">
         <table style="width: 100%; border-collapse: collapse;">
             <tr>
@@ -108,7 +112,9 @@ def generate_bigscape_stats_html(bigscape_stats_file, mibig_included=False):
 
 
 def generate_gcf_visualization_html(gcf_data_file, taxon):
-    """Generate HTML for GCF representative visualization in Clustering tab."""
+    '''Generate HTML for GCF representative visualization in Clustering tab'''
+    import os
+
     if not os.path.exists(gcf_data_file):
         return ''
 
@@ -160,6 +166,27 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
 
         badge_class = 'singleton' if is_singleton else 'cluster'
         badge_text = 'Singleton' if is_singleton else f'{member_count} BGCs'
+
+        # Novelty/KCB badge
+        kcb_hit = gcf.get('kcb_hit', '')
+        kcb_acc = gcf.get('kcb_acc', '')
+        # Handle NaN/float values from pandas
+        if kcb_hit is None or (isinstance(kcb_hit, float) and str(kcb_hit) == 'nan'):
+            kcb_hit = ''
+        else:
+            kcb_hit = str(kcb_hit)
+        if kcb_acc is None or (isinstance(kcb_acc, float) and str(kcb_acc) == 'nan'):
+            kcb_acc = ''
+        else:
+            kcb_acc = str(kcb_acc)
+
+        if kcb_hit:
+            # Has KCB hit - show the known cluster name with MIBiG link
+            mibig_link = f'https://mibig.secondarymetabolites.org/repository/{kcb_acc}' if kcb_acc else '#'
+            kcb_badge = f'<a href="{mibig_link}" target="_blank" style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; text-decoration: none; margin-left: 8px;" title="KnownClusterBlast hit: {kcb_hit}">{kcb_hit[:25]}{"..." if len(kcb_hit) > 25 else ""}</a>'
+        else:
+            # No KCB hit - potentially novel
+            kcb_badge = '<span style="background: #8e44ad; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 8px;" title="No KnownClusterBlast hits - may represent a novel BGC">Potentially Novel</span>'
 
         # Check if domain hits are stored directly in genes (new approach)
         # or in enhanced_analysis (legacy approach)
@@ -301,10 +328,11 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
         antismash_link_html = f'<a href="{antismash_link}" target="_blank" style="color: #2c5aa0;">View in antiSMASH</a>' if antismash_link else ''
 
         gcf_cards += f'''
-        <div class="gcf-card" data-type="{badge_class}" data-size="{member_count}" data-product="{product}">
+        <div class="gcf-card" data-type="{badge_class}" data-size="{member_count}" data-product="{product}" data-novelty="{'novel' if not kcb_hit else 'known'}">
             <div class="gcf-header" onclick="toggleGCF('gcf_{family_id}')">
-                <span class="gcf-title">GCF {family_id}: {product}</span>
+                <span class="gcf-title">GCF-{family_id}: {product}</span>
                 <span class="gcf-badge {badge_class}">{badge_text}</span>
+                {kcb_badge}
                 <span class="gcf-organism">{organism}</span>
                 <span class="gcf-toggle" id="gcf_{family_id}_toggle">+</span>
             </div>
@@ -346,7 +374,7 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
         </div>
         '''
 
-    # Build complete GCF visualization HTML with styles and scripts
+    # Build complete GCF visualization HTML
     gcf_html = f'''
     <div class="gcf-section" style="margin-top: 30px;">
         <h4>Gene Cluster Family Representatives</h4>
@@ -369,12 +397,17 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
             </div>
         </div>
 
-        <div class="gcf-controls" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+        <div class="gcf-controls" style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <label style="font-size: 0.9em; color: #666;">Filter:</label>
-            <select id="gcfFilter" onchange="filterGCFs(this.value)" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px;">
+            <select id="gcfFilter" onchange="filterGCFs()" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px;">
                 <option value="all">All GCFs</option>
                 <option value="cluster">Clusters Only</option>
                 <option value="singleton">Singletons Only</option>
+            </select>
+            <select id="gcfNoveltyFilter" onchange="filterGCFs()" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="all">All (Novel + Known)</option>
+                <option value="novel">Potentially Novel Only</option>
+                <option value="known">Known (KCB Hits) Only</option>
             </select>
             <label style="font-size: 0.9em; color: #666; margin-left: 15px;">Sort:</label>
             <select id="gcfSort" onchange="sortGCFs(this.value)" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px;">
@@ -468,14 +501,14 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
             }}
         }}
 
-        function filterGCFs(type) {{
+        function filterGCFs() {{
+            const typeFilter = document.getElementById('gcfFilter').value;
+            const noveltyFilter = document.getElementById('gcfNoveltyFilter').value;
             const cards = document.querySelectorAll('.gcf-card');
             cards.forEach(card => {{
-                if (type === 'all' || card.dataset.type === type) {{
-                    card.style.display = 'block';
-                }} else {{
-                    card.style.display = 'none';
-                }}
+                const matchesType = typeFilter === 'all' || card.dataset.type === typeFilter;
+                const matchesNovelty = noveltyFilter === 'all' || card.dataset.novelty === noveltyFilter;
+                card.style.display = (matchesType && matchesNovelty) ? 'block' : 'none';
             }});
         }}
 
@@ -505,3 +538,5 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
     '''
 
     return gcf_html
+
+

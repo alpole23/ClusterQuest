@@ -91,4 +91,19 @@ class Utils {
         if (input instanceof List) return input[0]
         return input
     }
+
+    /**
+     * Build an optional command-line argument for a possibly-placeholder input.
+     * Returns "" when the input is a NO_* placeholder, so callers don't have to
+     * repeat the sentinel name (and can't get it wrong).
+     *
+     *   Utils.optArg('--counts', counts_file)  ->  "--counts region_counts.tsv"  or  ""
+     *
+     * @param flag  The command-line flag, e.g. "--counts"
+     * @param input The staged file, list of files, or placeholder
+     * @return The flag plus path, or an empty string
+     */
+    static String optArg(String flag, input) {
+        isValidInput(input) ? "${flag} ${getFirstFile(input)}" : ""
+    }
 }

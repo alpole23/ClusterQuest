@@ -7,20 +7,6 @@ nextflow.enable.dsl=2
 // =============================================================================
 
 /**
- * Check if a clustering method is enabled.
- */
-def clusteringEnabled(method) {
-    params.clustering == method
-}
-
-/**
- * Create placeholder channel for optional inputs.
- */
-def placeholder(name) {
-    Channel.value(file(name))
-}
-
-/**
  * Validate pipeline parameters.
  */
 def validateParams() {
@@ -48,6 +34,12 @@ def validateParams() {
     def validClassify = ['', 'category', 'class', 'legacy']
     if (!(params.bigscape_classify in validClassify)) {
         errors << "Invalid bigscape_classify '${params.bigscape_classify}'. Valid options: ${validClassify.collect { it ?: '\"\"' }.join(', ')}"
+    }
+
+    // Validate coupling enzyme tree type
+    def validTreeTypes = ['A', 'B', 'both']
+    if (!(params.coupling_tree_type in validTreeTypes)) {
+        errors << "Invalid coupling_tree_type '${params.coupling_tree_type}'. Valid options: ${validTreeTypes.join(', ')}"
     }
 
     // Validate bgc_analysis workflow has required input
@@ -86,6 +78,10 @@ def validateParams() {
         log.warn "GTDB-Tk is enabled. This requires ~140 GB disk space and ~56-64 GB RAM."
     }
 
+    if (params.run_coupling_tree && params.clustering != 'bigscape') {
+        log.warn "run_coupling_tree requires clustering = 'bigscape'; coupling enzyme trees will be skipped."
+    }
+
     if (params.reuse_antismash_from) {
         log.info "antiSMASH result reuse enabled from taxon: ${params.reuse_antismash_from}"
     }
@@ -96,365 +92,15 @@ def validateParams() {
 }
 
 // =============================================================================
-// MODULE IMPORTS
-// =============================================================================
-
-// Database download modules
-include { DOWNLOAD_PFAM } from './modules/databases/download_pfam'
-include { DOWNLOAD_ANTISMASH_DBS } from './modules/databases/download_antismash_dbs'
-include { DOWNLOAD_TAXONKIT_DB } from './modules/databases/download_taxonkit_db'
-include { DOWNLOAD_GTDBTK_DB } from './modules/databases/download_gtdbtk_db'
-// Genome processing modules
-include { NCBI_DATASETS_DOWNLOAD } from './modules/genome/ncbi_datasets_download'
-include { CREATE_NAME_MAP } from './modules/genome/create_name_map'
-include { RENAME_GENOMES } from './modules/genome/rename_genomes_parallel'
-include { GENBANK_TO_FASTA } from './modules/genome/genbank_to_fasta'
-
-// BGC analysis modules
-include { GET_ANTISMASH_VERSION; ANTISMASH } from './modules/analysis/antismash'
-include { CHECK_ANTISMASH_REUSE; COPY_ANTISMASH_RESULT } from './modules/analysis/check_antismash_reuse'
-include { COUNT_REGIONS } from './modules/analysis/count_regions'
-include { TABULATE_REGIONS } from './modules/analysis/tabulate_regions'
-include { EXTRACT_TAXONOMY } from './modules/analysis/extract_taxonomy'
-include { AGGREGATE_TAXONOMY } from './modules/analysis/aggregate_taxonomy'
-
-// Clustering modules
-include { BIGSCAPE } from './modules/clustering/bigscape'
-include { EXTRACT_CLUSTERING_STATS } from './modules/clustering/extract_clustering_stats'
-include { EXTRACT_GCF_REPRESENTATIVES } from './modules/clustering/extract_gcf_representatives'
-
-// Phylogenetic analysis modules
-include { GTDBTK_CLASSIFY } from './modules/phylogeny/gtdbtk'
-include { CHECK_GTDBTK_REUSE; FILTER_GTDBTK_RESULTS } from './modules/phylogeny/check_gtdbtk_reuse'
-
-// Visualization modules
-include { VISUALIZE_RESULTS } from './modules/visualization/visualize_results'
-include { GCF_BIOSYNTHETIC_TREE } from './modules/visualization/gcf_biosynthetic_tree'
-
-// Utility modules
-include { COLLECT_VERSIONS } from './modules/utilities/collect_versions'
-
-// =============================================================================
 // SUBWORKFLOWS
 // =============================================================================
 
-/*
- * Subworkflow: Download and prepare genomes from NCBI
- */
-workflow DOWNLOAD_GENOMES {
-    take:
-        taxon
-
-    main:
-        NCBI_DATASETS_DOWNLOAD(taxon)
-        CREATE_NAME_MAP(taxon, NCBI_DATASETS_DOWNLOAD.out.assembly_info)
-        DOWNLOAD_TAXONKIT_DB()
-
-        // Prepare genome pairs (assembly_id, genome_file)
-        genome_pairs = NCBI_DATASETS_DOWNLOAD.out.genomes
-            .flatten()
-            .map { gbff -> tuple(gbff.parent.name, gbff) }
-
-        RENAME_GENOMES(taxon, genome_pairs, CREATE_NAME_MAP.out.name_map)
-
-        EXTRACT_TAXONOMY(
-            taxon,
-            NCBI_DATASETS_DOWNLOAD.out.assembly_data_report,
-            NCBI_DATASETS_DOWNLOAD.out.taxonomy_report,
-            DOWNLOAD_TAXONKIT_DB.out.taxdump_dir
-        )
-
-    emit:
-        renamed_genomes      = RENAME_GENOMES.out.renamed_genome
-        assembly_info        = NCBI_DATASETS_DOWNLOAD.out.assembly_info
-        name_map             = CREATE_NAME_MAP.out.name_map
-        taxonomy_map         = EXTRACT_TAXONOMY.out.taxonomy_map
-        assembly_data_report = NCBI_DATASETS_DOWNLOAD.out.assembly_data_report
-        taxonomy_report      = NCBI_DATASETS_DOWNLOAD.out.taxonomy_report
-}
-
-/*
- * Subworkflow: Run antiSMASH on genomes (with optional result reuse)
- */
-workflow ANTISMASH_ANALYSIS {
-    take:
-        taxon
-        renamed_genomes
-
-    main:
-        DOWNLOAD_ANTISMASH_DBS()
-
-        // Get antiSMASH version for tracking
-        GET_ANTISMASH_VERSION()
-        antismash_version = GET_ANTISMASH_VERSION.out.version
-
-        // Generate hash of current antiSMASH parameters for tracking
-        antismash_params_hash = Utils.antismashParamsHash(params)
-
-        if (params.reuse_antismash_from) {
-            // === REUSE MODE ===
-            CHECK_ANTISMASH_REUSE(
-                taxon,
-                params.reuse_antismash_from,
-                renamed_genomes,
-                antismash_version,
-                antismash_params_hash
-            )
-
-            // Split: genomes to run vs genomes to reuse
-            genomes_to_run = CHECK_ANTISMASH_REUSE.out.check_result
-                .filter { genome, status, path -> status == "RUN" }
-                .map { genome, status, path -> genome }
-
-            genomes_to_reuse = CHECK_ANTISMASH_REUSE.out.check_result
-                .filter { genome, status, path -> status == "REUSE" }
-                .map { genome, status, path -> tuple(genome.baseName, file(path)) }
-
-            // Run antiSMASH on genomes that need it
-            ANTISMASH(taxon, genomes_to_run, DOWNLOAD_ANTISMASH_DBS.out.db_dir, antismash_version, antismash_params_hash)
-
-            // Copy reused results
-            COPY_ANTISMASH_RESULT(
-                taxon,
-                genomes_to_reuse.map { it[0] },
-                genomes_to_reuse.map { it[1] }
-            )
-
-            // Combine all results
-            antismash_results = ANTISMASH.out.result_dir
-                .mix(COPY_ANTISMASH_RESULT.out.result_dir)
-                .collect()
-        } else {
-            // === NORMAL MODE ===
-            ANTISMASH(taxon, renamed_genomes, DOWNLOAD_ANTISMASH_DBS.out.db_dir, antismash_version, antismash_params_hash)
-            antismash_results = ANTISMASH.out.result_dir.collect()
-        }
-
-    emit:
-        results = antismash_results
-}
-
-/*
- * Subworkflow: BiG-SCAPE GCF clustering
- */
-workflow CLUSTERING {
-    take:
-        taxon
-        antismash_results
-        taxonomy_map
-        name_map
-        tabulation
-
-    main:
-        bigscape_stats_ch = placeholder('NO_BIGSCAPE_STATS')
-        bigscape_db_ch = placeholder('NO_BIGSCAPE_DB')
-        bigscape_dir_ch = placeholder('NO_BIGSCAPE_DIR')
-        gcf_data_ch = placeholder('NO_GCF_DATA')
-
-        if (clusteringEnabled("bigscape")) {
-            DOWNLOAD_PFAM()
-            BIGSCAPE(taxon, antismash_results, DOWNLOAD_PFAM.out.pfam_db)
-            EXTRACT_CLUSTERING_STATS(taxon, BIGSCAPE.out.bigscape_dir)
-            bigscape_stats_ch = EXTRACT_CLUSTERING_STATS.out.stats_json
-            bigscape_db_ch = BIGSCAPE.out.bigscape_db
-            bigscape_dir_ch = BIGSCAPE.out.bigscape_dir
-
-            // Extract GCF representatives (needs tabulation for KCB hit lookup)
-            if (tabulation.name != 'NO_TABULATION') {
-                EXTRACT_GCF_REPRESENTATIVES(taxon, bigscape_dir_ch, antismash_results, tabulation)
-                gcf_data_ch = EXTRACT_GCF_REPRESENTATIVES.out.gcf_data
-            }
-        }
-
-    emit:
-        bigscape_stats = bigscape_stats_ch
-        bigscape_db    = bigscape_db_ch
-        bigscape_dir   = bigscape_dir_ch
-        gcf_data       = gcf_data_ch
-}
-
-/*
- * Subworkflow: GTDB-Tk phylogenetic classification (with optional result reuse)
- */
-workflow PHYLOGENY {
-    take:
-        taxon
-        renamed_genomes
-        counts
-
-    main:
-        phylo_tree_ch = placeholder('NO_PHYLO_TREE')
-        gtdbtk_summary_ch = placeholder('NO_GTDBTK_SUMMARY')
-
-        if (params.run_gtdbtk) {
-            // Determine which genomes to process
-            if (params.gtdbtk_bgc_genomes_only) {
-                // Filter to genomes with BGCs
-                genomes_with_bgcs_ch = counts
-                    .splitCsv(header: true, sep: '\t', skip: 1)
-                    .filter { row -> (row.total_count ?: '0').toInteger() > 0 }
-                    .map { row -> tuple(row.record, true) }
-
-                renamed_genomes_tuples = renamed_genomes
-                    .map { genome -> tuple(genome.name, genome) }
-
-                genomes_for_gtdbtk = renamed_genomes_tuples
-                    .join(genomes_with_bgcs_ch)
-                    .map { name, genome, flag -> genome }
-            } else {
-                genomes_for_gtdbtk = renamed_genomes
-            }
-
-            // Convert GenBank to FASTA
-            GENBANK_TO_FASTA(genomes_for_gtdbtk)
-            fasta_files = GENBANK_TO_FASTA.out.fasta.collect()
-
-            if (params.reuse_gtdbtk_from) {
-                // === GTDB-Tk REUSE MODE ===
-                genome_list_ch = GENBANK_TO_FASTA.out.fasta
-                    .map { it.toString() }
-                    .collectFile(name: 'genome_list.txt', newLine: true)
-
-                CHECK_GTDBTK_REUSE(taxon, params.reuse_gtdbtk_from, genome_list_ch)
-
-                check_result = CHECK_GTDBTK_REUSE.out.check_result
-                    .branch {
-                        reuse: it[0] == "REUSE"
-                        run: it[0] == "RUN"
-                    }
-
-                // REUSE path
-                FILTER_GTDBTK_RESULTS(
-                    taxon,
-                    genome_list_ch,
-                    check_result.reuse.map { it[1] },
-                    check_result.reuse.map { it[2] }
-                )
-
-                // RUN path
-                DOWNLOAD_GTDBTK_DB()
-                fasta_for_fresh_run = check_result.run
-                    .combine(fasta_files)
-                    .map { status, summary, tree, files -> files }
-                GTDBTK_CLASSIFY(taxon, fasta_for_fresh_run, DOWNLOAD_GTDBTK_DB.out.db_dir)
-
-                // Combine outputs
-                phylo_tree_ch = FILTER_GTDBTK_RESULTS.out.bacterial_tree
-                    .mix(GTDBTK_CLASSIFY.out.bacterial_tree)
-                    .ifEmpty(file('NO_PHYLO_TREE'))
-                gtdbtk_summary_ch = FILTER_GTDBTK_RESULTS.out.bacterial_summary
-                    .mix(GTDBTK_CLASSIFY.out.bacterial_summary)
-                    .ifEmpty(file('NO_GTDBTK_SUMMARY'))
-            } else {
-                // === GTDB-Tk NORMAL MODE ===
-                DOWNLOAD_GTDBTK_DB()
-                GTDBTK_CLASSIFY(taxon, fasta_files, DOWNLOAD_GTDBTK_DB.out.db_dir)
-
-                phylo_tree_ch = GTDBTK_CLASSIFY.out.bacterial_tree.ifEmpty(file('NO_PHYLO_TREE'))
-                gtdbtk_summary_ch = GTDBTK_CLASSIFY.out.bacterial_summary.ifEmpty(file('NO_GTDBTK_SUMMARY'))
-            }
-        }
-
-    emit:
-        tree    = phylo_tree_ch
-        summary = gtdbtk_summary_ch
-}
+include { DOWNLOAD_GENOMES } from './subworkflows/download_genomes'
+include { BGC_ANALYSIS } from './subworkflows/bgc_analysis'
 
 // =============================================================================
-// MAIN WORKFLOWS
+// ENTRY POINT
 // =============================================================================
-
-/*
- * Workflow: Complete BGC detection and analysis pipeline
- */
-workflow BGC_ANALYSIS {
-    take:
-        taxon
-        renamed_genomes
-        assembly_info
-        name_map
-        taxonomy_map
-
-    main:
-        // --- BGC Detection ---
-        ANTISMASH_ANALYSIS(taxon, renamed_genomes)
-        antismash_results = ANTISMASH_ANALYSIS.out.results
-
-        // --- Region Analysis ---
-        counts_ch = placeholder('NO_COUNTS')
-        tabulation_ch = placeholder('NO_TABULATION')
-        taxonomy_tree_ch = placeholder('NO_TAXONOMY_TREE')
-
-        if (params.run_analysis) {
-            COUNT_REGIONS(taxon, antismash_results)
-            counts_ch = COUNT_REGIONS.out.counts
-
-            AGGREGATE_TAXONOMY(taxon, taxonomy_map, COUNT_REGIONS.out.counts, name_map)
-            taxonomy_tree_ch = AGGREGATE_TAXONOMY.out.taxonomy_tree
-
-            TABULATE_REGIONS(taxon, antismash_results)
-            tabulation_ch = TABULATE_REGIONS.out.tabulation
-        }
-
-        // --- Clustering ---
-        CLUSTERING(taxon, antismash_results, taxonomy_map, name_map, tabulation_ch)
-
-        // --- Phylogenetic Analysis ---
-        PHYLOGENY(taxon, renamed_genomes, counts_ch)
-
-        // --- Visualization ---
-        if (params.run_analysis) {
-            COLLECT_VERSIONS(antismash_results, CLUSTERING.out.bigscape_db, PHYLOGENY.out.summary)
-            versions_ch = COLLECT_VERSIONS.out.versions
-
-            trace_file_ch = file("${params.outdir}/pipeline_info/pipeline_trace.tsv").exists()
-                ? Channel.value(file("${params.outdir}/pipeline_info/pipeline_trace.tsv"))
-                : Channel.value(file('NO_TRACE_FILE'))
-
-            // --- GCF Biosynthetic Tree (runs before visualization so its output can be embedded) ---
-            gcf_tree_png_ch         = placeholder('NO_GCF_TREE')
-            gcf_tree_svg_ch         = placeholder('NO_GCF_TREE_SVG')
-            all_bgcs_tree_ch        = placeholder('NO_ALL_BGCS_TREE')
-            gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
-            coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
-            if (clusteringEnabled("bigscape")) {
-                GCF_BIOSYNTHETIC_TREE(
-                    taxon,
-                    CLUSTERING.out.bigscape_db,
-                    antismash_results,
-                    PHYLOGENY.out.tree,
-                    PHYLOGENY.out.summary
-                )
-                gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
-                gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
-                all_bgcs_tree_ch       = GCF_BIOSYNTHETIC_TREE.out.all_bgcs_tree_png.ifEmpty(file('NO_ALL_BGCS_TREE'))
-                gcf_heatmap_svg_ch     = GCF_BIOSYNTHETIC_TREE.out.heatmap_svg.ifEmpty(file('NO_GCF_HEATMAP_SVG'))
-                coupling_annotation_ch = GCF_BIOSYNTHETIC_TREE.out.coupling_annotation.ifEmpty(file('NO_COUPLING_ANNOTATION'))
-            }
-
-            VISUALIZE_RESULTS(
-                taxon,
-                counts_ch,
-                tabulation_ch,
-                assembly_info,
-                name_map,
-                taxonomy_map,
-                taxonomy_tree_ch,
-                CLUSTERING.out.bigscape_stats,
-                CLUSTERING.out.bigscape_db,
-                CLUSTERING.out.gcf_data,
-                PHYLOGENY.out.tree,
-                PHYLOGENY.out.summary,
-                trace_file_ch,
-                versions_ch,
-                gcf_tree_png_ch,
-                gcf_tree_svg_ch,
-                all_bgcs_tree_ch,
-                gcf_heatmap_svg_ch,
-                coupling_annotation_ch
-            )
-        }
-}
 
 /*
  * Main entry point
