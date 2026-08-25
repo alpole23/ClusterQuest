@@ -268,7 +268,7 @@ REPORT_JS = """\
                 const cells = rows[i].getElementsByTagName('td');
                 let found = false;
                 for (let j = 0; j < cells.length; j++) {
-                    if (searchNorm(cells[j].textContent).indexOf(filter) > -1) {
+                    if (searchMatches(cells[j].textContent, filter)) {
                         found = true;
                         break;
                     }
@@ -284,6 +284,24 @@ REPORT_JS = """\
             return text.toLowerCase().replace(/[_\\s]+/g, ' ').trim();
         }
 
+        // Whether a cell matches the query. Plain substring, except that a query
+        // ending in a digit will not match inside a longer number: "GCF-1" finds
+        // GCF-1 but not GCF-10..GCF-13, and "1" does not hit the member count 215.
+        // Prefix search on words is unaffected — "Panto" still finds Pantoea.
+        function searchMatches(cellText, needle) {
+            if (!needle) return true;
+            const hay = searchNorm(cellText);
+            if (!/\\d$/.test(needle)) return hay.indexOf(needle) > -1;
+            let from = 0, i;
+            while ((i = hay.indexOf(needle, from)) > -1) {
+                const before = i > 0 ? hay.charAt(i - 1) : '';
+                const after  = hay.charAt(i + needle.length);
+                if (!/\\d/.test(before) && !/\\d/.test(after)) return true;
+                from = i + 1;
+            }
+            return false;
+        }
+
         function filterNovelBGCs() {
             const input = document.getElementById('novelSearch');
             const filter = searchNorm(input.value);
@@ -294,7 +312,7 @@ REPORT_JS = """\
                 const cells = rows[i].getElementsByTagName('td');
                 let found = false;
                 for (let j = 0; j < cells.length; j++) {
-                    if (searchNorm(cells[j].textContent).indexOf(filter) > -1) {
+                    if (searchMatches(cells[j].textContent, filter)) {
                         found = true;
                         break;
                     }
@@ -313,7 +331,7 @@ REPORT_JS = """\
                 const cells = rows[i].getElementsByTagName('td');
                 let found = false;
                 for (let j = 0; j < cells.length; j++) {
-                    if (searchNorm(cells[j].textContent).indexOf(filter) > -1) {
+                    if (searchMatches(cells[j].textContent, filter)) {
                         found = true;
                         break;
                     }
