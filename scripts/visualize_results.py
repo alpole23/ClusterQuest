@@ -37,6 +37,7 @@ from viz.genome_pages import create_genome_metadata_pages
 from viz.rarefaction import generate_rarefaction_curve
 from viz.report_sections import (_build_bigscape_overview_cards, _build_bigscape_section_html,
                                  _build_kcb_content, _build_rarefaction_section,
+                                 gcf_coupling_classes,
                                  _build_versions_html, build_coupling_table_rows)
 
 
@@ -60,7 +61,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          gcf_tree_mime='image/png',
                          all_bgcs_tree_b64=None, all_bgcs_tree_mime='image/png',
                          gcf_heatmap_b64=None,
-                         coupling_table_rows=None):
+                         coupling_table_rows=None, gcf_classes=None):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -68,7 +69,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     taxon_clean = re.sub(r'_+', '_', taxon_clean).strip('_')
 
     kcb_stats = stats.get('kcb_stats', {})
-    kcb = _build_kcb_content(kcb_stats, taxon_clean, gcf_data)
+    kcb = _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes)
     kcb_mapping_section    = kcb['kcb_mapping_section']
     novel_bgcs_tab_content = kcb['novel_bgcs_tab_content']
     kcb_hits_tab_content   = kcb['kcb_hits_tab_content']
@@ -525,6 +526,7 @@ def main():
 
     # Build coupling enzyme table rows from live BiG-SCAPE data
     coupling_table_rows = None
+    gcf_classes = None
     bigscape_db_for_coupling = None
     if args.bigscape_db and args.bigscape_db.exists():
         bigscape_db_for_coupling = args.bigscape_db
@@ -537,6 +539,9 @@ def main():
             and bigscape_db_for_coupling):
         print("Building coupling enzyme table from live data...")
         coupling_table_rows = build_coupling_table_rows(
+            args.coupling_annotation, bigscape_db_for_coupling)
+        # Same map drives the GCF badge colours in the Novel BGCs table
+        gcf_classes = gcf_coupling_classes(
             args.coupling_annotation, bigscape_db_for_coupling)
 
     if args.counts or args.tabulation:
@@ -554,7 +559,8 @@ def main():
                             all_bgcs_tree_b64=all_bgcs_tree_b64,
                             all_bgcs_tree_mime=all_bgcs_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
-                            coupling_table_rows=coupling_table_rows)
+                            coupling_table_rows=coupling_table_rows,
+                            gcf_classes=gcf_classes)
         print(f"Visualizations complete! Open {args.outdir}/bgc_report.html in a browser.")
 
 if __name__ == '__main__':

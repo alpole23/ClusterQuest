@@ -260,7 +260,7 @@ REPORT_CSS = """\
 
 REPORT_JS = """\
             const input = document.getElementById('genomeSearch');
-            const filter = input.value.toLowerCase();
+            const filter = searchNorm(input.value);
             const tbody = document.getElementById('genomeTableBody');
             const rows = tbody.getElementsByTagName('tr');
 
@@ -268,7 +268,7 @@ REPORT_JS = """\
                 const cells = rows[i].getElementsByTagName('td');
                 let found = false;
                 for (let j = 0; j < cells.length; j++) {
-                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                    if (searchNorm(cells[j].textContent).indexOf(filter) > -1) {
                         found = true;
                         break;
                     }
@@ -277,9 +277,16 @@ REPORT_JS = """\
             }
         }
 
+        // Genome names use underscores (Pantoea_ananatis_LMG_5342) but people type
+        // spaces. Collapse both to a single space on each side so "LMG 5342",
+        // "LMG_5342" and "lmg  5342" all match the same row.
+        function searchNorm(text) {
+            return text.toLowerCase().replace(/[_\\s]+/g, ' ').trim();
+        }
+
         function filterNovelBGCs() {
             const input = document.getElementById('novelSearch');
-            const filter = input.value.toLowerCase();
+            const filter = searchNorm(input.value);
             const tbody = document.getElementById('novelTableBody');
             const rows = tbody.getElementsByTagName('tr');
 
@@ -287,7 +294,7 @@ REPORT_JS = """\
                 const cells = rows[i].getElementsByTagName('td');
                 let found = false;
                 for (let j = 0; j < cells.length; j++) {
-                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                    if (searchNorm(cells[j].textContent).indexOf(filter) > -1) {
                         found = true;
                         break;
                     }
@@ -298,7 +305,7 @@ REPORT_JS = """\
 
         function filterKCBHits() {
             const input = document.getElementById('kcbSearch');
-            const filter = input.value.toLowerCase();
+            const filter = searchNorm(input.value);
             const tbody = document.getElementById('kcbTableBody');
             const rows = tbody.getElementsByTagName('tr');
 
@@ -306,7 +313,7 @@ REPORT_JS = """\
                 const cells = rows[i].getElementsByTagName('td');
                 let found = false;
                 for (let j = 0; j < cells.length; j++) {
-                    if (cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                    if (searchNorm(cells[j].textContent).indexOf(filter) > -1) {
                         found = true;
                         break;
                     }

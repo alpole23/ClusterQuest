@@ -8,10 +8,10 @@ the coupling table reflects the current run rather than hardcoded family IDs.
 
 import sqlite3
 
-from utils.constants import load_coupling_classes
+from utils.constants import load_coupling_classes, COUPLING_COLORS
 
 
-def _build_kcb_content(kcb_stats, taxon_clean, gcf_data):
+def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None):
     """Compute KCB tab contents.
 
     Returns dict with keys: kcb_mapping_section, novel_bgcs_tab_content,
@@ -57,12 +57,21 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data):
                     if gcf_info:
                         fid = gcf_info.get('family_id', '')
                         mc = gcf_info.get('member_count', 1)
-                        gcf_cell = f'<td style="text-align: center;"><span style="background: #3498db; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">GCF-{fid}</span></td><td style="text-align: center;">{mc}</td>'
+                        # Badge colour = the GCF's dominant coupling enzyme class,
+                        # the same palette the GCF tree and heatmap legends use, so a
+                        # red GCF-1 here is the red GCF-1 in the tree.
+                        cls = (gcf_classes or {}).get(fid)
+                        badge_bg = COUPLING_COLORS.get(cls, '#3498db')
+                        badge_title = f' title="Coupling class: {cls}"' if cls else ''
+                        gcf_cell = (f'<td style="text-align: center;">'
+                                    f'<span{badge_title} style="background: {badge_bg}; color: white; '
+                                    f'padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">GCF-{fid}</span>'
+                                    f'</td><td style="text-align: center;">{mc}</td>')
                     else:
                         gcf_cell = '<td style="text-align: center; color: #999;">-</td><td style="text-align: center; color: #999;">-</td>'
                 detail_rows += f'''
                 <tr>
-                    <td><a href="genomes/{genome}.html" style="color: #2c5aa0;">{genome[:40]}{"..." if len(genome) > 40 else ""}</a></td>
+                    <td><a href="genomes/{genome}.html" title="{genome}" style="color: #2c5aa0; display: inline-block; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;">{genome}</a></td>
                     <td style="text-align: center;"><a href="{antismash_link}" target="_blank" style="color: #28a745; font-weight: bold;">Region {region_name}</a></td>
                     <td>{product}</td>
                     <td style="text-align: center;">{edge_badge}</td>
@@ -80,7 +89,7 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data):
                 boundaries and may be incomplete.{gcf_description}</em>
             </p>
             <div class="search-box">
-                <input type="text" id="novelSearch" placeholder="Search novel BGCs..." onkeyup="filterNovelBGCs()">
+                <input type="text" id="novelSearch" placeholder="Search by genome, strain, region or GCF (e.g. 5342)" onkeyup="filterNovelBGCs()">
             </div>
             <div class="table-container">
                 <table id="novelTable">
@@ -346,29 +355,33 @@ _COUPLING_META = {
 }
 _COUPLING_ROW_ORDER = ['Synthase', 'Reductase', 'Decarboxylase-Nucleotidyltransferase', 'Decarboxylase', 'Transaminase', 'Unknown']
 
-def build_coupling_table_rows(coupling_annotation_path, bigscape_db_path, cutoff=0.3):
-    """Return HTML <tr> rows for the coupling enzyme table, driven by live data.
+def gcf_coupling_classes(coupling_annotation_path, bigscape_db_path, cutoff=0.3):
+    """Map each GCF id to its dominant coupling enzyme class.
 
-    Falls back to the static hardcoded rows when inputs are unavailable.
+    The single source of truth for "what class is this GCF" — used both by the
+    coupling table and by the GCF badges in the Novel BGCs table, so the badge
+    colour always agrees with the tree legend and the table.
+
+    Returns {family_id: class_name}, or {} when the inputs are unavailable.
     """
+    import os as _os
+    from collections import Counter as _Counter
     try:
         coupling_classes = load_coupling_classes(str(coupling_annotation_path), region_only=True)
         conn = sqlite3.connect(str(bigscape_db_path))
         cur = conn.cursor()
         cur.execute("""
-            SELECT f.id, COUNT(rf.record_id) AS n
+            SELECT f.id
             FROM family f
             JOIN bgc_record_family rf ON rf.family_id = f.id
             JOIN bgc_record br        ON br.id = rf.record_id
             WHERE f.cutoff = ? AND br.record_type = 'region'
             GROUP BY f.id
         """, (cutoff,))
-        gcf_rows = cur.fetchall()
+        gcf_ids = [r[0] for r in cur.fetchall()]
 
-        # For each GCF, tally coupling classes across its member BGCs
-        from collections import Counter as _Counter, defaultdict as _defaultdict
-        class_to_gcfs = _defaultdict(list)
-        for gcf_id, _ in gcf_rows:
+        out = {}
+        for gcf_id in gcf_ids:
             cur.execute("""
                 SELECT g.path
                 FROM bgc_record_family rf
@@ -378,12 +391,29 @@ def build_coupling_table_rows(coupling_annotation_path, bigscape_db_path, cutoff
             """, (gcf_id,))
             counts = _Counter()
             for (path,) in cur.fetchall():
-                import os as _os
                 gbk_base = _os.path.splitext(_os.path.basename(path))[0]
                 counts[coupling_classes.get(gbk_base, 'Unknown')] += 1
-            dominant = counts.most_common(1)[0][0] if counts else 'Unknown'
-            class_to_gcfs[dominant].append(gcf_id)
+            out[gcf_id] = counts.most_common(1)[0][0] if counts else 'Unknown'
         conn.close()
+        return out
+    except Exception as e:
+        print(f"Warning: could not derive GCF coupling classes: {e}")
+        return {}
+
+
+def build_coupling_table_rows(coupling_annotation_path, bigscape_db_path, cutoff=0.3):
+    """Return HTML <tr> rows for the coupling enzyme table, driven by live data.
+
+    Falls back to the static hardcoded rows when inputs are unavailable.
+    """
+    try:
+        from collections import defaultdict as _defaultdict
+        gcf_class = gcf_coupling_classes(coupling_annotation_path, bigscape_db_path, cutoff)
+        if not gcf_class:
+            return None
+        class_to_gcfs = _defaultdict(list)
+        for gcf_id, dominant in gcf_class.items():
+            class_to_gcfs[dominant].append(gcf_id)
 
         # Sort GCF IDs within each class and build HTML rows
         rows_html = []
