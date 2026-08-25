@@ -380,21 +380,38 @@ def parse_bgc_label(label):
     return label, '001'
 
 
+def parse_location_segments(loc_str):
+    """Every coordinate pair in an antiSMASH location string, as [(start, end), ...].
+
+    A compound location — `join{[114343:121989](+), [0:32816](+)}` — is a region that
+    wraps the origin of a circular replicon. It is genuinely two disjoint intervals,
+    and collapsing it to a single (start, end) is lossy in both directions: taking the
+    first pair discards the second segment, while taking (min_start, max_end) invents
+    a span covering the gap between them, which on an origin-spanning region is most
+    of the replicon. Callers deciding CDS membership should use the segments.
+    """
+    coords = re.findall(r'\[(\d+):(\d+)\]', str(loc_str))
+    return [(int(s), int(e)) for s, e in coords]
+
+
 def parse_location_bounds(loc_str, span=True):
     """Bounds of an antiSMASH location string, or (None, None) if it has no coordinates.
 
-    span=True  → (min_start, max_end) across every coordinate pair, so compound
-                 locations (joins, origin-spanning regions) report their full extent.
-    span=False → the first coordinate pair only. bgc_coupling_annotation.py uses this
-                 to keep its historical classifications; the two readings disagree for
-                 the handful of BGCs whose region feature has a compound location.
+    span=True  → (min_start, max_end) across every coordinate pair.
+    span=False → the first coordinate pair only.
+
+    Both readings are lossy for compound locations — prefer
+    `parse_location_segments` plus `cds_in_segments` when deciding what belongs to a
+    region. Measured on Pantoea (2026-08-25): all 5 origin-spanning phosphonate
+    regions were classified `Unknown` under span=False because the coupling enzyme
+    (SMCOG1271) sits in the discarded second segment.
     """
-    coords = re.findall(r'\[(\d+):(\d+)\]', str(loc_str))
+    coords = parse_location_segments(loc_str)
     if not coords:
         return None, None
     if not span:
-        return int(coords[0][0]), int(coords[0][1])
-    return min(int(s) for s, _ in coords), max(int(e) for _, e in coords)
+        return coords[0]
+    return min(s for s, _ in coords), max(e for _, e in coords)
 
 
 def find_region_feature(record, region_num, product_filter=None):
@@ -413,11 +430,22 @@ def find_region_feature(record, region_num, product_filter=None):
 
 
 def region_bounds(record, region_num, product_filter=None):
-    """(start, end) of a region feature, or (None, None) if not found."""
+    """(start, end) of a region feature, or (None, None) if not found.
+
+    Lossy for compound locations; prefer `region_segments`.
+    """
     feat = find_region_feature(record, region_num, product_filter)
     if feat is None:
         return None, None
     return parse_location_bounds(feat.get('location', ''))
+
+
+def region_segments(record, region_num, product_filter=None):
+    """Coordinate segments of a region feature, or [] if not found."""
+    feat = find_region_feature(record, region_num, product_filter)
+    if feat is None:
+        return []
+    return parse_location_segments(feat.get('location', ''))
 
 
 def cds_in_region(feat, region_start, region_end):
@@ -428,3 +456,19 @@ def cds_in_region(feat, region_start, region_end):
     if start is None:
         return True
     return not (end < region_start or start > region_end)
+
+
+def cds_in_segments(feat, segments):
+    """True if a CDS overlaps any segment of a (possibly compound) region.
+
+    Correct for origin-spanning regions, where a single (start, end) either drops a
+    segment or spans the gap between them.
+    """
+    if not segments:
+        return True
+    cds = parse_location_segments(feat.get('location', ''))
+    if not cds:
+        return True
+    return any(not (ce < rs or cs > re_)
+               for cs, ce in cds
+               for rs, re_ in segments)

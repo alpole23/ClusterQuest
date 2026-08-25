@@ -51,8 +51,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import itol
-from utils.antismash_parser import (build_json_index, find_region_feature,
-                                    genome_from_gbk_path, parse_bgc_label, parse_location_bounds)
+from utils.antismash_parser import (build_json_index, cds_in_segments, find_region_feature,
+                                    genome_from_gbk_path, parse_bgc_label,
+                                    parse_location_segments)
 
 
 # ─── Coupling enzyme class definitions ──────────────────────────────────────
@@ -93,14 +94,12 @@ def classify_bgc(json_path, contig_id, region_num):
         if region_match is None:
             continue
 
-        # Parse region boundaries so we only inspect CDSes within this region.
-        # span=False keeps the original first-coordinate-pair reading (see
-        # parse_location_bounds); widening it reclassifies BGCs whose region feature
-        # has a compound location.
-        region_start, region_end = parse_location_bounds(region_match.get('location', ''),
-                                                         span=False)
-        if region_start is None:
-            region_start, region_end = 0, float('inf')
+        # Segments, not a single (start, end): an origin-spanning region is a genuine
+        # join of two disjoint intervals. The first pair alone drops the second segment
+        # — which is where the coupling enzyme sat in all 5 such Pantoea BGCs, leaving
+        # them misclassified `Unknown` — while (min_start, max_end) invents a span
+        # covering most of the replicon.
+        region_segs = parse_location_segments(region_match.get('location', ''))
 
         # Collect biosynthetic rule hits and SMCOG annotations from CDSes in region
         rule_hits = set()
@@ -109,14 +108,9 @@ def classify_bgc(json_path, contig_id, region_num):
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
                 continue
-            # Filter to CDSes within the region boundaries
-            cds_loc = feat.get('location', '')
-            cds_m = re.search(r'\[(\d+):(\d+)\]', cds_loc)
-            if cds_m:
-                cds_start = int(cds_m.group(1))
-                cds_end   = int(cds_m.group(2))
-                if cds_end <= region_start or cds_start >= region_end:
-                    continue
+            # Filter to CDSes overlapping any segment of the region
+            if not cds_in_segments(feat, region_segs):
+                continue
             quals = feat.get('qualifiers', {})
             for gf in quals.get('gene_functions', []):
                 m = re.search(r'(SMCOG\d+)', gf)

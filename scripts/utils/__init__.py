@@ -3,7 +3,7 @@
 from .constants import BGC_COLORS, GENE_COLORS, GCF_COLORS, KCB_THRESHOLDS, KCB_COLORS
 from .parsers import (
     parse_trace_file, parse_duration, parse_memory, format_bytes,
-    format_duration_str, parse_timestamp, parse_newick, sanitize_taxon
+    format_duration_str, parse_timestamp, sanitize_taxon
 )
 from .antismash_parser import (
     load_antismash_json, find_antismash_json, parse_location,

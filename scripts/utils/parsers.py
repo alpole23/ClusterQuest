@@ -106,47 +106,6 @@ def parse_timestamp(ts_str):
     return None
 
 
-def parse_newick(newick_str):
-    """Parse a Newick format string into a tree structure.
-
-    Returns a dict with 'name', 'children', and 'length' keys.
-    """
-    idx = 0
-
-    def parse_node():
-        nonlocal idx
-        node = {'name': '', 'children': [], 'length': 0}
-
-        if newick_str[idx] == '(':
-            idx += 1  # skip '('
-            while newick_str[idx] != ')':
-                node['children'].append(parse_node())
-                if newick_str[idx] == ',':
-                    idx += 1
-            idx += 1  # skip ')'
-
-        # Parse name and branch length
-        name_end = idx
-        while name_end < len(newick_str) and newick_str[name_end] not in ',):;':
-            name_end += 1
-
-        name_part = newick_str[idx:name_end]
-        if ':' in name_part:
-            name, length = name_part.rsplit(':', 1)
-            node['name'] = name.strip("'\"")
-            try:
-                node['length'] = float(length)
-            except ValueError:
-                node['length'] = 0
-        else:
-            node['name'] = name_part.strip("'\"")
-
-        idx = name_end
-        return node
-
-    return parse_node()
-
-
 def sanitize_taxon(name):
     """Sanitize taxon name for use in file paths."""
     result = re.sub(r'[^a-zA-Z0-9_]', '_', name)

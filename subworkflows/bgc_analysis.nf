@@ -54,8 +54,8 @@ workflow BGC_ANALYSIS {
             COLLECT_VERSIONS(antismash_results, CLUSTERING.out.bigscape_db, PHYLOGENY.out.summary)
             versions_ch = COLLECT_VERSIONS.out.versions
 
-            trace_file_ch = file("${params.outdir}/pipeline_info/pipeline_trace.tsv").exists()
-                ? Channel.value(file("${params.outdir}/pipeline_info/pipeline_trace.tsv"))
+            trace_file_ch = file("${params.pipeline_info_dir}/pipeline_trace.tsv").exists()
+                ? Channel.value(file("${params.pipeline_info_dir}/pipeline_trace.tsv"))
                 : Channel.value(file('NO_TRACE_FILE'))
 
             // --- GCF Biosynthetic Tree (runs before visualization so its output can be embedded) ---

@@ -50,9 +50,9 @@ from Bio.SeqRecord import SeqRecord
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import itol
-from utils.antismash_parser import (build_json_index, cds_in_region as _cds_in_region,
+from utils.antismash_parser import (build_json_index, cds_in_segments as _cds_in_segments,
                                     genome_from_gbk_path, parse_bgc_label as parse_label,
-                                    parse_location_bounds, region_bounds)
+                                    parse_location_bounds, region_segments)
 from utils.constants import (COUPLING_COLORS as _BASE_COUPLING_COLORS, LEGACY_CLASS_NAMES,
                               GCF_PALETTE, load_coupling_classes)
 
@@ -142,12 +142,12 @@ def extract_cds_from_json(json_path, contig_id, region_num,
         if contig_id not in rec.get('id', ''):
             continue
 
-        r_start, r_end = region_bounds(rec, region_num, product_filter='phosphonate')
+        r_segs = region_segments(rec, region_num, product_filter='phosphonate')
 
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
                 continue
-            if not _cds_in_region(feat, r_start, r_end):
+            if not _cds_in_segments(feat, r_segs):
                 continue
 
             quals = feat.get('qualifiers', {})
@@ -191,11 +191,11 @@ def extract_all_cds_from_region(json_path, contig_id, region_num):
     for rec in data['records']:
         if contig_id not in rec.get('id', ''):
             continue
-        r_start, r_end = region_bounds(rec, region_num, product_filter='phosphonate')
+        r_segs = region_segments(rec, region_num, product_filter='phosphonate')
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
                 continue
-            if not _cds_in_region(feat, r_start, r_end):
+            if not _cds_in_segments(feat, r_segs):
                 continue
             quals = feat.get('qualifiers', {})
             translation = quals.get('translation', [''])[0]

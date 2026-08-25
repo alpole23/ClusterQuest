@@ -104,7 +104,7 @@ def chao2(genome_gcfs):
 
 
 def generate_rarefaction_curve(bigscape_db_path, outdir, taxon, n_iterations=50, seed=0,
-                               counts_file=None):
+                               counts_file=None, cutoff=0.3):
     """
     Generate GCF rarefaction curve from BiG-SCAPE database.
 
@@ -144,14 +144,20 @@ def generate_rarefaction_curve(bigscape_db_path, outdir, taxon, n_iterations=50,
         conn = sqlite3.connect(bigscape_db_path)
         cursor = conn.cursor()
 
-        # Get genome -> GCF mapping
+        # Genome -> GCF mapping. Filtered to region records at one cutoff, matching
+        # bgc_gcf_tree.py, bgc_all_bgcs_tree.py and viz/report_sections.py — otherwise
+        # a multi-value `bigscape_cutoffs` merges family ids from every cutoff into one
+        # set and inflates the GCF count. (Measured on Pantoea 2026-08-25 the filters
+        # are a no-op: BiG-SCAPE assigns families only to region records, and the run
+        # used a single cutoff. They matter only for multi-cutoff runs.)
         cursor.execute("""
             SELECT g.path, bf.family_id
             FROM gbk g
             JOIN bgc_record b ON g.id = b.gbk_id
-            LEFT JOIN bgc_record_family bf ON b.id = bf.record_id
-            WHERE bf.family_id IS NOT NULL
-        """)
+            JOIN bgc_record_family bf ON b.id = bf.record_id
+            JOIN family f ON f.id = bf.family_id
+            WHERE b.record_type = 'region' AND f.cutoff = ?
+        """, (cutoff,))
 
         genome_gcfs = defaultdict(set)
         for path, family_id in cursor.fetchall():

@@ -79,7 +79,7 @@ Downloads and prepares bacterial genomes from NCBI.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `taxon` | "Pantoea ananatis" | NCBI taxon (species, genus, family, order, etc.) |
+| `taxon` | "Erwiniaceae" | NCBI taxon (species, genus, family, order, etc.) |
 
 ### ANTISMASH_ANALYSIS
 
@@ -653,6 +653,10 @@ python scripts/bgc_coupling_annotation.py \
 ```
 
 **⚠️ The GCF numbers below are run-specific and will not match your output.**
+Counts are also from that older run. For reference, the Pantoea genus run of
+2026-08-25 (1,735 genomes, 320 regions) gave: Synthase 236, Reductase 29,
+Decarboxylase-Nucleotidyltransferase 27, Decarboxylase 22, Transaminase 6,
+Unknown 0 — the zero being the segment-based membership fix.
 `family.id` in the BiG-SCAPE database is an `INTEGER PRIMARY KEY AUTOINCREMENT` — it
 records the order families happened to be written, not a stable biological identity.
 It shifts between runs, between taxa, and whenever the genome set changes: the table
@@ -937,7 +941,18 @@ This is set in `scripts/clustering/extract_gcf_representatives.py` (`antismash_l
 - **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module includes validation with `sync` + retry logic, but if corruption persists, delete the cached work directory and re-run
 - **pyhmmer/BiG-SCAPE compatibility**: pyhmmer 0.12+ changed `profile.accession` from bytes to str, breaking BiG-SCAPE. The module pins `pyhmmer<0.11`
 - **GTDB-Tk duplicate taxon labels**: GTDB-Tk normalizes genome names case-insensitively. If two genomes have names differing only in case (e.g., `MDCuke` vs `MDcuke`), GTDB-Tk will fail with `NewickReaderDuplicateTaxonError`. The `create_name_map.py` script now handles this by tracking names case-insensitively and adding numeric suffixes to duplicates
-- **`-preview` overwrites `pipeline_info/`**: `trace`, `report`, and `timeline` all set `overwrite = true`, and a preview run truncates them even though it executes nothing — a previous run's benchmark data is lost. Disable the reports for preview runs (see Troubleshooting). A clobbered trace can be regenerated from Nextflow's cache: `nextflow log <run_name> -f task_id,hash,name,status,exit,submit,start,complete,realtime,cpus,memory,peak_rss,peak_vmem,pcpu,pmem,rchar,wchar` (note `pcpu`/`pmem` — the template parser rejects `%cpu`/`%mem`)
+- **Run reports are scoped per taxon (fixed 2026-08-25)**: `trace`, `report` and
+  `timeline` all set `overwrite = true`, so with one shared path any later run — a
+  `-preview` included, which writes them while executing nothing — destroyed the previous
+  run's benchmark data. They now live under `params.pipeline_info_dir`
+  (`results/pipeline_info/<taxon>/`), defined once in `nextflow.config` and referenced by
+  both the report scopes and `subworkflows/bgc_analysis.nf` so the two cannot drift.
+  Analysing a new taxon no longer clobbers the last one; a repeat run of the *same* taxon
+  still overwrites, which is intended. A clobbered trace can still be rebuilt from
+  Nextflow's cache: `nextflow log <run_name> -f task_id,hash,name,status,exit,submit,start,complete,realtime,cpus,memory,peak_rss,peak_vmem,pcpu,pmem,rchar,wchar`
+  (note `pcpu`/`pmem` — the template parser rejects `%cpu`/`%mem`). Note
+  `Utils.sanitizeTaxon` is not callable from config scope, so the taxon transform is
+  inlined there; it mirrors `lib/Utils.groovy` exactly and must stay in step.
 - **Report output is reproducible as of 2026-08-25** (was not before): three sources of run-to-run drift were pinned. `generate_rarefaction_curve` now resamples from a local `random.Random(seed)` (`seed=0` default, `--seed` on `visualize_results.py`) instead of the global RNG; taxonomy `node_<id>` values use an md5 digest rather than the `PYTHONHASHSEED`-salted builtin `hash()`; and every SVG writer imports `utils/plotting.py`, which pins `svg.hashsalt`, plus passes `metadata=SVG_METADATA` to drop matplotlib's `<dc:date>` stamp. Two runs over the same data now produce byte-identical `rarefaction_curve.svg` and `bgc_report.html`. If you add a figure, import `utils.plotting` and pass `metadata=SVG_METADATA` to any SVG `savefig` or you reintroduce the drift
 - **matplotlib clip-path ids are not covered by `svg.hashsalt`**: the salt pins marker and
   hatch ids, but clip paths are keyed on `(id(clippath), str(clippath_trans))` in
@@ -950,19 +965,25 @@ This is set in `scripts/clustering/extract_gcf_representatives.py` (`antismash_l
   unaffected because definitions and references are rewritten together. **Testing note:**
   two calls in one Python process can reuse the same address and falsely pass — always
   compare across *separate* processes
-- **The rarefaction query does not filter `record_type` or cutoff**: `viz/rarefaction.py`
-  selects from `bgc_record_family` with no `record_type = 'region'` filter and no join to
-  `family.cutoff`, unlike the six other query sites that do. **Measured on the real
-  *P. ananatis* database (2026-08-25): both filters are currently no-ops.** BiG-SCAPE
-  assigns families *only* to `region` records — of the 225 each of `region`,
-  `protocluster`, `proto_core` and `cand_cluster` rows, only the 225 regions appear in
-  `bgc_record_family`, so zero families are reachable via sub-records. And the `family`
-  table held a single cutoff (0.3, 6 families), so nothing merges. The filtered and
-  unfiltered queries both returned 6 GCFs. The cutoff risk stays latent: a comma-separated
-  `bigscape_cutoffs` merges family IDs across every cutoff into one set (1.4× inflation in
-  a two-cutoff test). Adding `WHERE f.cutoff = ? AND br.record_type = 'region'` is still
-  worth doing for consistency, but it is not currently producing wrong numbers
-- **Coupling region bounds differ between the two coupling scripts**: `bgc_coupling_tree.py` reads a region feature's extent as min-start → max-end across every coordinate pair, while `bgc_coupling_annotation.py` uses only the first pair (`parse_location_bounds(..., span=False)`). They disagree for BGCs whose region feature has a compound location — on Erwiniaceae, the wider reading reclassifies 20 BGCs from `Unknown` to `Synthase`. The narrower reading is kept for backwards compatibility with published annotations; switch `span` if the wider extent is preferred
+- **Rarefaction query filters (added 2026-08-25)**: `viz/rarefaction.py` now joins
+  `family` and filters `record_type = 'region' AND f.cutoff = ?`, matching the six other
+  query sites. On real data the filters are a **no-op** — BiG-SCAPE assigns families only
+  to region records (of 320 each of region/protocluster/proto_core/cand_cluster, only the
+  regions appear in `bgc_record_family`), and both runs used a single cutoff. They matter
+  only for a comma-separated `bigscape_cutoffs`, which would otherwise merge family ids
+  across cutoffs into one set (1.4x inflation in a two-cutoff test).
+- **Region membership is segment-based (fixed 2026-08-25)**: an origin-spanning region
+  is a genuine join of two disjoint intervals — `join{[114343:121989](+), [0:32816](+)}`.
+  Collapsing it to one `(start, end)` is lossy either way: the first pair drops the second
+  segment, and `(min_start, max_end)` invents a span covering the gap, which on a wrapped
+  region is most of the replicon. Both coupling scripts now use
+  `parse_location_segments` + `cds_in_segments` and test overlap against every segment.
+  **Measured on Pantoea:** exactly 5 of 320 regions have compound locations, and those
+  were precisely the 5 classified `Unknown` — the coupling enzyme (SMCOG1271, Synthase)
+  sits in the discarded second segment. The fix reclassifies all 5 to Synthase and changes
+  nothing else, leaving zero Unknowns. `parse_location_bounds` is kept for callers that
+  genuinely want a single extent, but its docstring now warns against using it for
+  membership.
 
 ## Troubleshooting
 
