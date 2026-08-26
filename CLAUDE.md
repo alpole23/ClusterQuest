@@ -891,6 +891,38 @@ When adding or changing a batched process:
 - **`collate()` needs a real Integer.** Params given on the command line arrive as
   strings, which silently fail to dispatch — always go through `batchSize()`
 
+### Resuming a Run After Editing Scripts
+
+Two traps, both hit on 2026-08-25.
+
+**Editing a file under `scripts/` does not invalidate the Nextflow cache.** The
+modules invoke them as `python ${projectDir}/scripts/foo.py`, an interpolated path
+rather than a declared `path` input, so the task hash is unchanged and `-resume`
+reports the task as cached and reuses the old output. To force a stage to re-run,
+delete its work directory:
+
+```bash
+# find the task's hash in the trace, then
+rm -rf work/<hash-prefix>*
+```
+
+Downstream stages then re-run on their own, because their inputs changed.
+
+**`-resume <run-name>` can silently fall back to the wrong session.** The task hash
+begins with the session UUID, so resuming the wrong session misses every entry and
+the pipeline starts from scratch — including the NCBI download. A name that fails to
+resolve does not error; it quietly resumes the most recent session, which is easily a
+3-second `-preview`. Resume by **UUID**, taken from `.nextflow/history` (column 6):
+
+```bash
+awk -F'\t' '{print $3, $6}' .nextflow/history   # run name -> session UUID
+nextflow run main.nf -resume <uuid> --taxon "Pantoea"
+```
+
+Confirm it bound before letting it run: `-dump-hashes` prints the session UUID as the
+first hash entry, and the summary line should report a large `cached=` count. If you
+see `cached=0` and `NCBI_DATASETS_DOWNLOAD` starting, kill it — the resume missed.
+
 ### Genome Name Conventions
 
 Two different spellings of a genome name coexist, and they do **not** compare equal:
