@@ -21,6 +21,7 @@ process VISUALIZE_RESULTS {
     path gcf_tree_png
     path gcf_tree_svg
     path all_bgcs_tree_png
+    path all_bgcs_tree_svg
     path gcf_heatmap_svg
     path coupling_annotation
 
@@ -48,6 +49,7 @@ process VISUALIZE_RESULTS {
     def gcf_tree_arg            = Utils.optArg('--gcf_tree',            gcf_tree_png)
     def gcf_tree_svg_arg        = Utils.optArg('--gcf_tree_svg',        gcf_tree_svg)
     def all_bgcs_tree_arg       = Utils.optArg('--all_bgcs_tree',       all_bgcs_tree_png)
+    def all_bgcs_tree_svg_arg   = Utils.optArg('--all_bgcs_tree_svg',   all_bgcs_tree_svg)
     def gcf_heatmap_svg_arg     = Utils.optArg('--gcf_heatmap_svg',     gcf_heatmap_svg)
     def coupling_annotation_arg = Utils.optArg('--coupling_annotation', coupling_annotation)
 
@@ -59,6 +61,6 @@ process VISUALIZE_RESULTS {
     # so Nextflow would not otherwise notice when they change. Listed explicitly
     # rather than hashing all of scripts/ — see Utils.scriptsHash.
     # scripts-version: ${Utils.scriptsHash(projectDir, ['visualize_results.py', 'utils', 'viz'])}
-    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${phylo_tree_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${outgroup_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${all_bgcs_tree_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} --outdir . --taxon "${taxon}"
+    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${phylo_tree_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${outgroup_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${all_bgcs_tree_arg} ${all_bgcs_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} --outdir . --taxon "${taxon}"
     """
 }

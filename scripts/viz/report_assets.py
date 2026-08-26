@@ -280,6 +280,41 @@ REPORT_JS = """\
         // Genome names use underscores (Pantoea_ananatis_LMG_5342) but people type
         // spaces. Collapse both to a single space on each side so "LMG 5342",
         // "LMG_5342" and "lmg  5342" all match the same row.
+        // Filters the Genomes tab. This was previously missing entirely: the search
+        // box called filterGenomes(), which was never defined, so typing there threw
+        // a ReferenceError and filtered nothing.
+        function _filterGenomes() {
+            const input = document.getElementById('genomeSearch');
+            if (!input) return;
+            const filter = searchNorm(input.value);
+            const tbody = document.getElementById('genomeTableBody');
+            if (!tbody) return;
+            const rows = tbody.getElementsByTagName('tr');
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                let found = false;
+                for (let j = 0; j < cells.length; j++) {
+                    if (searchMatches(cells[j].textContent, filter)) {
+                        found = true;
+                        break;
+                    }
+                }
+                rows[i].style.display = found ? '' : 'none';
+            }
+        }
+
+        // The genome table can hold thousands of rows (1,735 on the Pantoea genus) and
+        // each keystroke scans every cell — ~10k reads. Debouncing keeps typing
+        // responsive; the public names are unchanged so the onkeyup markup still works.
+        const _filterTimers = {};
+        function _debounce(key, fn, ms) {
+            clearTimeout(_filterTimers[key]);
+            _filterTimers[key] = setTimeout(fn, ms);
+        }
+        function filterGenomes()   { _debounce('genomes', _filterGenomes,   150); }
+        function filterNovelBGCs() { _debounce('novel',   _filterNovelBGCs, 150); }
+        function filterKCBHits()   { _debounce('kcb',     _filterKCBHits,   150); }
+
         function searchNorm(text) {
             return text.toLowerCase().replace(/[_\\s]+/g, ' ').trim();
         }
@@ -302,10 +337,12 @@ REPORT_JS = """\
             return false;
         }
 
-        function filterNovelBGCs() {
+        function _filterNovelBGCs() {
             const input = document.getElementById('novelSearch');
+            if (!input) return;
             const filter = searchNorm(input.value);
             const tbody = document.getElementById('novelTableBody');
+            if (!tbody) return;   // table absent, e.g. the empty-hits KCB tab
             const rows = tbody.getElementsByTagName('tr');
 
             for (let i = 0; i < rows.length; i++) {
@@ -321,10 +358,12 @@ REPORT_JS = """\
             }
         }
 
-        function filterKCBHits() {
+        function _filterKCBHits() {
             const input = document.getElementById('kcbSearch');
+            if (!input) return;
             const filter = searchNorm(input.value);
             const tbody = document.getElementById('kcbTableBody');
+            if (!tbody) return;   // table absent, e.g. the empty-hits KCB tab
             const rows = tbody.getElementsByTagName('tr');
 
             for (let i = 0; i < rows.length; i++) {

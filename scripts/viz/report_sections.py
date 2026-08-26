@@ -166,7 +166,24 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None):
                     <td>{sim_display}</td>
                     <td>{bgc_display}</td>
                 </tr>'''
-        kcb_hits_tab_content = f'''
+        if not cluster_mapping:
+            # Zero hits is a result, not a failure: it means every region is
+            # potentially novel. Rendering bare table headers reads like a bug.
+            total_regions = kcb_stats.get('total_regions', 0)
+            kcb_hits_tab_content = f'''
+            <h2>KnownClusterBlast Hits</h2>
+            <div style="background: #eef6ec; border: 1px solid #cfe3ca; border-radius: 6px; padding: 18px 20px; margin-top: 10px;">
+                <strong>No KnownClusterBlast hits.</strong>
+                <p style="margin: 8px 0 0; color: #555;">
+                    None of the {total_regions} detected region{'s' if total_regions != 1 else ''}
+                    matched a characterised cluster in the MIBiG database, so all of them appear in
+                    the <em>Novel BGCs</em> tab. For phosphonate BGCs this is common — MIBiG holds
+                    relatively few characterised phosphonate pathways — and it is a finding rather
+                    than an error.
+                </p>
+            </div>'''
+        else:
+            kcb_hits_tab_content = f'''
             <h2>KnownClusterBlast Hits</h2>
             <div style="margin-bottom: 20px;">
                 <strong>Total Hits by Similarity:</strong> {sim_badges}

@@ -62,6 +62,7 @@ workflow BGC_ANALYSIS {
             gcf_tree_png_ch         = placeholder('NO_GCF_TREE')
             gcf_tree_svg_ch         = placeholder('NO_GCF_TREE_SVG')
             all_bgcs_tree_ch        = placeholder('NO_ALL_BGCS_TREE')
+            all_bgcs_tree_svg_ch    = placeholder('NO_ALL_BGCS_TREE_SVG')
             gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             if (clusteringEnabled("bigscape")) {
@@ -75,6 +76,7 @@ workflow BGC_ANALYSIS {
                 gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
                 gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
                 all_bgcs_tree_ch       = GCF_BIOSYNTHETIC_TREE.out.all_bgcs_tree_png.ifEmpty(file('NO_ALL_BGCS_TREE'))
+                all_bgcs_tree_svg_ch   = GCF_BIOSYNTHETIC_TREE.out.all_bgcs_tree_svg.ifEmpty(file('NO_ALL_BGCS_TREE_SVG'))
                 gcf_heatmap_svg_ch     = GCF_BIOSYNTHETIC_TREE.out.heatmap_svg.ifEmpty(file('NO_GCF_HEATMAP_SVG'))
                 coupling_annotation_ch = GCF_BIOSYNTHETIC_TREE.out.coupling_annotation.ifEmpty(file('NO_COUPLING_ANNOTATION'))
 
@@ -111,6 +113,7 @@ workflow BGC_ANALYSIS {
                 gcf_tree_png_ch,
                 gcf_tree_svg_ch,
                 all_bgcs_tree_ch,
+                all_bgcs_tree_svg_ch,
                 gcf_heatmap_svg_ch,
                 coupling_annotation_ch
             )

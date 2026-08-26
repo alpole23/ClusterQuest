@@ -100,6 +100,9 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 <html>
 <head>
     <meta charset="UTF-8">
+    <!-- Without this, mobile browsers lay the page out against a ~980px virtual
+         viewport and the max-width media queries below never fire. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>BGC Analysis Report - {taxon}</title>
     <style>{REPORT_CSS}</style>
 </head>
@@ -337,6 +340,7 @@ def main():
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
     parser.add_argument('--all_bgcs_tree', type=Path, help='Path to all-BGCs circular NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
+    parser.add_argument('--all_bgcs_tree_svg', type=Path, help='Path to all-BGCs circular NJ tree SVG (preferred over PNG: vector, and ~45%% smaller once base64-encoded)')
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--seed', type=int, default=0, help='RNG seed for the rarefaction resampling; fixed by default so reports are reproducible')
@@ -508,21 +512,24 @@ def main():
         with open(args.gcf_heatmap_svg, 'rb') as f:
             gcf_heatmap_b64 = base64.b64encode(f.read()).decode('ascii')
 
-    # Load all-BGCs circular tree image as base64
+    # Load all-BGCs circular tree as base64. SVG first: it is vector (this figure has
+    # ~320 leaves and is unreadable without zoom) and much smaller once base64-encoded
+    # — 1.8 MB PNG vs 972 KB SVG on the Pantoea genus run.
     all_bgcs_tree_b64 = None
-    if args.all_bgcs_tree and args.all_bgcs_tree.exists():
-        # Prefer SVG sibling if it exists alongside the PNG
-        svg_sibling = args.all_bgcs_tree.with_suffix('.svg')
-        if svg_sibling.exists():
-            with open(svg_sibling, 'rb') as f:
-                all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
-            all_bgcs_tree_mime = 'image/svg+xml'
-        else:
-            with open(args.all_bgcs_tree, 'rb') as f:
-                all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
-            all_bgcs_tree_mime = 'image/png'
-    else:
-        all_bgcs_tree_mime = 'image/png'
+    all_bgcs_tree_mime = 'image/png'
+    _all_bgcs_svg = args.all_bgcs_tree_svg
+    if not (_all_bgcs_svg and _all_bgcs_svg.exists()) and args.all_bgcs_tree:
+        # fall back to an SVG sitting beside the PNG (kept for standalone invocation;
+        # under Nextflow only declared inputs are staged, so the sibling is usually absent)
+        sibling = args.all_bgcs_tree.with_suffix('.svg')
+        _all_bgcs_svg = sibling if sibling.exists() else None
+    if _all_bgcs_svg and _all_bgcs_svg.exists():
+        with open(_all_bgcs_svg, 'rb') as f:
+            all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
+        all_bgcs_tree_mime = 'image/svg+xml'
+    elif args.all_bgcs_tree and args.all_bgcs_tree.exists():
+        with open(args.all_bgcs_tree, 'rb') as f:
+            all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
 
     # Build coupling enzyme table rows from live BiG-SCAPE data
     coupling_table_rows = None
