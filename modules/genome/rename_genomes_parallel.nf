@@ -23,6 +23,10 @@ process RENAME_GENOMES {
     def staged = [genome_files].flatten().collect { it.name }
     def manifest = [assembly_ids, staged].transpose().collect { id, f -> "${id}\t${f}" }.join('\n')
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['genome/rename_genome.py'])}
     cat > manifest.tsv <<'MANIFEST_EOF'
 ${manifest}
 MANIFEST_EOF

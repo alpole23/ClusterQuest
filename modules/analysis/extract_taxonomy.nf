@@ -14,6 +14,10 @@ process EXTRACT_TAXONOMY {
 
     script:
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['taxonomy/extract_taxonomy.py'])}
     export TAXONKIT_DB='${taxdump_dir}'
     python ${projectDir}/scripts/taxonomy/extract_taxonomy.py ${assembly_report} ${taxdump_dir} taxonomy_map.json
     """

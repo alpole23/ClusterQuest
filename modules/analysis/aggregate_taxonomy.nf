@@ -14,6 +14,10 @@ process AGGREGATE_TAXONOMY {
 
     script:
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['taxonomy/aggregate_taxonomy.py'])}
     python ${projectDir}/scripts/taxonomy/aggregate_taxonomy.py ${taxonomy_map} ${region_counts} ${name_map} taxonomy_tree.json --taxon "${taxon}"
     """
 }

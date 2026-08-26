@@ -895,18 +895,33 @@ When adding or changing a batched process:
 
 Two traps, both hit on 2026-08-25.
 
-**Editing a file under `scripts/` does not invalidate the Nextflow cache.** The
-modules invoke them as `python ${projectDir}/scripts/foo.py`, an interpolated path
-rather than a declared `path` input, so the task hash is unchanged and `-resume`
-reports the task as cached and reuses the old output. To force a stage to re-run,
-delete its work directory:
+**Editing a file under `scripts/` now invalidates the cache correctly** (fixed
+2026-08-25; it did not before). Modules invoke scripts as
+`python ${projectDir}/scripts/foo.py` — an interpolated path, not a declared `path`
+input — so Nextflow's task hash never saw them and `-resume` happily reused output
+built from code that had since changed. A *silent* wrong answer, the worst kind.
 
-```bash
-# find the task's hash in the trace, then
-rm -rf work/<hash-prefix>*
+Each script-running process now embeds a digest of the scripts it depends on:
+
+```groovy
+# scripts-version: ${Utils.scriptsHash(projectDir, ['visualize_results.py', 'utils', 'viz'])}
 ```
 
-Downstream stages then re-run on their own, because their inputs changed.
+The script block's text is part of the task hash, so a changed digest re-runs the
+task. Dependencies are listed **per process**, not hashed as one tree: a whole-tree
+digest would make `RENAME_GENOMES` depend on plotting code, and since it feeds
+antiSMASH, editing a chart would invalidate 1,735 antiSMASH tasks. Measured: editing
+`viz/rarefaction.py` changes the `VISUALIZE_RESULTS` digest and leaves
+`RENAME_GENOMES` and `GCF_BIOSYNTHETIC_TREE` untouched.
+
+Note `path` inputs were tried first and rejected. A directory `path` input does **not**
+hash its contents — a process staging `scripts/` served stale output while reporting
+`cached=1` — and staging individual files breaks the scripts'
+`sys.path.insert(0, Path(__file__).parent)` imports.
+
+**When adding a process that runs a script**, add the marker and list its
+dependencies. `tests/check_script_deps.py` (in `run_tests.sh`) fails if a declared
+list stops covering a script's real imports.
 
 **`-resume <run-name>` can silently fall back to the wrong session.** The task hash
 begins with the session UUID, so resuming the wrong session misses every entry and

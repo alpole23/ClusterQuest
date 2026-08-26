@@ -138,6 +138,14 @@ else
     fail "undefined calls found:"; echo "$UNDEF" | sed 's/^/      /'
 fi
 
+# Declared scripts-version dependencies must still cover each script's real imports,
+# otherwise -resume silently reuses output built from changed code.
+if DEPS="$("$SYS_PY" "$PROJECT_DIR/tests/check_script_deps.py" 2>&1)"; then
+    pass "script dependency declarations current"
+else
+    fail "script dependency declarations stale:"; echo "$DEPS" | sed 's/^/      /'
+fi
+
 echo
 echo "================================"
 echo "  passed: $PASS   failed: $FAIL"

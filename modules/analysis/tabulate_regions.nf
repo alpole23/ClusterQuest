@@ -12,6 +12,10 @@ process TABULATE_REGIONS {
 
     script:
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['analysis/tabulate_regions.py', 'utils'])}
     python ${projectDir}/scripts/analysis/tabulate_regions.py antismash_results region_tabulation.tsv
     """
 }

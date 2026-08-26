@@ -42,6 +42,61 @@ class Utils {
     /**
      * Calculate MD5 hash of a string.
      */
+    // Memoised across the run: the script block is evaluated once per task, and
+    // hashing every .py file for each of thousands of tasks would be wasteful.
+    private static final Map<String, String> _scriptsHashCache = [:]
+
+    /**
+     * Digest of every Python file under scripts/, so that editing one invalidates
+     * the cache of the tasks that run it.
+     *
+     * Modules invoke their scripts as `python ${projectDir}/scripts/foo.py` — an
+     * interpolated path, not a declared `path` input — so Nextflow's task hash does
+     * not see the file at all and `-resume` happily reuses output produced by code
+     * that no longer exists. Embedding this digest as a comment inside a process's
+     * script block puts it into the hashed script text, which fixes that.
+     *
+     * `paths` are entries under scripts/ — a file, or a package directory hashed
+     * recursively. Each process declares only what it actually runs and imports,
+     * because a single whole-tree digest would be actively harmful here: it would
+     * make RENAME_GENOMES depend on visualisation code, and since RENAME_GENOMES
+     * feeds antiSMASH, editing a plotting script would invalidate 1,735 antiSMASH
+     * tasks. tests/check_script_deps.py verifies the declared lists still match the
+     * scripts' real imports.
+     *
+     * @param projectDir Pipeline root (the `projectDir` implicit variable)
+     * @param paths      Entries under scripts/ (files or package directories)
+     * @return 12-character hex digest
+     */
+    static String scriptsHash(projectDir, List<String> paths) {
+        def root = new File("${projectDir}/scripts")
+        def key = root.absolutePath + '|' + paths.join(',')
+        if (_scriptsHashCache.containsKey(key)) return _scriptsHashCache[key]
+
+        def files = []
+        paths.sort().each { rel ->
+            def target = new File(root, rel)
+            if (target.isDirectory()) {
+                target.eachFileRecurse(groovy.io.FileType.FILES) { f ->
+                    if (f.name.endsWith('.py')) files << f
+                }
+            }
+            else if (target.isFile()) {
+                files << target
+            }
+        }
+        def digest = MessageDigest.getInstance("MD5")
+        // sorted so the digest does not depend on filesystem walk order; the relative
+        // path is hashed alongside the bytes so renames and deletions register too
+        files.unique().sort { root.toPath().relativize(it.toPath()).toString() }.each { f ->
+            digest.update(root.toPath().relativize(f.toPath()).toString().getBytes("UTF-8"))
+            digest.update(f.bytes)
+        }
+        def hex = digest.digest().encodeHex().toString().take(12)
+        _scriptsHashCache[key] = hex
+        return hex
+    }
+
     static String md5(String input) {
         MessageDigest md = MessageDigest.getInstance("MD5")
         byte[] digest = md.digest(input.bytes)

@@ -89,6 +89,10 @@ process FILTER_GTDBTK_RESULTS {
 
     script:
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['phylogeny/filter_gtdbtk_results.py'])}
     python ${projectDir}/scripts/phylogeny/filter_gtdbtk_results.py \\
         ${genome_list} \\
         "${reuse_summary}" \\

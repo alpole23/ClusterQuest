@@ -17,6 +17,10 @@ process GENBANK_TO_FASTA {
 
     script:
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['genome/genbank_to_fasta.py'])}
     python ${projectDir}/scripts/genome/genbank_to_fasta.py ${genomes}
     """
 }

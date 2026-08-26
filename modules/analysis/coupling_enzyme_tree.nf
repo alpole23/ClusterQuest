@@ -18,6 +18,10 @@ process COUPLING_ENZYME_TREE {
 
     script:
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['bgc_coupling_tree.py', 'utils'])}
     python ${projectDir}/scripts/bgc_coupling_tree.py \\
         --antismash_dir       antismash_input \\
         --metadata            ${metadata} \\

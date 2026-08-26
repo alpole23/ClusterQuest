@@ -15,6 +15,10 @@ process EXTRACT_CLUSTERING_STATS {
 
     script:
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['clustering/extract_bigscape_stats.py'])}
     python ${projectDir}/scripts/clustering/extract_bigscape_stats.py ${input_dir} bigscape_statistics.json
     """
 }

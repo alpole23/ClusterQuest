@@ -16,6 +16,10 @@ process EXTRACT_GCF_REPRESENTATIVES {
     def taxon_clean = Utils.sanitizeTaxon(params.taxon)
     def tabulation_arg = Utils.optArg('--tabulation', tabulation_file)
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['clustering/extract_gcf_representatives.py', 'utils'])}
     python ${projectDir}/scripts/clustering/extract_gcf_representatives.py ${bigscape_dir} antismash_input gcf_representatives.json --taxon "${taxon_clean}" ${tabulation_arg}
     """
 }

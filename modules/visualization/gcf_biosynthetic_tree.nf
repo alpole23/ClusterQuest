@@ -24,6 +24,10 @@ process GCF_BIOSYNTHETIC_TREE {
     def tree_arg    = Utils.optArg('--gtdbtk_tree',    gtdbtk_tree)
     def summary_arg = Utils.optArg('--gtdbtk_summary', gtdbtk_summary)
     """
+    # Cache key. The scripts below are interpolated paths, not declared inputs,
+    # so Nextflow would not otherwise notice when they change. Listed explicitly
+    # rather than hashing all of scripts/ — see Utils.scriptsHash.
+    # scripts-version: ${Utils.scriptsHash(projectDir, ['bgc_all_bgcs_tree.py', 'bgc_coupling_annotation.py', 'bgc_gcf_heatmap.py', 'bgc_gcf_tree.py', 'bgc_pfam_tree.py', 'utils'])}
     # Step 1: Generate BGC metadata from BiG-SCAPE database (metadata only — skip slow NJ tree)
     python ${projectDir}/scripts/bgc_pfam_tree.py \\
         --db ${bigscape_db} \\
