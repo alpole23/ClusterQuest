@@ -25,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from utils.parsers import parse_trace_file
+from utils.report_lint import check_report
 from utils.trace import aggregate_trace_by_process, generate_resource_usage_html
 from viz.clustering import generate_bigscape_stats_html, generate_gcf_visualization_html
 from viz.tables import (calculate_summary_statistics, create_bgc_distribution_table,
@@ -313,6 +314,15 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 </body>
 </html>
 '''
+
+    # Lint before writing. The report's JS is assembled from several Python string
+    # constants, so this is the first point at which all of it exists together — and
+    # a handler wired to a missing function fails silently in the browser.
+    problems = check_report(html_content)
+    if problems:
+        for problem in problems:
+            print(f"ERROR: {problem}", file=sys.stderr)
+        raise SystemExit("refusing to write a report with broken JavaScript handlers")
 
     with open(f'{outdir}/bgc_report.html', 'w', encoding='utf-8') as f:
         f.write(html_content)

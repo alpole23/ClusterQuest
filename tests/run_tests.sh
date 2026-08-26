@@ -146,6 +146,14 @@ else
     fail "script dependency declarations stale:"; echo "$DEPS" | sed 's/^/      /'
 fi
 
+# The report's JavaScript lives in Python string constants, so check_undefined.py
+# cannot see it — that gap shipped a search box wired to an undefined function.
+if JSCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_report_js.py" 2>&1)"; then
+    pass "report JS handler checks"
+else
+    fail "report JS handler checks failed:"; echo "$JSCHK" | sed 's/^/      /'
+fi
+
 echo
 echo "================================"
 echo "  passed: $PASS   failed: $FAIL"

@@ -891,6 +891,34 @@ When adding or changing a batched process:
 - **`collate()` needs a real Integer.** Params given on the command line arrive as
   strings, which silently fail to dispatch — always go through `batchSize()`
 
+### Report JavaScript Is Not Covered by the Python Checks
+
+`tests/check_undefined.py` parses Python with `ast`, but the report's JavaScript is
+Python *string data* — `REPORT_JS` in `viz/report_assets.py` plus inline fragments in
+`viz/clustering.py` and `visualize_results.py` — so `ast` sees opaque text. That blind
+spot shipped a Genomes-tab search box wired to `filterGenomes()`, a function defined
+nowhere: every keystroke threw a `ReferenceError` and filtered nothing, silently, for
+the life of the feature.
+
+`utils/report_lint.py` closes it. `check_report(html)` cross-references inline
+`on*="name(...)"` handlers against `function name(` definitions and returns readable
+problems. `visualize_results.py` calls it **before writing** the file and exits 1
+rather than emitting a report with dead handlers — verified: breaking a function name
+gives exit 1 and leaves any existing report untouched.
+
+The linter runs against the assembled HTML because that is the only point where all
+the JS fragments exist together; checking the Python sources individually would report
+false positives, since a handler defined in one fragment is called from another.
+
+`tests/check_report_js.py` self-tests the linter (7 cases) and optionally checks a
+report passed as an argument; it runs in `run_tests.sh`. Pointed at the pre-fix
+published report it correctly reports `filterGenomes()`.
+
+Only the undefined direction is checked. "Defined but never called" was tried and
+dropped as too noisy — `searchNorm` and `searchMatches` are invoked from other JS
+rather than from markup, and `filterKCBHits` is legitimately uncalled when the KCB tab
+has no hits to render a search box for.
+
 ### Resuming a Run After Editing Scripts
 
 Two traps, both hit on 2026-08-25.
