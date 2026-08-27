@@ -678,7 +678,7 @@ table self-corrects. Only the hard-coded numbers in this file go stale.
 | Fe-ADH | Fe-ADH rule | → phosphonolactate (reductase route) | GCF-4/6 | 112 |
 | TPP+NTP | TPP_enzyme_C + NTP_transf_3 rules | → phosphonolipid (CDP-pathway) | GCF-5 | 84 |
 | Ppd | SMCOG1055 (ThDP-decarboxylase) | → 2-phosphonoacetaldehyde → 2-AEP | GCF-1/8 | 72 |
-| PalB* | SMCOG1013 | → phosphonoalanine? | GCF-7 | 20 |
+| PalB | SMCOG1019 (Aminotran_1_2/PF00155) | → phosphonoalanine | GCF-7 | 20 |
 | Unknown | — | — | — | 4 |
 
 **Region boundary reading:** CDS scanning is limited to the region feature's extent, read
@@ -692,7 +692,28 @@ it reclassifies BGCs whose region feature has a compound location.
 - GCF-5 in that run (TPP+NTP) confirmed as **phosphonolipid BGCs**: Ppd-type ThDP enzyme + two NTP_transf_3 cytidylyltransferases + CDP-alcohol phosphatidyltransferases + Asn_synthase (CDP-phosphonate pathway). Well-annotated NCBI genomes explicitly label the ThDP enzyme as "phosphonopyruvate decarboxylase".
 - AEP-pathway BGCs (GCF-1/8 in that run) use Ppd as coupling enzyme regardless of tailoring enzymes downstream.
 
-**⚠️ PalB classification is pending correction:** The current script uses SMCOG1013 (Aminotran_3, fold type IV PLP) to detect PalB. However, PalB is an **AAT superfamily enzyme (fold type I PLP)** annotated as Aminotran_1_2 / PF00155 / SMCOG1019 — a completely different aminotransferase class. Additionally, coupling enzymes are not always adjacent to pepM in the BGC (the phosphonoalamide BGC architecture shows PalB far from pepM). The correct approach is protein sequence phylogenetic placement against characterized references (see "Coupling Enzyme Reference Trees" below).
+**PalB detection was corrected on 2026-08-25.** It previously used SMCOG1013
+(Aminotran_3, fold type IV PLP), which is a different aminotransferase class from
+PalB — an AAT superfamily enzyme (fold type I PLP), annotated Aminotran_1_2 / PF00155
+/ SMCOG1019. The marker is now SMCOG1019 in both `bgc_coupling_annotation.py` and
+`bgc_coupling_tree.py`'s `CLASS_MARKERS`.
+
+**Measured impact on the Pantoea genus run: 5 of 6 Transaminase calls were false
+positives.** Counts went Transaminase 6 → 1, Unknown 0 → 5; no other class moved. The
+one surviving call is `CEUYZP010000005.1.region001` (*Pantoea* sp. E956-1_S3, locus
+`ctg5_2`), annotated `SMCOG1019: aminotransferase`. The five reclassified BGCs carry
+an Aminotran_3 enzyme that is not the coupling enzyme, so `Unknown` is the honest
+label; the coupling enzyme trees are the way to resolve what they actually are.
+
+Note `PF00155` never appears literally in antiSMASH JSON — it writes the domain *name*
+`Aminotran_1_2`. That domain was tested as an additional fallback and made no
+difference to the outcome (the five reclassified BGCs do not carry it), so it was left
+out: `Aminotran_1_2` hits 82 of 313 phosphonate regions and is too promiscuous to use
+as a coupling-enzyme marker on its own.
+
+The remaining caveat from the original note still stands: coupling enzymes are not
+always adjacent to pepM (the phosphonoalamide BGC places PalB far from it). Region
+membership is now segment-based, so the whole region is scanned regardless of distance.
 
 **Note on PalA:** PalA (phosphonopyruvate hydrolase, a phosphonate degradation/resistance gene) does not confound the classification — all GCF types show clear biosynthetic markers.
 
@@ -718,7 +739,7 @@ Builds FastTree ML trees (LG model) for pepM (Tree A) and per-class coupling enz
 | Synthase (FrbC-like) | smcog | SMCOG1271 | HMGL-like phosphonomethylmalate synthase |
 | Decarboxylase / Decarboxylase-Nucleotidyltransferase | domain | TPP_enzyme_C | Both classes carry this; the nucleotidyltransferase variant lacks SMCOG1055 |
 | Reductase (VlpB-like) | domain | Fe-ADH | Phosphonopyruvate reductase (iron-containing ADH) |
-| Transaminase (PalB-like) | smcog | SMCOG1013 | ⚠️ Provisional — see note below |
+| Transaminase (PalB-like) | smcog | SMCOG1019 | Aminotran_1_2/PF00155, AAT superfamily (corrected 2026-08-25) |
 
 **Tree outputs per class:** `{class}_tree.nwk` + four iTOL annotation files (coupling class colorstrip, GCF colorstrip, source colorstrip, organism text labels).
 
@@ -741,7 +762,9 @@ Builds FastTree ML trees (LG model) for pepM (Tree A) and per-class coupling enz
 | `Pantaphos_BGC\|WP_013027161\|HvrA` | HvrA | PEP mutase | *Pantoea ananatis* LMG 5342 |
 | `Pantaphos_BGC\|WP_013027159\|HvrC` | HvrC | phosphonomethylmalate synthase | *Pantoea ananatis* LMG 5342 |
 
-**⚠️ PalB-like classification is provisional:** SMCOG1013 (Aminotran_3, fold type IV PLP) is used as a proxy, but true PalB is an AAT superfamily enzyme (fold type I PLP, SMCOG1019/Aminotran_1_2/PF00155). Tree B PalB-like is expected to reveal the correct phylogenetic placement.
+**PalB-like detection uses SMCOG1019** (Aminotran_1_2 / PF00155, AAT superfamily,
+fold type I PLP) as of 2026-08-25. It previously used SMCOG1013 (Aminotran_3, fold
+type IV) — see the correction note above.
 
 **Standalone usage:**
 ```bash

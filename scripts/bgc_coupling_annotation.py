@@ -23,10 +23,13 @@ Coupling enzyme classes detected (checked in priority order):
                                    mask the SMCOG1055-annotated coupling enzyme (e.g. GCF11).
   Reductase     Fe-ADH rule        Phosphonopyruvate reductase (iron-containing ADH)
                                    → phosphonolactate (ref: VlpB)
-  Transaminase  SMCOG1013          Phosphonopyruvate transaminase (Aminotran_3, fold type IV PLP)
+  Transaminase  SMCOG1019          Phosphonopyruvate transaminase, PalB-like (Aminotran_1_2 /
+                                   PF00155, AAT superfamily, fold type I PLP)
                                    phosphonopyruvate → L-phosphonoalanine (ref: PnaA)
                                    Co-occurs with sulfhydrylase (SMCOG1168) in all GCF-7 BGCs.
-                                   Note: SMCOG1013 also appears downstream in Reductase clusters
+                                   Note: SMCOG1013 (Aminotran_3, fold type IV) was used here until
+                                   2026-08-25. It is a different aminotransferase class from PalB
+                                   and produced 5 false Transaminase calls in 6 on Pantoea.
                                    (GCF-4); Reductase is checked first to avoid false positives.
   Unknown       —                  No coupling enzyme identified
 
@@ -64,7 +67,7 @@ CLASSES = [
     ('Decarboxylase',                   'Decarboxylase — phosphonopyruvate decarboxylase (ThDP-dependent)',     '#377eb8'),
     ('Decarboxylase-Nucleotidyltransferase', 'Decarboxylase-Nucleotidyltransferase — phosphonopyruvate decarboxylase + CDP-activation', '#984ea3'),
     ('Reductase',                       'Reductase — phosphonopyruvate reductase (Fe-ADH)',                    '#4daf4a'),
-    ('Transaminase',                    'Transaminase — phosphonopyruvate transaminase, Aminotran_3 (→ PnAla)','#ff7f00'),
+    ('Transaminase',                    'Transaminase — phosphonopyruvate transaminase, PalB-like Aminotran_1_2 (→ PnAla)','#ff7f00'),
     ('Unknown',                         'Unknown / not detected',                                               '#aaaaaa'),
 ]
 
@@ -150,9 +153,13 @@ def classify_bgc(json_path, contig_id, region_num):
         # True Reductase BGCs (GCF4/9) carry Fe-ADH but no SMCOG1055.
         if 'Fe-ADH' in rule_hits:
             return 'Reductase'
-        # Transaminase: SMCOG1013 also appears downstream in Reductase clusters (GCF-4),
-        # so Reductase is checked first.
-        if 'SMCOG1013' in smcog_hits:
+        # Transaminase (PalB-like). SMCOG1019 = Aminotran_1_2 / PF00155, the AAT
+        # superfamily (fold type I PLP) that PalB belongs to. This previously tested
+        # SMCOG1013 (Aminotran_3, fold type IV) — a different enzyme class entirely,
+        # which on Pantoea called 6 BGCs Transaminase where only 1 carries SMCOG1019.
+        # Reductase is still checked first: an unrelated Fe-ADH elsewhere in the region
+        # should not be overridden by an aminotransferase hit.
+        if 'SMCOG1019' in smcog_hits:
             return 'Transaminase'
 
         return 'Unknown'

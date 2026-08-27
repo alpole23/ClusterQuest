@@ -92,7 +92,9 @@ CLASS_MARKERS = {
     'Decarboxylase':                        ('domain', 'TPP_enzyme_C'),
     'Decarboxylase-Nucleotidyltransferase': ('domain', 'TPP_enzyme_C'),
     'Reductase':                            ('domain', 'Fe-ADH'),
-    'Transaminase':                         ('smcog',  'SMCOG1013'),
+    # PalB is AAT superfamily (fold type I PLP) = Aminotran_1_2 / PF00155 / SMCOG1019.
+    # Not SMCOG1013 (Aminotran_3, fold type IV), which was used until 2026-08-25.
+    'Transaminase':                         ('smcog',  'SMCOG1019'),
 }
 
 # ─── Data loading ─────────────────────────────────────────────────────────────

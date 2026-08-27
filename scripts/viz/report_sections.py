@@ -367,7 +367,7 @@ _COUPLING_META = {
     'Reductase':                       ('Reductase',                       'Fe-ADH rule',                    '→ phosphonolactate (reductase route)',            'VlpB'),
     'Decarboxylase-Nucleotidyltransferase': ('Decarboxylase-Nucleotidyltransferase', 'SMCOG1055 + NTP_transf_3', '→ phosphonolipid (CDP-pathway)',             'DhpF, Fom2, Ppd'),
     'Decarboxylase':                   ('Decarboxylase',                   'SMCOG1055 (ThDP-dependent)',      '→ 2-phosphonoacetaldehyde → 2-AEP',              'DhpF, Fom2, Ppd'),
-    'Transaminase':                    ('Transaminase',                    'SMCOG1013 (Aminotran_3)',         '→ L-phosphonoalanine',                           'PnaA'),
+    'Transaminase':                    ('Transaminase',                    'SMCOG1019 (Aminotran_1_2/PF00155)', '→ L-phosphonoalanine',                         'PnaA, PalB'),
     'Unknown':                         ('Unknown',                         '—',                               '—',                                              '—'),
 }
 _COUPLING_ROW_ORDER = ['Synthase', 'Reductase', 'Decarboxylase-Nucleotidyltransferase', 'Decarboxylase', 'Transaminase', 'Unknown']

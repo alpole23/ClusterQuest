@@ -42,17 +42,6 @@ from viz.report_sections import (_build_bigscape_overview_cards, _build_bigscape
                                  _build_versions_html, build_coupling_table_rows)
 
 
-_COUPLING_META = {
-    'Synthase':                        ('Synthase',                        'SMCOG1271 (HMGL-like)',          '→ phosphonomethylmalate → phosphinothricin-type', 'FrbC, HvrC'),
-    'Reductase':                       ('Reductase',                       'Fe-ADH rule',                    '→ phosphonolactate (reductase route)',            'VlpB'),
-    'Decarboxylase-Nucleotidyltransferase': ('Decarboxylase-Nucleotidyltransferase', 'SMCOG1055 + NTP_transf_3', '→ phosphonolipid (CDP-pathway)',             'DhpF, Fom2, Ppd'),
-    'Decarboxylase':                   ('Decarboxylase',                   'SMCOG1055 (ThDP-dependent)',      '→ 2-phosphonoacetaldehyde → 2-AEP',              'DhpF, Fom2, Ppd'),
-    'Transaminase':                    ('Transaminase',                    'SMCOG1013 (Aminotran_3)',         '→ L-phosphonoalanine',                           'PnaA'),
-    'Unknown':                         ('Unknown',                         '—',                               '—',                                              '—'),
-}
-_COUPLING_ROW_ORDER = ['Synthase', 'Reductase', 'Decarboxylase-Nucleotidyltransferase', 'Decarboxylase', 'Transaminase', 'Unknown']
-
-
 def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
                          bigscape_stats_html='', gcf_visualization_html='',
                          phylo_tree_generated=False, genome_table_html='',
