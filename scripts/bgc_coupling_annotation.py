@@ -54,6 +54,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import itol
+from utils.coupling_confidence import load_references, support, percent_identity
 from utils.antismash_parser import (build_json_index, cds_in_segments, find_region_feature,
                                     genome_from_gbk_path, parse_bgc_label,
                                     parse_location_segments)
@@ -75,6 +76,12 @@ CLASS_COLORS = {cid: color for cid, _, color in CLASSES}
 
 
 def classify_bgc(json_path, contig_id, region_num):
+    """Classify a BGC's coupling enzyme, and return the evidence behind the call.
+
+    Returns (class_id, deciding_marker, marker_seqs) where marker_seqs maps every
+    marker seen in the region to the protein sequences carrying it — including
+    `PEP_mutase`, so callers can score pepM divergence without a second pass.
+    """
     """
     Open an antiSMASH JSON, find the record matching contig_id and region_num,
     and classify the coupling enzyme based on gene_functions and sec_met_domain
@@ -86,7 +93,7 @@ def classify_bgc(json_path, contig_id, region_num):
         with open(json_path) as f:
             data = json.load(f)
     except Exception:
-        return 'Unknown'
+        return 'Unknown', None, {}
 
     for rec in data['records']:
         if contig_id not in rec.get('id', ''):
@@ -107,6 +114,9 @@ def classify_bgc(json_path, contig_id, region_num):
         # Collect biosynthetic rule hits and SMCOG annotations from CDSes in region
         rule_hits = set()
         smcog_hits = set()
+        # marker -> protein sequences carrying it, so the CDS that drives the call can
+        # be scored against the characterised references afterwards
+        marker_seqs = {}
 
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
@@ -115,14 +125,19 @@ def classify_bgc(json_path, contig_id, region_num):
             if not cds_in_segments(feat, region_segs):
                 continue
             quals = feat.get('qualifiers', {})
+            translation = (quals.get('translation') or [''])[0]
             for gf in quals.get('gene_functions', []):
                 m = re.search(r'(SMCOG\d+)', gf)
                 if m:
                     smcog_hits.add(m.group(1))
+                    if translation:
+                        marker_seqs.setdefault(m.group(1), []).append(translation)
             for sd in quals.get('sec_met_domain', []):
                 # e.g. "Fe-ADH (E-value: ...)"
                 domain_name = sd.split('(')[0].strip()
                 rule_hits.add(domain_name)
+                if translation:
+                    marker_seqs.setdefault(domain_name, []).append(translation)
             # Also parse rule-based-clusters from gene_functions
             for gf in quals.get('gene_functions', []):
                 if 'rule-based-clusters' in gf:
@@ -133,26 +148,26 @@ def classify_bgc(json_path, contig_id, region_num):
 
         # Classification (checked in priority order)
         if 'SMCOG1271' in smcog_hits:
-            return 'Synthase'
+            return 'Synthase', 'SMCOG1271', marker_seqs
         # Ppd-CDP before plain Ppd: both share SMCOG1055, but Ppd-CDP additionally
         # encodes cytidylyltransferase(s) (NTP_transf_3) for CDP-activation.
         has_tpp = 'TPP_enzyme_C' in rule_hits or 'TPP_enzyme_M' in rule_hits
         has_ntp = 'NTP_transf_3' in rule_hits or 'NTP_transf_2' in rule_hits
         if has_tpp and has_ntp:
-            return 'Decarboxylase-Nucleotidyltransferase'
+            return 'Decarboxylase-Nucleotidyltransferase', 'TPP_enzyme_C', marker_seqs
         if 'SMCOG1055' in smcog_hits:
-            return 'Decarboxylase'
+            return 'Decarboxylase', 'SMCOG1055', marker_seqs
         # Fallback: TPP_enzyme_C alone is sufficient evidence for a decarboxylase
         # coupling enzyme. Some BGCs have ThDP enzymes too divergent to score against
         # the SMCOG1055 HMM but still carry the TPP_enzyme_C domain in antiSMASH's
         # rule-based scan (e.g. GCF-1, GCF-12 singletons in Pantoea).
         if has_tpp:
-            return 'Decarboxylase'
+            return 'Decarboxylase', 'TPP_enzyme_C', marker_seqs
         # Reductase after Ppd: some BGCs contain an unrelated Fe-ADH gene elsewhere
         # in the antiSMASH region that would mask an SMCOG1055-annotated coupling enzyme.
         # True Reductase BGCs (GCF4/9) carry Fe-ADH but no SMCOG1055.
         if 'Fe-ADH' in rule_hits:
-            return 'Reductase'
+            return 'Reductase', 'Fe-ADH', marker_seqs
         # Transaminase (PalB-like). SMCOG1019 = Aminotran_1_2 / PF00155, the AAT
         # superfamily (fold type I PLP) that PalB belongs to. This previously tested
         # SMCOG1013 (Aminotran_3, fold type IV) — a different enzyme class entirely,
@@ -160,16 +175,58 @@ def classify_bgc(json_path, contig_id, region_num):
         # Reductase is still checked first: an unrelated Fe-ADH elsewhere in the region
         # should not be overridden by an aminotransferase hit.
         if 'SMCOG1019' in smcog_hits:
-            return 'Transaminase'
+            return 'Transaminase', 'SMCOG1019', marker_seqs
 
-        return 'Unknown'
+        return 'Unknown', None, marker_seqs
 
-    return 'Unknown'
+    return 'Unknown', None, {}
 
 
 # ─── Build genome → antiSMASH JSON index ─────────────────────────────────────
 
 # ─── iTOL output ─────────────────────────────────────────────────────────────
+
+def write_support_tsv(support_rows, outpath):
+    """Write per-BGC reference support.
+
+    Advisory metadata: it records how similar the enzyme that drove each call is to the
+    nearest characterised reference of every class. It does not gate or reorder
+    anything. A low value is genuinely ambiguous — the protein may not belong to the
+    assigned class, or it may be a novel variant unlike the one characterised example.
+    Both call for manual inspection, which is the point of publishing the number.
+
+    `n_refs` is included per class because a score against a single reference (as for
+    Transaminase and Reductase) says "similar to PnaA/VlpB specifically", not "similar
+    to that enzyme class".
+    """
+    classes = sorted({c for row in support_rows.values() for c in row[3]})
+    with open(outpath, 'w') as f:
+        f.write('# Reference support for coupling enzyme assignments — ADVISORY ONLY.\n')
+        f.write('# The class comes from antiSMASH SMCOG/domain markers, which are broad by\n')
+        f.write('# design: characterised phosphonate coupling enzymes are scarce, and a\n')
+        f.write('# narrow reference-driven classifier would only recover known chemistry.\n')
+        f.write('# pct_id_<class> = percent identity to the closest reference of that class.\n')
+        f.write('# Empirical poles on Pantoea: 93.8-100%% orthologue, 21.8-30.8%% superfamily\n')
+        f.write('# background. Low support warrants manual review, NOT automatic rejection.\n')
+        header = ['bgc', 'assigned_class', 'deciding_marker', 'protein_len',
+                  'assigned_pct_id', 'assigned_ref', 'assigned_n_refs', 'runner_up', 'margin',
+                  'pepm_pct_id', 'pepm_ref', 'pepm_len']
+        header += [f'pct_id_{c}' for c in classes]
+        f.write('\t'.join(header) + '\n')
+        for label in sorted(support_rows):
+            cls, marker, plen, sup, pepm_pid, pepm_ref, pepm_len = support_rows[label]
+            own = sup.get(cls, {})
+            others = sorted(((c, v['pct_id']) for c, v in sup.items() if c != cls),
+                            key=lambda x: -x[1])
+            runner, runner_pid = (others[0] if others else ('-', 0.0))
+            row = [label, cls, marker or '-', str(plen),
+                   f"{own.get('pct_id', 0.0):.1f}", str(own.get('best_ref', '-')),
+                   str(own.get('n_refs', 0)), runner,
+                   f"{own.get('pct_id', 0.0) - runner_pid:.1f}",
+                   f"{pepm_pid:.1f}", pepm_ref, str(pepm_len)]
+            row += [f"{sup[c]['pct_id']:.1f}" for c in classes]
+            f.write('\t'.join(row) + '\n')
+
 
 def write_colorstrip(metadata, classifications, outpath, bgc_type):
     counts = defaultdict(int)
@@ -213,6 +270,10 @@ def main():
                         help='BGC metadata JSON from bgc_pfam_tree.py or bgc_synteny_tree.py')
     parser.add_argument('--outfile',       required=True,
                         help='Output iTOL colorstrip file path')
+    parser.add_argument('--reference_faa', default=None,
+                        help='Characterised coupling enzyme FASTA; enables the reference-support TSV')
+    parser.add_argument('--reference_pepm', default=None,
+                        help='Characterised pepM FASTA; adds the pepM divergence axis')
     parser.add_argument('--bgc_type',      default='phosphonate',
                         help='BGC product type label for display (default: phosphonate)')
     args = parser.parse_args()
@@ -226,6 +287,18 @@ def main():
 
     print(f'Classifying coupling enzymes for {len(metadata)} BGCs...')
     classifications = {}
+    support_rows = {}
+    # Reference support is advisory metadata for manual review — see
+    # utils/coupling_confidence. Absent references simply skip it.
+    ref_path = args.reference_faa
+    references = load_references(ref_path) if ref_path and os.path.exists(ref_path) else {}
+    if not references:
+        print('  (no coupling enzyme references given — skipping reference support)')
+    pepm_references = []
+    if args.reference_pepm and os.path.exists(args.reference_pepm):
+        from Bio import SeqIO as _SeqIO
+        pepm_references = [(r.id.split('|')[2] if r.id.count('|') >= 2 else r.id, str(r.seq))
+                           for r in _SeqIO.parse(args.reference_pepm, 'fasta')]
     missing_json = 0
 
     for bgc in metadata:
@@ -239,22 +312,44 @@ def main():
         contig_id, region_num = parse_bgc_label(label)
 
         if genome and genome in json_index:
-            cls = classify_bgc(json_index[genome], contig_id, region_num)
+            cls, marker, marker_seqs = classify_bgc(json_index[genome], contig_id, region_num)
         else:
             # Fall back: search all JSONs for a record matching contig_id
-            cls = 'Unknown'
+            cls, marker, marker_seqs = 'Unknown', None, {}
             for gen, jpath in json_index.items():
-                c = classify_bgc(jpath, contig_id, region_num)
+                c, mk, ms = classify_bgc(jpath, contig_id, region_num)
                 if c != 'Unknown':
-                    cls = c
+                    cls, marker, marker_seqs = c, mk, ms
                     break
             if cls == 'Unknown':
                 missing_json += 1
 
         classifications[label] = cls
+        if references and marker and marker_seqs.get(marker):
+            # Score the CDS that drove the call against every characterised class.
+            # Advisory only — nothing here changes `cls`.
+            seq = max(marker_seqs[marker], key=len)
+            # pepM is the hallmark gene, present in every phosphonate BGC, so its
+            # divergence is the natural second axis: how unusual is the scaffold gene,
+            # independently of how unusual the coupling chemistry is.
+            pepm_seqs = marker_seqs.get('PEP_mutase') or marker_seqs.get('PEP_mutase_1') or []
+            pepm_pid, pepm_ref, pepm_len = 0.0, '-', 0
+            if pepm_seqs and pepm_references:
+                pseq = max(pepm_seqs, key=len)
+                pepm_len = len(pseq)
+                best = max(((percent_identity(pseq, rs), rn) for rn, rs in pepm_references),
+                           default=(0.0, '-'))
+                pepm_pid, pepm_ref = round(best[0], 1), best[1]
+            support_rows[label] = (cls, marker, len(seq), support(seq, references),
+                                   pepm_pid, pepm_ref, pepm_len)
 
     if missing_json:
         print(f'  Warning: {missing_json} BGCs could not be matched to an antiSMASH JSON')
+
+    if support_rows:
+        conf_path = os.path.splitext(args.outfile)[0].replace('_itol_coupling', '') + '_coupling_support.tsv'
+        print(f'Writing reference support to: {conf_path}')
+        write_support_tsv(support_rows, conf_path)
 
     print(f'Writing iTOL annotation to: {args.outfile}')
     os.makedirs(os.path.dirname(args.outfile) or '.', exist_ok=True)
