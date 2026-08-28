@@ -125,12 +125,8 @@ Gene Cluster Family (GCF) clustering.
 | `bigscape_include_singletons` | true | Include unclustered BGCs |
 | `bigscape_mix` | false | Allow mixing BGC classes in same GCF |
 
-**Coupling Enzyme Trees** (when `clustering = "bigscape"`):
-
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `run_coupling_tree` | true | Build pepM + per-class coupling enzyme trees |
-| `coupling_tree_type` | "both" | `"A"` (pepM only), `"B"` (per-class only), or `"both"` |
 
 ### PHYLOGENY
 
@@ -339,7 +335,6 @@ modules/
 ├── databases/          # Database download processes (antiSMASH, GTDB-Tk, Pfam, etc.)
 ├── genome/             # Genome processing (NCBI download, rename, GenBank→FASTA)
 ├── analysis/           # BGC analysis (antiSMASH, counting, tabulation, reuse)
-│   └── coupling_enzyme_tree.nf  # COUPLING_ENZYME_TREE process
 ├── clustering/         # BiG-SCAPE clustering and stats extraction
 ├── phylogeny/          # GTDB-Tk classification (with reuse support)
 ├── visualization/      # HTML report generation
@@ -422,9 +417,7 @@ workflow (entry point)
     │
     ├── GCF_BIOSYNTHETIC_TREE # GCF biosynthetic NJ tree (when bigscape enabled, runs before visualization)
     │                         # Also outputs phosphonate_itol_coupling.txt (coupling annotation)
-    ├── VISUALIZE_RESULTS     # HTML report generation (receives GCF tree PNG + coupling annotation)
-    └── COUPLING_ENZYME_TREE  # pepM + per-class coupling enzyme ML trees (when run_coupling_tree=true)
-                              # Runs after GCF_BIOSYNTHETIC_TREE; uses HMMER + FastTree + reference FASTAs
+    └── VISUALIZE_RESULTS     # HTML report generation (receives GCF tree PNG + coupling annotation)
 ```
 
 **Running a single stage:**
@@ -529,7 +522,8 @@ rather than the axis length, which is a further reason to prefer it.
 - The tree PNG is embedded as base64 in `bgc_report.html`, making the report self-contained
 - Published copies also exist in `gcf_heatmap/` for standalone use
 - `conf/conda.config` uses `withName: 'GCF_BIOSYNTHETIC_TREE'` for the conda environment
-- Also outputs `phosphonate_itol_coupling.txt` (coupling enzyme class colorstrip), which is passed to both `VISUALIZE_RESULTS` and `COUPLING_ENZYME_TREE`
+- Also outputs `phosphonate_itol_coupling.txt` (coupling enzyme class colorstrip) and
+  `phosphonate_coupling_support.tsv` (reference support per assignment), both passed to `VISUALIZE_RESULTS`
 
 ### Dynamic Coupling Enzyme Class Table
 - The coupling enzyme table in the GCF Analysis tab is built dynamically at report-generation time — not hardcoded
@@ -719,7 +713,7 @@ membership is now segment-based, so the whole region is scanned regardless of di
 
 ### `scripts/bgc_coupling_tree.py` — Coupling enzyme phylogenetic trees
 
-Builds FastTree ML trees (LG model) for pepM (Tree A) and per-class coupling enzymes (Tree B), with characterized reference sequences as phylogenetic anchors. Runs automatically as the `COUPLING_ENZYME_TREE` Nextflow process (`modules/analysis/coupling_enzyme_tree.nf`) after `GCF_BIOSYNTHETIC_TREE`, consuming its `phosphonate_metadata.json` and `phosphonate_itol_coupling.txt`. Uses `load_coupling_classes` from `utils/constants.py`. Skipped automatically when `clustering != "bigscape"` or when the annotation inputs are absent.
+Builds FastTree ML trees (LG model) for pepM (Tree A) and per-class coupling enzymes (Tree B), with characterized reference sequences as phylogenetic anchors. **Standalone only — no longer a pipeline stage** (removed 2026-08-27; see "Why There Is No pepM Tree"). Consumes `phosphonate_metadata.json` and `phosphonate_itol_coupling.txt` from `GCF_BIOSYNTHETIC_TREE`, and uses `load_coupling_classes` from `utils/constants.py`. `hmmer` and `fasttree` are no longer in any pipeline conda environment, so install them yourself and pass `--hmmbuild`/`--hmmalign`/`--hmmsearch`/`--fasttree`. Use it to place an individual ambiguous enzyme phylogenetically — something the scalar reference-support score cannot do.
 
 **HMM strategy (4 steps per class):**
 1. `hmmbuild` from a single seed reference → initial HMM
@@ -989,37 +983,35 @@ Confirm it bound before letting it run: `-dump-hashes` prints the session UUID a
 first hash entry, and the summary line should report a large `cached=` count. If you
 see `cached=0` and `NCBI_DATASETS_DOWNLOAD` starting, kill it — the resume missed.
 
-### pepM Divergence and the 60% Neighbourhood Threshold
+### Why There Is No pepM Tree or pepM-Divergence Analysis
 
-Yu et al. compared 342 pepM gene neighbourhoods (6 genes either side of pepM, 13 total)
-against PepM amino-acid identity across 58,311 pairwise comparisons. The correlation
-between the two holds **only above ~60% PepM identity**; below that there is
-"essentially no similarity in the pepM gene neighborhood".
+An earlier version built pepM and per-class coupling enzyme trees (`COUPLING_ENZYME_TREE`)
+and a pepM-vs-coupling divergence plot. Both were removed on 2026-08-27.
 
-> Yu X, Doroghazi JR, Janga SC, Zhang JK, Circello B, Griffin BM, Labeda DP, Metcalf WW.
-> *Diversity and abundance of phosphonate biosynthetic genes in nature.*
-> PNAS 2013;110(51):20759-20764. doi:10.1073/pnas.1315107110
+Yu et al. (PNAS 2013;110(51):20759, doi:10.1073/pnas.1315107110) established that pepM
+identity predicts gene-neighbourhood similarity above ~60% identity — but that is a
+statement about pepM sequences compared **pairwise against each other**, not about a
+pepM compared against a reference set. The divergence plot applied it the second way,
+which the paper does not license.
 
-That makes 60% a floor rather than a gradient, and it is the threshold
-`bgc_divergence_plot.py` draws and `bgc_divergence_outliers.tsv` ranks on. A BGC below
-it is not merely divergent: its pathway lies outside the range where pepM identity
-predicts anything about the surrounding genes.
+More importantly, the correlation exists because pepM is a *proxy* for the neighbourhood.
+BiG-SCAPE measures the neighbourhood directly, over full domain content and adjacency,
+and the `distance` table already holds every pairwise comparison. Reproducing the
+pairwise pepM analysis would rebuild a proxy for something already measured directly.
 
-**Measured on the Pantoea genus run:** the 236 Synthase BGCs sit at 88-100% pepM
-identity (pantaphos-like, above the line), while all 79 non-Synthase BGCs sit at
-~40-45% — below the floor entirely, with nothing between ~45% and ~88%. The gap
-straddles exactly where the published correlation switches on.
+Classification now rests on two non-overlapping signals:
 
-Prefer the pepM axis over the coupling axis when ranking candidates. pepM has 7
-references, is present in every phosphonate BGC, and now has a published threshold;
-the coupling axis has one reference for Transaminase and Reductase, both from
-*Streptomyces*, so a low score there confounds "novel" with "no comparable reference".
+| Signal | Answers | Source |
+|--------|---------|--------|
+| GCF membership | which BGCs group together | BiG-SCAPE, whole neighbourhood |
+| Coupling class + support | what chemistry, and how well evidenced | SMCOG markers + reference identity |
 
-**Caveat:** Yu et al. correlated pepM identity against neighbourhood similarity *within
-their dataset*. This pipeline scores against 7 characterised references, so "below 60%"
-means "unlike any characterised pathway", not "unlike other BGCs in the run". Those 79
-could be highly similar to each other while collectively distant from everything known
-— worth checking directly before drawing conclusions.
+`scripts/bgc_coupling_tree.py` is retained as a standalone post-pipeline tool. It is no
+longer a pipeline stage, but phylogenetic placement remains the right way to adjudicate
+an individual ambiguous enzyme (the PalB/SMCOG1019 case), which a scalar identity cannot
+do. Running it needs `hmmer` and `fasttree`, which are no longer in any pipeline conda
+environment — install them separately or pass paths with `--hmmbuild` etc.
+
 
 ### Genome Name Conventions
 

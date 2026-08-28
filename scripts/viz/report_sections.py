@@ -264,7 +264,40 @@ def _build_bigscape_overview_cards(gcf_data):
                 {largest_gcf_card}'''
 
 
-def _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean):
+def _build_gcf_support_section(gcf_support_rows):
+    """GCF Analysis block pairing GCF membership with coupling-call support."""
+    if not gcf_support_rows:
+        return ''
+    return f'''
+            <h3 style="margin-top: 30px;">Coupling enzyme support by GCF</h3>
+            <p style="color: #666; font-size: 0.9em; margin-bottom: 12px;">
+                GCF membership comes from BiG-SCAPE, which compares the whole gene
+                neighbourhood. The coupling class comes from antiSMASH SMCOG/domain markers,
+                which are deliberately broad — characterised phosphonate coupling enzymes are
+                scarce, and a narrow reference-driven classifier would only recover chemistry
+                already known. <em>Support</em> is the identity of the enzyme that drove each
+                call to the nearest characterised reference of its class. It is advisory:
+                a low value may mean the assignment is wrong, or that the enzyme is a novel
+                variant unlike the one characterised example — both warrant a look. Classes
+                with few references (see <em>refs</em>) give weaker evidence either way.
+            </p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>GCF</th><th>Dominant coupling class</th><th>Members</th>
+                            <th>Median support</th><th>Range</th><th>Refs</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+{gcf_support_rows}
+                    </tbody>
+                </table>
+            </div>'''
+
+
+def _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean,
+                                 gcf_support_rows=None):
     """Return the BiG-SCAPE GCF section HTML for the GCF Analysis tab."""
     if not (bigscape_stats_html or gcf_visualization_html):
         return ''
@@ -272,6 +305,7 @@ def _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, ta
             <div class="clustering-section">
                 <h3>BiG-SCAPE Gene Cluster Families</h3>
                 {bigscape_stats_html if bigscape_stats_html else ''}
+                {_build_gcf_support_section(gcf_support_rows)}
                 {gcf_visualization_html if gcf_visualization_html else ''}
                 <div class="info-box" style="margin-top: 20px;">
                     <p>BiG-SCAPE clusters biosynthetic gene clusters into gene cluster families based on sequence similarity.</p>
@@ -416,6 +450,90 @@ def gcf_coupling_classes(coupling_annotation_path, bigscape_db_path, cutoff=0.3)
     except Exception as e:
         print(f"Warning: could not derive GCF coupling classes: {e}")
         return {}
+
+
+def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
+                           bigscape_db_path, cutoff=0.3):
+    """Per-GCF table rows: dominant coupling class and how well evidenced it is.
+
+    Pairs the two signals the classification now rests on — GCF membership from
+    BiG-SCAPE (whole gene neighbourhood) and coupling class from SMCOG markers — and
+    shows the reference support behind the second so a reader can see which calls are
+    thinly evidenced.
+
+    Deliberately a table rather than a chart: with ~13 GCFs the numbers matter more
+    than the shape, and the report already carries several embedded images.
+
+    Returns HTML <tr> rows, or None when the inputs are unavailable.
+    """
+    import csv
+    import statistics
+    from collections import defaultdict
+    try:
+        gcf_class = gcf_coupling_classes(coupling_annotation_path, bigscape_db_path, cutoff)
+        if not gcf_class:
+            return None
+
+        # BGC label -> GCF, from the BiG-SCAPE record/family mapping
+        conn = sqlite3.connect(str(bigscape_db_path))
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT g.path, rf.family_id
+            FROM bgc_record_family rf
+            JOIN bgc_record br ON br.id = rf.record_id
+            JOIN gbk g         ON g.id = br.gbk_id
+            JOIN family f      ON f.id = rf.family_id
+            WHERE f.cutoff = ? AND br.record_type = 'region'
+        """, (cutoff,))
+        import os as _os
+        bgc_to_gcf = {_os.path.splitext(_os.path.basename(p))[0]: fid
+                      for p, fid in cur.fetchall()}
+        conn.close()
+
+        with open(coupling_support_path) as f:
+            lines = [ln for ln in f if not ln.startswith('#')]
+        per_gcf = defaultdict(list)
+        n_refs = {}
+        for row in csv.DictReader(lines, delimiter='\t'):
+            fid = bgc_to_gcf.get(row['bgc'])
+            if fid is None:
+                continue
+            try:
+                per_gcf[fid].append(float(row['assigned_pct_id']))
+            except ValueError:
+                continue
+            n_refs[fid] = row.get('assigned_n_refs', '?')
+        if not per_gcf:
+            return None
+
+        rows_html = []
+        for i, fid in enumerate(sorted(per_gcf, key=lambda k: -len(per_gcf[k]))):
+            vals = per_gcf[fid]
+            cls = gcf_class.get(fid, 'Unknown')
+            med = statistics.median(vals)
+            colour = COUPLING_COLORS.get(cls, '#999999')
+            # Support is advisory: a low value may mean the wrong class, or a novel
+            # variant unlike the single characterised example. Flagged, never filtered.
+            note = ('well evidenced' if med >= 90 else
+                    'moderate' if med >= 50 else
+                    'weak — review')
+            bg = ' style="background:#fafafa;"' if i % 2 else ''
+            td = 'padding: 7px 12px; border-bottom: 1px solid #eee;'
+            rows_html.append(
+                f'<tr{bg}>'
+                f'<td style="{td}"><span style="background: {colour}; color: white; '
+                f'padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">GCF-{fid}</span></td>'
+                f'<td style="{td}">{cls}</td>'
+                f'<td style="{td} text-align: center;">{len(vals)}</td>'
+                f'<td style="{td} text-align: center;">{med:.1f}%</td>'
+                f'<td style="{td} text-align: center;">{min(vals):.1f}–{max(vals):.1f}%</td>'
+                f'<td style="{td} text-align: center;">{n_refs.get(fid, "?")}</td>'
+                f'<td style="{td} color: #666;">{note}</td>'
+                f'</tr>')
+        return '\n'.join(rows_html)
+    except Exception as e:
+        print(f"Warning: could not build GCF support table: {e}")
+        return None
 
 
 def build_coupling_table_rows(coupling_annotation_path, bigscape_db_path, cutoff=0.3):

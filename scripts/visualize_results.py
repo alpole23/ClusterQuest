@@ -38,7 +38,7 @@ from viz.genome_pages import create_genome_metadata_pages
 from viz.rarefaction import generate_rarefaction_curve
 from viz.report_sections import (_build_bigscape_overview_cards, _build_bigscape_section_html,
                                  _build_kcb_content, _build_rarefaction_section,
-                                 gcf_coupling_classes,
+                                 gcf_coupling_classes, build_gcf_support_rows,
                                  _build_versions_html, build_coupling_table_rows)
 
 
@@ -51,7 +51,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          gcf_tree_mime='image/png',
                          all_bgcs_tree_b64=None, all_bgcs_tree_mime='image/png',
                          gcf_heatmap_b64=None,
-                         coupling_table_rows=None, gcf_classes=None):
+                         coupling_table_rows=None, gcf_classes=None,
+                         gcf_support_rows=None):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -66,7 +67,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     bigscape_overview_cards = _build_bigscape_overview_cards(gcf_data)
 
-    bigscape_section_html = _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean)
+    bigscape_section_html = _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html,
+                                                        taxon_clean, gcf_support_rows)
 
     versions_html = _build_versions_html(versions_data)
 
@@ -342,6 +344,8 @@ def main():
     parser.add_argument('--all_bgcs_tree_svg', type=Path, help='Path to all-BGCs circular NJ tree SVG (preferred over PNG: vector, and ~45%% smaller once base64-encoded)')
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
+    parser.add_argument('--coupling_support', type=Path,
+                        help='phosphonate_coupling_support.tsv from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--seed', type=int, default=0, help='RNG seed for the rarefaction resampling; fixed by default so reports are reproducible')
 
     args = parser.parse_args()
@@ -533,6 +537,7 @@ def main():
     # Build coupling enzyme table rows from live BiG-SCAPE data
     coupling_table_rows = None
     gcf_classes = None
+    gcf_support_rows = None
     bigscape_db_for_coupling = None
     if args.bigscape_db and args.bigscape_db.exists():
         bigscape_db_for_coupling = args.bigscape_db
@@ -549,6 +554,9 @@ def main():
         # Same map drives the GCF badge colours in the Novel BGCs table
         gcf_classes = gcf_coupling_classes(
             args.coupling_annotation, bigscape_db_for_coupling)
+        if args.coupling_support and args.coupling_support.exists():
+            gcf_support_rows = build_gcf_support_rows(
+                args.coupling_support, args.coupling_annotation, bigscape_db_for_coupling)
 
     if args.counts or args.tabulation:
         print(f"Generating HTML report...")
@@ -566,7 +574,8 @@ def main():
                             all_bgcs_tree_mime=all_bgcs_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
                             coupling_table_rows=coupling_table_rows,
-                            gcf_classes=gcf_classes)
+                            gcf_classes=gcf_classes,
+                            gcf_support_rows=gcf_support_rows)
         print(f"Visualizations complete! Open {args.outdir}/bgc_report.html in a browser.")
 
 if __name__ == '__main__':

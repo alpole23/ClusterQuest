@@ -19,6 +19,7 @@ process GCF_BIOSYNTHETIC_TREE {
     path "all_bgcs_biosynthetic_tree_circular.svg",     emit: all_bgcs_tree_svg,    optional: true
     path "phosphonate_metadata.json",                   emit: metadata,             optional: true
     path "phosphonate_itol_coupling.txt",               emit: coupling_annotation,  optional: true
+    path "phosphonate_coupling_support.tsv",            emit: coupling_support,     optional: true
 
     script:
     def tree_arg    = Utils.optArg('--gtdbtk_tree',    gtdbtk_tree)
@@ -40,6 +41,8 @@ process GCF_BIOSYNTHETIC_TREE {
         --antismash_dir antismash_input \\
         --metadata phosphonate_metadata.json \\
         --outfile phosphonate_itol_coupling.txt \\
+        --reference_faa ${projectDir}/assets/reference_sequences/reference_coupling_enzymes.faa \\
+        --reference_pepm ${projectDir}/assets/reference_sequences/reference_pepM.faa \\
         --bgc_type phosphonate
 
     # Step 3: Generate GCF × species heatmap

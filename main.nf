@@ -36,12 +36,6 @@ def validateParams() {
         errors << "Invalid bigscape_classify '${params.bigscape_classify}'. Valid options: ${validClassify.collect { it ?: '\"\"' }.join(', ')}"
     }
 
-    // Validate coupling enzyme tree type
-    def validTreeTypes = ['A', 'B', 'both']
-    if (!(params.coupling_tree_type in validTreeTypes)) {
-        errors << "Invalid coupling_tree_type '${params.coupling_tree_type}'. Valid options: ${validTreeTypes.join(', ')}"
-    }
-
     // Validate bgc_analysis workflow has required input
     if (params.workflow == 'bgc_analysis' && (!params.input_genomes || params.input_genomes == 'null')) {
         errors << "params.input_genomes must be specified for 'bgc_analysis' workflow"
@@ -76,10 +70,6 @@ def validateParams() {
     // Warnings
     if (params.run_gtdbtk) {
         log.warn "GTDB-Tk is enabled. This requires ~140 GB disk space and ~56-64 GB RAM."
-    }
-
-    if (params.run_coupling_tree && params.clustering != 'bigscape') {
-        log.warn "run_coupling_tree requires clustering = 'bigscape'; coupling enzyme trees will be skipped."
     }
 
     if (params.reuse_antismash_from) {

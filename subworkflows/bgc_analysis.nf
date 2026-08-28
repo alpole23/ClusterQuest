@@ -1,7 +1,6 @@
 include { COUNT_REGIONS } from '../modules/analysis/count_regions'
 include { TABULATE_REGIONS } from '../modules/analysis/tabulate_regions'
 include { AGGREGATE_TAXONOMY } from '../modules/analysis/aggregate_taxonomy'
-include { COUPLING_ENZYME_TREE } from '../modules/analysis/coupling_enzyme_tree'
 include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
@@ -65,6 +64,7 @@ workflow BGC_ANALYSIS {
             all_bgcs_tree_svg_ch    = placeholder('NO_ALL_BGCS_TREE_SVG')
             gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
+            coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
             if (clusteringEnabled("bigscape")) {
                 GCF_BIOSYNTHETIC_TREE(
                     taxon,
@@ -79,20 +79,7 @@ workflow BGC_ANALYSIS {
                 all_bgcs_tree_svg_ch   = GCF_BIOSYNTHETIC_TREE.out.all_bgcs_tree_svg.ifEmpty(file('NO_ALL_BGCS_TREE_SVG'))
                 gcf_heatmap_svg_ch     = GCF_BIOSYNTHETIC_TREE.out.heatmap_svg.ifEmpty(file('NO_GCF_HEATMAP_SVG'))
                 coupling_annotation_ch = GCF_BIOSYNTHETIC_TREE.out.coupling_annotation.ifEmpty(file('NO_COUPLING_ANNOTATION'))
-
-                // --- Coupling Enzyme Trees (pepM + per-class, anchored on reference sequences) ---
-                // Runs off the metadata + coupling annotation emitted by GCF_BIOSYNTHETIC_TREE;
-                // if either is missing the channels stay empty and the process is skipped.
-                if (params.run_coupling_tree) {
-                    COUPLING_ENZYME_TREE(
-                        taxon,
-                        antismash_results,
-                        GCF_BIOSYNTHETIC_TREE.out.metadata,
-                        GCF_BIOSYNTHETIC_TREE.out.coupling_annotation,
-                        file("${projectDir}/assets/reference_sequences/reference_pepM.faa"),
-                        file("${projectDir}/assets/reference_sequences/reference_coupling_enzymes.faa")
-                    )
-                }
+                coupling_support_ch    = GCF_BIOSYNTHETIC_TREE.out.coupling_support.ifEmpty(file('NO_COUPLING_SUPPORT'))
             }
 
             VISUALIZE_RESULTS(
@@ -115,7 +102,8 @@ workflow BGC_ANALYSIS {
                 all_bgcs_tree_ch,
                 all_bgcs_tree_svg_ch,
                 gcf_heatmap_svg_ch,
-                coupling_annotation_ch
+                coupling_annotation_ch,
+                coupling_support_ch
             )
         }
 }
