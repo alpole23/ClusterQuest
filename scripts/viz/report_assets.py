@@ -283,24 +283,87 @@ REPORT_JS = """\
         // Filters the Genomes tab. This was previously missing entirely: the search
         // box called filterGenomes(), which was never defined, so typing there threw
         // a ReferenceError and filtered nothing.
+        // ---- Genome table: rendered from JSON, not from a 1,735-row DOM ----------
+        // The fully-rendered table was 612 KB, the largest single element in the report,
+        // parsed and painted on load though almost nobody scrolls past the first screen.
+        // Rows now live in a JSON island and are rendered on demand; search runs over the
+        // array, so it still covers every genome rather than only the rendered ones.
+        const GENOME_RENDER_CAP = 500;
+        let _genomeRows = null;
+
+        function genomeRows() {
+            if (_genomeRows === null) {
+                const el = document.getElementById('genomeData');
+                try { _genomeRows = el ? JSON.parse(el.textContent) : []; }
+                catch (e) { _genomeRows = []; }
+            }
+            return _genomeRows;
+        }
+
+        function esc(v) {
+            return String(v === null || v === undefined ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // Mirrors _genome_row_html() in viz/tables.py — change both together.
+        function renderGenomeRows(rows, cap) {
+            const tbody = document.getElementById('genomeTableBody');
+            if (!tbody) return 0;
+            const limit = cap === null ? rows.length : Math.min(rows.length, cap);
+            const html = [];
+            for (let i = 0; i < limit; i++) {
+                const r = rows[i];
+                html.push('<tr><td><a href="genomes/' + esc(r[0]) + '.html">' + esc(r[0]) + '</a></td>' +
+                          '<td>' + esc(r[1]) + '</td>' +
+                          '<td title="' + esc(r[2]) + '">' + esc(r[2]) + '</td>' +
+                          '<td>' + esc(r[3]) + '</td>' +
+                          '<td>' + esc(r[4]) + '</td>' +
+                          '<td>' + esc(r[5]) + '</td></tr>');
+            }
+            tbody.innerHTML = html.join('');
+            return limit;
+        }
+
+        function setGenomeStatus(shown, matched, total, filtered) {
+            const el = document.getElementById('genomeTableStatus');
+            if (!el) return;
+            let msg;
+            if (filtered) {
+                msg = 'Showing ' + shown + ' of ' + matched + ' matching genomes'
+                    + (matched < total ? ' (' + total + ' total)' : '') + '.';
+            } else {
+                msg = 'Showing ' + shown + ' of ' + total + ' genomes.';
+            }
+            const more = shown < (filtered ? matched : total);
+            el.innerHTML = msg + (more
+                ? ' <button type="button" onclick="showAllGenomes()" style="background:none;border:none;'
+                  + 'color:#2c5aa0;cursor:pointer;padding:0;font:inherit;text-decoration:underline;">Show all</button>'
+                : '');
+        }
+
+        function showAllGenomes() {
+            const input = document.getElementById('genomeSearch');
+            const filter = input ? searchNorm(input.value) : '';
+            const rows = genomeRows();
+            const matched = filter
+                ? rows.filter(function (r) { return r.some(function (c) { return searchMatches(c, filter); }); })
+                : rows;
+            const shown = renderGenomeRows(matched, null);
+            setGenomeStatus(shown, matched.length, rows.length, !!filter);
+        }
+
         function _filterGenomes() {
             const input = document.getElementById('genomeSearch');
             if (!input) return;
             const filter = searchNorm(input.value);
-            const tbody = document.getElementById('genomeTableBody');
-            if (!tbody) return;
-            const rows = tbody.getElementsByTagName('tr');
-            for (let i = 0; i < rows.length; i++) {
-                const cells = rows[i].getElementsByTagName('td');
-                let found = false;
-                for (let j = 0; j < cells.length; j++) {
-                    if (searchMatches(cells[j].textContent, filter)) {
-                        found = true;
-                        break;
-                    }
-                }
-                rows[i].style.display = found ? '' : 'none';
-            }
+            const rows = genomeRows();
+            if (!rows.length) return;          // no JSON island: leave the server-rendered rows alone
+            const matched = filter
+                ? rows.filter(function (r) { return r.some(function (c) { return searchMatches(c, filter); }); })
+                : rows;
+            const shown = renderGenomeRows(matched, GENOME_RENDER_CAP);
+            setGenomeStatus(shown, matched.length, rows.length, !!filter);
         }
 
         // The genome table can hold thousands of rows (1,735 on the Pantoea genus) and

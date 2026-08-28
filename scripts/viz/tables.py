@@ -17,6 +17,23 @@ def get_genome_count(counts_file):
     return len(counts_df)
 
 
+# Rows rendered into the HTML up front. Enough to fill the first screen; the rest are
+# rendered from JSON on search or on demand.
+INITIAL_GENOME_ROWS = 100
+
+
+def _genome_row_html(r):
+    """One genome row. Mirrored by renderGenomeRows() in report_assets.py — change both."""
+    return (f"<tr>"
+            f"<td><a href=\"genomes/{r['genome_name']}.html\">{r['genome_name']}</a></td>"
+            f"<td>{r['assembly_id']}</td>"
+            f"<td title=\"{r['organism']}\">{r['organism']}</td>"
+            f"<td>{r['taxonomy']}</td>"
+            f"<td>{r['total_bgcs']}</td>"
+            f"<td>{r['top_bgcs']}</td>"
+            f"</tr>")
+
+
 def generate_genome_table_html(counts_file, assembly_info, name_map, taxonomy_map_data=None):
     '''Generate HTML for a searchable genome table'''
 
@@ -80,20 +97,26 @@ def generate_genome_table_html(counts_file, assembly_info, name_map, taxonomy_ma
     # Sort by total BGCs descending
     table_rows.sort(key=lambda x: -x['total_bgcs'])
 
-    # Generate HTML rows
+    # Only the first slice is rendered as HTML; the rest ships as a compact JSON array
+    # that the page renders on demand. At 1,735 genomes the fully-rendered table was
+    # 612 KB of DOM — the largest single element in the report — and every row was
+    # parsed and painted on load even though almost nobody scrolls past the first
+    # screenful. The same rows as JSON are roughly a third the size, and search now
+    # runs over the array rather than over the DOM, so it still covers every genome.
     html_rows = []
-    for r in table_rows:
-        html_rows.append(f'''
-            <tr>
-                <td><a href="genomes/{r['genome_name']}.html">{r['genome_name']}</a></td>
-                <td>{r['assembly_id']}</td>
-                <td title="{r['organism']}">{r['organism']}</td>
-                <td>{r['taxonomy']}</td>
-                <td>{r['total_bgcs']}</td>
-                <td>{r['top_bgcs']}</td>
-            </tr>''')
+    for r in table_rows[:INITIAL_GENOME_ROWS]:
+        html_rows.append(_genome_row_html(r))
 
-    return '\n'.join(html_rows)
+    # array-of-arrays, not objects: repeating six keys 1,735 times is pure overhead
+    data = [[r['genome_name'], r['assembly_id'], r['organism'],
+             r['taxonomy'], r['total_bgcs'], r['top_bgcs']] for r in table_rows]
+
+    return {
+        'initial_rows': '\n'.join(html_rows),
+        'data_json': json.dumps(data, separators=(',', ':')),
+        'total': len(table_rows),
+        'shown': min(INITIAL_GENOME_ROWS, len(table_rows)),
+    }
 
 
 def calculate_summary_statistics(counts_file, tabulation_file=None):

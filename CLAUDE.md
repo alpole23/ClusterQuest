@@ -499,6 +499,29 @@ too — it survived only as an `except` fallback, unreachable in practice since 
 is a hard dependency of every environment that runs this code. The Bio.Phylo path prunes
 20,051 terminals to 285 in about two seconds.
 
+### The Genome Table Renders From JSON
+
+Fully rendered, 1,735 genome rows were 612 KB — the largest single element in the report
+— parsed and painted on load although almost nobody scrolls past the first screenful.
+
+`viz/tables.generate_genome_table_html` now returns a dict: `initial_rows` (the first
+`INITIAL_GENOME_ROWS`, currently 100, rendered as HTML) and `data_json` (all rows as a
+compact array-of-arrays, not objects — repeating six keys 1,735 times is pure overhead).
+The page carries the array in a `<script type="application/json">` island and renders
+rows from it on demand.
+
+**Search runs over the array, not the DOM**, so it still covers every genome. That is the
+point rather than a side effect: `ATCC 35400` and `GCA_963520565.1` each match exactly one
+genome, and neither is in the first 100 rows — a DOM-based filter over a truncated table
+would silently find nothing.
+
+`renderGenomeRows()` in `viz/report_assets.py` mirrors `_genome_row_html()` in
+`viz/tables.py`; **change both together**. A test asserts the server-rendered first row and
+the JS-rendered equivalent are identical.
+
+Measured on Pantoea: Genomes panel 612,422 to 194,518 chars, rows in the DOM 1,735 to 100,
+whole report 3.62 to 3.23 MB.
+
 ### Rarefaction Curve
 - Shows GCF discovery saturation across sampled genomes
 - Generated from BiG-SCAPE SQLite database (`{taxon}.db`), plus `region_counts.tsv`

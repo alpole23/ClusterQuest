@@ -46,7 +46,7 @@ from viz.report_sections import (_build_bigscape_section_html,
 
 def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
                          bigscape_stats_html='', gcf_visualization_html='',
-                         phylo_tree_generated=False, genome_table_html='',
+                         phylo_tree_generated=False, genome_table=None,
                          resource_usage_html='', phylo_tree_data=None, gcf_data=None, taxonomy_map=None,
                          versions_data=None, rarefaction_stats=None,
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
@@ -97,7 +97,14 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     tree_section = distribution_section  # Keep variable name for template compatibility
 
     # Build genome table section (avoid nested f-strings)
-    genome_table_rows = genome_table_html if genome_table_html else '<tr><td colspan="6">No genome data available</td></tr>'
+    # Only the first slice is in the HTML; the rest ships as JSON and renders on demand
+    # — see viz/tables.generate_genome_table_html for why.
+    _gt = genome_table or {}
+    genome_table_rows = (_gt.get('initial_rows')
+                         or '<tr><td colspan="6">No genome data available</td></tr>')
+    genome_data_json = _gt.get('data_json', '[]')
+    genome_total = _gt.get('total', 0)
+    genome_shown = _gt.get('shown', 0)
 
     # Coupling table rows: use dynamic data when available, otherwise placeholder
     if coupling_table_rows is None:
@@ -186,8 +193,14 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 <em>Searchable table of all analyzed genomes. Click genome names for detailed metadata pages.</em>
             </p>
             <div class="search-box">
-                <input type="text" id="genomeSearch" placeholder="Search genomes..." onkeyup="filterGenomes()">
+                <input type="text" id="genomeSearch" placeholder="Search by genome, strain, assembly or taxonomy" onkeyup="filterGenomes()">
             </div>
+            <p id="genomeTableStatus" style="color: #777; font-size: 0.85em; margin: 2px 0 10px;">
+                Showing {genome_shown} of {genome_total} genomes.
+                <button type="button" onclick="showAllGenomes()"
+                        style="background: none; border: none; color: #2c5aa0; cursor: pointer;
+                               padding: 0; font: inherit; text-decoration: underline;">Show all</button>
+            </p>
             <div class="table-container">
                 <table id="genomeTable">
                     <thead>
@@ -205,6 +218,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                     </tbody>
                 </table>
             </div>
+            <script id="genomeData" type="application/json">{genome_data_json}</script>
         </div>
 
         <!-- Tab 4: GCF Analysis (Clustering + Coupling Enzyme) -->
@@ -351,7 +365,7 @@ def main():
     table_rows = ''
     stats = {}
     tree_html = ''
-    genome_table_html = ''
+    genome_table = None
 
     if args.counts:
         print(f"Generating count visualizations...")
@@ -369,7 +383,8 @@ def main():
 
             # Generate searchable genome table for Genomes tab
             print(f"Generating genome table HTML...")
-            genome_table_html = generate_genome_table_html(args.counts, args.assembly_info, args.name_map, taxonomy_map_data)
+            genome_table = generate_genome_table_html(args.counts, args.assembly_info,
+                                                      args.name_map, taxonomy_map_data)
 
         # Create interactive table
         print(f"Creating interactive BGC distribution table...")
@@ -545,7 +560,7 @@ def main():
         generate_html_report(args.outdir, args.taxon, table_header, table_rows, stats, tree_html,
                             bigscape_stats_html, gcf_visualization_html,
                             phylo_tree_generated,
-                            genome_table_html, resource_usage_html, phylo_tree_data,
+                            genome_table, resource_usage_html, phylo_tree_data,
                             gcf_data=gcf_data_dict, taxonomy_map=taxonomy_map_dict,
                             versions_data=versions_data,
                             rarefaction_stats=rarefaction_stats,
