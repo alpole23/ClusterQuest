@@ -474,13 +474,35 @@ Version information is output to `results/pipeline_info/software_versions.json`.
 The interactive HTML report (`bgc_report.html`) includes:
 
 ### Tabs
-The report uses 6 tabs:
+The report uses 7 tabs:
 - **Overview**: Summary statistics grid, rarefaction curve, pipeline resource usage (collapsible) and software versions
 - **Phylogeny**: NCBI taxonomy tree + GTDB-Tk phylogenetic tree and BGC distribution
 - **Genomes**: Searchable genome table with links to individual genome pages
 - **GCF Analysis**: GCF biosynthetic NJ tree (embedded as base64), dynamic coupling enzyme class table, BiG-SCAPE clustering statistics and GCF visualization
 - **Novel BGCs**: BGC regions without KnownClusterBlast matches
 - **KCB Hits**: Known cluster matches grouped by MIBiG entry
+
+### The GTDB-Tk Tree Is Not Drawn in the Report
+
+`viz/tree_viz.py` exports `plot_circular_phylogenetic_tree` and
+`plot_circular_taxonomy_tree`, and `prepare_phylo_tree_for_js` builds a JS payload — but
+**nothing renders any of them.** There is no tree renderer in `REPORT_JS`, and both
+plotters are dead code: `plot_circular_phylogenetic_tree` was tested against the real
+GTDB-Tk output on 2026-08-27 and **timed out after two minutes**, because it uses the
+hand-rolled Newick parser in the same file rather than Bio.Phylo, and the bac120 classify
+tree is very large before pruning.
+
+Until 2026-08-28 the Phylogeny tab carried a heading promising "GTDB-Tk phylogenetic
+placement of BGC-positive genomes" above `{tree_section}`, a variable that had been
+repurposed to hold the GCF distribution section — the comment
+`# Keep variable name for template compatibility` records the moment it drifted. Readers
+were shown a heatmap under a heading advertising a tree, with no warning. The section is
+now titled for what it contains and points at the published Newick files for external
+viewers.
+
+`prepare_phylo_tree_for_js` is still called: its JS payload goes unused, but it also
+writes `pruned_phylo_tree.nwk`, which is a wanted output. Rendering a tree in the report
+needs the `tree_viz.py` refactor (port to Bio.Phylo + `utils/tree_layout`) first.
 
 ### Rarefaction Curve
 - Shows GCF discovery saturation across sampled genomes

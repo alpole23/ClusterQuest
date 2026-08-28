@@ -19,6 +19,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -68,6 +69,20 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     overview_stats = build_overview_stats(stats, kcb_stats, gcf_data, rarefaction_stats)
 
+    # Provenance under the title. A report that gets shared or archived should say when it
+    # was made and over what — the software versions in the Pipeline tab do not answer
+    # "how many genomes was this?" or "when?".
+    _generated = datetime.now().strftime('%Y-%m-%d %H:%M')
+    _n_genomes = stats.get('total_genomes', 0) or 0
+    _versions = versions_data or {}
+    _as_ver = ''
+    for _k, _v in (_versions.items() if isinstance(_versions, dict) else []):
+        if 'antismash' in str(_k).lower():
+            _as_ver = f' · antiSMASH {_v}'
+            break
+    provenance = (f'{_n_genomes:,} genomes · generated {_generated}{_as_ver}'
+                  if _n_genomes else f'generated {_generated}{_as_ver}')
+
     bigscape_section_html = _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html,
                                                         taxon_clean, gcf_support_rows)
 
@@ -102,6 +117,9 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 <body>
     <h1>BGC Analysis Report</h1>
     <p class="subtitle">Taxon: <strong>{taxon}</strong></p>
+    <p style="text-align: center; color: #888; font-size: 0.85em; margin: -6px 0 4px;">
+        {provenance}
+    </p>
 
     <div class="tabs">
         <input type="radio" id="tab1" name="tabs" checked>
@@ -127,6 +145,13 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
         <!-- Tab 1: Overview -->
         <div class="tab-content" id="content1">
+            <p style="color: #666; font-size: 0.9em; margin: 4px 0 2px;">
+                <em>Detection is restricted to the antiSMASH <strong>phosphonate</strong> rule
+                (<code>--hmmdetection-limit-to-rule-names phosphonate</code>), so every region below is a
+                phosphonate BGC and no other BGC class was searched for. "No MIBiG match" should be read
+                against that: MIBiG holds few characterised phosphonate pathways, so a miss is expected
+                and is weaker evidence of novelty than it would be for a well-represented class.</em>
+            </p>
             {overview_stats}
             {kcb_mapping_section}
             {rarefaction_section}
@@ -135,8 +160,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
         <!-- Tab 2: Phylogeny (Taxonomy tree + GTDB-Tk BGC distribution) -->
         <div class="tab-content" id="content2">
-            <h2>Phylogeny</h2>
-
             <h3>Taxonomic Distribution of BGCs</h3>
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Expandable NCBI taxonomy tree showing BGC statistics at each taxonomic level. Click on nodes to expand/collapse.
@@ -146,9 +169,12 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
             <hr class="tab-section-divider">
 
-            <h3>Phylogenetic BGC Distribution</h3>
+            <h3>GCF Distribution Across Taxa</h3>
             <p style="color: #666; margin-bottom: 20px;">
-                <em>GTDB-Tk phylogenetic placement of BGC-positive genomes, showing BGC distribution across the phylogeny.</em>
+                <em>Which Gene Cluster Families are confined to one genus and which are widespread,
+                using GTDB-Tk taxonomy where available. The GTDB-Tk tree itself is not drawn here —
+                the Newick files are published under <code>gtdbtk_results/</code> for iTOL, FigTree
+                or Dendroscope.</em>
             </p>
             {tree_section}
         </div>
@@ -183,7 +209,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
         <!-- Tab 4: GCF Analysis (Clustering + Coupling Enzyme) -->
         <div class="tab-content" id="content4">
-            <h2>GCF Analysis</h2>
 
             <h3>GCF Biosynthetic Phylogeny</h3>
             <p style="color: #666; margin-bottom: 20px;">

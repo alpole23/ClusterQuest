@@ -357,7 +357,6 @@ def _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, ta
         return ''
     return f'''
             <div class="clustering-section">
-                <h3>BiG-SCAPE Gene Cluster Families</h3>
                 {bigscape_stats_html if bigscape_stats_html else ''}
                 {_build_gcf_support_section(gcf_support_rows)}
                 {gcf_visualization_html if gcf_visualization_html else ''}
