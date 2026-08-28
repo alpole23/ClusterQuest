@@ -36,9 +36,10 @@ from viz.report_assets import REPORT_CSS, REPORT_JS
 from viz.distribution import generate_bgc_distribution_html
 from viz.genome_pages import create_genome_metadata_pages
 from viz.rarefaction import generate_rarefaction_curve
-from viz.report_sections import (_build_bigscape_overview_cards, _build_bigscape_section_html,
+from viz.report_sections import (_build_bigscape_section_html,
                                  _build_kcb_content, _build_rarefaction_section,
                                  gcf_coupling_classes, build_gcf_support_rows,
+                                 build_overview_stats,
                                  _build_versions_html, build_coupling_table_rows)
 
 
@@ -65,7 +66,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     novel_bgcs_tab_content = kcb['novel_bgcs_tab_content']
     kcb_hits_tab_content   = kcb['kcb_hits_tab_content']
 
-    bigscape_overview_cards = _build_bigscape_overview_cards(gcf_data)
+    overview_stats = build_overview_stats(stats, kcb_stats, gcf_data, rarefaction_stats)
 
     bigscape_section_html = _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html,
                                                         taxon_clean, gcf_support_rows)
@@ -126,51 +127,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
         <!-- Tab 1: Overview -->
         <div class="tab-content" id="content1">
-            <!-- Combined stats grid: BGC stats + BiG-SCAPE clustering cards -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 8px;">
-                <div style="background: rgba(44, 90, 160, 0.15); border: 1px solid rgba(44, 90, 160, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #2c5aa0;">{stats.get('total_genomes', 0)}</div>
-                    <div style="color: #555; font-size: 0.85em;">Total Genomes</div>
-                </div>
-                <div style="background: rgba(58, 109, 153, 0.15); border: 1px solid rgba(58, 109, 153, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #3a6d99;">{stats.get('genomes_with_bgcs', 0)}</div>
-                    <div style="color: #555; font-size: 0.85em;">Genomes with BGCs</div>
-                </div>
-                <div style="background: rgba(74, 122, 143, 0.15); border: 1px solid rgba(74, 122, 143, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #4a7a8f;">{stats.get('genomes_with_no_bgcs', 0)}</div>
-                    <div style="color: #555; font-size: 0.85em;">Genomes without BGCs</div>
-                </div>
-                <div style="background: rgba(61, 139, 139, 0.15); border: 1px solid rgba(61, 139, 139, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #3d8b8b;">{stats.get('total_bgcs', 0)}</div>
-                    <div style="color: #555; font-size: 0.85em;">Total BGCs Found</div>
-                </div>
-                <div style="background: rgba(74, 149, 144, 0.15); border: 1px solid rgba(74, 149, 144, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #4a9590;">{stats.get('avg_bgcs', '0')}</div>
-                    <div style="color: #555; font-size: 0.85em;">Avg BGCs/Genome</div>
-                    <div style="font-size: 0.78em; margin-top: 2px; color: #777;">Range: {stats.get('min_bgcs', 0)}–{stats.get('max_bgcs', 0)}</div>
-                </div>
-                <div style="background: rgba(90, 159, 149, 0.15); border: 1px solid rgba(90, 159, 149, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.2em; font-weight: bold; color: #5a9f95; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{stats.get('most_common_bgc', 'N/A')}">{stats.get('most_common_bgc', 'N/A')}</div>
-                    <div style="color: #555; font-size: 0.85em;">Most Common BGC Type</div>
-                    <div style="font-size: 0.78em; margin-top: 2px; color: #777;">{stats.get('most_common_count', 0)} occurrences</div>
-                </div>
-                <div style="background: rgba(90, 138, 138, 0.15); border: 1px solid rgba(90, 138, 138, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #5a8a8a;">{kcb_stats.get('hit_percentage', 0)}%</div>
-                    <div style="color: #555; font-size: 0.85em;">Match Known Clusters</div>
-                    <div style="font-size: 0.78em; margin-top: 2px; color: #777;">{kcb_stats.get('regions_with_hits', 0)} of {kcb_stats.get('total_regions', 0)} BGCs</div>
-                </div>
-                <div style="background: rgba(106, 122, 133, 0.15); border: 1px solid rgba(106, 122, 133, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #6a7a85;">{kcb_stats.get('novel_bgc_count', 0)}</div>
-                    <div style="color: #555; font-size: 0.85em;">Potentially Novel BGCs</div>
-                    <div style="font-size: 0.78em; margin-top: 2px; color: #777;">No match in MIBiG</div>
-                </div>
-                <div style="background: rgba(122, 122, 128, 0.15); border: 1px solid rgba(122, 122, 128, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #7a7a80;">{kcb_stats.get('contig_edge_count', 0)}</div>
-                    <div style="color: #555; font-size: 0.85em;">Contig Edge BGCs</div>
-                    <div style="font-size: 0.78em; margin-top: 2px; color: #777;">Potentially incomplete</div>
-                </div>
-                {bigscape_overview_cards}
-            </div>
+            {overview_stats}
             {kcb_mapping_section}
             {rarefaction_section}
 

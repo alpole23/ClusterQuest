@@ -230,38 +230,82 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None):
     }
 
 
-def _build_bigscape_overview_cards(gcf_data):
-    """Return overview-grid HTML cards for BiG-SCAPE GCF summary stats."""
-    if not (gcf_data and isinstance(gcf_data, dict) and gcf_data.get('gcfs')):
+def _stat_tile(value, label, sub=''):
+    """One overview tile. Uniform surface — the previous grid gave each of 13 tiles a
+    different hue, which encoded nothing and competed with the figures below."""
+    sub_html = (f'<div style="font-size: 0.78em; margin-top: 3px; color: #888;">{sub}</div>'
+                if sub else '')
+    return (f'<div style="background: #f6f7f8; border: 1px solid #e3e6e8; '
+            f'padding: 11px 14px; border-radius: 8px;">'
+            f'<div style="font-size: 1.5em; font-weight: 600; color: #2c3e50;">{value}</div>'
+            f'<div style="color: #555; font-size: 0.85em;">{label}</div>'
+            f'{sub_html}</div>')
+
+
+def _stat_group(title, tiles):
+    """A labelled band of tiles. Grouping replaces a flat 13-tile grid in which nothing
+    signalled what mattered or how the numbers related."""
+    if not tiles:
         return ''
-    gcfs = gcf_data['gcfs']
-    gcf_summary = gcf_data.get('summary', {})
-    total_gcfs = gcf_summary.get('total', len(gcfs))
-    singletons = gcf_summary.get('singletons', sum(1 for g in gcfs if g.get('is_singleton')))
-    clusters = total_gcfs - singletons
-    largest_gcf = max(gcfs, key=lambda x: x.get('member_count', 0)) if gcfs else None
-    largest_gcf_card = ''
-    if largest_gcf:
-        largest_gcf_card = f'''
-                <div style="background: rgba(122, 104, 85, 0.15); border: 1px solid rgba(122, 104, 85, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #7a6855;">{largest_gcf.get("member_count", 0)}</div>
-                    <div style="color: #555; font-size: 0.85em;">Largest GCF Size</div>
-                    <div style="font-size: 0.78em; margin-top: 2px; color: #777;">{largest_gcf.get("product", "")[:30]}</div>
-                </div>'''
-    return f'''
-                <div style="background: rgba(92, 107, 122, 0.15); border: 1px solid rgba(92, 107, 122, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #5c6b7a;">{total_gcfs}</div>
-                    <div style="color: #555; font-size: 0.85em;">Gene Cluster Families</div>
-                </div>
-                <div style="background: rgba(90, 122, 107, 0.15); border: 1px solid rgba(90, 122, 107, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #5a7a6b;">{clusters}</div>
-                    <div style="color: #555; font-size: 0.85em;">Multi-member GCFs</div>
-                </div>
-                <div style="background: rgba(122, 122, 122, 0.15); border: 1px solid rgba(122, 122, 122, 0.3); padding: 10px 14px; border-radius: 8px;">
-                    <div style="font-size: 1.5em; font-weight: bold; color: #7a7a7a;">{singletons}</div>
-                    <div style="color: #555; font-size: 0.85em;">Singletons</div>
-                </div>
-                {largest_gcf_card}'''
+    return (f'<div style="margin-top: 18px;">'
+            f'<div style="font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.06em; '
+            f'color: #8a8a8a; margin-bottom: 7px;">{title}</div>'
+            f'<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); '
+            f'gap: 10px;">' + ''.join(tiles) + '</div></div>')
+
+
+def build_overview_stats(stats, kcb_stats, gcf_data, rarefaction_stats=None):
+    """The Overview tab's summary, grouped into sampling / BGCs / diversity.
+
+    Replaces a flat grid of 13 tiles that carried roughly 7 distinct facts: genomes
+    with and without a BGC are both derivable from the total, "% matching known
+    clusters" and "potentially novel" were the same fact stated inversely, and "most
+    common BGC type" is constant because detection is hardcoded to the phosphonate
+    rule. Chao2 coverage — arguably the headline result — was prose beneath the chart
+    rather than a figure anyone would see.
+    """
+    total = stats.get('total_genomes', 0) or 0
+    with_bgc = stats.get('genomes_with_bgcs', 0) or 0
+    total_bgcs = stats.get('total_bgcs', 0) or 0
+    pct = f'{100.0 * with_bgc / total:.1f}%' if total else '—'
+
+    sampling = [
+        _stat_tile(f'{total:,}', 'Genomes analysed'),
+        _stat_tile(f'{with_bgc:,}', 'Carry a phosphonate BGC', f'{pct} of those analysed'),
+    ]
+
+    # Per BGC-positive genome, not per genome analysed: averaging across genomes with
+    # no BGC mostly restates how many lack one, which the tile above already says.
+    per_positive = f'{total_bgcs / with_bgc:.2f}' if with_bgc else '—'
+    bgcs = [
+        _stat_tile(f'{total_bgcs:,}', 'BGC regions'),
+        _stat_tile(per_positive, 'Per BGC-positive genome',
+                   f"range 1–{stats.get('max_bgcs', 0)}"),
+        _stat_tile(f"{kcb_stats.get('contig_edge_count', 0):,}", 'On a contig edge',
+                   'possibly incomplete'),
+        _stat_tile(f"{kcb_stats.get('novel_bgc_count', 0):,}", 'No MIBiG match',
+                   'all appear under Novel BGCs'),
+    ]
+
+    diversity = []
+    if gcf_data and isinstance(gcf_data, dict) and gcf_data.get('gcfs'):
+        gcfs = gcf_data['gcfs']
+        summary = gcf_data.get('summary', {})
+        total_gcfs = summary.get('total', len(gcfs))
+        singletons = summary.get('singletons',
+                                 sum(1 for g in gcfs if g.get('is_singleton')))
+        largest = max((g.get('member_count', 0) for g in gcfs), default=0)
+        diversity.append(_stat_tile(total_gcfs, 'Gene cluster families',
+                                    f'{singletons} seen in one genome'))
+        diversity.append(_stat_tile(f'{largest:,}', 'Largest family'))
+    if rarefaction_stats and rarefaction_stats.get('chao2'):
+        c = rarefaction_stats['chao2']
+        diversity.append(_stat_tile(f"{c.get('coverage', 0):.0f}%", 'Coverage (Chao2)',
+                                    f"{c.get('s_est', 0):.0f} families estimated"))
+
+    return (_stat_group('Sampling', sampling)
+            + _stat_group('BGCs', bgcs)
+            + _stat_group('Diversity', diversity))
 
 
 def _build_gcf_support_section(gcf_support_rows):
