@@ -442,6 +442,83 @@ REPORT_JS = """\
             }
         }
 
+        // ---- Taxonomy tree: species genome lists rendered on first expand -------
+        // Inlined, these were a second copy of all 1,735 genomes and ~90% of the tree's
+        // 657 KB. Colour thresholds mirror get_green_bg_color / get_red_font_color in
+        // viz/taxonomy.py — change both together.
+        let _taxGenomes = null;
+
+        function taxGenomes() {
+            if (_taxGenomes === null) {
+                const el = document.getElementById('taxonomyGenomeData');
+                try { _taxGenomes = el ? JSON.parse(el.textContent) : {}; }
+                catch (e) { _taxGenomes = {}; }
+            }
+            return _taxGenomes;
+        }
+
+        function greenBg(count, max) {
+            if (!count) return '';
+            const i = count / max;
+            if (i <= 0.2) return '#e8f5e9';
+            if (i <= 0.4) return '#a5d6a7';
+            if (i <= 0.6) return '#66bb6a';
+            if (i <= 0.8) return '#43a047';
+            return '#2e7d32';
+        }
+
+        function redFont(count, max) {
+            if (!count) return '';
+            const i = count / max;
+            if (i <= 0.2) return '#ffcdd2';
+            if (i <= 0.4) return '#ef5350';
+            if (i <= 0.6) return '#e53935';
+            if (i <= 0.8) return '#c62828';
+            return '#b71c1c';
+        }
+
+        function renderTaxonomyGenomes(container) {
+            const nodeId = container.dataset.node;
+            const rows = taxGenomes()[nodeId];
+            if (!rows) { container.innerHTML = ''; return; }
+
+            const cols = [];
+            rows.forEach(function (r) {
+                Object.keys(r[2] || {}).forEach(function (k) {
+                    if (cols.indexOf(k) === -1) cols.push(k);
+                });
+            });
+            cols.sort();
+
+            let typeMax = 1, totalMax = 1;
+            rows.forEach(function (r) {
+                if (r[1] > totalMax) totalMax = r[1];
+                Object.keys(r[2] || {}).forEach(function (k) {
+                    if (r[2][k] > typeMax) typeMax = r[2][k];
+                });
+            });
+
+            const head = ['<th style="text-align:left;">Genome</th>',
+                          '<th>Total BGCs</th>'].concat(
+                          cols.map(function (c) { return '<th>' + esc(c) + '</th>'; })).join('');
+            const body = rows.map(function (r) {
+                const cells = cols.map(function (c) {
+                    const v = (r[2] || {})[c] || 0;
+                    const col = redFont(v, typeMax);
+                    return '<td style="text-align:center;' + (col ? 'color:' + col + ';font-weight:600;' : '') + '">'
+                           + (v || '') + '</td>';
+                }).join('');
+                const bg = greenBg(r[1], totalMax);
+                return '<tr><td><a href="genomes/' + esc(r[0]) + '.html">' + esc(r[0]) + '</a></td>'
+                     + '<td style="text-align:center;' + (bg ? 'background:' + bg + ';' : '') + '">' + r[1] + '</td>'
+                     + cells + '</tr>';
+            }).join('');
+
+            container.innerHTML = '<div class="genome-list"><table style="width:100%;border-collapse:collapse;font-size:0.9em;">'
+                                + '<thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+            container.dataset.rendered = '1';
+        }
+
         function toggleNode(nodeId) {
             const element = document.getElementById(nodeId);
             const header = element.previousElementSibling;
@@ -449,6 +526,9 @@ REPORT_JS = """\
             if (element.style.display === 'none') {
                 element.style.display = 'block';
                 icon.innerHTML = '&#9660;';
+                // render any deferred genome list the first time this node opens
+                element.querySelectorAll('.genome-list-lazy:not([data-rendered])')
+                       .forEach(renderTaxonomyGenomes);
             } else {
                 element.style.display = 'none';
                 icon.innerHTML = '&#9654;';

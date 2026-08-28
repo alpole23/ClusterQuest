@@ -499,6 +499,34 @@ too — it survived only as an `except` fallback, unreachable in practice since 
 is a hard dependency of every environment that runs this code. The Bio.Phylo path prunes
 20,051 terminals to 285 in about two seconds.
 
+### The Taxonomy Tree Summarises; It Does Not Embed Genomes
+
+The tree exists to answer "how much of this clade carries a BGC" at each rank. Two things
+worked against that.
+
+**The prevalence figure was computed and discarded.** `genomes_with_bgcs` was read from the
+node stats and never rendered; the headline number was `avg 0.18`, an average over every
+genome including the many with none — the same distortion that made "avg BGCs/genome 0.2"
+useless on the Overview. Nodes now lead with `285 of 1735 genomes (16.4%)`, then total
+BGCs, then a per-BGC-positive average.
+
+**The per-species genome tables were a second copy of the Genomes tab** — 1,735 genome
+links, 351 tables, roughly 90% of the tree's 657 KB. They are kept, because they are
+useful, but rendered from a JSON payload on first expand rather than inlined.
+`renderTaxonomyGenomes()` in `viz/report_assets.py` mirrors `render_genome_list()` in
+`viz/taxonomy.py`, including the `greenBg`/`redFont` thresholds — **change both together.**
+
+Note the tree is collapsed on load by a `DOMContentLoaded` handler that hides every
+`.node-children` except the first, so inspecting the static HTML is misleading: it shows
+the pre-JavaScript state.
+
+Measured on Pantoea: tree block 657,575 to 306,829 chars, inline tables 351 to 0, inline
+genome links 1,735 to 0, payload 73 KB for all 1,735 genomes.
+
+For a single-genus run the upper ranks are redundant — domain through family all report
+the same 285 of 1,735, because every genome sits in all of them. The tree earns its keep
+at broader scope, where those ranks differentiate.
+
 ### The Genome Table Renders From JSON
 
 Fully rendered, 1,735 genome rows were 612 KB — the largest single element in the report

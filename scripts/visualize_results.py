@@ -54,7 +54,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          all_bgcs_tree_b64=None, all_bgcs_tree_mime='image/png',
                          gcf_heatmap_b64=None,
                          coupling_table_rows=None, gcf_classes=None,
-                         gcf_support_rows=None):
+                         gcf_support_rows=None, taxonomy_genome_json='{}'):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -173,6 +173,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 Species nodes expand to show individual genomes with their BGC counts.</em>
             </p>
             {tree_html if tree_html else '<div class="info-box warning"><p>Taxonomy tree data not available.</p></div>'}
+            <script id="taxonomyGenomeData" type="application/json">{taxonomy_genome_json}</script>
 
             <hr class="tab-section-divider">
 
@@ -365,6 +366,7 @@ def main():
     table_rows = ''
     stats = {}
     tree_html = ''
+    taxonomy_genome_json = '{}'
     genome_table = None
 
     if args.counts:
@@ -393,7 +395,9 @@ def main():
     # Generate taxonomy tree visualization
     if taxonomy_tree_data:
         print(f"Generating taxonomy tree visualization...")
-        tree_html = generate_taxonomy_tree_html(taxonomy_tree_data)
+        _tax = generate_taxonomy_tree_html(taxonomy_tree_data)
+        tree_html = _tax['html']
+        taxonomy_genome_json = _tax['genome_json']
 
     # Generate phylogenetic tree data for JavaScript visualization
     phylo_tree_generated = False
@@ -561,6 +565,7 @@ def main():
                             bigscape_stats_html, gcf_visualization_html,
                             phylo_tree_generated,
                             genome_table, resource_usage_html, phylo_tree_data,
+                            taxonomy_genome_json=taxonomy_genome_json,
                             gcf_data=gcf_data_dict, taxonomy_map=taxonomy_map_dict,
                             versions_data=versions_data,
                             rarefaction_stats=rarefaction_stats,
