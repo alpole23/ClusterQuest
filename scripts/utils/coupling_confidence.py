@@ -76,19 +76,18 @@ def class_of_reference(description):
 _SHARED_REFS = {'Decarboxylase-Nucleotidyltransferase': 'Decarboxylase'}
 
 
-def abbreviate_organism(name):
-    """`Streptomyces durhamensis NRRL B-3309` -> `S. durhamensis`.
+def genus_species(name):
+    """`Streptomyces durhamensis NRRL B-3309` -> `Streptomyces durhamensis`.
 
-    The source organism belongs beside the score: 23.9% against a *Streptomyces*
-    reference means something quite different from 23.9% against a same-genus one.
+    Keeps the binomial and drops the strain designation. The source organism belongs
+    beside the score: 23.9% against a *Streptomyces* reference means something quite
+    different from 23.9% against a same-genus one, and most characterised phosphonate
+    enzymes come from *Streptomyces* while the analysed genomes may not.
     """
     parts = (name or '').split()
     if len(parts) < 2 or not parts[0][:1].isalpha():
         return name or ''
-    # An unnamed species abbreviates to nonsense ("S. sp."), so keep the genus whole
-    if parts[1].lower().startswith('sp'):
-        return f'{parts[0]} sp.'
-    return f'{parts[0][0]}. {parts[1]}'
+    return f'{parts[0]} {parts[1]}'
 
 
 def load_references(fasta_path):
@@ -105,7 +104,7 @@ def load_references(fasta_path):
             continue
         fields = rec.description.split('|')
         name = fields[2].strip() if len(fields) > 2 else rec.id
-        organism = abbreviate_organism(fields[4].strip() if len(fields) > 4 else '')
+        organism = genus_species(fields[4].strip() if len(fields) > 4 else '')
         out.setdefault(cls, []).append((name, str(rec.seq), organism))
     for derived, source in _SHARED_REFS.items():
         if source in out:

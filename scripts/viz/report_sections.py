@@ -577,7 +577,9 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             n_refs[fid] = row.get('assigned_n_refs', '?')
             org = row.get('assigned_ref_organism', '') or ''
             ref = row.get('assigned_ref', '') or '—'
-            ref_of[fid] = f'{ref} ({org})' if org and org != '-' else ref
+            # Binomials are italicised by convention; the gene name is not
+            ref_of[fid] = (f'{ref} <em style="color:#666;">({org})</em>'
+                           if org and org != '-' else ref)
         if not per_gcf:
             return None
 
@@ -606,7 +608,7 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
                 f'<td style="{td} text-align: center;">{len(vals)}</td>'
                 f'<td style="{td} text-align: center;">{med:.1f}%</td>'
                 f'<td style="{td} text-align: center;">{min(vals):.1f}–{max(vals):.1f}%</td>'
-                f'<td style="{td} white-space: nowrap;">{ref_of.get(fid, "—")}</td>'
+                f'<td style="{td}">{ref_of.get(fid, "—")}</td>'
                 f'<td style="{td} text-align: center;">{n_refs.get(fid, "?")}</td>'
                 f'<td style="{td} color: #666;">{note}</td>'
                 f'</tr>')
