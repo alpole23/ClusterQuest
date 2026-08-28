@@ -66,7 +66,7 @@ CLASSES = [
     # (class_id, display_label, hex_color)
     ('Synthase',                        'Synthase — phosphonomethylmalate synthase (PnPyr + AcCoA)',            '#e41a1c'),
     ('Decarboxylase',                   'Decarboxylase — phosphonopyruvate decarboxylase (ThDP-dependent)',     '#377eb8'),
-    ('Decarboxylase-Nucleotidyltransferase', 'Decarboxylase-Nucleotidyltransferase — phosphonopyruvate decarboxylase + CDP-activation', '#984ea3'),
+    ('Decarboxylase-Nucleotidyltransferase', 'Decarboxylase-Nucleotidyltransferase — phosphonopyruvate decarboxylase + CDP-activation', '#a65628'),
     ('Reductase',                       'Reductase — phosphonopyruvate reductase (Fe-ADH)',                    '#4daf4a'),
     ('Transaminase',                    'Transaminase — phosphonopyruvate transaminase, PalB-like Aminotran_1_2 (→ PnAla)','#ff7f00'),
     ('Unknown',                         'Unknown / not detected',                                               '#aaaaaa'),

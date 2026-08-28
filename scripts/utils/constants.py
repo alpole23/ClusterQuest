@@ -177,7 +177,11 @@ KCB_COLORS = {
 COUPLING_COLORS = {
     'Synthase':                        '#e41a1c',
     'Decarboxylase':                   '#377eb8',
-    'Decarboxylase-Nucleotidyltransferase': '#984ea3',
+    # Brown, not the ColorBrewer Set1 purple. Against '#377eb8' (Decarboxylase)
+    # the purple gives deuteranopes dE 3.5 — below the usable floor — and these
+    # two classes are chemically adjacent, so confusing them is not harmless.
+    # Brown lifts that pair to dE 7.8. Verified with the palette validator.
+    'Decarboxylase-Nucleotidyltransferase': '#a65628',
     'Reductase':                       '#4daf4a',
     'Transaminase':                    '#ff7f00',
     'Unknown':                         '#aaaaaa',

@@ -989,6 +989,38 @@ Confirm it bound before letting it run: `-dump-hashes` prints the session UUID a
 first hash entry, and the summary line should report a large `cached=` count. If you
 see `cached=0` and `NCBI_DATASETS_DOWNLOAD` starting, kill it — the resume missed.
 
+### pepM Divergence and the 60% Neighbourhood Threshold
+
+Yu et al. compared 342 pepM gene neighbourhoods (6 genes either side of pepM, 13 total)
+against PepM amino-acid identity across 58,311 pairwise comparisons. The correlation
+between the two holds **only above ~60% PepM identity**; below that there is
+"essentially no similarity in the pepM gene neighborhood".
+
+> Yu X, Doroghazi JR, Janga SC, Zhang JK, Circello B, Griffin BM, Labeda DP, Metcalf WW.
+> *Diversity and abundance of phosphonate biosynthetic genes in nature.*
+> PNAS 2013;110(51):20759-20764. doi:10.1073/pnas.1315107110
+
+That makes 60% a floor rather than a gradient, and it is the threshold
+`bgc_divergence_plot.py` draws and `bgc_divergence_outliers.tsv` ranks on. A BGC below
+it is not merely divergent: its pathway lies outside the range where pepM identity
+predicts anything about the surrounding genes.
+
+**Measured on the Pantoea genus run:** the 236 Synthase BGCs sit at 88-100% pepM
+identity (pantaphos-like, above the line), while all 79 non-Synthase BGCs sit at
+~40-45% — below the floor entirely, with nothing between ~45% and ~88%. The gap
+straddles exactly where the published correlation switches on.
+
+Prefer the pepM axis over the coupling axis when ranking candidates. pepM has 7
+references, is present in every phosphonate BGC, and now has a published threshold;
+the coupling axis has one reference for Transaminase and Reductase, both from
+*Streptomyces*, so a low score there confounds "novel" with "no comparable reference".
+
+**Caveat:** Yu et al. correlated pepM identity against neighbourhood similarity *within
+their dataset*. This pipeline scores against 7 characterised references, so "below 60%"
+means "unlike any characterised pathway", not "unlike other BGCs in the run". Those 79
+could be highly similar to each other while collectively distant from everything known
+— worth checking directly before drawing conclusions.
+
 ### Genome Name Conventions
 
 Two different spellings of a genome name coexist, and they do **not** compare equal:

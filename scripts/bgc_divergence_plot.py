@@ -7,8 +7,14 @@ separates cases that a single tree conflates:
 
     typical pepM, divergent coupling   novel chemistry in a familiar scaffold
     divergent pepM, typical coupling   a distant relative doing known chemistry
-    divergent in both                  genuinely unusual — or a misassembly
+    divergent in both                  unlike any characterised pathway
     typical in both                    well-characterised territory
+
+The 60% pepM line is not arbitrary. Yu et al. (2013) correlated 342 pepM gene
+neighbourhoods against PepM identity over 58,311 pairwise comparisons and found the
+correlation holds only above ~60% identity, with essentially no neighbourhood
+similarity below it. A BGC left of that line is not merely divergent — its pathway is
+outside the range where pepM identity predicts anything about the surrounding genes.
 
 Reads the coupling support TSV written by bgc_coupling_annotation.py --reference_faa
 --reference_pepm.
@@ -47,9 +53,22 @@ CLASS_MARKERS = {
     'Unknown':                              'X',
 }
 
-# Empirical poles measured on the Pantoea genus run: characterised orthologues scored
-# 93.8-100% identity, unrelated members of the same superfamily 21.8-30.8%. Drawn as
-# guides, not thresholds — nothing is filtered on them.
+# pepM axis: Yu et al. (2013) compared 342 pepM gene neighbourhoods (6 genes either
+# side of pepM, 13 total) against PepM amino-acid identity across 58,311 pairwise
+# comparisons, and found a highly significant linear correlation ONLY above ~60%
+# identity — below it, "essentially no similarity in the pepM gene neighborhood".
+# So 60% is a floor rather than a gradient: below it, pepM identity tells you nothing
+# about the surrounding pathway.
+#   Yu X, Doroghazi JR, Janga SC, Zhang JK, Circello B, Griffin BM, Labeda DP,
+#   Metcalf WW. Diversity and abundance of phosphonate biosynthetic genes in nature.
+#   PNAS 2013;110(51):20759-20764. doi:10.1073/pnas.1315107110
+PEPM_NEIGHBOURHOOD_PCT = 60.0
+CITATION = ('pepM 60% line: Yu et al. 2013 PNAS 110(51):20759 '
+            '(doi:10.1073/pnas.1315107110)')
+
+# Coupling axis: no published threshold exists, so these are empirical poles measured
+# on this pipeline's own Pantoea run — characterised orthologues scored 93.8-100%
+# identity, unrelated members of the same superfamily 21.8-30.8%. Drawn as guides only.
 BACKGROUND_PCT = 30.0
 ORTHOLOGUE_PCT = 90.0
 
@@ -84,12 +103,21 @@ def plot(rows, outdir, taxon):
     fig, ax = plt.subplots(figsize=(9, 7.2), facecolor=SURFACE)
     ax.set_facecolor(SURFACE)
 
-    # Quadrant guides, drawn under the data and kept recessive
-    for v in (BACKGROUND_PCT, ORTHOLOGUE_PCT):
-        ax.axvline(v, color=GRID, lw=1, zorder=0)
-        ax.axhline(v, color=GRID, lw=1, zorder=0)
     ax.grid(True, color=GRID, lw=0.6, zorder=0)
     ax.set_axisbelow(True)
+
+    # Everything left of the 60% line is outside the range where pepM identity predicts
+    # the gene neighbourhood at all — shaded because that is a statement about the
+    # published correlation, not about these BGCs.
+    ax.axvspan(0, PEPM_NEIGHBOURHOOD_PCT, color='#f4f4f2', zorder=0)
+    ax.axvline(PEPM_NEIGHBOURHOOD_PCT, color='#b0b0b0', lw=1.3, ls='--', zorder=1)
+    ax.text(PEPM_NEIGHBOURHOOD_PCT - 1.5, 50,
+            'pepM 60% — below this, neighbourhood\nsimilarity is undetectable (Yu 2013)',
+            rotation=90, ha='right', va='center', fontsize=8, color=INK_MUTED, style='italic')
+
+    # Coupling-axis guides are empirical, so drawn fainter than the published line
+    for v in (BACKGROUND_PCT, ORTHOLOGUE_PCT):
+        ax.axhline(v, color=GRID, lw=1, zorder=0)
 
     # Aggregate coincident points. 236 Synthase BGCs sit at essentially one position;
     # drawn raw they overplot into a handful of dots and the cluster's weight is
@@ -125,12 +153,14 @@ def plot(rows, outdir, taxon):
     # collide with marks wherever the data happens to fall.
     cap = dict(fontsize=8.5, color=INK_MUTED, style='italic',
                transform=ax.transAxes, zorder=2)
-    ax.text(0.02, 0.97, 'divergent scaffold\nknown chemistry', ha='left',  va='top', **cap)
+    ax.text(0.02, 0.97, 'scaffold beyond the reach of\nneighbourhood prediction',
+            ha='left', va='top', **cap)
     ax.text(0.98, 0.03, 'familiar scaffold\nnovel chemistry', ha='right', va='bottom', **cap)
-    ax.text(0.02, 0.03, 'divergent in both\n(or misassembled)', ha='left',  va='bottom', **cap)
-    ax.text(0.5, -0.105, 'marker area \u221d number of BGCs at that position',
+    ax.text(0.02, 0.03, 'unlike any characterised\npathway on either axis',
+            ha='left', va='bottom', **cap)
+    ax.text(0.5, -0.105, 'marker area \u221d number of BGCs at that position   \u00b7   ' + CITATION,
             ha='center', va='top', transform=ax.transAxes,
-            fontsize=8.5, color=INK_MUTED, style='italic')
+            fontsize=8, color=INK_MUTED, style='italic')
 
     leg = ax.legend(loc='center left', bbox_to_anchor=(1.01, 0.5), frameon=False,
                     fontsize=9, labelcolor=INK, title='Coupling enzyme class')
@@ -148,21 +178,37 @@ def plot(rows, outdir, taxon):
 
 
 def write_outliers(rows, outdir):
-    """BGCs whose coupling enzyme sits at background level — the review shortlist."""
+    """Review shortlist, ordered by the published pepM criterion first.
+
+    `below_pepm_60` is the stronger signal: Yu et al. (2013) found pepM identity
+    predicts the gene neighbourhood only above ~60%, so a BGC beneath that line is
+    outside the range where anything can be inferred about its pathway from pepM.
+    `below_coupling_background` is this pipeline's own empirical guide and is weaker —
+    several classes have a single reference, from a different genus.
+    """
     out = os.path.join(outdir, 'bgc_divergence_outliers.tsv')
-    cand = sorted((r for r in rows if r['coupling'] < BACKGROUND_PCT),
-                  key=lambda r: (r['coupling'], -r['pepm']))
+    flagged = [r for r in rows
+               if r['pepm'] < PEPM_NEIGHBOURHOOD_PCT or r['coupling'] < BACKGROUND_PCT]
+    flagged.sort(key=lambda r: (r['pepm'], r['coupling']))
     with open(out, 'w') as f:
-        f.write('# BGCs whose coupling enzyme is at or below superfamily background\n')
-        f.write('# (<%.0f%% identity to the nearest characterised reference of its class).\n' % BACKGROUND_PCT)
-        f.write('# Ambiguous by construction: the enzyme may not belong to the assigned\n')
-        f.write('# class, or may be a novel variant unlike the one characterised example.\n')
-        f.write('# Both warrant manual review. This is a shortlist, not a verdict.\n')
-        f.write('bgc\tassigned_class\tcoupling_pct_id\tcoupling_ref\tn_refs\tpepm_pct_id\tpepm_ref\n')
-        for r in cand:
-            f.write(f"{r['bgc']}\t{r['cls']}\t{r['coupling']:.1f}\t{r['ref']}\t"
-                    f"{r['n_refs']}\t{r['pepm']:.1f}\t{r['pepm_ref']}\n")
-    return out, len(cand)
+        f.write('# Review shortlist for BGCs distant from characterised phosphonate chemistry.\n')
+        f.write('# below_pepm_60: pepM identity < 60%% to the nearest characterised reference.\n')
+        f.write('#   Yu et al. 2013 PNAS 110(51):20759 (doi:10.1073/pnas.1315107110) correlated\n')
+        f.write('#   342 pepM gene neighbourhoods against PepM identity over 58,311 pairwise\n')
+        f.write('#   comparisons: the correlation holds only above ~60%%, with essentially no\n')
+        f.write('#   neighbourhood similarity below it. This is the stronger criterion.\n')
+        f.write('# below_coupling_background: coupling enzyme < %.0f%% identity — an empirical\n' % BACKGROUND_PCT)
+        f.write('#   guide from this pipeline, weakened by classes with a single reference.\n')
+        f.write('# Ambiguous by construction: distant may mean wrong class, or novel variant.\n')
+        f.write('# A shortlist for manual review, not a verdict.\n')
+        f.write('bgc\tassigned_class\tpepm_pct_id\tpepm_ref\tbelow_pepm_60\t'
+                'coupling_pct_id\tcoupling_ref\tn_refs\tbelow_coupling_background\n')
+        for r in flagged:
+            f.write(f"{r['bgc']}\t{r['cls']}\t{r['pepm']:.1f}\t{r['pepm_ref']}\t"
+                    f"{'yes' if r['pepm'] < PEPM_NEIGHBOURHOOD_PCT else 'no'}\t"
+                    f"{r['coupling']:.1f}\t{r['ref']}\t{r['n_refs']}\t"
+                    f"{'yes' if r['coupling'] < BACKGROUND_PCT else 'no'}\n")
+    return out, len(flagged)
 
 
 def main():
