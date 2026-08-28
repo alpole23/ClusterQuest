@@ -362,7 +362,7 @@ scripts/
 ├── viz/                # Visualization modules — every report section lives here;
 │   │                     # visualize_results.py only orchestrates them
 │   ├── charts.py         # KCB pie charts, BGC color utilities
-│   ├── tree_viz.py       # Phylogenetic/taxonomy tree parsing + rendering
+│   ├── tree_viz.py       # Prunes the GTDB-Tk tree to the analysed genomes (Bio.Phylo)
 │   ├── tables.py         # Genome tables, summary statistics, distribution table
 │   ├── clustering.py     # BiG-SCAPE stats + GCF representative HTML
 │   ├── taxonomy.py       # Interactive taxonomy tree
@@ -484,25 +484,20 @@ The report uses 7 tabs:
 
 ### The GTDB-Tk Tree Is Not Drawn in the Report
 
-`viz/tree_viz.py` exports `plot_circular_phylogenetic_tree` and
-`plot_circular_taxonomy_tree`, and `prepare_phylo_tree_for_js` builds a JS payload — but
-**nothing renders any of them.** There is no tree renderer in `REPORT_JS`, and both
-plotters are dead code: `plot_circular_phylogenetic_tree` was tested against the real
-GTDB-Tk output on 2026-08-27 and **timed out after two minutes**, because it uses the
-hand-rolled Newick parser in the same file rather than Bio.Phylo, and the bac120 classify
-tree is very large before pruning.
+`prepare_phylo_tree_for_js` prunes the GTDB-Tk tree to the analysed genomes and writes
+`pruned_phylo_tree.nwk`, which is the useful output — it opens in iTOL, FigTree or
+Dendroscope. Its returned dict reaches the report generator, but **nothing renders it**:
+there is no tree renderer in `REPORT_JS`. The Phylogeny tab is titled for the GCF
+distribution it actually shows and points at the Newick files.
 
-Until 2026-08-28 the Phylogeny tab carried a heading promising "GTDB-Tk phylogenetic
-placement of BGC-positive genomes" above `{tree_section}`, a variable that had been
-repurposed to hold the GCF distribution section — the comment
-`# Keep variable name for template compatibility` records the moment it drifted. Readers
-were shown a heatmap under a heading advertising a tree, with no warning. The section is
-now titled for what it contains and points at the published Newick files for external
-viewers.
-
-`prepare_phylo_tree_for_js` is still called: its JS payload goes unused, but it also
-writes `pruned_phylo_tree.nwk`, which is a wanted output. Rendering a tree in the report
-needs the `tree_viz.py` refactor (port to Bio.Phylo + `utils/tree_layout`) first.
+Adding a rendered tree means writing a renderer, not re-enabling one. `tree_viz.py` was
+cut from 1,137 lines to 220 on 2026-08-28; the three circular-tree plotters it used to
+hold were dead (exported from `viz/__init__`, called from nowhere) and
+`plot_circular_phylogenetic_tree` timed out after two minutes on a real GTDB-Tk tree
+because it drove a hand-rolled Newick parser rather than Bio.Phylo. That parser is gone
+too — it survived only as an `except` fallback, unreachable in practice since biopython
+is a hard dependency of every environment that runs this code. The Bio.Phylo path prunes
+20,051 terminals to 285 in about two seconds.
 
 ### Rarefaction Curve
 - Shows GCF discovery saturation across sampled genomes
