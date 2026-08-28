@@ -9,6 +9,7 @@ the coupling table reflects the current run rather than hardcoded family IDs.
 import sqlite3
 
 from utils.constants import load_coupling_classes, COUPLING_COLORS
+from utils.coupling_confidence import BACKGROUND_CEILING_PCT
 
 
 def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None):
@@ -322,15 +323,24 @@ def _build_gcf_support_section(gcf_support_rows):
                 already known. <em>Support</em> is the identity of the enzyme that drove each
                 call to the nearest characterised reference of its class. It is advisory:
                 a low value may mean the assignment is wrong, or that the enzyme is a novel
-                variant unlike the one characterised example — both warrant a look. Classes
-                with few references (see <em>refs</em>) give weaker evidence either way.
+                variant unlike the one characterised example — both warrant a look.
+                <strong>Read it against the reference it was scored on.</strong> Most
+                characterised phosphonate enzymes come from <em>Streptomyces</em>, so a
+                modest identity may simply reflect the genus gap rather than a doubtful
+                call; the one class with a <em>Pantoea</em> reference (Synthase, HvrC)
+                scores near 100% partly for that reason. Only one boundary is measurable
+                here: characterised enzymes of <em>different</em> classes score 26.7–29.7%
+                against each other, so at or below ~30% an identity carries no class
+                information. Above that the reference set is too small, and drawn from too
+                few genera, to support a verdict — so none is given.
             </p>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
                             <th>GCF</th><th>Dominant coupling class</th><th>Members</th>
-                            <th>Median support</th><th>Range</th><th>Refs</th><th></th>
+                            <th>Median support</th><th>Range</th><th>Nearest reference</th>
+                            <th>Refs</th><th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -555,6 +565,7 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             lines = [ln for ln in f if not ln.startswith('#')]
         per_gcf = defaultdict(list)
         n_refs = {}
+        ref_of = {}
         for row in csv.DictReader(lines, delimiter='\t'):
             fid = bgc_to_gcf.get(row['bgc'])
             if fid is None:
@@ -564,6 +575,9 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             except ValueError:
                 continue
             n_refs[fid] = row.get('assigned_n_refs', '?')
+            org = row.get('assigned_ref_organism', '') or ''
+            ref = row.get('assigned_ref', '') or '—'
+            ref_of[fid] = f'{ref} ({org})' if org and org != '-' else ref
         if not per_gcf:
             return None
 
@@ -573,11 +587,15 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             cls = gcf_class.get(fid, 'Unknown')
             med = statistics.median(vals)
             colour = COUPLING_COLORS.get(cls, '#999999')
-            # Support is advisory: a low value may mean the wrong class, or a novel
-            # variant unlike the single characterised example. Flagged, never filtered.
-            note = ('well evidenced' if med >= 90 else
-                    'moderate' if med >= 50 else
-                    'weak — review')
+            # One boundary, and only one, is defensible from the current reference
+            # set: characterised enzymes of *different* classes score 26.7-29.7%
+            # against each other, so at or below ~30% an identity carries no class
+            # information. Above it there are too few references, from too few genera,
+            # to calibrate a verdict — so none is offered. The previous three tiers
+            # ("well evidenced" >=90, "moderate" >=50, else "weak") were invented: no
+            # GCF ever fell in the 50-90% band, and the 90% mark simply tracked
+            # whether a class happened to have a same-genus reference.
+            note = ('at superfamily background' if med <= BACKGROUND_CEILING_PCT else '')
             bg = ' style="background:#fafafa;"' if i % 2 else ''
             td = 'padding: 7px 12px; border-bottom: 1px solid #eee;'
             rows_html.append(
@@ -588,6 +606,7 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
                 f'<td style="{td} text-align: center;">{len(vals)}</td>'
                 f'<td style="{td} text-align: center;">{med:.1f}%</td>'
                 f'<td style="{td} text-align: center;">{min(vals):.1f}–{max(vals):.1f}%</td>'
+                f'<td style="{td} white-space: nowrap;">{ref_of.get(fid, "—")}</td>'
                 f'<td style="{td} text-align: center;">{n_refs.get(fid, "?")}</td>'
                 f'<td style="{td} color: #666;">{note}</td>'
                 f'</tr>')

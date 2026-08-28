@@ -76,16 +76,37 @@ def class_of_reference(description):
 _SHARED_REFS = {'Decarboxylase-Nucleotidyltransferase': 'Decarboxylase'}
 
 
+def abbreviate_organism(name):
+    """`Streptomyces durhamensis NRRL B-3309` -> `S. durhamensis`.
+
+    The source organism belongs beside the score: 23.9% against a *Streptomyces*
+    reference means something quite different from 23.9% against a same-genus one.
+    """
+    parts = (name or '').split()
+    if len(parts) < 2 or not parts[0][:1].isalpha():
+        return name or ''
+    # An unnamed species abbreviates to nonsense ("S. sp."), so keep the genus whole
+    if parts[1].lower().startswith('sp'):
+        return f'{parts[0]} sp.'
+    return f'{parts[0][0]}. {parts[1]}'
+
+
 def load_references(fasta_path):
-    """{class_id: [(name, sequence), ...]} from the coupling enzyme reference FASTA."""
+    """{class_id: [(name, sequence, organism), ...]} from the reference FASTA.
+
+    Headers are `accession|protein_id|name|description|organism`; `rec.id` stops at the
+    first space, so the organism has to come from the full description.
+    """
     from Bio import SeqIO
     out = {}
     for rec in SeqIO.parse(str(fasta_path), 'fasta'):
         cls = class_of_reference(rec.description)
         if not cls:
             continue
-        name = rec.id.split('|')[2] if rec.id.count('|') >= 2 else rec.id
-        out.setdefault(cls, []).append((name, str(rec.seq)))
+        fields = rec.description.split('|')
+        name = fields[2].strip() if len(fields) > 2 else rec.id
+        organism = abbreviate_organism(fields[4].strip() if len(fields) > 4 else '')
+        out.setdefault(cls, []).append((name, str(rec.seq), organism))
     for derived, source in _SHARED_REFS.items():
         if source in out:
             out.setdefault(derived, list(out[source]))
@@ -103,11 +124,20 @@ def support(query_seq, references):
     """
     out = {}
     for cls, refs in references.items():
-        best_name, best = None, 0.0
-        for name, seq in refs:
+        best_name, best_org, best = None, '', 0.0
+        for name, seq, organism in refs:
             pid = percent_identity(query_seq, seq)
             if best_name is None or pid > best:
-                best_name, best = name, pid
-        out[cls] = {'best_ref': best_name, 'pct_id': round(best, 1),
-                    'n_refs': len(refs)}
+                best_name, best_org, best = name, organism, pid
+        out[cls] = {'best_ref': best_name, 'best_ref_organism': best_org,
+                    'pct_id': round(best, 1), 'n_refs': len(refs)}
     return out
+
+
+# Characterised references of *different* classes score 26.7-29.7% against each other
+# (HvrC vs Reductase 26.7, PnaA vs Decarboxylase 29.7, VlpB vs Transaminase 28.3,
+# Fom2 vs Transaminase 29.1). At or below that, an identity carries no class
+# information — it is what unrelated members of the superfamily look like. This is the
+# only boundary the current reference set can actually justify; above it there are too
+# few references, drawn from too few genera, to calibrate anything.
+BACKGROUND_CEILING_PCT = 30.0

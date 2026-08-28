@@ -209,7 +209,8 @@ def write_support_tsv(support_rows, outpath):
         f.write('# Empirical poles on Pantoea: 93.8-100%% orthologue, 21.8-30.8%% superfamily\n')
         f.write('# background. Low support warrants manual review, NOT automatic rejection.\n')
         header = ['bgc', 'assigned_class', 'deciding_marker', 'protein_len',
-                  'assigned_pct_id', 'assigned_ref', 'assigned_n_refs', 'runner_up', 'margin',
+                  'assigned_pct_id', 'assigned_ref', 'assigned_ref_organism',
+                  'assigned_n_refs', 'runner_up', 'margin',
                   'pepm_pct_id', 'pepm_ref', 'pepm_len']
         header += [f'pct_id_{c}' for c in classes]
         f.write('\t'.join(header) + '\n')
@@ -221,6 +222,7 @@ def write_support_tsv(support_rows, outpath):
             runner, runner_pid = (others[0] if others else ('-', 0.0))
             row = [label, cls, marker or '-', str(plen),
                    f"{own.get('pct_id', 0.0):.1f}", str(own.get('best_ref', '-')),
+                   str(own.get('best_ref_organism', '-') or '-'),
                    str(own.get('n_refs', 0)), runner,
                    f"{own.get('pct_id', 0.0) - runner_pid:.1f}",
                    f"{pepm_pid:.1f}", pepm_ref, str(pepm_len)]
