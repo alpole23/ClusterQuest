@@ -396,13 +396,30 @@ def _build_rarefaction_section(rarefaction_stats):
 
 
 # Coupling class display metadata (class_id → (display_name, marker, pathway, reference_genes))
+# class_id -> (display name, marker, product, reference genes)
+# The product column names what the enzyme makes from phosphonopyruvate. It used to be
+# written with arrows ("→ phosphonomethylmalate → phosphinothricin-type"), which left a
+# dangling arrow at the start of every cell; the immediate product is now named plainly
+# with the downstream chemistry in parentheses.
 _COUPLING_META = {
-    'Synthase':                        ('Synthase',                        'SMCOG1271 (HMGL-like)',          '→ phosphonomethylmalate → phosphinothricin-type', 'FrbC, HvrC'),
-    'Reductase':                       ('Reductase',                       'Fe-ADH rule',                    '→ phosphonolactate (reductase route)',            'VlpB'),
-    'Decarboxylase-Nucleotidyltransferase': ('Decarboxylase-Nucleotidyltransferase', 'SMCOG1055 + NTP_transf_3', '→ phosphonolipid (CDP-pathway)',             'DhpF, Fom2, Ppd'),
-    'Decarboxylase':                   ('Decarboxylase',                   'SMCOG1055 (ThDP-dependent)',      '→ 2-phosphonoacetaldehyde → 2-AEP',              'DhpF, Fom2, Ppd'),
-    'Transaminase':                    ('Transaminase',                    'SMCOG1019 (Aminotran_1_2/PF00155)', '→ L-phosphonoalanine',                         'PnaA, PalB'),
-    'Unknown':                         ('Unknown',                         '—',                               '—',                                              '—'),
+    'Synthase': (
+        'Synthase', 'SMCOG1271 (HMGL-like)',
+        'Phosphonomethylmalate (phosphinothricin-type)', 'FrbC, HvrC'),
+    'Reductase': (
+        'Reductase', 'Fe-ADH',
+        'Phosphonolactate', 'VlpB'),
+    'Decarboxylase-Nucleotidyltransferase': (
+        'Decarboxylase-Nucleotidyltransferase', 'SMCOG1055 + NTP_transf_3',
+        'Phosphonolipid (CDP-activated)', 'DhpF, Fom2, Ppd'),
+    'Decarboxylase': (
+        'Decarboxylase', 'SMCOG1055 (ThDP)',
+        '2-Phosphonoacetaldehyde (2-AEP)', 'DhpF, Fom2, Ppd'),
+    'Transaminase': (
+        'Transaminase', 'SMCOG1019 (Aminotran_1_2 / PF00155)',
+        'L-Phosphonoalanine', 'PnaA, PalB'),
+    'Unknown': (
+        'Unknown', 'no marker matched',
+        'not assignable', 'none'),
 }
 _COUPLING_ROW_ORDER = ['Synthase', 'Reductase', 'Decarboxylase-Nucleotidyltransferase', 'Decarboxylase', 'Transaminase', 'Unknown']
 
@@ -554,15 +571,18 @@ def build_coupling_table_rows(coupling_annotation_path, bigscape_db_path, cutoff
         rows_html = []
         for i, cls_id in enumerate(_COUPLING_ROW_ORDER):
             gcf_ids = sorted(class_to_gcfs.get(cls_id, []))
-            gcf_label = '/'.join(f'GCF-{g}' for g in gcf_ids) if gcf_ids else '—'
+            gcf_label = ', '.join(str(g) for g in gcf_ids) if gcf_ids else '—'
             display, marker, pathway, refs = _COUPLING_META[cls_id]
             bg = ' style="background:#fafafa;"' if i % 2 == 1 else ''
             is_last = (i == len(_COUPLING_ROW_ORDER) - 1)
             border = '' if is_last else 'border-bottom: 1px solid #eee; '
             td = f'padding: 7px 12px; {border}'
+            swatch = (f'<span style="display: inline-block; width: 10px; height: 10px; '
+                      f'border-radius: 2px; background: {COUPLING_COLORS.get(cls_id, "#999999")}; '
+                      f'margin-right: 8px; vertical-align: middle;"></span>')
             rows_html.append(
                 f'<tr{bg}>'
-                f'<td style="{td}">{display}</td>'
+                f'<td style="{td} white-space: nowrap;">{swatch}{display}</td>'
                 f'<td style="{td}">{marker}</td>'
                 f'<td style="{td}">{pathway}</td>'
                 f'<td style="{td}">{refs}</td>'

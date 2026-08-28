@@ -261,8 +261,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                         <tr style="background: #e9ecef;">
                             <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Class</th>
                             <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Marker</th>
-                            <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Pathway</th>
-                            <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Reference Gene(s)</th>
+                            <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Product</th>
+                            <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">Reference genes</th>
                             <th style="text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;">GCFs</th>
                         </tr>
                     </thead>
