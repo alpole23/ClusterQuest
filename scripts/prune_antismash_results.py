@@ -5,7 +5,7 @@ At 1,735 genomes the Pantoea run left 43 GB under ``antismash_results/``, and a
 directory for a genome with no BGC is the same size as one with BGCs — ~23 MB either
 way. The bulk is not regions:
 
-    {genome}.gbk    8.6 MB   annotated genome
+    {genome}.gbk    8.6 MB   annotated genome (only if --antismash_summary_gbk)
     {genome}.json   6.7 MB   antiSMASH JSON — required by CHECK_ANTISMASH_REUSE
     {genome}.zip    5.6 MB   archive of the very same directory
     js/images/css   708 KB   byte-identical in every genome's directory
@@ -19,7 +19,9 @@ Three tiers, increasingly aggressive:
              sitting beside it. ~24% of the tree. Retrospective only — ANTISMASH now
              passes --no-zip-output, so runs from that change onward never write one
              and this tier finds nothing to reclaim in their output.
-  strip      for BGC-negative genomes, also drop the .gbk and the HTML report assets,
+  strip      for BGC-negative genomes, also drop the .gbk and the HTML report assets.
+             The .gbk half is retrospective: ANTISMASH now defaults to
+             --no-summary-gbk, so new runs only have one unless the user opted in.
              but KEEP {genome}.json and .antismash_meta so --reuse_antismash_from still
              recognises the genome as analysed and does not re-run antiSMASH on it.
   purge      remove BGC-negative directories outright. Frees the most, and breaks

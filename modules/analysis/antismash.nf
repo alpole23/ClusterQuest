@@ -48,6 +48,15 @@ process ANTISMASH {
     def cb_knownclusters_flag = params.antismash_minimal ? '' : '--cb-knownclusters'   // hardcoded: always compare vs MIBiG
     def smcog_trees_flag = params.antismash_minimal ? '' : (params.antismash_smcog_trees ? '--smcog-trees' : '')
 
+    // Whole-genome summary GenBank, {genome}.gbk (~11 MB each, the single largest
+    // file antiSMASH writes). Off by default: no pipeline step reads it, and
+    // BiG-SCAPE only ingests .gbk filenames containing "cluster" or "region", so
+    // the summary is filtered out of clustering regardless. Worth enabling on small
+    // sets you want to open in a genome browser. Like --no-zip-output it stays out
+    // of Utils.antismashParamsHash, so toggling it will NOT regenerate genomes
+    // already present in a --reuse_antismash_from directory.
+    def summary_gbk_flag = params.antismash_summary_gbk ? '--summary-gbk' : '--no-summary-gbk'
+
     // --no-zip-output (hardcoded below): antiSMASH otherwise writes {genome}.zip,
     // an archive of the very directory it sits in - ~6 MB per genome of pure
     // redundancy that nothing downstream reads. Deliberately absent from
@@ -108,6 +117,7 @@ process ANTISMASH {
         --allow-long-headers \\
         --hmmdetection-strictness strict \\
         --no-zip-output \\
+        ${summary_gbk_flag} \\
         ${minimal_flag} \\
         ${html_output_flag} \\
         ${hmmdetection_flag} \\
