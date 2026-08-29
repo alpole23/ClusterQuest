@@ -658,6 +658,45 @@ These standalone scripts (in `scripts/`) perform additional analyses after the m
 `bgc_all_bgcs_tree.py` and `bgc_gcf_tree.py` still query SQLite directly — they read the
 `distance` table and family centers, which the shared query set does not cover.
 
+### `scripts/prune_antismash_results.py` — reclaim antiSMASH disk
+
+At 1,735 genomes `antismash_results/` was 41.8 GB, and a BGC-negative genome's directory
+is the same size as a BGC-positive one (~23 MB either way). The bulk is not regions:
+
+| file | size | note |
+|------|------|------|
+| `{genome}.gbk` | 8.6 MB | annotated genome |
+| `{genome}.json` | 6.7 MB | **required by `CHECK_ANTISMASH_REUSE`** |
+| `{genome}.zip` | 5.6 MB | archive of the very same directory |
+| `js`/`images`/`css` | 708 KB | byte-identical in every genome's directory |
+
+So the largest *safe* win is not deleting BGC-negative genomes — it is dropping the
+redundant `.zip` from every directory, which loses nothing.
+
+| tier | frees (Pantoea) | reuse still works? |
+|------|-----------------|--------------------|
+| `archives` | 9.9 GB (24%) | yes — lossless |
+| `strip` (default) | 25.4 GB (61%) | **yes** |
+| `purge` | more | **no** — antiSMASH re-runs on those genomes |
+
+`strip` keeps `{genome}.json` and `.antismash_meta` for BGC-negative genomes, which is
+exactly what `CHECK_ANTISMASH_REUSE` tests for, so `--reuse_antismash_from` still skips
+them. `purge` deletes the directory outright: for a low-prevalence taxon that forfeits
+most of the compute bill on any later reuse run.
+
+Dry-run by default; `--apply` deletes. It refuses to `--apply` while a Nextflow run is
+active (exit 2), because pruning published output races with `publishDir`.
+
+**It prunes only the published copy.** `publishDir` uses `mode: 'copy'`, so `work/` holds
+another copy of every result and accumulates one per run — a single genome was found in
+`work/` twice plus `results/` once, three copies of 22 MB. Reclaim those with
+`nextflow clean -f` once you no longer need `-resume`.
+
+**Not a pipeline stage, deliberately.** `publishDir` re-publishes from `work/` on
+`-resume`, silently undoing a prune, and a stage that deletes published output races with
+other processes still publishing. It is a post-run tool, like the other `bgc_*.py`
+scripts.
+
 ### `scripts/bgc_pfam_tree.py` — Jaccard-distance NJ tree of BGCs
 
 Builds a Neighbor-Joining tree based on Pfam domain presence/absence (Jaccard distance).
