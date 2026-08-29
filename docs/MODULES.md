@@ -174,6 +174,7 @@ Runs antiSMASH BGC detection on a genome.
 **Features:**
 - Hardcoded phosphonate-only detection (`--hmmdetection-limit-to-rule-names phosphonate`)
 - Always enables KnownClusterBlast, clusterhmmer, and tigrfam for domain analysis
+- Always passes `--no-zip-output` — the default `{genome}.zip` merely archives the output directory it sits in (~6 MB/genome, ~24% of `antismash_results/`) and no downstream step reads it
 - Writes `.antismash_meta` file for version/params tracking
 - Skips genomes that already have results in publishDir
 

@@ -16,7 +16,9 @@ redundant ``.zip`` from *every* directory, which costs nothing at all.
 Three tiers, increasingly aggressive:
 
   archives   drop {genome}.zip everywhere. Lossless: it archives the loose files
-             sitting beside it. ~24% of the tree.
+             sitting beside it. ~24% of the tree. Retrospective only — ANTISMASH now
+             passes --no-zip-output, so runs from that change onward never write one
+             and this tier finds nothing to reclaim in their output.
   strip      for BGC-negative genomes, also drop the .gbk and the HTML report assets,
              but KEEP {genome}.json and .antismash_meta so --reuse_antismash_from still
              recognises the genome as analysed and does not re-run antiSMASH on it.

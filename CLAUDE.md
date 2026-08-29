@@ -94,7 +94,7 @@ BGC detection using antiSMASH.
 | `antismash_cc_mibig` | false | ClusterCompare: Advanced MIBiG scoring |
 | `antismash_smcog_trees` | false | Phylogenetic trees for BGC genes |
 
-**Note:** Detection is hardcoded to phosphonate rule only (`--hmmdetection-limit-to-rule-names phosphonate`). `--cb-knownclusters`, `--clusterhmmer`, and `--tigrfam` are always enabled.
+**Note:** Detection is hardcoded to phosphonate rule only (`--hmmdetection-limit-to-rule-names phosphonate`). `--cb-knownclusters`, `--clusterhmmer`, and `--tigrfam` are always enabled. `--no-zip-output` is also always passed: the `{genome}.zip` antiSMASH writes by default is an archive of its own output directory (~6 MB/genome) that nothing downstream reads.
 
 ### Region Analysis
 

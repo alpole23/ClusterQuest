@@ -39,7 +39,7 @@ This page documents all configurable and non-configurable parameters in ClusterQ
 | `--antismash_smcog_trees` | `true` | bool | Generate phylogenetic trees for BGC core biosynthetic genes |
 | `--reuse_antismash_from` | `null` | string | Taxon name to reuse antiSMASH results from (see [Cross-Taxon Reuse](#cross-taxon-result-reuse)) |
 
-> **Note:** Detection is hardcoded to phosphonate BGCs only (`--hmmdetection-limit-to-rule-names phosphonate`). KnownClusterBlast (`--cb-knownclusters`), `clusterhmmer`, and `tigrfam` are always enabled and cannot be turned off.
+> **Note:** Detection is hardcoded to phosphonate BGCs only (`--hmmdetection-limit-to-rule-names phosphonate`). KnownClusterBlast (`--cb-knownclusters`), `clusterhmmer`, and `tigrfam` are always enabled and cannot be turned off. `--no-zip-output` is always passed to suppress the redundant per-genome `.zip` archive.
 
 ---
 
@@ -124,6 +124,7 @@ These settings are hard-coded in the pipeline and cannot be changed via command-
 | `--cb-knownclusters` always enabled | `modules/analysis/antismash.nf` | Always compare against MIBiG |
 | `clusterhmmer` always enabled | `modules/analysis/antismash.nf` | Ensures consistent domain annotation across all analyses |
 | `tigrfam` always enabled | `modules/analysis/antismash.nf` | Required for reliable BGC gene family classification |
+| `--no-zip-output` always passed | `modules/analysis/antismash.nf` | `{genome}.zip` only archives the directory it sits in; ~6 MB/genome no step reads |
 
 ### Resource Labels (`conf/labels.config`)
 

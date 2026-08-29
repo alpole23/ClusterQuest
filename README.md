@@ -116,7 +116,7 @@ The SLURM profile automatically allocates:
 | `--antismash_minimal` | `false` | Skip domain analysis for faster runs |
 | `--reuse_antismash_from` | - | Reuse results from previous taxon |
 
-> **Note:** Detection is hardcoded to phosphonate BGCs only. KnownClusterBlast (`--cb-knownclusters`), `--clusterhmmer`, and `--tigrfam` are always enabled.
+> **Note:** Detection is hardcoded to phosphonate BGCs only. KnownClusterBlast (`--cb-knownclusters`), `--clusterhmmer`, and `--tigrfam` are always enabled, and `--no-zip-output` suppresses the redundant per-genome `.zip`.
 
 ### Clustering
 

@@ -48,6 +48,12 @@ process ANTISMASH {
     def cb_knownclusters_flag = params.antismash_minimal ? '' : '--cb-knownclusters'   // hardcoded: always compare vs MIBiG
     def smcog_trees_flag = params.antismash_minimal ? '' : (params.antismash_smcog_trees ? '--smcog-trees' : '')
 
+    // --no-zip-output (hardcoded below): antiSMASH otherwise writes {genome}.zip,
+    // an archive of the very directory it sits in - ~6 MB per genome of pure
+    // redundancy that nothing downstream reads. Deliberately absent from
+    // Utils.antismashParamsHash: it changes packaging, not results, so results
+    // generated before this flag stay reusable via --reuse_antismash_from.
+
     // Domain analysis flags - always enabled when not in minimal mode
     def clusterhmmer_flag = params.antismash_minimal ? '' : '--clusterhmmer'
     def tigrfam_flag = params.antismash_minimal ? '' : '--tigrfam'
@@ -101,6 +107,7 @@ process ANTISMASH {
         --cpus ${task.cpus} \\
         --allow-long-headers \\
         --hmmdetection-strictness strict \\
+        --no-zip-output \\
         ${minimal_flag} \\
         ${html_output_flag} \\
         ${hmmdetection_flag} \\
