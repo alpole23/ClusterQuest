@@ -281,22 +281,64 @@ CI = mean ± (1.96 × std_dev / sqrt(n))
 - **Configuration**: Full analysis (antiSMASH + BiG-SCAPE + GTDB-Tk)
 - **Expected output**: Per-genome timing data for 3M genome extrapolation
 
-### Measured: Erwiniaceae (2,548 genomes, 2026-06)
+### Measured: Pantoea and Erwiniaceae (2026-08-29)
 
-Local run, 5 h 01 m wall / 11.5 h task time over 7,951 tasks. Reference figures for
-sizing resources — re-measure after any change to the antiSMASH parameter set.
+Two full local runs, no `--reuse_antismash_from`, on one 56 GB box. Reference figures for
+sizing resources — re-measure after any change to the antiSMASH parameter set. Full
+write-up with the cost model: `docs/benchmark_2026-08-29.html`.
 
-| Process | Tasks | Mean | Max | %cpu (p50 / p99) | Peak RSS (p90 / p99) |
-|---------|-------|------|-----|------------------|----------------------|
-| `ANTISMASH` | 950 | 30 s | 9 m | 117% / 145% | 1.2 GB / 4.7 GB |
-| `GTDBTK_CLASSIFY` | 1 | 1 h 31 m | — | 164% | 103 GB |
-| `NCBI_DATASETS_DOWNLOAD` | 1 | 1 h 08 m | — | 13% | 24 MB |
-| `BIGSCAPE` | 1 | 68 s | — | 473% | 13.8 GB |
+| | *Pantoea* (genus) | *Erwiniaceae* (family) | ratio |
+|---|---|---|---|
+| genomes | 1,736 | 2,758 | 1.59x |
+| tasks / failures | 1,771 / 0 | 2,803 / 0 | — |
+| CPU-hours | 60.43 | 75.55 | **1.25x** |
+| wall clock | 4 h 50 m | 5 h 56 m | 1.23x |
+| BGCs / GCFs | 320 / 13 | 333 / 19 | 1.04x / 1.46x |
+| BGC-positive genomes | 285 (16.4%) | 298 (10.8%) | — |
+| I/O (rchar+wchar) | 7,254 GB | 8,877 GB | 1.22x |
 
-Notes: antiSMASH never used two full cores, hence the 2-CPU override. GTDB-Tk's 103 GB
-peak exceeds the 48 GB `process_high_memory` default — it only survives locally because
-cgroups aren't enforced; the SLURM profile's 128 GB is the real requirement. The NCBI
-download is serial and network-bound, so its runtime is unaffected by CPU allocation.
+| Process | CPU-h (Pantoea → Erwiniaceae) | scaled | share |
+|---------|-------------------------------|--------|-------|
+| `ANTISMASH` | 47.28 → 61.58 | 1.30x | 81.5% |
+| `GTDBTK_CLASSIFY` | 12.08 → 12.42 | 1.03x | 16.4% |
+| `NCBI_DATASETS_DOWNLOAD` | 0.51 → 0.86 | 1.68x | 1.1% |
+| `BIGSCAPE` | 0.14 → 0.16 | 1.14x | 0.2% |
+
+**Three scaling regimes, and only one is a problem.** antiSMASH is O(n) and dominant
+today. GTDB-Tk is effectively O(1): fitting the two points gives 11.5 CPU-h fixed per
+invocation plus 1.2 CPU-s per genome, so 59% more genomes cost 3% more — batch it as
+coarsely as possible, since batch size is worth ~10x. BiG-SCAPE is all-pairs O(n²) on
+BGC count, invisible at 0.2% here and the thing that breaks at scale; the two points
+(320 and 333 BGCs) are far too close to fit a curve, so **a 1k/5k/20k re-clustering run
+is the next measurement worth taking.**
+
+**antiSMASH cost tracks base pairs, not genome count.** Per-genome cost *fell* 98.0 →
+80.4 CPU-s when the taxon widened, because Erwiniaceae drags in 213 *Buchnera*
+endosymbionts at ~0.6 Mb. Smallest to largest bin is a 6.2x runtime spread (6.9 s vs
+42.6 s). Do not carry either figure to an arbitrary genome set without checking size
+distribution.
+
+**GTDB-Tk does not need 104 GB.** Nextflow's `peak_rss` reads ~104 GB and is an artefact:
+it sums RSS across pplacer's forked children, which all map the same reference database,
+and it did not move between the two runs (104.3 → 104.0 GB) despite 59% more queries.
+A 30-second sampler over the Erwiniaceae run measured the truth — largest single process
+**pplacer at 47.0 GB**, peak system memory in use **19.2 GB**, minimum available 37.6 GB,
+peak swap 2.0 GB. Most of pplacer's 47 GB is file-backed `mmap`, reclaimable under cgroup
+pressure. The SLURM profile still requests 128 GB as deliberate insurance (an OOM kill
+costs a 90-minute task and its queue slot; the over-request costs ~$0.05) — but note it
+tips the billed dimension from cores to memory at 8 cores. Verify with `sacct -o MaxRSS`
+before paying that premium across sharded jobs.
+
+**Storage after `--no-zip-output` / `--no-summary-gbk`:** 24.63 → 8.55 MB per genome,
+**-65.3%**, measured like-for-like on 40 genomes present in both runs. I/O did not
+improve — ~3.2 GB per genome of small-file read+write is the shared-filesystem risk,
+not capacity.
+
+**Projected to 1M genomes** at UIUC internal rates (`max(cores x $1.19, GB x $0.08)`
+per day, storage $8.75/TB/month): antiSMASH ~25,000 CPU-h / $1,240; GTDB-Tk in 50k
+batches 563 CPU-h / $30; BiG-SCAPE ~21,000 CPU-h / $1,047 *(weakest estimate)*; storage
+8.15 TB / $71 per month. Compute is not the constraint at ~$2,300 — scheduler submission
+rate and BiG-SCAPE are.
 
 ## Module & Script Organization
 
