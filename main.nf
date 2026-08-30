@@ -79,6 +79,13 @@ def validateParams() {
     if (params.reuse_gtdbtk_from) {
         log.info "GTDB-Tk result reuse enabled from taxon: ${params.reuse_gtdbtk_from}"
     }
+
+    // Say which reference databases this run classifies against. storeDir means
+    // a database is downloaded once and then never re-checked, so without this
+    // the version is invisible — and silently whatever was current on the day of
+    // the first run. Never fails the run; upgrading is a deliberate edit.
+    log.info "Reference databases:"
+    DbVersions.report(params).each { log.info it }
 }
 
 // =============================================================================

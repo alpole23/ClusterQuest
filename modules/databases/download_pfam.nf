@@ -25,7 +25,7 @@ process DOWNLOAD_PFAM {
     # Download Pfam-A HMM profiles
     if [ ! -f "Pfam-A.hmm.gz" ] && [ ! -f "Pfam-A.hmm" ]; then
         echo "Downloading Pfam-A.hmm..."
-        wget -q --show-progress https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz
+        wget -q --show-progress https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam${params.pfam_release}/Pfam-A.hmm.gz
         echo "Extracting..."
         gunzip Pfam-A.hmm.gz
     else
@@ -36,6 +36,11 @@ process DOWNLOAD_PFAM {
     if [ ! -f "Pfam-A.hmm.h3p" ]; then
         echo "Pressing Pfam database with hmmpress..."
         hmmpress Pfam-A.hmm
+    fi
+
+    # Record what was actually fetched; nothing else in the tree identifies it.
+    if [ ! -f ".db_version" ]; then
+        echo "pfam=${params.pfam_release}" > .db_version
     else
         echo "Pfam database already pressed"
     fi

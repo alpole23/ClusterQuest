@@ -22,17 +22,20 @@ process DOWNLOAD_TAXONKIT_DB {
     # Create directory for taxonomy dump
     mkdir -p taxdump
 
-    # Download NCBI taxonomy dump
-    echo "Downloading taxdump.tar.gz from NCBI FTP..."
-    wget -q --show-progress -O taxdump.tar.gz "https://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz"
+    # A dated monthly snapshot, not the live taxdump.tar.gz. The live file is
+    # rewritten daily, so with storeDir it would pin itself to whatever day the
+    # pipeline first ran — this pipeline sat on a 2026-01-23 copy for seven
+    # months that way. The archive is .zip; the live file is .tar.gz.
+    echo "Downloading taxdmp_${params.taxdump_date}.zip from NCBI FTP..."
+    wget -q --show-progress -O taxdmp.zip \\
+        "https://ftp.ncbi.nih.gov/pub/taxonomy/taxdump_archive/taxdmp_${params.taxdump_date}.zip"
 
-    # Extract the archive
     echo ""
     echo "Extracting taxonomy files..."
-    tar -xzf taxdump.tar.gz -C taxdump
+    unzip -q -o taxdmp.zip -d taxdump
+    rm taxdmp.zip
 
-    # Clean up archive
-    rm taxdump.tar.gz
+    echo "taxdump=${params.taxdump_date}" > taxdump/.db_version
 
     # Verify required files
     echo ""

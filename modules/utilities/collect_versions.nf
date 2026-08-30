@@ -91,6 +91,15 @@ process COLLECT_VERSIONS {
     versions["nextflow"] = "${nf_version}"
     versions["pipeline_version"] = "1.0.0"
 
+    # Which reference data the results were produced against. Tool versions alone
+    # do not identify a run: gtdbtk 2.6.1 against GTDB r226 and against r232 give
+    # different taxonomies. storeDir downloads each database once and never
+    # re-checks it, so without recording the pins here the version is unknowable
+    # after the fact.
+    versions["db_gtdb_release"] = "${params.gtdb_release}"
+    versions["db_pfam_release"] = "${params.pfam_release}"
+    versions["db_taxdump_date"] = "${params.taxdump_date}"
+
     with open("software_versions.json", "w") as f:
         json.dump(versions, f, indent=2)
 

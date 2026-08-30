@@ -585,6 +585,49 @@ Error handling labels:
 - `tolerant`: Individual failures don't stop pipeline (per-genome processes)
 - `retry_on_error`: Retry on transient errors (network downloads)
 
+## Reference Database Versions
+
+**Databases are pinned, and the pins are recorded in the output.** Every database
+downloads through `storeDir`, which skips the process whenever its output path already
+exists. An unpinned URL therefore tracks nothing: `releases/latest/` and
+`current_release/` resolve exactly once, on the first run ever, and are never
+re-checked. This pipeline classified against a **2026-01-23 NCBI taxdump for seven
+months** that way, with no record anywhere of which version produced any result.
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `gtdb_release` | `226` | GTDB-Tk enforces `MIN_REF_DATA_VERSION`; 2.6.1 wants r226. **Bump the `gtdbtk` conda pin before bumping this.** |
+| `pfam_release` | `38.2` | Current as of 2026-08 |
+| `taxdump_date` | `2026-08-01` | NCBI *monthly archive* (`taxdump_archive/taxdmp_<date>.zip`), not the live `taxdump.tar.gz`, which is rewritten daily and would pin itself to whatever day you first ran |
+| `check_db_updates` | `true` | Warn when upstream moves past a pin. One HTTP request per database at startup; set `false` for offline runs |
+
+antiSMASH is not listed because its databases ship keyed to the tool release, so the
+conda pin on `antismash` already pins them.
+
+At startup the run prints what it is classifying against:
+
+```
+Reference databases:
+  GTDB     226  <- upstream now 232; edit params.gtdb_release to upgrade
+  Pfam     38.2  (current)
+  taxdump  2026-08-01  (current)
+```
+
+`lib/DbVersions.groovy` does the check. It **never fails a run and never changes what is
+downloaded** — an offline machine still runs, and every failure path returns null. The
+pins are also written into `software_versions.json` as `db_gtdb_release`,
+`db_pfam_release` and `db_taxdump_date`, so a published result can say what it was
+produced against.
+
+**Do not upgrade casually.** Two runs on different GTDB releases are not directly
+comparable — genera get reclassified between releases, which moves the taxonomy tree and
+the per-clade BGC prevalence the whole analysis rests on. Changing a pin changes the
+`storeDir` output path, which is what triggers the fresh download; for GTDB that is
+~140 GB.
+
+**Release numbers are not sequential counters.** GTDB has run 202, 207, 214, 220, 226,
+232 — r226 is one release behind r232, not six.
+
 ## Software Versions
 
 Versions are dynamically collected from installed tools. Most use `--version` flag, but TaxonKit uses `version` subcommand.

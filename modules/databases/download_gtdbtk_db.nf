@@ -9,7 +9,12 @@ process DOWNLOAD_GTDBTK_DB {
     storeDir "${params.outdir}/databases/gtdbtk"
 
     output:
-    path "release*", emit: db_dir
+    // Version-specific on purpose. storeDir skips the download when this path
+    // already exists, so naming the release here is what makes changing
+    // params.gtdb_release actually fetch new data instead of silently reusing
+    // whatever was downloaded first. It also matches the existing on-disk
+    // layout (databases/gtdbtk/release226), so pinning costs no re-download.
+    path "release${params.gtdb_release}", emit: db_dir
 
     script:
     """
@@ -21,7 +26,7 @@ process DOWNLOAD_GTDBTK_DB {
     echo ""
 
     # AAU mirror split package - downloads all parts in parallel
-    BASE_URL="https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package"
+    BASE_URL="https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package"
 
     echo "Downloading from: \$BASE_URL"
     echo "Started at: \$(date)"
@@ -29,20 +34,20 @@ process DOWNLOAD_GTDBTK_DB {
 
     # Create download list for aria2 (all 14 parts)
     cat > download_list.txt << 'URLS'
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_aa
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ab
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ac
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ad
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ae
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_af
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ag
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ah
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ai
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_aj
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ak
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_al
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_am
-https://data.gtdb.aau.ecogenomic.org/releases/latest/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_an
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_aa
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ab
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ac
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ad
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ae
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_af
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ag
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ah
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ai
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_aj
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ak
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_al
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_am
+https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_an
 URLS
 
     # Download all 14 parts in parallel
