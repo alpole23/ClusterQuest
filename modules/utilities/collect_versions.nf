@@ -1,7 +1,7 @@
 process COLLECT_VERSIONS {
     tag "versions"
     label 'process_low'
-    publishDir "${params.outdir}/pipeline_info", mode: 'copy'
+    publishDir "${params.outdir}/pipeline_info", mode: params.publish_mode
 
     input:
     path antismash_done  // Dependency to ensure conda envs exist

@@ -1,7 +1,7 @@
 process GTDBTK_CLASSIFY {
     tag "${taxon}"
     label 'process_high_memory'
-    publishDir "${params.outdir}/gtdbtk_results/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
+    publishDir "${params.outdir}/gtdbtk_results/${Utils.sanitizeTaxon(params.taxon)}", mode: params.publish_mode
     cache 'lenient'  // GTDB-Tk is memory-intensive - use lenient caching
 
     input:

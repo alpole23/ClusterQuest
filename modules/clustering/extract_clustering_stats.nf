@@ -4,7 +4,7 @@
 process EXTRACT_CLUSTERING_STATS {
     tag "$taxon"
     label 'process_low'
-    publishDir "${params.outdir}/bigscape_results/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
+    publishDir "${params.outdir}/bigscape_results/${Utils.sanitizeTaxon(params.taxon)}", mode: params.publish_mode
 
     input:
     val taxon

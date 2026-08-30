@@ -9,7 +9,7 @@
 process RENAME_GENOMES {
     tag "${assembly_ids.size()} genomes"
     label 'process_low'
-    publishDir "${params.outdir}/ncbi_genomes/${Utils.sanitizeTaxon(params.taxon)}/renamed_genomes", mode: 'copy'
+    publishDir "${params.outdir}/ncbi_genomes/${Utils.sanitizeTaxon(params.taxon)}/renamed_genomes", mode: params.publish_mode
 
     input:
     val taxon

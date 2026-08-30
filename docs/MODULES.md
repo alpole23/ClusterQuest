@@ -95,6 +95,8 @@ Downloads NCBI TaxDump for taxonomy processing.
 ### NCBI_DATASETS_DOWNLOAD
 **Location:** `modules/genome/ncbi_datasets_download.nf`
 
+**Note:** publishes only the NCBI metadata files, not the downloaded `*.gbff`. The genomes reach downstream steps through the output channel, and `RENAME_GENOMES` publishes them as `renamed_genomes/`; publishing both was a second full copy of every genome (8.91 MB each).
+
 Downloads genomes from NCBI using the datasets CLI for a given taxon.
 
 | Property | Value |

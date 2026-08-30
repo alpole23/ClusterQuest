@@ -1,7 +1,7 @@
 process GCF_BIOSYNTHETIC_TREE {
     tag "$taxon"
     label 'process_medium'
-    publishDir "${params.outdir}/main_analysis_results/${Utils.sanitizeTaxon(params.taxon)}/gcf_heatmap", mode: 'copy'
+    publishDir "${params.outdir}/main_analysis_results/${Utils.sanitizeTaxon(params.taxon)}/gcf_heatmap", mode: params.publish_mode
 
     input:
     val taxon

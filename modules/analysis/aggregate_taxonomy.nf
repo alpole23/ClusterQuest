@@ -1,7 +1,7 @@
 process AGGREGATE_TAXONOMY {
     tag "Aggregating BGC statistics by taxonomy"
     label 'process_low'
-    publishDir "${params.outdir}/main_analysis_results/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
+    publishDir "${params.outdir}/main_analysis_results/${Utils.sanitizeTaxon(params.taxon)}", mode: params.publish_mode
 
     input:
     val taxon

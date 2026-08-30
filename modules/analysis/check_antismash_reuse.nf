@@ -68,7 +68,7 @@ process CHECK_ANTISMASH_REUSE {
 process COPY_ANTISMASH_RESULT {
     tag "${batch.size()} genomes"
     label 'process_low'
-    publishDir "${params.outdir}/antismash_results/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
+    publishDir "${params.outdir}/antismash_results/${Utils.sanitizeTaxon(params.taxon)}", mode: params.publish_mode
 
     input:
     val taxon

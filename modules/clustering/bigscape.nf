@@ -1,7 +1,7 @@
 process BIGSCAPE {
     tag "$taxon"
     label 'process_high'
-    publishDir "${params.outdir}/bigscape_results", mode: 'copy'
+    publishDir "${params.outdir}/bigscape_results", mode: params.publish_mode
     cache 'lenient'  // Use lenient caching for directory inputs
 
     input:

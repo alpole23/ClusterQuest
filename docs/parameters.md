@@ -13,6 +13,7 @@ This page documents all configurable and non-configurable parameters in ClusterQ
 | `--taxon` | `"Erwiniaceae"` | string | **Required.** NCBI taxon name (species, genus, family, order, etc.) |
 | `--workflow` | `"full"` | string | Pipeline mode: `download`, `bgc_analysis`, or `full` |
 | `--outdir` | `"results"` | string | Output directory for all results |
+| `--publish_mode` | `"link"` | string | How `publishDir` moves output into `outdir`. `link` hard-links, so published files cost no extra disk and still survive `nextflow clean -f`; requires `outdir` and `workDir` on one filesystem. Use `"copy"` otherwise, or if anything edits published files in place |
 
 **Workflow modes:**
 - `download` — Download and prepare genomes from NCBI only

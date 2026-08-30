@@ -1,7 +1,7 @@
 process CREATE_NAME_MAP {
     tag "$taxon"
     label 'process_low'
-    publishDir "${params.outdir}/ncbi_genomes/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
+    publishDir "${params.outdir}/ncbi_genomes/${Utils.sanitizeTaxon(params.taxon)}", mode: params.publish_mode
 
     input:
     val taxon

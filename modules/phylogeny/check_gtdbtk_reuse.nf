@@ -74,7 +74,7 @@ process CHECK_GTDBTK_REUSE {
 process FILTER_GTDBTK_RESULTS {
     tag "${taxon}"
     label 'process_medium'
-    publishDir "${params.outdir}/gtdbtk_results/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
+    publishDir "${params.outdir}/gtdbtk_results/${Utils.sanitizeTaxon(params.taxon)}", mode: params.publish_mode
 
     input:
     val taxon

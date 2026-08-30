@@ -381,15 +381,51 @@ costs a 90-minute task and its queue slot; the over-request costs ~$0.05) — bu
 tips the billed dimension from cores to memory at 8 cores. Verify with `sacct -o MaxRSS`
 before paying that premium across sharded jobs.
 
-**Storage after `--no-zip-output` / `--no-summary-gbk`:** 24.63 → 8.55 MB per genome,
-**-65.3%**, measured like-for-like on 40 genomes present in both runs. I/O did not
-improve — ~3.2 GB per genome of small-file read+write is the shared-filesystem risk,
-not capacity.
+**Storage, complete accounting (Erwiniaceae, 2,758 genomes).** Earlier figures counted
+only `antismash_results/` and understated peak by 6.7x. `publishDir` used `mode: 'copy'`,
+so `work/` held a second copy of everything.
+
+| | GB | MB/genome |
+|---|---:|---:|
+| `results/ncbi_dataset` (raw download) | 24.0 | 8.91 |
+| `results/renamed_genomes` | 24.0 | 8.91 |
+| `results/antismash_results` | 21.0 | 7.79 |
+| `results/` other | 0.4 | 0.13 |
+| `work/` (download, rename, antiSMASH, GTDB-Tk) | 70.7 | 26.25 |
+| **peak during a run** | **140.0** | **51.99** |
+
+Every genome's sequence was stored **four times** — raw in `work/`, raw published, renamed
+in `work/`, renamed published — 35.3 MB/genome, 68% of all storage. Two changes on
+2026-08-30 address it:
+
+- **`params.publish_mode = 'link'`** (was a hardcoded `mode: 'copy'` in all 17 modules).
+  Hard links mean a published file and its `work/` counterpart share an inode, so
+  `results/` costs no extra disk. Verified: the published copy survives
+  `nextflow clean -f`, the inode's link count simply drops to 1. Needs `outdir` and
+  `workDir` on one filesystem — set `'copy'` if they are not, or if anything edits
+  published files in place, since a write through a hard link also rewrites the cached
+  task output and corrupts `-resume`.
+- **`NCBI_DATASETS_DOWNLOAD` no longer publishes the genomes**, only the metadata that
+  `main.nf`'s `bgc_analysis` entry reads. The `*.gbff` payload is republished by
+  `RENAME_GENOMES` anyway.
+
+Together: ~52 -> ~16 MB/genome peak, and the 1M-genome projection goes 49.6 TB -> ~16 TB.
+
+Two Nextflow traps found doing this, both verified against the real output declarations:
+`publishDir`'s `pattern:` publishes **nothing at all** when any output is declared with a
+`**` glob, and a directory output (`path "ncbi_dataset/"`) is published as a single item
+that `saveAs` cannot filter inside — so the fix needed `saveAs` returning null *and*
+removal of the directory output, which was emitted but never consumed.
+
+**antiSMASH output after `--no-zip-output` / `--no-summary-gbk`:** 24.63 -> 8.55 MB per
+genome, **-65.3%**, measured like-for-like on 40 genomes present in both runs. I/O did not
+improve — ~3.2 GB per genome of small-file read+write is the shared-filesystem risk.
 
 **Projected to 1M genomes** at UIUC internal rates (`max(cores x $1.19, GB x $0.08)`
 per day, storage $8.75/TB/month): antiSMASH ~25,000 CPU-h / $1,240; GTDB-Tk in 50k
-batches 563 CPU-h / $30; BiG-SCAPE ~1,090 CPU-h / $54 (measured, above); storage 8.15 TB
-results plus 0.74 TB of BiG-SCAPE database / $78 per month. Compute is not the constraint
+batches 563 CPU-h / $30; BiG-SCAPE ~1,090 CPU-h / $54 (measured, above); storage ~16 TB
+with hard links and the raw-download publish dropped, plus 0.74 TB of BiG-SCAPE
+database / $145 per month. Compute is not the constraint
 at ~$1,320 — BiG-SCAPE's ~1.9 TB memory requirement is, and it forces partitioning.
 
 ## Module & Script Organization

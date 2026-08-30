@@ -20,7 +20,7 @@ process ANTISMASH {
     label 'process_medium'
     label 'tolerant'
     cache 'lenient'
-    publishDir "${params.outdir}/antismash_results/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
+    publishDir "${params.outdir}/antismash_results/${Utils.sanitizeTaxon(params.taxon)}", mode: params.publish_mode
 
     input:
     val taxon
