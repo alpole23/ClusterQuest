@@ -8,7 +8,11 @@ process DOWNLOAD_PFAM {
     storeDir "${params.outdir}/databases"
 
     output:
-    path "pfam/", emit: pfam_db
+    // Version in the path on purpose: storeDir skips the download whenever this
+    // path exists, so without the release here a changed params.pfam_release
+    // would be recorded in software_versions.json while the old data was
+    // silently reused — a false provenance claim, worse than recording nothing.
+    path "pfam${params.pfam_release}/", emit: pfam_db
 
     script:
     """
@@ -19,8 +23,8 @@ process DOWNLOAD_PFAM {
     echo "Started at: \$(date)"
     echo ""
 
-    mkdir -p pfam
-    cd pfam
+    mkdir -p pfam${params.pfam_release}
+    cd pfam${params.pfam_release}
 
     # Download Pfam-A HMM profiles
     if [ ! -f "Pfam-A.hmm.gz" ] && [ ! -f "Pfam-A.hmm" ]; then
@@ -36,14 +40,12 @@ process DOWNLOAD_PFAM {
     if [ ! -f "Pfam-A.hmm.h3p" ]; then
         echo "Pressing Pfam database with hmmpress..."
         hmmpress Pfam-A.hmm
-    fi
-
-    # Record what was actually fetched; nothing else in the tree identifies it.
-    if [ ! -f ".db_version" ]; then
-        echo "pfam=${params.pfam_release}" > .db_version
     else
         echo "Pfam database already pressed"
     fi
+
+    # Nothing inside Pfam-A.hmm identifies its release, so stamp it.
+    echo "pfam=${params.pfam_release}" > .db_version
 
     # Verify
     echo ""
