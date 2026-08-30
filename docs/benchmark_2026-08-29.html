@@ -242,10 +242,10 @@ footer p{max-width:68ch; margin:0 0 8px}
 <header class="mast">
   <p class="eyebrow">ClusterQuest · resource benchmark</p>
   <h1>Cost of a Million Genomes</h1>
-  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. The headline: compute is cheap, and the thing that will actually stop you is a 7-billion-row database.</p>
+  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. The headline: compute is cheap at every scale tested. What stops you is that BiG-SCAPE needs ~1.9 TB of RAM to cluster a million genomes’ worth of BGCs in one pass.</p>
   <div class="mast-meta">
     <span>Measured <b>28–29 Aug 2026</b></span>
-    <span>BiG-SCAPE sweep <b>333–4,000</b> BGCs</span>
+    <span>BiG-SCAPE sweep <b>333–10,000</b> BGCs</span>
     <span>Local executor · <b>56 GB RAM</b></span>
     <span><b>4,574</b> tasks, <b>0</b> failures</span>
     <span>antiSMASH <b>8.0.4</b> · BiG-SCAPE <b>2.0.1</b> · GTDB-Tk <b>2.6.1</b></span>
@@ -331,8 +331,8 @@ footer p{max-width:68ch; margin:0 0 8px}
     <div class="regime">
       <div class="law">O(n²)</div>
       <div class="who">BiG-SCAPE</div>
-      <p>All-pairs confirmed by direct measurement: every one of n(n−1)/2 comparisons is computed. But runtime has not reached n² yet at 4,000 BGCs.</p>
-      <div class="ev">333 → 4,000 BGCs measured<br>local exponent 1.05 → 1.50</div>
+      <p>All-pairs confirmed directly. Cheap in CPU even at scale — but peak memory turns quadratic above 4,000 BGCs and becomes the hard limit.</p>
+      <div class="ev">333 → 10,000 BGCs measured<br>cpu exp 1.05 → 1.89, RAM exp → 2.01</div>
     </div>
   </div>
 
@@ -409,9 +409,9 @@ footer p{max-width:68ch; margin:0 0 8px}
       <tbody>
         <tr><th>antiSMASH</th><td class="num">25,000</td><td class="num">$1,240</td><td class="num">$1,656</td><td class="dim">90 CPU-s/genome, ±20%</td></tr>
         <tr><th>GTDB-Tk <span class="dim">— 50k batches</span></th><td class="num">563</td><td class="num">$30</td><td class="num">$37</td><td class="dim">20 × (11.5 + 16.7) CPU-h</td></tr>
-        <tr><th>BiG-SCAPE <span class="dim">— one pass</span></th><td class="num">1,300</td><td class="num">$64</td><td class="num">$86</td><td class="dim">121k BGCs, fitted on a 7-point sweep</td></tr>
-        <tr class="total"><th>compute</th><td class="num">26,863</td><td class="num">$1,334</td><td class="num">$1,780</td><td></td></tr>
-        <tr><th>storage</th><td class="num dim">—</td><td class="num">$78/mo</td><td class="num">$78/mo</td><td class="dim">8.15 TB results + 0.78 TB BiG-SCAPE db</td></tr>
+        <tr><th>BiG-SCAPE <span class="dim">— one pass</span></th><td class="num">1,090</td><td class="num">$54</td><td class="num">$73</td><td class="dim">121k BGCs, 10-point sweep — but see RAM</td></tr>
+        <tr class="total"><th>compute</th><td class="num">26,653</td><td class="num">$1,324</td><td class="num">$1,767</td><td></td></tr>
+        <tr><th>storage</th><td class="num dim">—</td><td class="num">$78/mo</td><td class="num">$78/mo</td><td class="dim">8.15 TB results + 0.74 TB BiG-SCAPE db</td></tr>
       </tbody>
     </table>
   </div>
@@ -431,11 +431,15 @@ footer p{max-width:68ch; margin:0 0 8px}
         <tr><td class="num">1,500</td><td class="num">1,124,250</td><td class="num">237.4 s</td><td class="num">1,509</td><td class="num">211</td><td class="num">2.39 GB</td><td class="num dim">—</td></tr>
         <tr><td class="num">2,000</td><td class="num">1,999,000</td><td class="num">350.4 s</td><td class="num">2,217</td><td class="num">175</td><td class="num">2.54 GB</td><td class="num">232 MB</td></tr>
         <tr><td class="num">3,000</td><td class="num">4,498,500</td><td class="num">642.9 s</td><td class="num">3,949</td><td class="num">143</td><td class="num">2.87 GB</td><td class="num dim">—</td></tr>
-        <tr><td class="num">4,000</td><td class="num">7,998,000</td><td class="num">991.3 s</td><td class="num">6,077</td><td class="num">124</td><td class="num">3.40 GB</td><td class="num">817 MB</td></tr>
+        <tr><td class="num">4,000</td><td class="num">7,998,000</td><td class="num">991.3 s</td><td class="num">6,077</td><td class="num">124</td><td class="num">3.40 GB</td><td class="num">856 MB</td></tr>
+        <tr><td class="num">6,000</td><td class="num">17,997,000</td><td class="num">32.4 m</td><td class="num">11,148</td><td class="num">108</td><td class="num">5.68 GB</td><td class="num">1.86 GB</td></tr>
+        <tr><td class="num">8,000</td><td class="num">31,996,000</td><td class="num">55.4 m</td><td class="num">18,729</td><td class="num">104</td><td class="num">9.08 GB</td><td class="num">3.25 GB</td></tr>
+        <tr><td class="num">10,000</td><td class="num">49,995,000</td><td class="num">85.6 m</td><td class="num">28,535</td><td class="num">103</td><td class="num up">14.21 GB</td><td class="num">5.06 GB</td></tr>
       </tbody>
     </table>
   </div>
-  <p>Comparisons track n(n−1)/2 exactly — the middle column is 100% of all-pairs at every row. What falls is the cost <em>per</em> comparison, 816 → 124 µs, which is why wall time grows more slowly than n² over this range and why a naive power-law fit reads 1.245. Extrapolating that fit rather than the fixed-plus-quadratic model would understate a 121,000-BGC run tenfold in the other direction.</p>
+  <p>Comparisons track n(n−1)/2 exactly — the middle column is 100% of all-pairs at every row. What falls is the cost <em>per</em> comparison, 816 → 103 µs, and it has now flattened. The local exponent climbs 1.05 → 1.89 across the sweep and is converging on 2, so the runtime has finally caught up with the algorithm. A power-law fit still reads 1.241; extrapolating <em>that</em> would understate a 121,000-BGC run tenfold.</p>
+  <p>Fitting <span class="mono">cpu_s = 1,643 + 2.68×10⁻⁴·n²</span> on the top four sizes (worst residual 2.4%) gives <strong>~1,090 CPU-h at 121,000 BGCs</strong> — about $54. Compute was never going to be the problem.</p>
 
   <h3>GTDB-Tk: batch size is worth 10×</h3>
   <p>Because 11.5 of the 12.4 CPU-h are fixed per invocation, how you shard dominates the cost.</p>
@@ -451,14 +455,29 @@ footer p{max-width:68ch; margin:0 0 8px}
     </table>
   </div>
 
+  <div class="note warn">
+    <p class="h">Memory is the wall, and it only appears above 4,000 BGCs</p>
+    <p>Peak RSS looks harmless across the first seven sizes — 1.62 to 3.40 GB — which is why an earlier draft of this page concluded memory was not a constraint. It was measured over a range where memory growth had not started. Extending to 10,000 BGCs shows the local exponent going <strong>0.11 → 0.29 → 0.59 → 1.27 → 1.63 → 2.01</strong>. Above ~4,000 BGCs it is exactly quadratic.</p>
+    <p>Fitting <span class="mono">GB = 1.14 + 1.29×10⁻⁷·n²</span> gives <strong>~1.9 TB of RAM at 121,000 BGCs</strong>, and 4.3 TB at <i>Pantoea</i>-level BGC yield. No single node runs that. The practical ceiling for one BiG-SCAPE job:</p>
+    <div class="scroll" style="margin:14px 0 0">
+      <table>
+        <thead><tr><th class="num">RAM budget</th><th class="num">Largest single job</th></tr></thead>
+        <tbody>
+          <tr><td class="num">48 GB <span class="dim">(current label)</span></td><td class="num">19,100 BGCs</td></tr>
+          <tr><td class="num">64 GB <span class="dim">(SLURM override)</span></td><td class="num">22,100 BGCs</td></tr>
+          <tr><td class="num">128 GB</td><td class="num">31,400 BGCs</td></tr>
+          <tr><td class="num">256 GB</td><td class="num">44,500 BGCs</td></tr>
+          <tr><td class="num">1 TB</td><td class="num">89,100 BGCs</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
   <div class="note cool">
-    <p class="h">Measured, 29 Aug: the earlier estimate was 16× too high</p>
-    <p>A dedicated sweep replicated real Erwiniaceae BGCs to 333 / 600 / 1,000 / 1,500 / 2,000 / 3,000 / 4,000 and timed each. Querying the <code>distance</code> table confirms the algorithm: <strong>exactly n(n−1)/2 comparisons at every size</strong>, n<sup>2.001</sup>, no pruning. But runtime is still in a transitional regime — the local exponent climbs 1.05 → 1.50 across the sweep and has not reached 2 by 4,000 BGCs.</p>
-    <p>Fitting <span class="mono">cpu_s = 982 + 3.21×10⁻⁴·n²</span> on the points at n ≥ 2,000 (worst residual 2.1%) gives <strong>~1,300 CPU-h at 121,000 BGCs</strong>, not 21,000. The original figure scaled the <em>entire</em> 333-BGC runtime quadratically, including a large fixed cost — Pfam loading, database setup, output — that does not grow with n.</p>
-    <p>The binding constraint turns out not to be compute or memory. Peak RSS grows slowly (1.62 → 3.40 GB across the sweep) because distances live in SQLite, not in a dense in-memory matrix. That table is <strong>~107 bytes per comparison</strong>, so 121,000 BGCs means <strong>7.3 billion rows and ~0.78 TB</strong> in one database file — and at <i>Pantoea</i>-level BGC yield, 16.9 billion rows and 1.8 TB.</p>
+    <p class="h">The database estimate held</p>
+    <p>Bytes per comparison converged to <strong>101</strong> (267 → 101 across the sweep), so 121,000 BGCs means 7.3 billion rows and <strong>~0.74 TB</strong> in one SQLite file; 16.9 billion rows and 1.71 TB at the higher yield. Real, but a smaller problem than the RAM.</p>
   </div>
 
-  <p>Compute for a million genomes lands near <strong>$1,330</strong> internal, which is small enough that it is not the constraint. Wall clock and scheduler behaviour are. At the campus limit of 20 submissions/minute, one job per genome is 833 hours of pure submission — which is why the short per-genome steps are already batched and antiSMASH is capped at 2 CPUs.</p>
+  <p>Compute for a million genomes lands near <strong>$1,320</strong> internal, which is small enough that it is not the constraint. Wall clock and scheduler behaviour are. At the campus limit of 20 submissions/minute, one job per genome is 833 hours of pure submission — which is why the short per-genome steps are already batched and antiSMASH is capped at 2 CPUs.</p>
 </section>
 
 <section>
@@ -470,7 +489,7 @@ footer p{max-width:68ch; margin:0 0 8px}
       <div class="k">done</div>
       <div>
         <div class="t">BiG-SCAPE scaling, measured 29 Aug</div>
-        <p>Seven-point sweep, 333 → 4,000 BGCs, via <code>scripts/bench_bigscape_scaling.py</code>. Cut the projection from 21,000 to ~1,300 CPU-h and moved the constraint from compute to a 0.78 TB SQLite database. Extending the sweep past 4,000 would tighten the fit, since the exponent is still climbing.</p>
+        <p>Ten-point sweep, 333 → 10,000 BGCs, via <code>scripts/bench_bigscape_scaling.py</code>. Cut the compute projection from 21,000 to ~1,090 CPU-h, and found the real limit: peak RSS turns quadratic above 4,000 BGCs, reaching ~1.9 TB at 121,000.</p>
       </div>
     </li>
     <li>
@@ -490,8 +509,8 @@ footer p{max-width:68ch; margin:0 0 8px}
     <li>
       <div class="k">plan</div>
       <div>
-        <div class="t">Shard or externalise the BiG-SCAPE database</div>
-        <p>7.3 billion distance rows in one SQLite file is the hard limit long before compute is. Either partition the comparison by BGC class so no single database holds every pair, or move distances out of SQLite.</p>
+        <div class="t">Partition BiG-SCAPE — it cannot run in one pass</div>
+        <p>A single job caps at ~31,000 BGCs on a 128 GB node and ~22,000 on the 64 GB the SLURM profile allocates. A million genomes needs the comparison partitioned — by BGC class, or by a pre-clustering pass — since one all-pairs run over 121,000 BGCs needs ~1.9 TB of RAM and a 0.74 TB database.</p>
       </div>
     </li>
     <li>

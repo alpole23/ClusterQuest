@@ -310,35 +310,55 @@ invocation plus 1.2 CPU-s per genome, so 59% more genomes cost 3% more — batch
 coarsely as possible, since batch size is worth ~10x. BiG-SCAPE was measured separately
 (below) rather than assumed.
 
-### Measured: BiG-SCAPE scaling (2026-08-29)
+### Measured: BiG-SCAPE scaling (2026-08-30)
 
-`scripts/bench_bigscape_scaling.py`, seven sizes built by replicating real Erwiniaceae
-region GBKs with unique identities (BiG-SCAPE dedupes on the sha256 of raw file bytes).
+`scripts/bench_bigscape_scaling.py`, ten sizes from 333 to 10,000 BGCs, built by
+replicating real Erwiniaceae region GBKs with unique identities (BiG-SCAPE dedupes on the
+sha256 of raw file bytes).
 
-| BGCs | comparisons | wall | CPU-s | us/pair | peak RSS | db |
-|-----:|------------:|-----:|------:|--------:|---------:|---:|
-| 333 | 55,278 | 45.1 s | 277 | 816 | 1.62 GB | 15 MB |
-| 1,000 | 499,500 | 148.1 s | 911 | 297 | 2.01 GB | — |
-| 2,000 | 1,999,000 | 350.4 s | 2,217 | 175 | 2.54 GB | 232 MB |
-| 3,000 | 4,498,500 | 642.9 s | 3,949 | 143 | 2.87 GB | — |
-| 4,000 | 7,998,000 | 991.3 s | 6,077 | 124 | 3.40 GB | 817 MB |
+| BGCs | comparisons | wall | CPU-s | us/pair | peak RSS | db | B/pair |
+|-----:|------------:|-----:|------:|--------:|---------:|---:|-------:|
+| 333 | 55,278 | 45.1 s | 277 | 816 | 1.62 GB | 15 MB | 267 |
+| 1,000 | 499,500 | 148.1 s | 911 | 297 | 2.01 GB | 75 MB | 151 |
+| 2,000 | 1,999,000 | 350.4 s | 2,217 | 175 | 2.54 GB | 242 MB | 121 |
+| 4,000 | 7,998,000 | 991.3 s | 6,077 | 124 | 3.40 GB | 856 MB | 107 |
+| 6,000 | 17,997,000 | 32.4 m | 11,148 | 108 | 5.68 GB | 1.86 GB | 103 |
+| 8,000 | 31,996,000 | 55.4 m | 18,729 | 104 | 9.08 GB | 3.25 GB | 102 |
+| 10,000 | 49,995,000 | 85.6 m | 28,535 | 103 | 14.21 GB | 5.06 GB | 101 |
 
-**The algorithm is all-pairs; the runtime has not caught up yet.** The `distance` table
-holds exactly n(n-1)/2 rows at every size (n^2.001, 100% of all-pairs, no pruning), but
-cost *per* comparison falls 816 -> 124 us as n grows, so wall time grows sub-quadratically
-over this range and the local exponent only climbs 1.05 -> 1.50 by n=4,000.
+**Comparisons are all-pairs at every size** — the `distance` table holds exactly n(n-1)/2
+rows, n^2.000, no pruning. That is the check the benchmark rests on; if it ever stops
+holding, the curve is measuring something else.
 
-**Fit the model, not a power law.** `cpu_s = 982 + 3.21e-4*n^2` on the points at n >= 2,000
-(worst residual 2.1%) gives **~1,300 CPU-h at 121,000 BGCs**. The harness also prints a
-pure power-law fit (n^1.245, R2=0.99) — do not extrapolate that one; it understates by
-10x. An earlier estimate of 21,000 CPU-h overstated by 16x for the mirror-image reason:
-it scaled the *whole* 333-BGC runtime quadratically, fixed Pfam/database cost included.
+**CPU: ~1,090 CPU-h at 121,000 BGCs, about $54.** Cost per comparison falls 816 -> 103 us
+and has flattened; the local exponent climbs 1.05 -> 1.89 and is converging on 2. Fit
+`cpu_s = 1643 + 2.68e-4*n^2` on the top four sizes (worst residual 2.4%). The harness also
+prints a power-law fit (n^1.241, R2=0.99) — **do not extrapolate that one**, it understates
+by 10x. An earlier 21,000 CPU-h estimate overstated by 20x for the mirror reason: it scaled
+the whole 333-BGC runtime quadratically, fixed Pfam and database cost included.
 
-**The constraint is the database, not compute or memory.** Distances live in SQLite at
-~107 bytes per comparison, so peak RSS grows only 1.62 -> 3.40 GB across the sweep, but
-121,000 BGCs means **7.3 billion rows and ~0.78 TB in one file** (16.9 billion / 1.8 TB at
-*Pantoea*-level BGC yield). Partition the comparison by BGC class, or move distances out
-of SQLite, before that point.
+**Memory is the wall, and it is invisible below 4,000 BGCs.** Peak RSS looks flat across
+the first seven sizes (1.62 -> 3.40 GB) and an earlier draft concluded memory was not a
+constraint. It was measured over a range where the growth had not started. The local
+exponent runs 0.11 -> 0.29 -> 0.59 -> 1.27 -> 1.63 -> **2.01**: above ~4,000 BGCs it is
+exactly quadratic. Fit `GB = 1.14 + 1.29e-7*n^2` gives **~1.9 TB at 121,000 BGCs**, 4.3 TB
+at *Pantoea*-level BGC yield.
+
+| RAM budget | largest single BiG-SCAPE job |
+|-----------:|-----------------------------:|
+| 48 GB (`process_high` label) | 19,100 BGCs |
+| 64 GB (SLURM `withName: BIGSCAPE`) | 22,100 BGCs |
+| 128 GB | 31,400 BGCs |
+| 1 TB | 89,100 BGCs |
+
+So a million genomes cannot be clustered in one pass. Partition by BGC class, or
+pre-cluster, before that point. **The 64 GB SLURM override caps the pipeline at ~22,000
+BGCs** — roughly 180,000 genomes at Erwiniaceae-level prevalence, which is where this will
+first bite.
+
+**Database: ~0.74 TB at 121,000 BGCs.** Bytes per comparison converged to 101, so 7.3
+billion rows in one SQLite file (16.9 billion / 1.71 TB at the higher yield). Real, but a
+smaller problem than the RAM.
 
 One trap: BiG-SCAPE shells out to `fasttree` for its GCF trees. Nextflow supplies it via
 the activated conda env; invoking the binary by path does not, and the run dies *after*
@@ -368,9 +388,9 @@ not capacity.
 
 **Projected to 1M genomes** at UIUC internal rates (`max(cores x $1.19, GB x $0.08)`
 per day, storage $8.75/TB/month): antiSMASH ~25,000 CPU-h / $1,240; GTDB-Tk in 50k
-batches 563 CPU-h / $30; BiG-SCAPE ~1,300 CPU-h / $64 (measured, above); storage 8.15 TB
-results plus 0.78 TB of BiG-SCAPE database / $78 per month. Compute is not the constraint
-at ~$1,330 — scheduler submission rate and the distance database are.
+batches 563 CPU-h / $30; BiG-SCAPE ~1,090 CPU-h / $54 (measured, above); storage 8.15 TB
+results plus 0.74 TB of BiG-SCAPE database / $78 per month. Compute is not the constraint
+at ~$1,320 — BiG-SCAPE's ~1.9 TB memory requirement is, and it forces partitioning.
 
 ## Module & Script Organization
 

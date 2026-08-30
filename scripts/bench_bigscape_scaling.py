@@ -236,8 +236,16 @@ def main() -> int:
             w = csv.DictWriter(fh, fieldnames=cols, delimiter='\t', extrasaction='ignore')
             w.writeheader()
             w.writerows(merged[k] for k in sorted(merged))
-        all_rows = [{'n': int(v['n']), 'cpu_s': float(v['cpu_s'] or 0),
-                     'wall_s': float(v['wall_s'] or 0), 'exit': int(v['exit'] or 1)}
+        # `x or default` is wrong for these: a successful exit is 0, which is
+        # falsy, so it would silently become 1 and drop every good row from the
+        # fit. Rows arrive as ints from this run and as strings from the TSV.
+        def _num(v, cast, default):
+            return cast(v) if v not in (None, '') else default
+        all_rows = [{'n': int(v['n']),
+                     'cpu_s': _num(v['cpu_s'], float, 0.0),
+                     'wall_s': _num(v['wall_s'], float, 0.0),
+                     'max_rss_gb': _num(v.get('max_rss_gb'), float, 0.0),
+                     'exit': _num(v['exit'], int, 1)}
                     for v in (merged[k] for k in sorted(merged))]
 
     fit = fit_models([r for r in all_rows if r['exit'] == 0])
