@@ -105,36 +105,61 @@ def run_bigscape(bigscape: str, indir: Path, outdir: Path, pfam: Path,
 def count_results(outdir: Path) -> dict:
     db = next(outdir.rglob('*.db'), None)
     if db is None:
-        return {'bgcs': 0, 'families': 0}
+        return {'bgcs': 0, 'families': 0, 'comparisons': 0}
     import sqlite3
     con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
     q = lambda s: con.execute(s).fetchone()[0]
     try:
         return {'bgcs': q("SELECT COUNT(*) FROM bgc_record WHERE record_type='region'"),
-                'families': q("SELECT COUNT(DISTINCT id) FROM family")}
+                'families': q("SELECT COUNT(DISTINCT id) FROM family"),
+                # The validity check for the whole benchmark: if this is not
+                # n(n-1)/2 then BiG-SCAPE pruned pairs and the curve means
+                # something else entirely.
+                'comparisons': q("SELECT COUNT(*) FROM distance")}
     except sqlite3.Error:
-        return {'bgcs': 0, 'families': 0}
+        return {'bgcs': 0, 'families': 0, 'comparisons': 0}
     finally:
         con.close()
 
 
-def fit_exponent(rows: list[dict]) -> dict:
-    """Least-squares slope of log(time) against log(n) — the empirical exponent."""
-    pts = [(math.log(r['n']), math.log(r['wall_s']))
-           for r in rows if r['n'] > 0 and r['wall_s'] > 0]
+def fit_models(rows: list[dict]) -> dict:
+    """Fit both a power law and fixed+quadratic; the second is the one to use.
+
+    Comparisons are all-pairs (verified against the distance table), but cost
+    *per* comparison falls as n grows, so over a small range the runtime looks
+    sub-quadratic and a log-log fit returns an exponent well under 2. Measured
+    at 333-4000 BGCs it reads 1.245, which understates a 121k-BGC run tenfold.
+    Extrapolate the fixed+quadratic model, and fit it on the largest points
+    available, where the quadratic term actually dominates.
+    """
+    pts = [(r['n'], r['cpu_s']) for r in rows if r['n'] > 0 and r['cpu_s'] > 0]
     if len(pts) < 3:
         return {}
-    n = len(pts)
-    mx = sum(x for x, _ in pts) / n
-    my = sum(y for _, y in pts) / n
-    denom = sum((x - mx) ** 2 for x, _ in pts)
-    slope = sum((x - mx) * (y - my) for x, y in pts) / denom
-    intercept = my - slope * mx
-    ss_res = sum((y - (intercept + slope * x)) ** 2 for x, y in pts)
-    ss_tot = sum((y - my) ** 2 for _, y in pts)
-    return {'exponent': round(slope, 3),
-            'r2': round(1 - ss_res / ss_tot, 4) if ss_tot else None,
-            'coefficient': round(math.exp(intercept), 8)}
+
+    def lsq(xs, ys):
+        m = len(xs); mx = sum(xs) / m; my = sum(ys) / m
+        den = sum((x - mx) ** 2 for x in xs)
+        b = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den
+        return my - b * mx, b
+
+    def r2(ys, pred):
+        my = sum(ys) / len(ys)
+        tot = sum((y - my) ** 2 for y in ys)
+        return 1 - sum((y - p) ** 2 for y, p in zip(ys, pred)) / tot if tot else None
+
+    n = [p[0] for p in pts]; y = [p[1] for p in pts]
+    la, lb = lsq([math.log(v) for v in n], [math.log(v) for v in y])
+    power = {'exponent': round(lb, 3), 'coefficient': round(math.exp(la), 8),
+             'r2': round(r2(y, [math.exp(la) * v ** lb for v in n]), 4)}
+
+    # Fit the quadratic on the upper half, where fixed cost no longer dominates.
+    upper = sorted(pts)[len(pts) // 2:] if len(pts) >= 6 else sorted(pts)
+    ux = [v * v for v, _ in upper]; uy = [c for _, c in upper]
+    a, b = lsq(ux, uy)
+    worst = max(abs(c - (a + b * v * v)) / c for v, c in upper)
+    quad = {'fixed_cpu_s': round(a, 1), 'per_pair_coeff': b,
+            'fitted_on': [v for v, _ in upper], 'worst_residual': round(worst, 4)}
+    return {'power_law': power, 'fixed_quadratic': quad}
 
 
 def main() -> int:
@@ -193,24 +218,42 @@ def main() -> int:
         # Reclaim the staged copies immediately; at 2000 BGCs these are ~120 MB each.
         shutil.rmtree(indir, ignore_errors=True)
 
-        cols = ['n', 'replication', 'bgcs', 'families', 'wall_s', 'cpu_s',
-                'max_rss_gb', 'exit', 'stderr_tail']
+        # Merge rather than overwrite. A later --sizes run must not destroy the
+        # earlier points; the fit needs every size that was ever measured.
+        cols = ['n', 'replication', 'bgcs', 'families', 'comparisons', 'wall_s',
+                'cpu_s', 'max_rss_gb', 'exit', 'stderr_tail']
+        merged = {}
+        if out.exists():
+            with out.open(newline='') as fh:
+                for old in csv.DictReader(fh, delimiter='\t'):
+                    try:
+                        merged[int(old['n'])] = {k: old.get(k, '') for k in cols}
+                    except (TypeError, ValueError):
+                        continue
+        for r in rows:
+            merged[r['n']] = r
         with out.open('w', newline='') as fh:
             w = csv.DictWriter(fh, fieldnames=cols, delimiter='\t', extrasaction='ignore')
             w.writeheader()
-            w.writerows(rows)
+            w.writerows(merged[k] for k in sorted(merged))
+        all_rows = [{'n': int(v['n']), 'cpu_s': float(v['cpu_s'] or 0),
+                     'wall_s': float(v['wall_s'] or 0), 'exit': int(v['exit'] or 1)}
+                    for v in (merged[k] for k in sorted(merged))]
 
-    fit = fit_exponent([r for r in rows if r['exit'] == 0])
+    fit = fit_models([r for r in all_rows if r['exit'] == 0])
     if fit:
-        (args.workdir / 'fit.json').write_text(json.dumps(fit, indent=2))
-        print(f"log-log fit: wall_s = {fit['coefficient']} * n^{fit['exponent']}  "
-              f"(R2={fit['r2']})")
-        e = fit['exponent']
-        print(f"  1.0 = linear, 2.0 = all-pairs. Measured {e}.")
+        (args.workdir / 'fit.json').write_text(json.dumps(fit, indent=2, default=float))
+        pw, qd = fit['power_law'], fit['fixed_quadratic']
+        print(f"\nfitted over {len(all_rows)} sizes: {[r['n'] for r in all_rows]}")
+        print(f"  power law       cpu_s = {pw['coefficient']} * n^{pw['exponent']} "
+              f"(R2={pw['r2']})  <- DO NOT extrapolate, see fit_models()")
+        print(f"  fixed+quadratic cpu_s = {qd['fixed_cpu_s']} + "
+              f"{qd['per_pair_coeff']:.4e} * n^2   fitted on {qd['fitted_on']}, "
+              f"worst residual {qd['worst_residual']:.1%}")
         for target in (121_000, 184_000):
-            hours = fit['coefficient'] * target ** e / 3600
-            print(f"  projected {target:>7,} BGCs: {hours:>10,.0f} wall-hours "
-                  f"at {args.cores} cores")
+            h = (qd['fixed_cpu_s'] + qd['per_pair_coeff'] * target ** 2) / 3600
+            print(f"  projected {target:>7,} BGCs: {h:>10,.0f} CPU-h"
+                  f"   ({h / args.cores:>7,.0f} wall-h at {args.cores} cores)")
     print(f'\nwrote {out}')
     return 0
 
