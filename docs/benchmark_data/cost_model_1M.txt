@@ -1,0 +1,33 @@
+MEASURED — Erwiniaceae, 2,758 genomes, 75.14 CPU-h, 5h53m, 0 failures
+  process                    CPU-h cores   GB   internal   external
+  -----------------------------------------------------------------
+  ANTISMASH                  61.33     2    8       3.04       4.06
+  GTDBTK_CLASSIFY            12.36     8  128       0.66       0.82
+  NCBI_DATASETS_DOWNLOAD      0.72     4    8       0.04       0.05
+  RENAME_GENOMES              0.30     1    2       0.01       0.02
+  BIGSCAPE                    0.15     8   64       0.01       0.01
+  GCF_BIOSYNTHETIC_TREE       0.12     4    8       0.01       0.01
+  other                       0.16     1    2       0.01       0.01
+  -----------------------------------------------------------------
+  compute                    75.14                  3.77       4.98
+  storage (26.42 MB/gen)                           0.61/mo      0.61/mo
+
+  per genome: $0.00137 internal / $0.00180 external
+
+=================================================================
+PROJECTED — 1,000,000 genomes
+=================================================================
+  stage                        CPU-h    internal    external
+  ------------------------------------------------------------
+  antiSMASH                   22,237       1,103       1,473
+  GTDB-Tk (50k batches)          563          30          37
+  BiG-SCAPE                    1,090          58          72
+  download + rename              370          18          25
+  other                          102           5           7
+  ------------------------------------------------------------
+  COMPUTE                     24,361       1,214       1,614
+  storage, results             25.2 TB        220/mo        220/mo
+  storage, BiG-SCAPE db        0.74 TB          6/mo          6/mo
+                                                
+  TOTAL first month                        1,441       1,841
+  each further month                         227         227

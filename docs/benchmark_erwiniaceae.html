@@ -242,12 +242,12 @@ footer p{max-width:68ch; margin:0 0 8px}
 <header class="mast">
   <p class="eyebrow">ClusterQuest · resource benchmark</p>
   <h1>Cost of a Million Genomes</h1>
-  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. The headline: compute is cheap at every scale tested. What stops you is that BiG-SCAPE needs ~1.9 TB of RAM to cluster a million genomes’ worth of BGCs in one pass.</p>
+  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. Measured on a clean run from an empty <code>results/</code>. A million genomes costs about <strong>$1,200 internal / $1,600 external</strong> in compute — cheap enough that it is not the constraint. What stops you is memory: BiG-SCAPE needs ~1.9 TB of RAM to cluster that many BGCs in one pass.</p>
   <div class="mast-meta">
-    <span>Measured <b>28–29 Aug 2026</b></span>
+    <span>Measured <b>30 Aug 2026</b>, clean run</span>
     <span>BiG-SCAPE sweep <b>333–10,000</b> BGCs</span>
     <span>Local executor · <b>56 GB RAM</b></span>
-    <span><b>4,574</b> tasks, <b>0</b> failures</span>
+    <span><b>2,805</b> tasks, <b>0</b> failures</span>
     <span>antiSMASH <b>8.0.4</b> · BiG-SCAPE <b>2.0.1</b> · GTDB-Tk <b>2.6.1</b></span>
   </div>
 </header>
@@ -257,10 +257,10 @@ footer p{max-width:68ch; margin:0 0 8px}
   <p class="dek">Both runs analysed every genome fresh — no <code>--reuse_antismash_from</code>, even though 63% of Erwiniaceae <em>is</em> Pantoea. Reuse would have produced a set where 1,736 directories were written under the old antiSMASH flags and 1,022 under the new ones, which is exactly the contamination a storage benchmark cannot tolerate.</p>
 
   <div class="figs">
-    <div class="fig"><div class="n">75.6<small> CPU-h</small></div><div class="l">Erwiniaceae, 2,758 genomes</div></div>
-    <div class="fig"><div class="n">5<small>h</small> 56<small>m</small></div><div class="l">wall clock, 1 machine</div></div>
-    <div class="fig"><div class="n">$3.79</div><div class="l">at UIUC internal rates</div></div>
-    <div class="fig"><div class="n">8.55<small> MB</small></div><div class="l">retained per genome</div></div>
+    <div class="fig"><div class="n">75.1<small> CPU-h</small></div><div class="l">Erwiniaceae, 2,758 genomes</div></div>
+    <div class="fig"><div class="n">5<small>h</small> 53<small>m</small></div><div class="l">wall clock, 1 machine</div></div>
+    <div class="fig"><div class="n">$3.77<small> / $4.98</small></div><div class="l">internal / external rates</div></div>
+    <div class="fig"><div class="n">26.4<small> MB</small></div><div class="l">peak per genome, all copies</div></div>
   </div>
 
   <div class="scroll">
@@ -271,7 +271,7 @@ footer p{max-width:68ch; margin:0 0 8px}
       </tr></thead>
       <tbody>
         <tr><th><i>Pantoea</i> (genus)</th><td class="num">1,736</td><td class="num">1,771</td><td class="num">60.43</td><td class="num">4h50m</td><td class="num">320</td><td class="num">285 <span class="dim">16.4%</span></td><td class="num">13</td></tr>
-        <tr><th><i>Erwiniaceae</i> (family)</th><td class="num">2,758</td><td class="num">2,803</td><td class="num">75.55</td><td class="num">5h56m</td><td class="num">333</td><td class="num">298 <span class="dim">10.8%</span></td><td class="num">19</td></tr>
+        <tr><th><i>Erwiniaceae</i> (family)</th><td class="num">2,758</td><td class="num">2,805</td><td class="num">75.14</td><td class="num">5h53m</td><td class="num">333</td><td class="num">298 <span class="dim">10.8%</span></td><td class="num">19</td></tr>
         <tr class="total"><th>ratio</th><td class="num">1.59×</td><td class="num">1.58×</td><td class="num down">1.25×</td><td class="num">1.23×</td><td class="num">1.04×</td><td class="num">1.05×</td><td class="num">1.46×</td></tr>
       </tbody>
     </table>
@@ -291,21 +291,21 @@ footer p{max-width:68ch; margin:0 0 8px}
         <th class="num">Scaled</th><th class="num" style="width:34%">Share of Erwiniaceae</th>
       </tr></thead>
       <tbody>
-        <tr><th>ANTISMASH</th><td class="num">47.28</td><td class="num">61.58</td><td class="num">1.30×</td>
+        <tr><th>ANTISMASH</th><td class="num">47.28</td><td class="num">61.33</td><td class="num">1.30×</td>
             <td><div class="bar"><i style="width:82%"></i><span class="mono">81.5%</span></div></td></tr>
-        <tr><th>GTDBTK_CLASSIFY</th><td class="num">12.08</td><td class="num">12.42</td><td class="num">1.03×</td>
+        <tr><th>GTDBTK_CLASSIFY</th><td class="num">12.08</td><td class="num">12.36</td><td class="num">1.02×</td>
             <td><div class="bar"><i style="width:16.4%"></i><span class="mono">16.4%</span></div></td></tr>
-        <tr><th>NCBI_DATASETS_DOWNLOAD</th><td class="num">0.51</td><td class="num">0.86</td><td class="num">1.68×</td>
+        <tr><th>NCBI_DATASETS_DOWNLOAD</th><td class="num">0.51</td><td class="num">0.72</td><td class="num">1.41×</td>
             <td><div class="bar"><i style="width:1.1%"></i><span class="mono">1.1%</span></div></td></tr>
-        <tr><th>RENAME_GENOMES</th><td class="num">0.14</td><td class="num">0.25</td><td class="num">1.77×</td>
+        <tr><th>RENAME_GENOMES</th><td class="num">0.14</td><td class="num">0.30</td><td class="num">2.14×</td>
             <td><div class="bar"><i style="width:0.3%"></i><span class="mono">0.3%</span></div></td></tr>
-        <tr><th>BIGSCAPE</th><td class="num">0.14</td><td class="num">0.16</td><td class="num">1.14×</td>
+        <tr><th>BIGSCAPE</th><td class="num">0.14</td><td class="num">0.15</td><td class="num">1.07×</td>
             <td><div class="bar"><i style="width:0.2%"></i><span class="mono">0.2%</span></div></td></tr>
         <tr><th>GCF_BIOSYNTHETIC_TREE</th><td class="num">0.11</td><td class="num">0.12</td><td class="num">1.05×</td>
             <td><div class="bar"><i style="width:0.16%"></i><span class="mono">0.2%</span></div></td></tr>
         <tr><th class="dim">all others</th><td class="num dim">0.17</td><td class="num dim">0.16</td><td class="num dim">0.94×</td>
             <td><div class="bar"><i style="width:0.2%;opacity:.4"></i><span class="mono dim">0.2%</span></div></td></tr>
-        <tr class="total"><th>total</th><td class="num">60.43</td><td class="num">75.55</td><td class="num">1.25×</td><td></td></tr>
+        <tr class="total"><th>total</th><td class="num">60.43</td><td class="num">75.14</td><td class="num">1.24×</td><td></td></tr>
       </tbody>
     </table>
   </div>
@@ -380,23 +380,32 @@ footer p{max-width:68ch; margin:0 0 8px}
 </section>
 
 <section>
-  <h2>Storage, after the flag changes <span class="tag m">measured</span></h2>
-  <p class="dek">antiSMASH writes two large files by default that no downstream step in this pipeline reads: a <code>.zip</code> archive of the output directory it sits in, and a whole-genome summary GenBank. Both are now off — <code>--no-zip-output</code> always, <code>--no-summary-gbk</code> unless <code>--antismash_summary_gbk</code> is set.</p>
+  <h2>Storage, measured on a clean run <span class="tag m">measured</span></h2>
+  <p class="dek">The earlier figure in this report counted <code>antismash_results/</code> alone and missed that <code>publishDir</code> used <code>mode: 'copy'</code>, so <code>work/</code> held a second copy of everything. This run started from an empty <code>results/</code> with both fixes in place.</p>
 
   <div class="scroll">
     <table>
-      <thead><tr><th>Per genome</th><th class="num">Before</th><th class="num">After</th><th class="num">Change</th></tr></thead>
+      <thead><tr><th>Per genome, all copies</th><th class="num">Before</th><th class="num">Now</th><th class="num">Change</th></tr></thead>
       <tbody>
-        <tr><th>antiSMASH output, same 40 genomes</th><td class="num">24.63 MB</td><td class="num">8.55 MB</td><td class="num down">−65.3%</td></tr>
-        <tr><th>1M genomes on disk</th><td class="num">23.49 TB</td><td class="num">8.15 TB</td><td class="num down">−15.3 TB</td></tr>
-        <tr class="total"><th>at $8.75 / TB / month</th><td class="num">$206/mo</td><td class="num">$71/mo</td><td class="num down">−$1,610/yr</td></tr>
+        <tr><th>published + work, settled</th><td class="num">51.99 MB</td><td class="num">26.42 MB</td><td class="num down">−49%</td></tr>
+        <tr><th>raw download, published copy</th><td class="num">8.91 MB</td><td class="num">0.004 MB</td><td class="num down">metadata only</td></tr>
+        <tr><th>1M genomes, peak</th><td class="num">49.6 TB</td><td class="num">25.2 TB</td><td class="num down">−24.4 TB</td></tr>
+        <tr class="total"><th>at $8.75 / TB / month</th><td class="num">$434/mo</td><td class="num">$220/mo</td><td class="num down">−$2,568/yr</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>The comparison is like-for-like: 40 genomes that appear in both runs, so genome size is held constant. Neither flag is part of <code>Utils.antismashParamsHash</code>, so toggling them does not invalidate <code>--reuse_antismash_from</code> — they change packaging, not results.</p>
+  <p>Two changes did it. <code>publish_mode = 'link'</code> hard-links published output, so a file and its <code>work/</code> counterpart share an inode — <code>du</code> across both now reports 71.2 GB where the apparent size is 118 GB. And <code>NCBI_DATASETS_DOWNLOAD</code> publishes only metadata, since <code>RENAME_GENOMES</code> republishes the genomes anyway: 24 GB became 10 MB.</p>
 
-  <p>I/O is the number to watch on a shared filesystem, and it did not improve: <strong>8,877 GB</strong> of reads and writes for 2,758 genomes, about 3.2 GB per genome, up from 7,254 GB for <i>Pantoea</i>. That is metadata-heavy small-file traffic, which parallel filesystems handle worst.</p>
+  <p>It is <em>not</em> the 16 MB/genome an earlier draft projected. That assumed dropping the raw-download publish removed the data entirely; it only removed the second copy. <code>work/</code> still holds 23.5 GB of raw download, because the task that fetched it has to keep its output.</p>
+
+  <div class="note warn">
+    <p class="h">GTDB-Tk transiently needs 94 GB of scratch</p>
+    <p>Nothing had measured this. While <code>GTDBTK_CLASSIFY</code> runs, its task directory holds <strong>98 GB</strong> — 94 GB of it <code>scratch_tmp</code> — which is released on completion, leaving 2.7 GB of output. It is the peak-disk driver for the whole pipeline, and it is <em>additional</em> to the 140 GB reference database the config already warns about.</p>
+    <p>On a cluster where <code>workDir</code> sits on a quota'd scratch filesystem, that is an allocation requirement rather than a footnote. Measuring settled storage after a run, as every earlier figure here did, misses it entirely.</p>
+  </div>
+
+  <p>I/O did not improve and is the number to watch on a shared filesystem: <strong>8,883 GB</strong> of reads and writes for 2,758 genomes, about 3.2 GB per genome, most of it small-file traffic that parallel filesystems handle worst.</p>
 </section>
 
 <section>
@@ -405,16 +414,25 @@ footer p{max-width:68ch; margin:0 0 8px}
 
   <div class="scroll">
     <table>
-      <thead><tr><th>Stage</th><th class="num">CPU-h</th><th class="num">Internal</th><th class="num">External</th><th>Basis</th></tr></thead>
+      <thead><tr>
+        <th>Stage</th><th class="num">CPU-h</th>
+        <th class="num">Internal</th><th class="num">External</th><th>Basis</th>
+      </tr></thead>
       <tbody>
-        <tr><th>antiSMASH</th><td class="num">25,000</td><td class="num">$1,240</td><td class="num">$1,656</td><td class="dim">90 CPU-s/genome, ±20%</td></tr>
-        <tr><th>GTDB-Tk <span class="dim">— 50k batches</span></th><td class="num">563</td><td class="num">$30</td><td class="num">$37</td><td class="dim">20 × (11.5 + 16.7) CPU-h</td></tr>
-        <tr><th>BiG-SCAPE <span class="dim">— one pass</span></th><td class="num">1,090</td><td class="num">$54</td><td class="num">$73</td><td class="dim">121k BGCs, 10-point sweep — but see RAM</td></tr>
-        <tr class="total"><th>compute</th><td class="num">26,653</td><td class="num">$1,324</td><td class="num">$1,767</td><td></td></tr>
-        <tr><th>storage</th><td class="num dim">—</td><td class="num">$78/mo</td><td class="num">$78/mo</td><td class="dim">8.15 TB results + 0.74 TB BiG-SCAPE db</td></tr>
+        <tr><th>antiSMASH</th><td class="num">22,237</td><td class="num">$1,103</td><td class="num">$1,473</td><td class="dim">linear; 80–98 CPU-s/genome by genome size</td></tr>
+        <tr><th>BiG-SCAPE</th><td class="num">1,090</td><td class="num">$58</td><td class="num">$72</td><td class="dim">121k BGCs; <strong>needs ~1.9 TB RAM</strong></td></tr>
+        <tr><th>GTDB-Tk <span class="dim">50k batches</span></th><td class="num">563</td><td class="num">$30</td><td class="num">$37</td><td class="dim">11.5 CPU-h fixed per batch</td></tr>
+        <tr><th>download + rename</th><td class="num">370</td><td class="num">$18</td><td class="num">$25</td><td class="dim">network-bound</td></tr>
+        <tr><th class="dim">other</th><td class="num dim">102</td><td class="num dim">$5</td><td class="num dim">$7</td><td class="dim"></td></tr>
+        <tr class="total"><th>compute</th><td class="num">24,361</td><td class="num">$1,214</td><td class="num">$1,614</td><td></td></tr>
+        <tr><th>storage — results</th><td class="num dim">25.2 TB</td><td class="num">$220/mo</td><td class="num">$220/mo</td><td class="dim">26.42 MB/genome measured</td></tr>
+        <tr><th>storage — BiG-SCAPE db</th><td class="num dim">0.74 TB</td><td class="num">$6/mo</td><td class="num">$6/mo</td><td class="dim">101 bytes per comparison</td></tr>
+        <tr class="total"><th>first month, all in</th><td class="num"></td><td class="num">$1,441</td><td class="num">$1,841</td><td class="dim">compute + one month storage</td></tr>
+        <tr class="total"><th>each further month</th><td class="num"></td><td class="num">$227</td><td class="num">$227</td><td class="dim">storage only</td></tr>
       </tbody>
     </table>
   </div>
+  <p>Rates as billed by the campus cluster: internal <span class="mono">max(cores × $1.19, GB × $0.08)</span> per day, external <span class="mono">max(cores × $1.59, GB × $0.09)</span>, storage $8.75/TB/month for both. External runs about <strong>33% more</strong> for compute — the gap is the core rate, since every stage except GTDB-Tk is billed on cores rather than memory.</p>
 
   <h3>The BiG-SCAPE sweep <span class="tag m">measured</span></h3>
   <p>Real Erwiniaceae BGCs replicated to each size, each copy given a unique <code>LOCUS</code>/<code>ACCESSION</code> so BiG-SCAPE's sha256 deduplication does not collapse them. Every BGC is phosphonate, so <code>--classify category</code> puts them in one bin and compares every pair — the worst case.</p>
@@ -477,7 +495,7 @@ footer p{max-width:68ch; margin:0 0 8px}
     <p>Bytes per comparison converged to <strong>101</strong> (267 → 101 across the sweep), so 121,000 BGCs means 7.3 billion rows and <strong>~0.74 TB</strong> in one SQLite file; 16.9 billion rows and 1.71 TB at the higher yield. Real, but a smaller problem than the RAM.</p>
   </div>
 
-  <p>Compute for a million genomes lands near <strong>$1,320</strong> internal, which is small enough that it is not the constraint. Wall clock and scheduler behaviour are. At the campus limit of 20 submissions/minute, one job per genome is 833 hours of pure submission — which is why the short per-genome steps are already batched and antiSMASH is capped at 2 CPUs.</p>
+  <p>Compute for a million genomes lands near <strong>$1,214</strong> internal and <strong>$1,614</strong> external, which is small enough that it is not the constraint. Wall clock and scheduler behaviour are. At the campus limit of 20 submissions/minute, one job per genome is 833 hours of pure submission — which is why the short per-genome steps are already batched and antiSMASH is capped at 2 CPUs.</p>
 </section>
 
 <section>
@@ -532,6 +550,7 @@ footer p{max-width:68ch; margin:0 0 8px}
 
 <footer>
   <p><strong>Method.</strong> Both runs on one machine, local executor, 56 GB RAM + 32 GB swap, conda environments. CPU-hours are <code>realtime × cpus</code> summed from <code>pipeline_trace.tsv</code>. Costs apply the configured SLURM allocations to the measured durations; no run was executed on SLURM. Memory sampled every 30 s from <code>/proc</code> via <code>free</code> and <code>ps</code>.</p>
+  <p><strong>Reference data.</strong> GTDB r226 (what gtdbtk 2.6.1 declares as its minimum), Pfam 38.2, NCBI taxdump 2026-01-23. Database versions were unpinned until this run and are now recorded in <code>software_versions.json</code>; every figure here predates that, so the taxdump is the January copy rather than the pinned 2026-08-01 one.</p>
   <p>Genome counts use the pipeline's own NCBI query — <code>--assembly-source GenBank --exclude-atypical</code>. Detection is phosphonate-only (<code>--hmmdetection-limit-to-rule-names phosphonate</code>); a general antiSMASH run would cost substantially more.</p>
 </footer>
 
