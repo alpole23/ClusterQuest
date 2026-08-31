@@ -242,13 +242,14 @@ footer p{max-width:68ch; margin:0 0 8px}
 <header class="mast">
   <p class="eyebrow">ClusterQuest · resource benchmark</p>
   <h1>Cost of a Million Genomes</h1>
-  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. Measured on a clean run from an empty <code>results/</code>. A million genomes costs about <strong>$1,200 internal / $1,600 external</strong> in compute — cheap enough that it is not the constraint. What stops you is memory: BiG-SCAPE needs ~1.9 TB of RAM to cluster that many BGCs in one pass.</p>
+  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. Measured on a clean run from an empty <code>results/</code>. A million genomes costs about <strong>$1,140 internal / $1,515 external</strong> in compute — cheap enough that it is not the constraint. What stops you is memory: BiG-SCAPE needs ~1.9 TB of RAM to cluster that many BGCs in one pass.</p>
   <div class="mast-meta">
-    <span>Measured <b>30 Aug 2026</b>, clean run</span>
+    <span>Measured <b>31 Aug 2026</b>, pinned databases</span>
     <span>BiG-SCAPE sweep <b>333–10,000</b> BGCs</span>
     <span>Local executor · <b>56 GB RAM</b></span>
-    <span><b>2,805</b> tasks, <b>0</b> failures</span>
+    <span><b>2,807</b> tasks, <b>0</b> failures</span>
     <span>antiSMASH <b>8.0.4</b> · BiG-SCAPE <b>2.0.1</b> · GTDB-Tk <b>2.6.1</b></span>
+    <span>GTDB <b>r226</b> · Pfam <b>38.2</b> · taxdump <b>2026-08-01</b></span>
   </div>
 </header>
 
@@ -257,9 +258,9 @@ footer p{max-width:68ch; margin:0 0 8px}
   <p class="dek">Both runs analysed every genome fresh — no <code>--reuse_antismash_from</code>, even though 63% of Erwiniaceae <em>is</em> Pantoea. Reuse would have produced a set where 1,736 directories were written under the old antiSMASH flags and 1,022 under the new ones, which is exactly the contamination a storage benchmark cannot tolerate.</p>
 
   <div class="figs">
-    <div class="fig"><div class="n">75.1<small> CPU-h</small></div><div class="l">Erwiniaceae, 2,758 genomes</div></div>
-    <div class="fig"><div class="n">5<small>h</small> 53<small>m</small></div><div class="l">wall clock, 1 machine</div></div>
-    <div class="fig"><div class="n">$3.77<small> / $4.98</small></div><div class="l">internal / external rates</div></div>
+    <div class="fig"><div class="n">70.7<small> CPU-h</small></div><div class="l">Erwiniaceae, 2,758 genomes</div></div>
+    <div class="fig"><div class="n">6<small>h</small> 06<small>m</small></div><div class="l">wall clock, 1 machine</div></div>
+    <div class="fig"><div class="n">$3.55<small> / $4.69</small></div><div class="l">internal / external rates</div></div>
     <div class="fig"><div class="n">26.4<small> MB</small></div><div class="l">peak per genome, all copies</div></div>
   </div>
 
@@ -419,15 +420,15 @@ footer p{max-width:68ch; margin:0 0 8px}
         <th class="num">Internal</th><th class="num">External</th><th>Basis</th>
       </tr></thead>
       <tbody>
-        <tr><th>antiSMASH</th><td class="num">22,237</td><td class="num">$1,103</td><td class="num">$1,473</td><td class="dim">linear; 80–98 CPU-s/genome by genome size</td></tr>
+        <tr><th>antiSMASH</th><td class="num">20,787</td><td class="num">$1,031</td><td class="num">$1,377</td><td class="dim">linear; 80–98 CPU-s/genome by genome size</td></tr>
         <tr><th>BiG-SCAPE</th><td class="num">1,090</td><td class="num">$58</td><td class="num">$72</td><td class="dim">121k BGCs; <strong>needs ~1.9 TB RAM</strong></td></tr>
         <tr><th>GTDB-Tk <span class="dim">50k batches</span></th><td class="num">563</td><td class="num">$30</td><td class="num">$37</td><td class="dim">11.5 CPU-h fixed per batch</td></tr>
-        <tr><th>download + rename</th><td class="num">370</td><td class="num">$18</td><td class="num">$25</td><td class="dim">network-bound</td></tr>
-        <tr><th class="dim">other</th><td class="num dim">102</td><td class="num dim">$5</td><td class="num dim">$7</td><td class="dim"></td></tr>
-        <tr class="total"><th>compute</th><td class="num">24,361</td><td class="num">$1,214</td><td class="num">$1,614</td><td></td></tr>
+        <tr><th>download + rename</th><td class="num">319</td><td class="num">$16</td><td class="num">$21</td><td class="dim">network-bound</td></tr>
+        <tr><th class="dim">other</th><td class="num dim">109</td><td class="num dim">$5</td><td class="num dim">$7</td><td class="dim"></td></tr>
+        <tr class="total"><th>compute</th><td class="num">22,868</td><td class="num">$1,140</td><td class="num">$1,515</td><td></td></tr>
         <tr><th>storage — results</th><td class="num dim">25.2 TB</td><td class="num">$220/mo</td><td class="num">$220/mo</td><td class="dim">26.42 MB/genome measured</td></tr>
         <tr><th>storage — BiG-SCAPE db</th><td class="num dim">0.74 TB</td><td class="num">$6/mo</td><td class="num">$6/mo</td><td class="dim">101 bytes per comparison</td></tr>
-        <tr class="total"><th>first month, all in</th><td class="num"></td><td class="num">$1,441</td><td class="num">$1,841</td><td class="dim">compute + one month storage</td></tr>
+        <tr class="total"><th>first month, all in</th><td class="num"></td><td class="num">$1,367</td><td class="num">$1,742</td><td class="dim">compute + one month storage</td></tr>
         <tr class="total"><th>each further month</th><td class="num"></td><td class="num">$227</td><td class="num">$227</td><td class="dim">storage only</td></tr>
       </tbody>
     </table>
@@ -495,7 +496,7 @@ footer p{max-width:68ch; margin:0 0 8px}
     <p>Bytes per comparison converged to <strong>101</strong> (267 → 101 across the sweep), so 121,000 BGCs means 7.3 billion rows and <strong>~0.74 TB</strong> in one SQLite file; 16.9 billion rows and 1.71 TB at the higher yield. Real, but a smaller problem than the RAM.</p>
   </div>
 
-  <p>Compute for a million genomes lands near <strong>$1,214</strong> internal and <strong>$1,614</strong> external, which is small enough that it is not the constraint. Wall clock and scheduler behaviour are. At the campus limit of 20 submissions/minute, one job per genome is 833 hours of pure submission — which is why the short per-genome steps are already batched and antiSMASH is capped at 2 CPUs.</p>
+  <p>Compute for a million genomes lands near <strong>$1,140</strong> internal and <strong>$1,515</strong> external, which is small enough that it is not the constraint. Wall clock and scheduler behaviour are. At the campus limit of 20 submissions/minute, one job per genome is 833 hours of pure submission — which is why the short per-genome steps are already batched and antiSMASH is capped at 2 CPUs.</p>
 </section>
 
 <section>
@@ -550,7 +551,7 @@ footer p{max-width:68ch; margin:0 0 8px}
 
 <footer>
   <p><strong>Method.</strong> Both runs on one machine, local executor, 56 GB RAM + 32 GB swap, conda environments. CPU-hours are <code>realtime × cpus</code> summed from <code>pipeline_trace.tsv</code>. Costs apply the configured SLURM allocations to the measured durations; no run was executed on SLURM. Memory sampled every 30 s from <code>/proc</code> via <code>free</code> and <code>ps</code>.</p>
-  <p><strong>Reference data.</strong> GTDB r226 (what gtdbtk 2.6.1 declares as its minimum), Pfam 38.2, NCBI taxdump 2026-01-23. Database versions were unpinned until this run and are now recorded in <code>software_versions.json</code>; every figure here predates that, so the taxdump is the January copy rather than the pinned 2026-08-01 one.</p>
+  <p><strong>Reference data.</strong> GTDB r226 (what gtdbtk 2.6.1 declares as its minimum), Pfam 38.2, NCBI taxdump 2026-08-01 — pinned in <code>nextflow.config</code> and recorded in <code>software_versions.json</code> as <code>db_gtdb_release</code>, <code>db_pfam_release</code> and <code>db_taxdump_date</code>. Every figure on this page comes from a run that states what produced it.</p>
   <p>Genome counts use the pipeline's own NCBI query — <code>--assembly-source GenBank --exclude-atypical</code>. Detection is phosphonate-only (<code>--hmmdetection-limit-to-rule-names phosphonate</code>); a general antiSMASH run would cost substantially more.</p>
 </footer>
 
