@@ -1,13 +1,26 @@
-  stage                        CPU-h    internal    external
-  ----------------------------------------------------------
-  antiSMASH                   20,787       1,031       1,377
-  BiG-SCAPE                    1,090          58          72
-  GTDB-Tk, 50k batches           563          30          37
-  download + rename              319          16          21
-  other                          109           5           7
-  ----------------------------------------------------------
-  COMPUTE                     22,868       1,140       1,515
-  storage, results            25.2 TB        220/mo        220/mo
-  storage, BiG-SCAPE db       0.74 TB          6/mo          6/mo
-  FIRST MONTH                              1,367       1,742
-  each further month                         227         227
+ClusterQuest — cost for 1,000,000 genomes
+Measured on Erwiniaceae (2,758 genomes, 2026-08-31, pinned databases)
+UIUC Biocluster: internal max(cores x $1.19, GB x $0.08)/day
+                 external max(cores x $1.59, GB x $0.09)/day
+                 storage $8.75/TB/month (same both rates)
+
+                      amount        internal      external
+  compute        22,868 CPU-h          $1,140        $1,515
+  storage             25.9 TB            $227          $227   per month
+  ----------------------------------------------------------------
+  TOTAL, first month                   $1,367        $1,742
+  per genome                         $0.00137      $0.00174
+
+  compute only, per genome           $0.00114      $0.00152
+  storage only, per month                $227          $227
+
+Where the CPU-hours go
+  antiSMASH              20,787   90.9%   linear, 92.3 CPU-s/genome measured
+  BiG-SCAPE               1,090    4.8%   121k BGCs; needs ~1.9 TB RAM
+  GTDB-Tk (50k batches)     563    2.5%   11.5 CPU-h fixed per batch
+  download + rename         319    1.4%   network-bound
+  other                     109    0.5%
+
+Measured basis: 2,807 tasks, 0 failures, 6h06m wall, 70.72 CPU-h for 2,758
+genomes; $3.55 internal / $4.69 external for that run. Storage 26.42 MB/genome
+settled across published output and work/ combined.
