@@ -10,9 +10,23 @@ UIUC Biocluster: internal max(cores x $1.19, GB x $0.08)/day
   ----------------------------------------------------------------
   TOTAL, first month                   $1,367        $1,742
   per genome                         $0.00137      $0.00174
+  duration                            ~44 days      ~44 days
 
   compute only, per genome           $0.00114      $0.00152
   storage only, per month                $227          $227
+
+Duration — the scheduler, not the compute
+  Every genome is its own antiSMASH job. At submitRateLimit = 20/1min, submitting
+  1M of them takes 833 h before any queueing; the actual compute at queueSize=200
+  is 55 h. Batching antiSMASH x100 cuts the total from 44 days to 11.
+
+                            as architected    antiSMASH batched
+    download (serial)               72 h              72 h
+    antiSMASH                      833 h              55 h
+    BiG-SCAPE (one job)            136 h             136 h
+    GTDB-Tk (20 batches)           3.5 h             3.5 h
+    ------------------------------------------------------------
+    TOTAL                    1,045 h / 44 d     266 h / 11 d
 
 Where the CPU-hours go
   antiSMASH              20,787   90.9%   linear, 92.3 CPU-s/genome measured

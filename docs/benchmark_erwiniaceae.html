@@ -424,12 +424,31 @@ footer p{max-width:68ch; margin:0 0 8px}
         <tr><th>Storage <span class="dim">per month</span></th><td class="num">25.9 TB</td><td class="num">$227</td><td class="num">$227</td></tr>
         <tr class="total"><th>Total <span class="dim">first month</span></th><td class="num"></td><td class="num">$1,367</td><td class="num">$1,742</td></tr>
         <tr class="total"><th>Per genome</th><td class="num"></td><td class="num">$0.00137</td><td class="num">$0.00174</td></tr>
+        <tr class="total"><th>Duration</th><td class="num up">~44 days</td><td class="num dim" colspan="2">same on either rate — see below</td></tr>
       </tbody>
     </table>
   </div>
 
   <p>Compute is one-off; storage recurs at $227/month on either rate. Per-genome
   compute alone is $0.00114 internal, $0.00152 external.</p>
+
+  <div class="note warn">
+    <p class="h">44 days is a scheduler artefact, not a compute cost — batching antiSMASH cuts it to 11</p>
+    <p>Every genome is its own antiSMASH job today. At the cluster's <code>submitRateLimit = '20/1min'</code>, submitting a million of them takes <strong>833 hours before any queueing</strong>, against 55 hours of actual compute at <code>queueSize = 200</code>. The scheduler is the bottleneck by 15×.</p>
+    <div class="scroll" style="margin:14px 0 0">
+      <table>
+        <thead><tr><th>Stage</th><th class="num">As architected</th><th class="num">antiSMASH batched ×100</th></tr></thead>
+        <tbody>
+          <tr><th>download <span class="dim">serial, network</span></th><td class="num">72 h</td><td class="num">72 h</td></tr>
+          <tr><th>antiSMASH</th><td class="num up">833 h</td><td class="num down">55 h</td></tr>
+          <tr><th>BiG-SCAPE <span class="dim">one job, all-pairs</span></th><td class="num">136 h</td><td class="num">136 h</td></tr>
+          <tr><th>GTDB-Tk <span class="dim">20 concurrent batches</span></th><td class="num">3.5 h</td><td class="num">3.5 h</td></tr>
+          <tr class="total"><th>total</th><td class="num">1,045 h · 44 d</td><td class="num">266 h · 11 d</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The pipeline already batches its short per-genome steps for exactly this reason; antiSMASH was left unbatched because at 39 s per genome it did not look short. At a million genomes it is the single largest lever on wall clock, and it costs nothing in CPU-hours. After that the limits are BiG-SCAPE, which is one unsplittable job, and the serial NCBI download.</p>
+  </div>
 
   <h3>Where the CPU-hours go</h3>
   <div class="scroll">
