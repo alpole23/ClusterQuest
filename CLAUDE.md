@@ -1308,8 +1308,26 @@ the 10-100x needed:
 
 **This is the least favourable test case** — a single family with one dominant GCF. A
 taxonomically diverse set is where the idea has to be judged, and 2x still takes the
-projected 1.9 TB to ~950 GB, which fits a 2 TB node. Re-run this on a broad taxon before
-concluding either way.
+projected 1.9 TB to ~950 GB, which fits a 2 TB node.
+
+**Pantoea vs Erwiniaceae confirms the scope dependence, by being nearly degenerate.**
+`--organism Pantoea` slices the same run without re-clustering (the `distance` values are
+pairwise and scope-independent; only family labels come from the parent run). Pantoea is
+**319 of Erwiniaceae's 333 BGCs, 95.8%** — so the two are almost the same data, and every
+correlation moves by ~0.01:
+
+| | Pantoea (319) | Erwiniaceae (333) |
+|---|---:|---:|
+| r vs `jaccard` | +0.588 | +0.598 |
+| r vs BiG-SCAPE similarity | +0.631 | +0.641 |
+| largest component @0.60 | 235 (74%) | 236 (71%) |
+| work vs one job @0.60 | 61% | 57% |
+| **components @0.60** | **3** | **6** |
+
+The last row is the signal. Adding 14 BGCs (+4%) from four other genera — *Erwinia* 9,
+*Mixta* 2, *Winslowiella* 2 — **doubled the component count**. Taxonomic breadth, not BGC
+count, is what partitions pepM space. Judge partitioning on a genuinely diverse taxon;
+neither of these is one.
 
 `PF13714` is resolved to its versioned accession (`PF13714.13`) by scanning the HMM file:
 hmmfetch's index keys on the exact string, and the version moves when `pfam_release` is

@@ -67,7 +67,7 @@ GAP = 0                      # sentinel for a gap/deleted site in the encoded al
 
 # ---------------------------------------------------------------- extraction
 
-def fetch_pepm_sequences(con, accession):
+def fetch_pepm_sequences(con, accession, organism_prefix=None):
     """One pepM protein per region record: the highest-scoring PF13714 CDS.
 
     A handful of regions carry two copies (2 of 333 in Erwiniaceae), so the hit
@@ -75,17 +75,25 @@ def fetch_pepm_sequences(con, accession):
     1:1 onto gbk files for antiSMASH region output, which is why the CDS join
     goes through gbk_id.
     """
-    rows = con.execute(
-        """
+    # --organism lets one run be sliced by taxon without re-clustering. The
+    # `distance` values are pairwise comparisons of two BGCs' domain content, so
+    # they do not depend on which other genomes were in the run; only family
+    # assignment does. Slicing therefore gives an honest pepM-vs-neighbourhood
+    # relationship for the subset, but its GCF labels are the parent run's.
+    sql = """
         SELECT br.id AS record_id, cds.aa_seq AS seq, hsp.bit_score AS score
         FROM bgc_record br
         JOIN cds ON cds.gbk_id = br.gbk_id
         JOIN hsp ON hsp.cds_id = cds.id
+        JOIN gbk g ON g.id = br.gbk_id
         WHERE br.record_type = 'region' AND hsp.accession LIKE ?
-        ORDER BY br.id, hsp.bit_score DESC
-        """,
-        (f'{accession}%',),
-    ).fetchall()
+    """
+    args = [f'{accession}%']
+    if organism_prefix:
+        sql += ' AND g.organism LIKE ?'
+        args.append(f'{organism_prefix}%')
+    sql += ' ORDER BY br.id, hsp.bit_score DESC'
+    rows = con.execute(sql, args).fetchall()
     best = {}
     for r in rows:
         if r['record_id'] not in best and r['seq']:
@@ -333,6 +341,8 @@ def main():
     ap.add_argument('--pfam', type=Path, required=True, help='Pfam-A.hmm')
     ap.add_argument('--outdir', type=Path, required=True)
     ap.add_argument('--accession', default=PEPM_ACCESSION)
+    ap.add_argument('--organism', default=None,
+                    help='restrict to organisms with this prefix, e.g. "Pantoea"')
     ap.add_argument('--hmmfetch', default=shutil.which('hmmfetch') or 'hmmfetch')
     ap.add_argument('--hmmalign', default=shutil.which('hmmalign') or 'hmmalign')
     ap.add_argument('--bin-width', type=float, default=0.02, help="paper's interval")
@@ -344,9 +354,11 @@ def main():
     con = sqlite3.connect(f'file:{args.db}?mode=ro', uri=True)
     con.row_factory = sqlite3.Row
 
-    seqs = fetch_pepm_sequences(con, args.accession)
+    seqs = fetch_pepm_sequences(con, args.accession, args.organism)
     n_regions = con.execute(
         "SELECT COUNT(*) FROM bgc_record WHERE record_type='region'").fetchone()[0]
+    if args.organism:
+        print(f'restricted to organism prefix {args.organism!r}')
     print(f'pepM sequences: {len(seqs)} of {n_regions} regions '
           f'({100 * len(seqs) / n_regions:.1f}%)')
     if len(seqs) < 3:
@@ -370,7 +382,8 @@ def main():
         for r in rows:
             fh.write(f'{r[0]}\t{r[1]}\t{r[2]:.6f}\t{r[3]}\t{r[4]:.6f}\t{r[5]:.6f}\n')
 
-    summary = {'accession': args.accession, 'sequences': len(ids),
+    summary = {'accession': args.accession, 'organism': args.organism,
+               'sequences': len(ids),
                'match_columns': int(mat.shape[1]), 'pairs': len(rows),
                'bin_width': args.bin_width}
     for label, idx, key in (('jaccard', 4, 'shared domain content (Jaccard)'),
