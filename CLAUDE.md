@@ -1263,6 +1263,58 @@ Confirm it bound before letting it run: `-dump-hashes` prints the session UUID a
 first hash entry, and the summary line should report a large `cached=` count. If you
 see `cached=0` and `NCBI_DATASETS_DOWNLOAD` starting, kill it — the resume missed.
 
+### `PEPM_ALL_BY_ALL` — pepM identity vs gene-neighbourhood similarity
+
+Reproduces Yu et al. (PNAS 2013;110(51):20759) Fig. 2B on the run's own data, and answers
+whether pepM identity could partition BiG-SCAPE's all-pairs problem.
+
+This is **not** the pepM-vs-references divergence plot removed on 2026-08-27 (below).
+That compared each pepM against a reference set, which the paper does not license. This
+is the paper's actual analysis: all pepMs compared pairwise against each other.
+
+**It is mostly a join.** BiG-SCAPE's `distance` table already holds the y-axis for every
+pair — `jaccard` is shared domain content, the analogue of the paper's "fraction of
+homologous genes shared". Only the pepM axis is new.
+
+Method follows the paper: identity from one alignment with **pairwise deletion of missing
+sites**, not BLAST. `hmmalign` against PF13714 gives that and is linear in sequence count
+where all-by-all alignment is quadratic. Only match columns count, so fusion proteins are
+not penalised for residues nobody was aligned against.
+
+**Measured on Erwiniaceae (333 BGCs, 55,278 pairs, 100% pepM coverage):**
+
+| | r | r² | slope |
+|---|---|---|---|
+| vs `jaccard` | +0.598 | 0.358 | +2.49 |
+| vs BiG-SCAPE similarity | +0.641 | 0.411 | +2.71 |
+
+The correlation above 60% identity is confirmed, but in this data the relationship is a
+**step, not a line**: median neighbourhood similarity is ~0.03 below 0.88 identity and
+jumps to 0.998 at ≥0.98. The paper's dataset spanned all known producers and had a
+populated middle; one family does not.
+
+**Every same-GCF pair has pepM identity ≥ 0.901** (median 1.000), so a cut anywhere from
+0.50 to 0.90 is lossless here.
+
+**But it does not partition well enough on its own.** Single-linkage at any threshold
+leaves one component holding 71% of BGCs, because the dominant GCF is genuinely one
+cluster of near-identical pepMs. Work falls to ~52% of a single job — a 2x saving, not
+the 10-100x needed:
+
+| cut | components | largest | same-GCF lost | work vs one job |
+|----:|-----------:|--------:|--------------:|----------------:|
+| 0.60 | 6 | 236 (71%) | 0 | 57% |
+| 0.90 | 13 | 236 (71%) | 0 | 52% |
+
+**This is the least favourable test case** — a single family with one dominant GCF. A
+taxonomically diverse set is where the idea has to be judged, and 2x still takes the
+projected 1.9 TB to ~950 GB, which fits a 2 TB node. Re-run this on a broad taxon before
+concluding either way.
+
+`PF13714` is resolved to its versioned accession (`PF13714.13`) by scanning the HMM file:
+hmmfetch's index keys on the exact string, and the version moves when `pfam_release` is
+bumped.
+
 ### Why There Is No pepM Tree or pepM-Divergence Analysis
 
 An earlier version built pepM and per-class coupling enzyme trees (`COUPLING_ENZYME_TREE`)

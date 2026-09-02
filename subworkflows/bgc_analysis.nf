@@ -3,6 +3,7 @@ include { TABULATE_REGIONS } from '../modules/analysis/tabulate_regions'
 include { AGGREGATE_TAXONOMY } from '../modules/analysis/aggregate_taxonomy'
 include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
+include { PEPM_ALL_BY_ALL } from '../modules/analysis/pepm_all_by_all'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
 
 include { ANTISMASH_ANALYSIS } from './antismash_analysis'
@@ -73,6 +74,16 @@ workflow BGC_ANALYSIS {
                     PHYLOGENY.out.tree,
                     PHYLOGENY.out.summary
                 )
+                // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
+                // data and reports whether pepM identity could partition
+                // BiG-SCAPE. Independent of the tree above, so Nextflow runs
+                // them concurrently.
+                PEPM_ALL_BY_ALL(
+                    taxon,
+                    CLUSTERING.out.bigscape_db,
+                    CLUSTERING.out.pfam_db
+                )
+
                 gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
                 gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
                 all_bgcs_tree_ch       = GCF_BIOSYNTHETIC_TREE.out.all_bgcs_tree_png.ifEmpty(file('NO_ALL_BGCS_TREE'))

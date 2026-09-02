@@ -20,10 +20,12 @@ workflow CLUSTERING {
         bigscape_db_ch = placeholder('NO_BIGSCAPE_DB')
         bigscape_dir_ch = placeholder('NO_BIGSCAPE_DIR')
         gcf_data_ch = placeholder('NO_GCF_DATA')
+        pfam_db_ch = placeholder('NO_PFAM_DB')
 
         if (clusteringEnabled("bigscape")) {
             DOWNLOAD_PFAM()
-            BIGSCAPE(taxon, antismash_results, DOWNLOAD_PFAM.out.pfam_db)
+            pfam_db_ch = DOWNLOAD_PFAM.out.pfam_db
+            BIGSCAPE(taxon, antismash_results, pfam_db_ch)
             EXTRACT_CLUSTERING_STATS(taxon, BIGSCAPE.out.bigscape_dir)
             bigscape_stats_ch = EXTRACT_CLUSTERING_STATS.out.stats_json
             bigscape_db_ch = BIGSCAPE.out.bigscape_db
@@ -41,4 +43,5 @@ workflow CLUSTERING {
         bigscape_db    = bigscape_db_ch
         bigscape_dir   = bigscape_dir_ch
         gcf_data       = gcf_data_ch
+        pfam_db        = pfam_db_ch
 }
