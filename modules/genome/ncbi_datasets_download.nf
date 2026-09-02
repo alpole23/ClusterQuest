@@ -29,11 +29,13 @@ process NCBI_DATASETS_DOWNLOAD {
     path "ncbi_dataset/data/taxonomy_report.jsonl", emit: taxonomy_report, optional: true
 
     script:
+    def level_flag = params.assembly_level ? "--assembly-level ${params.assembly_level}" : ''
     """    
     datasets download genome taxon "${taxon}" \
         --include gbff \
         --assembly-source GenBank \
         --exclude-atypical \
+        ${level_flag} \
         --filename ncbi_dataset.zip \
         --dehydrated
 

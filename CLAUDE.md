@@ -1306,9 +1306,37 @@ the 10-100x needed:
 | 0.60 | 6 | 236 (71%) | 0 | 57% |
 | 0.90 | 13 | 236 (71%) | 0 | 52% |
 
-**This is the least favourable test case** — a single family with one dominant GCF. A
-taxonomically diverse set is where the idea has to be judged, and 2x still takes the
-projected 1.9 TB to ~950 GB, which fits a 2 TB node.
+**Streptomyces settles it: partitioning works, and Erwiniaceae could not show it.**
+1,573 complete genomes, 1,094 organism names, 185 BGCs in 81 families with a largest
+family of 15 — against Erwiniaceae's 333 BGCs in 19 families with a largest of 215.
+
+| | Erwiniaceae | Streptomyces |
+|---|---:|---:|
+| r vs BiG-SCAPE similarity | +0.641 | **+0.884** |
+| r² | 0.411 | **0.781** |
+| components @0.60 | 6 | **19** |
+| largest component @0.60 | 236 (71%) | **38 (21%)** |
+| same-GCF pairs lost @0.60 | 0 | **0** |
+| work vs one job | 57% | **11%** |
+
+The correlation is far stronger because Streptomyces has the populated middle range the
+paper's kingdom-wide dataset had and one family does not. Cuts stay lossless to 0.80
+(39 components, largest 25, work 6%); at 0.90 seven same-GCF pairs are separated, so
+**0.60-0.80 is the safe window**.
+
+Applying the measured memory fit `GB = 1.14 + 1.29e-7*n^2` at 121,000 BGCs:
+
+| | peak RAM |
+|---|---:|
+| one job, no partition | 1,890 GB |
+| Erwiniaceae-like split (71%) | 953 GB |
+| **Streptomyces-like split (21%)** | **84 GB** |
+| Streptomyces at 0.80 (14%) | 38 GB |
+
+So a million genomes goes from *needing a 2 TB node that may not exist* to fitting the
+existing 128 GB `process_high_memory` allocation. **Judge partitioning on diversity, not
+BGC count** — the earlier "2x is not enough" verdict was measured on the one clade where
+it could not work.
 
 **Pantoea vs Erwiniaceae confirms the scope dependence, by being nearly degenerate.**
 `--organism Pantoea` slices the same run without re-clustering (the `distance` values are
