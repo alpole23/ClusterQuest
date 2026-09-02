@@ -1321,8 +1321,22 @@ family of 15 — against Erwiniaceae's 333 BGCs in 19 families with a largest of
 
 The correlation is far stronger because Streptomyces has the populated middle range the
 paper's kingdom-wide dataset had and one family does not. Cuts stay lossless to 0.80
-(39 components, largest 25, work 6%); at 0.90 seven same-GCF pairs are separated, so
-**0.60-0.80 is the safe window**.
+(39 components, largest 25, work 6%); 0.90 separates same-GCF pairs, so **0.60-0.80 is
+the safe window**.
+
+**Verified by re-running, not just predicted** (`bench_bigscape_partitioned.py`). At 0.60
+both taxa rebuild the reference clustering exactly — 81/81 families and 466/466
+co-membership pairs for Streptomyces, 19/19 and 23,995/23,995 for Erwiniaceae, zero split,
+zero merged, **ARI 1.0000**. Erwiniaceae is the stronger evidence despite partitioning
+badly: its largest partition holds 71% of BGCs, so the agreement is not an artefact of
+small partitions.
+
+At 0.90 it breaks as predicted — 65 partitions, 81 -> 83 families, **23 same-family pairs
+split**, ARI 0.974. That confirms the cheap check is directionally sound, but note it
+predicted **7**, not 23: `lost` uses pairwise similarity >= 0.70 as a proxy for family
+membership, while BiG-SCAPE families are transitively closed and 9% of same-family pairs
+sit below that cutoff, joined through a third BGC. **Treat a non-zero `lost` as
+disqualifying rather than as a damage budget**; zero remains a reliable all-clear.
 
 Applying the measured memory fit `GB = 1.14 + 1.29e-7*n^2` at 121,000 BGCs:
 

@@ -263,6 +263,16 @@ def partition_analysis(rows, thresholds, gcf_similarity_cut=0.70):
     cut, or partitioning would split real families. `lost` counts pairs above
     the GCF similarity cutoff that the threshold would have separated.
 
+    **`lost` is a lower bound, not a count.** It uses pairwise similarity as a
+    proxy for family membership, but BiG-SCAPE families are transitively closed
+    clusters: 9% of same-family pairs in Streptomyces sit *below* the 0.70
+    cutoff, joined through a third BGC rather than directly. Measured against
+    an actual partitioned re-run at 0.90, this predicted 7 splits where 23
+    occurred (26 same-family pairs were separable). Zero remains a reliable
+    all-clear — nothing separable means nothing splits — but a non-zero value
+    understates the damage, so treat any non-zero as disqualifying rather than
+    as a budget. `scripts/bench_bigscape_partitioned.py` measures the truth.
+
     *Does the cut actually divide anything?* Single-linkage components at the
     threshold are the jobs BiG-SCAPE would then run. Since its cost is
     quadratic, what matters is the largest component's share of the whole:
