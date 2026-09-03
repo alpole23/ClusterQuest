@@ -1331,6 +1331,29 @@ zero merged, **ARI 1.0000**. Erwiniaceae is the stronger evidence despite partit
 badly: its largest partition holds 71% of BGCs, so the agreement is not an artefact of
 small partitions.
 
+**A mixed set behaves as the middle case, and dilution is the mechanism.** Combining both
+taxa (518 BGCs) gives 100 families — exactly 19 + 81, so *no cross-taxon families form*:
+Erwiniaceae and Streptomyces phosphonate BGCs are disjoint lineages, not variations on
+shared clusters.
+
+| | Erwiniaceae | Combined | Streptomyces |
+|---|---:|---:|---:|
+| BGCs | 333 | 518 | 185 |
+| families | 19 | 100 | 81 |
+| r vs BiG-SCAPE similarity | +0.641 | +0.683 | +0.884 |
+| components @0.60 | 6 | 24 | 19 |
+| largest @0.60 | 236 (71%) | **236 (46%)** | 38 (21%) |
+| work vs one job | 57% | **26%** | 11% |
+| ARI vs unpartitioned | 1.0000 | **1.0000** | 1.0000 |
+
+The *Pantoea* component stays **236 BGCs, unchanged** — only its share falls, because the
+denominator grew. Adding diversity does not break dense clusters apart, it dilutes them.
+That is the mechanism to plan around: **peak memory is set by the largest component in
+absolute terms, not its share**, so what matters at scale is whether dense clusters like
+this one keep growing with sampling depth or saturate. The Chao2 rarefaction suggests
+*Pantoea* phosphonate GCFs are near saturation, which would mean ~236 stays roughly fixed
+while everything else grows around it — but that is an inference, not a measurement.
+
 At 0.90 it breaks as predicted — 65 partitions, 81 -> 83 families, **23 same-family pairs
 split**, ARI 0.974. That confirms the cheap check is directionally sound, but note it
 predicted **7**, not 23: `lost` uses pairwise similarity >= 0.70 as a proxy for family
