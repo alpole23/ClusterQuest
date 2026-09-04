@@ -1,0 +1,106 @@
+{
+  "threshold": 0.6,
+  "bgcs": 518,
+  "replicates": 30,
+  "curve": [
+    {
+      "depth": 43,
+      "largest_mean": 18.866666666666667,
+      "largest_min": 12,
+      "largest_max": 23,
+      "components_mean": 11.433333333333334,
+      "largest_share": 0.43875968992248066
+    },
+    {
+      "depth": 86,
+      "largest_mean": 40.13333333333333,
+      "largest_min": 32,
+      "largest_max": 50,
+      "components_mean": 14.633333333333333,
+      "largest_share": 0.4666666666666667
+    },
+    {
+      "depth": 130,
+      "largest_mean": 58.233333333333334,
+      "largest_min": 47,
+      "largest_max": 65,
+      "components_mean": 16.4,
+      "largest_share": 0.44794871794871793
+    },
+    {
+      "depth": 173,
+      "largest_mean": 80.3,
+      "largest_min": 68,
+      "largest_max": 91,
+      "components_mean": 18.366666666666667,
+      "largest_share": 0.4641618497109826
+    },
+    {
+      "depth": 216,
+      "largest_mean": 99.06666666666666,
+      "largest_min": 81,
+      "largest_max": 113,
+      "components_mean": 19.133333333333333,
+      "largest_share": 0.458641975308642
+    },
+    {
+      "depth": 259,
+      "largest_mean": 116.7,
+      "largest_min": 101,
+      "largest_max": 126,
+      "components_mean": 20.333333333333332,
+      "largest_share": 0.4505791505791506
+    },
+    {
+      "depth": 302,
+      "largest_mean": 138.26666666666668,
+      "largest_min": 128,
+      "largest_max": 150,
+      "components_mean": 21.533333333333335,
+      "largest_share": 0.4578366445916115
+    },
+    {
+      "depth": 345,
+      "largest_mean": 158.4,
+      "largest_min": 149,
+      "largest_max": 172,
+      "components_mean": 22.166666666666668,
+      "largest_share": 0.45913043478260873
+    },
+    {
+      "depth": 388,
+      "largest_mean": 177.33333333333334,
+      "largest_min": 165,
+      "largest_max": 187,
+      "components_mean": 22.966666666666665,
+      "largest_share": 0.45704467353951894
+    },
+    {
+      "depth": 432,
+      "largest_mean": 195.46666666666667,
+      "largest_min": 186,
+      "largest_max": 203,
+      "components_mean": 23.266666666666666,
+      "largest_share": 0.4524691358024691
+    },
+    {
+      "depth": 475,
+      "largest_mean": 216.5,
+      "largest_min": 210,
+      "largest_max": 221,
+      "components_mean": 23.833333333333332,
+      "largest_share": 0.4557894736842105
+    },
+    {
+      "depth": 518,
+      "largest_mean": 236.0,
+      "largest_min": 236,
+      "largest_max": 236,
+      "components_mean": 24.0,
+      "largest_share": 0.4555984555984556
+    }
+  ],
+  "slope_early": 0.47256410256410253,
+  "slope_late": 0.45128205128205123,
+  "slope_ratio": 0.9549647314161692
+}

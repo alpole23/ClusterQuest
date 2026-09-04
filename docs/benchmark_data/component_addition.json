@@ -1,0 +1,70 @@
+{
+  "base_tag": "Erwiniaceae",
+  "threshold": 0.6,
+  "curve": [
+    {
+      "added": 0,
+      "total": 333,
+      "largest_mean": 236.0,
+      "largest_share": 0.7087087087087087,
+      "components_mean": 6.0
+    },
+    {
+      "added": 23,
+      "total": 356,
+      "largest_mean": 236.0,
+      "largest_share": 0.6629213483146067,
+      "components_mean": 15.766666666666667
+    },
+    {
+      "added": 46,
+      "total": 379,
+      "largest_mean": 236.0,
+      "largest_share": 0.6226912928759895,
+      "components_mean": 19.6
+    },
+    {
+      "added": 69,
+      "total": 402,
+      "largest_mean": 236.0,
+      "largest_share": 0.5870646766169154,
+      "components_mean": 20.233333333333334
+    },
+    {
+      "added": 92,
+      "total": 425,
+      "largest_mean": 236.0,
+      "largest_share": 0.5552941176470588,
+      "components_mean": 21.7
+    },
+    {
+      "added": 116,
+      "total": 449,
+      "largest_mean": 236.0,
+      "largest_share": 0.5256124721603563,
+      "components_mean": 22.733333333333334
+    },
+    {
+      "added": 139,
+      "total": 472,
+      "largest_mean": 236.0,
+      "largest_share": 0.5,
+      "components_mean": 22.933333333333334
+    },
+    {
+      "added": 162,
+      "total": 495,
+      "largest_mean": 236.0,
+      "largest_share": 0.4767676767676768,
+      "components_mean": 23.666666666666668
+    },
+    {
+      "added": 185,
+      "total": 518,
+      "largest_mean": 236.0,
+      "largest_share": 0.4555984555984556,
+      "components_mean": 24.0
+    }
+  ],
+  "largest_growth": 0.0
+}

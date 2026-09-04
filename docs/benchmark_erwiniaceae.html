@@ -242,7 +242,7 @@ footer p{max-width:68ch; margin:0 0 8px}
 <header class="mast">
   <p class="eyebrow">ClusterQuest · resource benchmark</p>
   <h1>Cost of a Million Genomes</h1>
-  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. Measured on a clean run from an empty <code>results/</code>. A million genomes costs about <strong>$1,140 internal / $1,515 external</strong> in compute — cheap enough that it is not the constraint. What stops you is memory: BiG-SCAPE needs ~1.9 TB of RAM to cluster that many BGCs in one pass.</p>
+  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. Measured on a clean run from an empty <code>results/</code>. A million genomes costs about <strong>$1,140 internal / $1,515 external</strong> in compute — cheap enough that it is not the constraint. Memory looked like the wall — BiG-SCAPE needs ~1.9 TB to cluster that many BGCs in one pass — until partitioning by pepM identity brought it to 84 GB with a verifiably identical GCF network.</p>
   <div class="mast-meta">
     <span>Measured <b>31 Aug 2026</b>, pinned databases</span>
     <span>BiG-SCAPE sweep <b>333–10,000</b> BGCs</span>
@@ -456,7 +456,7 @@ footer p{max-width:68ch; margin:0 0 8px}
       <thead><tr><th>Stage</th><th class="num">CPU-h</th><th class="num">Share</th><th>Basis</th></tr></thead>
       <tbody>
         <tr><th>antiSMASH</th><td class="num">20,787</td><td class="num">90.9%</td><td class="dim">linear; 92.3 CPU-s/genome measured</td></tr>
-        <tr><th>BiG-SCAPE</th><td class="num">1,090</td><td class="num">4.8%</td><td class="dim">121k BGCs; <strong>needs ~1.9 TB RAM</strong></td></tr>
+        <tr><th>BiG-SCAPE</th><td class="num">1,090</td><td class="num">4.8%</td><td class="dim">121k BGCs; 1.9 TB in one job, <strong>84 GB partitioned</strong></td></tr>
         <tr><th>GTDB-Tk <span class="dim">50k batches</span></th><td class="num">563</td><td class="num">2.5%</td><td class="dim">11.5 CPU-h fixed per batch</td></tr>
         <tr><th>download + rename</th><td class="num">319</td><td class="num">1.4%</td><td class="dim">network-bound</td></tr>
         <tr><th class="dim">other</th><td class="num dim">109</td><td class="num dim">0.5%</td><td class="dim"></td></tr>
@@ -507,7 +507,7 @@ footer p{max-width:68ch; margin:0 0 8px}
   <div class="note warn">
     <p class="h">Memory is the wall, and it only appears above 4,000 BGCs</p>
     <p>Peak RSS looks harmless across the first seven sizes — 1.62 to 3.40 GB — which is why an earlier draft of this page concluded memory was not a constraint. It was measured over a range where memory growth had not started. Extending to 10,000 BGCs shows the local exponent going <strong>0.11 → 0.29 → 0.59 → 1.27 → 1.63 → 2.01</strong>. Above ~4,000 BGCs it is exactly quadratic.</p>
-    <p>Fitting <span class="mono">GB = 1.14 + 1.29×10⁻⁷·n²</span> gives <strong>~1.9 TB of RAM at 121,000 BGCs</strong>, and 4.3 TB at <i>Pantoea</i>-level BGC yield. No single node runs that. The practical ceiling for one BiG-SCAPE job:</p>
+    <p>Fitting <span class="mono">GB = 1.14 + 1.29×10⁻⁷·n²</span> gives <strong>~1.9 TB of RAM at 121,000 BGCs</strong>, and 4.3 TB at <i>Pantoea</i>-level BGC yield. No single node runs that. The practical ceiling for one BiG-SCAPE job — <em>before partitioning, which the next section resolves</em>:</p>
     <div class="scroll" style="margin:14px 0 0">
       <table>
         <thead><tr><th class="num">RAM budget</th><th class="num">Largest single job</th></tr></thead>
@@ -527,6 +527,85 @@ footer p{max-width:68ch; margin:0 0 8px}
   </div>
 
   <p>Compute for a million genomes lands near <strong>$1,140</strong> internal and <strong>$1,515</strong> external, which is small enough that it is not the constraint. Wall clock and scheduler behaviour are. At the campus limit of 20 submissions/minute, one job per genome is 833 hours of pure submission — which is why the short per-genome steps are already batched and antiSMASH is capped at 2 CPUs.</p>
+</section>
+
+<section>
+  <h2>Partitioning removes the memory wall <span class="tag m">measured</span></h2>
+  <p class="dek">The 1.9 TB above assumes one all-pairs job. Splitting the input by pepM sequence identity first — a cheap profile alignment, linear where BGC comparison is quadratic — reproduces the same GCF network at a fraction of the peak memory. Verified by re-running BiG-SCAPE both ways and comparing the clusterings, not by inference.</p>
+
+  <h3>The same network, three times over</h3>
+  <p>Families compared by <em>co-membership</em>, not by label: GCF ids are per-run autoincrements, so the only meaningful question is whether two BGCs land together in both runs.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>Set</th><th class="num">Partitions</th><th class="num">Largest</th>
+        <th class="num">Families ref / part.</th><th class="num">Co-membership pairs</th>
+        <th class="num">Split</th><th class="num">ARI</th>
+      </tr></thead>
+      <tbody>
+        <tr><th><i>Streptomyces</i></th><td class="num">19</td><td class="num">38 of 185</td><td class="num">81 / 81</td><td class="num">466 / 466</td><td class="num">0</td><td class="num down">1.0000</td></tr>
+        <tr><th><i>Erwiniaceae</i></th><td class="num">6</td><td class="num">236 of 333</td><td class="num">19 / 19</td><td class="num">23,995 / 23,995</td><td class="num">0</td><td class="num down">1.0000</td></tr>
+        <tr><th>Combined</th><td class="num">24</td><td class="num">236 of 518</td><td class="num">100 / 100</td><td class="num">24,461 / 24,461</td><td class="num">0</td><td class="num down">1.0000</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><i>Erwiniaceae</i> is the strongest evidence despite partitioning worst — its largest partition holds 71% of the BGCs, so exact agreement there is not an artefact of small, easy pieces.</p>
+
+  <h3>What it does to peak memory</h3>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>121,000 BGCs</th><th class="num">Largest job</th><th class="num">Peak RAM</th><th>Fits</th></tr></thead>
+      <tbody>
+        <tr><th>one job, unpartitioned</th><td class="num">121,000</td><td class="num up">1,890 GB</td><td class="dim">no node</td></tr>
+        <tr><th><i>Erwiniaceae</i>-like split (71%)</th><td class="num">85,910</td><td class="num">953 GB</td><td class="dim">2 TB node only</td></tr>
+        <tr class="total"><th><i>Streptomyces</i>-like split (21%)</th><td class="num">25,410</td><td class="num down">84 GB</td><td>existing 128 GB allocation</td></tr>
+        <tr><th>at a 0.80 cut (14%)</th><td class="num">16,940</td><td class="num down">38 GB</td><td>48 GB label</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <p class="h">The safe window is 0.60–0.80, and the cheap screen understates damage</p>
+    <p>At pepM identity 0.90 partitioning breaks as predicted: 65 partitions, 81 → 83 families, <strong>23 same-family pairs split</strong>, ARI 0.974. So the screen is directionally sound — but it predicted <strong>7</strong>, not 23. It uses pairwise similarity ≥ 0.70 as a proxy for family membership, while BiG-SCAPE families are <em>transitively closed</em> and 9% of same-family pairs sit below that cutoff, joined through a third BGC.</p>
+    <p><strong>Treat a non-zero count as disqualifying, not as a damage budget.</strong> Zero remains a reliable all-clear, since nothing separable means nothing splits.</p>
+  </div>
+
+  <div class="note cool">
+    <p class="h">The verdict reversed once it was tested on diversity</p>
+    <p>Measured on <i>Erwiniaceae</i> alone, partitioning looked useless — work fell only to 57% of a single job. That is the one clade where it cannot work: 216 of its 333 BGCs sit in a single GCF of near-identical pepMs.</p>
+    <div class="scroll" style="margin:14px 0 0">
+      <table>
+        <thead><tr><th></th><th class="num"><i>Erwiniaceae</i></th><th class="num">Combined</th><th class="num"><i>Streptomyces</i></th></tr></thead>
+        <tbody>
+          <tr><th>r vs BiG-SCAPE similarity</th><td class="num">+0.641</td><td class="num">+0.683</td><td class="num">+0.884</td></tr>
+          <tr><th>largest component @0.60</th><td class="num">236 (71%)</td><td class="num">236 (46%)</td><td class="num">38 (21%)</td></tr>
+          <tr><th>work vs one job</th><td class="num up">57%</td><td class="num">26%</td><td class="num down">11%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">Judge partitioning on taxonomic breadth, not BGC count. 1,573 <i>Streptomyces</i> genomes spanning 1,094 organism names partition five times better than 2,758 <i>Erwiniaceae</i> genomes dominated by one clade.</p>
+  </div>
+
+  <h3>Peak memory tracks the deepest-sampled clade, not the dataset <span class="tag m">measured</span></h3>
+  <p>Partitioning dilutes dense clusters rather than breaking them up, so what governs peak memory is whether a cluster like <i>Pantoea</i>'s keeps growing as more genomes arrive. Holding <i>Erwiniaceae</i> fixed and adding <i>Streptomyces</i> in nine steps answers it directly:</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th class="num">Added</th><th class="num">Total BGCs</th><th class="num">Largest component</th><th class="num">Share</th><th class="num">Components</th></tr></thead>
+      <tbody>
+        <tr><td class="num">0</td><td class="num">333</td><td class="num">236</td><td class="num">70.9%</td><td class="num">6.0</td></tr>
+        <tr><td class="num">46</td><td class="num">379</td><td class="num">236</td><td class="num">63.3%</td><td class="num">19.6</td></tr>
+        <tr><td class="num">92</td><td class="num">425</td><td class="num">236</td><td class="num">55.5%</td><td class="num">21.7</td></tr>
+        <tr><td class="num">139</td><td class="num">472</td><td class="num">236</td><td class="num">50.0%</td><td class="num">22.9</td></tr>
+        <tr class="total"><td class="num">185</td><td class="num">518</td><td class="num">236</td><td class="num">45.6%</td><td class="num">24.0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Growth across the whole addition: <strong>+0 BGCs</strong>. New diversity adds components beside the dense cluster and never enlarges it. So a million genomes spread across many clades enlarges no single component — <strong>the risk is a million concentrated on one over-sequenced phosphonate-carrying clade</strong>, and NCBI's sampling is skewed enough that this is the case to watch.</p>
+
+  <div class="note">
+    <p class="h">A negative result worth recording: random subsampling cannot answer this</p>
+    <p>The obvious rarefaction — subsample the set at increasing depths and watch the largest component — returns ~45.6% at <em>every</em> depth (slope ratio 0.95, share pinned 44–47% across a 12× range). That is arithmetic, not biology: draw randomly from a pool where 45.6% of BGCs sit in one component and you get 45.6% back. The curve describes the pool it came from and is blind to what adding new clades does, which is what scaling means. Both modes are kept in <code>bench_component_rarefaction.py</code> so the distinction is not rediscovered.</p>
+  </div>
 </section>
 
 <section>
@@ -556,10 +635,10 @@ footer p{max-width:68ch; margin:0 0 8px}
       </div>
     </li>
     <li>
-      <div class="k">plan</div>
+      <div class="k">build</div>
       <div>
-        <div class="t">Partition BiG-SCAPE — it cannot run in one pass</div>
-        <p>A single job caps at ~31,000 BGCs on a 128 GB node and ~22,000 on the 64 GB the SLURM profile allocates. A million genomes needs the comparison partitioned — by BGC class, or by a pre-clustering pass — since one all-pairs run over 121,000 BGCs needs ~1.9 TB of RAM and a 0.74 TB database.</p>
+        <div class="t">Partition BiG-SCAPE by pepM identity at 0.60–0.80</div>
+        <p>A single job caps at ~31,000 BGCs on a 128 GB node and ~22,000 on the 64 GB the SLURM profile allocates, against 121,000 for a million genomes. Partitioning is verified lossless on three sets (ARI 1.0000) and takes peak RAM from 1,890 GB to ~84 GB, inside the existing allocation. The remaining unknown is a taxonomically broad real sample — only two clades have been tested, and NCBI's skew toward a few over-sequenced lineages is the case that would hurt. The 0.74 TB database is untouched by this and remains the structural problem.</p>
       </div>
     </li>
     <li>
