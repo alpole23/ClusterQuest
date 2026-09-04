@@ -1348,11 +1348,29 @@ shared clusters.
 
 The *Pantoea* component stays **236 BGCs, unchanged** — only its share falls, because the
 denominator grew. Adding diversity does not break dense clusters apart, it dilutes them.
-That is the mechanism to plan around: **peak memory is set by the largest component in
-absolute terms, not its share**, so what matters at scale is whether dense clusters like
-this one keep growing with sampling depth or saturate. The Chao2 rarefaction suggests
-*Pantoea* phosphonate GCFs are near saturation, which would mean ~236 stays roughly fixed
-while everything else grows around it — but that is an inference, not a measurement.
+
+**Measured, not inferred** (`bench_component_rarefaction.py --add-from`). Holding
+Erwiniaceae fixed and adding Streptomyces in nine steps, the largest component is 236 at
+every single step:
+
+| Streptomyces added | total | largest | share | components |
+|---:|---:|---:|---:|---:|
+| 0 | 333 | 236 | 70.9% | 6.0 |
+| 92 | 425 | **236** | 55.5% | 21.7 |
+| 185 | 518 | **236** | 45.6% | 24.0 |
+
+Growth across the whole addition: **+0 BGCs**. New diversity adds components beside the
+dense cluster; it never enlarges it.
+
+So **peak memory is set by the most deeply sampled single clade, not by dataset size.**
+A million genomes spread across many clades does not enlarge any one component. A million
+concentrated on one over-sequenced clade would — and NCBI *is* skewed, so a heavily
+sequenced phosphonate-carrying clade is the case to watch.
+
+Note the plain random-subsample rarefaction in the same script is **uninformative for
+this question and says so**: drawing from a pool where 45.6% of BGCs sit in one component
+returns ~45.6% at every depth (slope ratio 0.95, share pinned 44-47% over a 12x range).
+That is arithmetic, not biology. `--add-from` is the mode that bears on scaling.
 
 At 0.90 it breaks as predicted — 65 partitions, 81 -> 83 families, **23 same-family pairs
 split**, ARI 0.974. That confirms the cheap check is directionally sound, but note it
