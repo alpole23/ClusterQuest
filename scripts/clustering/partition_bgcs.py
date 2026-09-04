@@ -206,10 +206,12 @@ def main():
     ap.add_argument('--pfam', type=Path, required=True)
     ap.add_argument('--out', type=Path, required=True)
     ap.add_argument('--threshold', type=float, default=0.60)
-    ap.add_argument('--max_partition_size', type=int, default=20000,
-                    help='hard cap; ~22,000 BGCs is the 64 GB SLURM allocation')
-    ap.add_argument('--min_to_partition', type=int, default=4000,
-                    help='below this, one job is cheaper than the split')
+    ap.add_argument('--max_partition_size', type=int, default=0,
+                    help='largest partition in BGCs; 0 derives it from --memory_gb')
+    ap.add_argument('--memory_gb', type=float, default=32.0,
+                    help='memory one BiG-SCAPE partition job is allocated')
+    ap.add_argument('--partition_threshold', type=int, default=10000,
+                    help='total BGCs below which everything goes in one partition')
     ap.add_argument('--cpus', type=int, default=4)
     ap.add_argument('--hmmfetch', default=shutil.which('hmmfetch') or 'hmmfetch')
     ap.add_argument('--hmmsearch', default=shutil.which('hmmsearch') or 'hmmsearch')
@@ -232,10 +234,12 @@ def main():
             f'{len(clashes)} region filenames are not unique, e.g. {clashes[:3]}; '
             'flat staging would drop BGCs')
 
-    # Below the quadratic regime, partitioning costs more than it saves: the
-    # fixed Pfam load per partition dominates, and one job comfortably fits.
-    if len(gbks) < args.min_to_partition:
-        print(f'under --min_to_partition ({args.min_to_partition}); one partition')
+    # Below the quadratic regime partitioning is a net loss: every partition
+    # re-pays BiG-SCAPE's fixed Pfam-load cost. Measured on identical inputs,
+    # 185 BGCs took 30 s as one job against 112 s across 19 partitions.
+    if len(gbks) < args.partition_threshold:
+        print(f'{len(gbks)} BGCs is under --partition_threshold '
+              f'({args.partition_threshold}); one partition')
         with args.out.open('w') as fh:
             fh.write('partition\tgbk\n')
             for g in gbks:
@@ -268,7 +272,12 @@ def main():
     if orphans:
         print(f'{len(orphans)} regions without a pepM hit, each its own partition')
 
-    parts, forced = split_oversized(parts, args.max_partition_size)
+    # The cap keeps one partition inside its own memory allocation, so derive it
+    # from that allocation by inverting the measured fit GB = 1.14 + 1.29e-7*n^2.
+    cap = args.max_partition_size or int(((args.memory_gb - 1.14) / 1.29e-7) ** 0.5)
+    print(f'partition cap {cap:,} BGCs'
+          + ('' if args.max_partition_size else f' (from {args.memory_gb:g} GB)'))
+    parts, forced = split_oversized(parts, cap)
     if forced:
         print(f'WARNING: {forced} component(s) exceeded --max_partition_size and were '
               f'chunked; this can split a real family')

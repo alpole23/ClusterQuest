@@ -23,6 +23,9 @@ process PARTITION_BGCS {
     path "bgc_partitions.tsv", emit: partitions
 
     script:
+    // The cap exists to keep one partition inside its own allocation, so
+    // derive it from that allocation rather than from a guessed constant.
+    def mem_gb = task.memory ? task.memory.toGiga() : 32
     """
     # Cache key. The scripts below are interpolated paths, not declared inputs,
     # so Nextflow would not otherwise notice when they change. Listed explicitly
@@ -34,8 +37,9 @@ process PARTITION_BGCS {
         --pfam ${pfam_db}/Pfam-A.hmm \\
         --out bgc_partitions.tsv \\
         --threshold ${params.bigscape_partition_identity} \\
-        --max_partition_size ${params.bigscape_partition_max} \\
-        --min_to_partition ${params.bigscape_partition_min} \\
+        --max_partition_size ${params.bigscape_partition_max_size} \\
+        --partition_threshold ${params.bigscape_partition_threshold} \\
+        --memory_gb ${mem_gb} \\
         --cpus ${task.cpus} \\
         --hmmfetch \$(which hmmfetch) \\
         --hmmsearch \$(which hmmsearch) \\

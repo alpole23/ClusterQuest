@@ -1276,8 +1276,33 @@ PARTITION_BGCS -> BIGSCAPE_PARTITION (one per partition) -> MERGE_BIGSCAPE -> CL
 |-----------|---------|-------|
 | `bigscape_partition` | `false` | Enables the partitioned path |
 | `bigscape_partition_identity` | `0.60` | 0.60-0.80 is the verified safe window; 0.90 splits real families |
-| `bigscape_partition_max` | `20000` | Hard cap; 22,100 BGCs is the 64 GB SLURM allocation |
-| `bigscape_partition_min` | `4000` | Below this the split costs more than it saves |
+| `bigscape_partition_threshold` | `10000` | **Total BGCs in the run** — not base pairs, not a partition size — below which everything goes in one partition |
+| `bigscape_partition_max_size` | `0` | Largest partition, in BGCs. `0` derives it from the task's memory allocation |
+
+**The threshold is a dataset-level switch, the cap is per-partition.** They are not a
+matched pair, which an earlier `_min`/`_max` naming wrongly implied.
+
+**Partitioning is a net loss at small scale**, which is what the threshold is for: every
+partition re-pays BiG-SCAPE's fixed Pfam-load cost. Measured on identical inputs, 185 BGCs
+took **30 s as one job against 112 s across 19 partitions** (3.7x slower), and 518 BGCs
+took 93 s against 191 s (2.1x). Modelling the fixed cost against the quadratic term puts
+the crossover near **10,000-12,000 BGCs**, hence the default. Below it, partitioning costs
+time and buys nothing, because memory is not yet a constraint either.
+
+**The cap should follow the memory allocation, not a guess**, so it is derived by
+inverting the measured fit `GB = 1.14 + 1.29e-7*n^2` against `task.memory`:
+
+| RAM | largest partition |
+|----:|------------------:|
+| 16 GB | 10,700 BGCs |
+| 32 GB | 15,500 |
+| 48 GB | 19,100 |
+| 64 GB | 22,100 |
+| 128 GB | 31,400 |
+| 256 GB | 44,400 |
+
+Set `bigscape_partition_max_size` to a number only to override that. A component above the
+cap is chunked, which **can** split a real family, so the partitioner warns when it fires.
 
 **`PARTITION_BGCS` runs before BiG-SCAPE**, so it cannot read pepM from a clustering
 database — it extracts CDS translations from the region GenBanks and finds pepM by
