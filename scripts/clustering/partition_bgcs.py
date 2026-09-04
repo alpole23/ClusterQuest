@@ -210,6 +210,9 @@ def main():
                     help='largest partition in BGCs; 0 derives it from --memory_gb')
     ap.add_argument('--memory_gb', type=float, default=32.0,
                     help='memory one BiG-SCAPE partition job is allocated')
+    ap.add_argument('--memory_margin', type=float, default=0.85,
+                    help='fraction of that memory to budget; the fit is '
+                         'extrapolated past its data, so leave headroom')
     ap.add_argument('--partition_threshold', type=int, default=10000,
                     help='total BGCs below which everything goes in one partition')
     ap.add_argument('--cpus', type=int, default=4)
@@ -274,9 +277,21 @@ def main():
 
     # The cap keeps one partition inside its own memory allocation, so derive it
     # from that allocation by inverting the measured fit GB = 1.14 + 1.29e-7*n^2.
-    cap = args.max_partition_size or int(((args.memory_gb - 1.14) / 1.29e-7) ** 0.5)
-    print(f'partition cap {cap:,} BGCs'
-          + ('' if args.max_partition_size else f' (from {args.memory_gb:g} GB)'))
+    #
+    # Budget only part of the allocation, because the fit is being extrapolated
+    # well past its data: it was measured to 10,000 BGCs, and 128 GB implies
+    # 31,000 — a 3.1x reach, 4.4x at 256 GB. The margin costs about 8% of the cap
+    # and buys ~19 GB of headroom at 128 GB, against an OOM kill that would throw
+    # away hours of clustering.
+    if args.max_partition_size:
+        cap = args.max_partition_size
+        print(f'partition cap {cap:,} BGCs (explicit override)')
+    else:
+        budget = args.memory_gb * args.memory_margin
+        cap = int(((budget - 1.14) / 1.29e-7) ** 0.5)
+        print(f'partition cap {cap:,} BGCs (from {args.memory_gb:g} GB at '
+              f'{args.memory_margin:.0%}; the fit is extrapolated '
+              f'{cap / 10000:.1f}x past its data)')
     parts, forced = split_oversized(parts, cap)
     if forced:
         print(f'WARNING: {forced} component(s) exceeded --max_partition_size and were '

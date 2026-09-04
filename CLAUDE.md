@@ -1277,7 +1277,8 @@ PARTITION_BGCS -> BIGSCAPE_PARTITION (one per partition) -> MERGE_BIGSCAPE -> CL
 | `bigscape_partition` | `false` | Enables the partitioned path |
 | `bigscape_partition_identity` | `0.60` | 0.60-0.80 is the verified safe window; 0.90 splits real families |
 | `bigscape_partition_threshold` | `10000` | **Total BGCs in the run** — not base pairs, not a partition size — below which everything goes in one partition |
-| `bigscape_partition_max_size` | `0` | Largest partition, in BGCs. `0` derives it from the task's memory allocation |
+| `bigscape_partition_max_size` | `0` | Largest partition, in BGCs. `0` derives it from the task's memory allocation. A **safety valve, not a tuning knob** |
+| `bigscape_partition_memory_margin` | `0.85` | Fraction of the allocation to budget when deriving the cap |
 
 **The threshold is a dataset-level switch, the cap is per-partition.** They are not a
 matched pair, which an earlier `_min`/`_max` naming wrongly implied.
@@ -1301,8 +1302,19 @@ inverting the measured fit `GB = 1.14 + 1.29e-7*n^2` against `task.memory`:
 | 128 GB | 31,400 |
 | 256 GB | 44,400 |
 
-Set `bigscape_partition_max_size` to a number only to override that. A component above the
-cap is chunked, which **can** split a real family, so the partitioner warns when it fires.
+Those are at 85% of the allocation, not 100%, because **the fit is being extrapolated well
+past its data**: it was measured to 10,000 BGCs, and 128 GB implies ~31,000 — a 3.1x reach,
+4.4x at 256 GB. The margin costs ~8% of the cap and buys ~19 GB of headroom at 128 GB,
+against an OOM kill that discards hours of clustering.
+
+**To run smaller partitions, lower the memory allocation**, which moves the cap and the
+request together. `bigscape_partition_max_size` is a safety valve for when the derivation
+is wrong for your data — BGCs with unusually rich domain content could need more memory
+per BGC than the fit predicts, and that is the one case the allocation lever cannot
+express, since you want a smaller cap at the *same* memory.
+
+A component above the cap is chunked, which **can** split a real family, so the partitioner
+warns when it fires.
 
 **`PARTITION_BGCS` runs before BiG-SCAPE**, so it cannot read pepM from a clustering
 database — it extracts CDS translations from the region GenBanks and finds pepM by

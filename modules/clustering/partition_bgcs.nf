@@ -40,6 +40,7 @@ process PARTITION_BGCS {
         --max_partition_size ${params.bigscape_partition_max_size} \\
         --partition_threshold ${params.bigscape_partition_threshold} \\
         --memory_gb ${mem_gb} \\
+        --memory_margin ${params.bigscape_partition_memory_margin} \\
         --cpus ${task.cpus} \\
         --hmmfetch \$(which hmmfetch) \\
         --hmmsearch \$(which hmmsearch) \\
