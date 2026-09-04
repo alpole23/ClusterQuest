@@ -674,3 +674,122 @@ def build_coupling_table_rows(coupling_annotation_path, bigscape_db_path, cutoff
                 f'</tr>'
             )
         return '\n'.join(rows)
+
+
+def build_pepm_section(pepm_b64, pepm_summary):
+    """pepM identity vs gene-neighbourhood similarity, for the GCF Analysis tab.
+
+    This is the evidence that the GCF assignments above it can be trusted: it
+    reproduces Yu et al. (PNAS 2013;110(51):20759) Fig. 2B on the run's own data,
+    correlating each BGC pair's pepM amino-acid identity against the domain
+    content BiG-SCAPE actually clustered on.
+
+    Returns '' when the analysis did not run, so the tab simply omits it.
+    """
+    if not pepm_summary:
+        return ''
+    stats = (pepm_summary.get('bigscape_similarity') or {}).get('regression') or {}
+    jac = (pepm_summary.get('jaccard') or {}).get('regression') or {}
+    n_seq = pepm_summary.get('sequences')
+    n_pairs = pepm_summary.get('pairs')
+
+    fig = ''
+    if pepm_b64:
+        fig = (f'<img src="data:image/svg+xml;base64,{pepm_b64}" '
+               f'alt="pepM identity against BiG-SCAPE gene-cluster similarity, '
+               f'{n_pairs:,} pairwise comparisons" '
+               f'style="max-width:100%;height:auto;display:block;margin:0 auto;">')
+
+    def row(label, r):
+        if not r:
+            return ''
+        return (f'<tr><td style="padding:6px 10px;">{label}</td>'
+                f'<td style="padding:6px 10px;text-align:right;">{r.get("r", 0):+.3f}</td>'
+                f'<td style="padding:6px 10px;text-align:right;">{r.get("r2", 0):.3f}</td>'
+                f'<td style="padding:6px 10px;text-align:right;">{r.get("slope", 0):+.2f}</td>'
+                f'<td style="padding:6px 10px;text-align:right;">{r.get("n", 0):,}</td></tr>')
+
+    return f'''
+    <div class="section">
+        <h3>pepM Identity vs Gene-Cluster Similarity</h3>
+        <p style="color:#555;max-width:70ch;">
+            Every pair of pepM (PEP mutase) sequences in this run compared against each
+            other, plotted against how similar BiG-SCAPE found their gene neighbourhoods
+            &mdash; a replication of Yu et&nbsp;al.
+            (<a href="https://doi.org/10.1073/pnas.1315107110">PNAS 2013;110(51):20759</a>)
+            Fig.&nbsp;2B on this dataset. Identity is computed from one alignment with
+            pairwise deletion of missing sites, as in the paper, not from BLAST.
+            <strong>{n_seq} pepM sequences, {n_pairs:,} pairwise comparisons.</strong>
+        </p>
+        {fig}
+        <table style="border-collapse:collapse;margin-top:14px;font-size:0.9em;">
+            <thead><tr style="background:#f6f7f8;">
+                <th style="padding:6px 10px;text-align:left;">Neighbourhood measure</th>
+                <th style="padding:6px 10px;">r</th><th style="padding:6px 10px;">r&sup2;</th>
+                <th style="padding:6px 10px;">slope</th><th style="padding:6px 10px;">pairs</th>
+            </tr></thead>
+            <tbody>
+                {row('BiG-SCAPE similarity (1 &minus; distance)', stats)}
+                {row('Shared domain content (Jaccard)', jac)}
+            </tbody>
+        </table>
+        <p style="color:#777;font-size:0.85em;margin-top:10px;max-width:70ch;">
+            Fitted over the paper's 0.6&ndash;1.0 identity window. The correlation is
+            expected to be strong in a taxonomically diverse set and weak in one dominated
+            by a single closely-related family, where nearly every pepM pair is either
+            near-identical or unrelated with little in between.
+        </p>
+    </div>
+    '''
+
+
+def build_partition_section(pepm_summary):
+    """Whether pepM identity could partition BiG-SCAPE, for the pipeline info tab.
+
+    Operational rather than biological: it reports how far the all-pairs
+    clustering problem could be split without separating BGCs that belong in one
+    family. Lossless means no pair BiG-SCAPE grouped would be cut apart.
+    """
+    parts = (pepm_summary or {}).get('partitioning')
+    if not parts:
+        return ''
+    rows = ''.join(
+        f'<tr><td style="padding:5px 10px;">{p["threshold"]:.2f}</td>'
+        f'<td style="padding:5px 10px;text-align:right;">{p["components"]:,}</td>'
+        f'<td style="padding:5px 10px;text-align:right;">{p["largest"]:,}</td>'
+        f'<td style="padding:5px 10px;text-align:right;">{p["largest_fraction"]:.0%}</td>'
+        f'<td style="padding:5px 10px;text-align:right;">{p["relative_work"]:.0%}</td>'
+        f'<td style="padding:5px 10px;text-align:right;'
+        f'{"color:#7a3;" if p["lossless"] else "color:#c33;font-weight:600;"}">'
+        f'{"lossless" if p["lossless"] else str(p["same_gcf_pairs_lost"]) + " lost"}</td></tr>'
+        for p in parts)
+    return f'''
+    <div class="section">
+        <h3>BiG-SCAPE Partitioning Feasibility</h3>
+        <p style="color:#555;max-width:70ch;">
+            BiG-SCAPE compares every BGC against every other, so its memory grows
+            quadratically. Splitting the input by pepM identity first can avoid that.
+            This reports, for this dataset, how far it could be split and whether doing so
+            would separate BGCs that BiG-SCAPE placed in the same family.
+            <strong>Work</strong> is the resulting compute as a share of one unsplit job.
+        </p>
+        <table style="border-collapse:collapse;font-size:0.9em;">
+            <thead><tr style="background:#f6f7f8;">
+                <th style="padding:5px 10px;text-align:left;">pepM cut</th>
+                <th style="padding:5px 10px;">partitions</th>
+                <th style="padding:5px 10px;">largest</th>
+                <th style="padding:5px 10px;">share</th>
+                <th style="padding:5px 10px;">work</th>
+                <th style="padding:5px 10px;">families</th>
+            </tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+        <p style="color:#777;font-size:0.85em;margin-top:10px;max-width:70ch;">
+            &ldquo;Lossless&rdquo; is a lower bound rather than a guarantee: it counts pairs
+            above the GCF similarity cutoff, while BiG-SCAPE families are transitively
+            closed and include pairs below it. Treat any non-zero loss as disqualifying.
+            Partitioning is enabled with <code>--bigscape_partition</code> and is off by
+            default.
+        </p>
+    </div>
+    '''

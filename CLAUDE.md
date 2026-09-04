@@ -651,7 +651,8 @@ The report uses 7 tabs:
 - **Overview**: Summary statistics grid, rarefaction curve, pipeline resource usage (collapsible) and software versions
 - **Phylogeny**: NCBI taxonomy tree + GTDB-Tk phylogenetic tree and BGC distribution
 - **Genomes**: Searchable genome table with links to individual genome pages
-- **GCF Analysis**: GCF biosynthetic NJ tree (embedded as base64), dynamic coupling enzyme class table, BiG-SCAPE clustering statistics and GCF visualization
+- **GCF Analysis**: GCF biosynthetic NJ tree (embedded as base64), dynamic coupling enzyme class table, BiG-SCAPE clustering statistics, GCF visualization, and the **pepM identity vs gene-cluster similarity** figure with its correlation table — the Yu et al. replication that is the evidence the GCF assignments above it can be trusted
+- **Pipeline Info**: resource usage, **BiG-SCAPE partitioning feasibility**, software versions
 - **Novel BGCs**: BGC regions without KnownClusterBlast matches
 - **KCB Hits**: Known cluster matches grouped by MIBiG entry
 
@@ -1351,6 +1352,11 @@ BiG-SCAPE's `output_files/*_clustering_c*.tsv`, which ties it to one output *dir
 partitioned runs have one per partition. `stats_from_db.py` reads the database instead and
 was verified to emit **byte-identical** JSON on the unpartitioned Erwiniaceae run, so both
 paths use it and the TSV-parsing module is gone.
+
+`PEPM_ALL_BY_ALL` output now reaches the report: the pepM-vs-similarity figure and
+correlation table land in **GCF Analysis** (biological evidence, beside the clustering it
+justifies), the partitioning feasibility table in **Pipeline Info** (operational). Both
+sections return '' when the analysis did not run, so a report without it still renders.
 
 Verified so far: the merge preserves clustering exactly (0 split, 0 merged co-membership
 against the reference on the 181 regions compared), BiG-SCAPE runs on a single-BGC

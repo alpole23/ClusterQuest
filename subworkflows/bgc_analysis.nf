@@ -66,6 +66,8 @@ workflow BGC_ANALYSIS {
             gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
+            pepm_svg_ch             = placeholder('NO_PEPM_SVG')
+            pepm_json_ch            = placeholder('NO_PEPM_JSON')
             if (clusteringEnabled("bigscape")) {
                 GCF_BIOSYNTHETIC_TREE(
                     taxon,
@@ -83,6 +85,13 @@ workflow BGC_ANALYSIS {
                     CLUSTERING.out.bigscape_db,
                     CLUSTERING.out.pfam_db
                 )
+                // The figure goes in GCF Analysis, the partitioning table in
+                // Pipeline Info. Both optional: PEPM_ALL_BY_ALL emits nothing
+                // when there are too few pepMs to compare.
+                pepm_svg_ch  = PEPM_ALL_BY_ALL.out.svgs
+                    .flatten().filter { it.name.contains('bigscape_similarity') }
+                    .ifEmpty(file('NO_PEPM_SVG'))
+                pepm_json_ch = PEPM_ALL_BY_ALL.out.summary.ifEmpty(file('NO_PEPM_JSON'))
 
                 gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
                 gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
@@ -114,7 +123,9 @@ workflow BGC_ANALYSIS {
                 all_bgcs_tree_svg_ch,
                 gcf_heatmap_svg_ch,
                 coupling_annotation_ch,
-                coupling_support_ch
+                coupling_support_ch,
+                pepm_svg_ch,
+                pepm_json_ch
             )
         }
 }

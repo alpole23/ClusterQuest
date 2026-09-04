@@ -38,6 +38,7 @@ from viz.distribution import generate_bgc_distribution_html
 from viz.genome_pages import create_genome_metadata_pages
 from viz.rarefaction import generate_rarefaction_curve
 from viz.report_sections import (_build_bigscape_section_html,
+                                 build_pepm_section, build_partition_section,
                                  _build_kcb_content, _build_rarefaction_section,
                                  gcf_coupling_classes, build_gcf_support_rows,
                                  build_overview_stats,
@@ -54,7 +55,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          all_bgcs_tree_b64=None, all_bgcs_tree_mime='image/png',
                          gcf_heatmap_b64=None,
                          coupling_table_rows=None, gcf_classes=None,
-                         gcf_support_rows=None, taxonomy_genome_json='{}'):
+                         gcf_support_rows=None, taxonomy_genome_json='{}',
+                         pepm_b64=None, pepm_summary=None):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -82,6 +84,11 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             break
     provenance = (f'{_n_genomes:,} genomes · generated {_generated}{_as_ver}'
                   if _n_genomes else f'generated {_generated}{_as_ver}')
+
+    # pepM evidence sits with the clustering it justifies; the partitioning
+    # table is operational and belongs with the pipeline diagnostics.
+    pepm_section_html = build_pepm_section(pepm_b64, pepm_summary)
+    partition_section_html = build_partition_section(pepm_summary)
 
     bigscape_section_html = _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html,
                                                         taxon_clean, gcf_support_rows)
@@ -272,6 +279,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             <hr class="tab-section-divider">
 
             {bigscape_section_html}
+            {pepm_section_html}
             {f'<div class="info-box" style="background-color: #f8f9fa; border-left: 4px solid #6c757d;"><p style="color: #666;">No clustering analysis was performed. To enable clustering, run the pipeline with <code>--clustering bigscape</code>.</p></div>' if not bigscape_section_html else ''}
         </div>
 
@@ -293,6 +301,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 <em>Resource consumption metrics from Nextflow trace data, showing CPU, memory, and runtime for each pipeline process.</em>
             </p>
             {resource_usage_html if resource_usage_html else '<div class="info-box warning"><p>No resource usage data available. Trace data will appear here after running the pipeline.</p></div>'}
+            {partition_section_html}
             {versions_html}
         </div>
 
@@ -340,6 +349,8 @@ def main():
     parser.add_argument('--all_bgcs_tree', type=Path, help='Path to all-BGCs circular NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--all_bgcs_tree_svg', type=Path, help='Path to all-BGCs circular NJ tree SVG (preferred over PNG: vector, and ~45%% smaller once base64-encoded)')
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
+    parser.add_argument('--pepm_svg', type=Path, help='pepM vs BiG-SCAPE similarity SVG from PEPM_ALL_BY_ALL')
+    parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--coupling_support', type=Path,
                         help='phosphonate_coupling_support.tsv from GCF_BIOSYNTHETIC_TREE')
@@ -535,6 +546,18 @@ def main():
         with open(args.all_bgcs_tree, 'rb') as f:
             all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
 
+    # pepM all-by-all: the figure goes in GCF Analysis, the partitioning table in
+    # the pipeline-info block on Overview. Both are optional — the analysis is a
+    # separate process and a run without it should still produce a report.
+    pepm_b64 = None
+    if args.pepm_svg and args.pepm_svg.exists():
+        with open(args.pepm_svg, 'rb') as f:
+            pepm_b64 = base64.b64encode(f.read()).decode('ascii')
+    pepm_summary = None
+    if args.pepm_json and args.pepm_json.exists():
+        with open(args.pepm_json) as f:
+            pepm_summary = json.load(f)
+
     # Build coupling enzyme table rows from live BiG-SCAPE data
     coupling_table_rows = None
     gcf_classes = None
@@ -566,6 +589,7 @@ def main():
                             phylo_tree_generated,
                             genome_table, resource_usage_html, phylo_tree_data,
                             taxonomy_genome_json=taxonomy_genome_json,
+        pepm_b64=pepm_b64, pepm_summary=pepm_summary,
                             gcf_data=gcf_data_dict, taxonomy_map=taxonomy_map_dict,
                             versions_data=versions_data,
                             rarefaction_stats=rarefaction_stats,
