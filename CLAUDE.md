@@ -1263,6 +1263,63 @@ Confirm it bound before letting it run: `-dump-hashes` prints the session UUID a
 first hash entry, and the summary line should report a large `cached=` count. If you
 see `cached=0` and `NCBI_DATASETS_DOWNLOAD` starting, kill it — the resume missed.
 
+### BiG-SCAPE Partitioning (`--bigscape_partition`)
+
+**Off by default.** Validated at 185-518 BGCs, not at the scale that needs it, and never
+run on SLURM. Turn it on deliberately.
+
+```
+PARTITION_BGCS -> BIGSCAPE_PARTITION (one per partition) -> MERGE_BIGSCAPE -> CLUSTERING_STATS
+```
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `bigscape_partition` | `false` | Enables the partitioned path |
+| `bigscape_partition_identity` | `0.60` | 0.60-0.80 is the verified safe window; 0.90 splits real families |
+| `bigscape_partition_max` | `20000` | Hard cap; 22,100 BGCs is the 64 GB SLURM allocation |
+| `bigscape_partition_min` | `4000` | Below this the split costs more than it saves |
+
+**`PARTITION_BGCS` runs before BiG-SCAPE**, so it cannot read pepM from a clustering
+database — it extracts CDS translations from the region GenBanks and finds pepM by
+`hmmsearch` against PF13714. Cross-checked against the database route: both give 6
+partitions, largest 236, work 57% on Erwiniaceae.
+
+**Single linkage, deliberately.** Two BGCs must share a partition whenever they could
+possibly cluster. Single linkage merges on *any* qualifying link, so it never separates a
+pair a stricter criterion would have joined.
+
+**`MERGE_BIGSCAPE` remaps every id.** Partition databases carry colliding autoincrements,
+so each table is copied with its primary key offset and every foreign key rewritten;
+`SPEC` in the script is a topological sort. `run` and `edge_params` are deduplicated
+rather than offset — every partition ran identical parameters, and offsetting would invent
+parameter sets that never existed.
+
+**The merged `distance` table is deliberately incomplete.** It holds only within-partition
+comparisons — that is the point. Readers must treat a missing pair as *not compared*, not
+as distance zero.
+
+**Two guards, both earned in testing:**
+
+- *Completeness.* A missing partition database merges cleanly, passes referential
+  integrity, and is simply short some BGCs. Caught when 14 of 19 partition databases gave
+  179 regions against the reference's 185. `--partitions` now derives the expected count
+  and fails on a mismatch.
+- *Filename uniqueness.* Partitions stage region GenBanks flat, so two regions sharing a
+  filename would silently overwrite. Region files are named by contig accession and are
+  unique in practice; the partitioner fails loudly rather than lose BGCs if that stops
+  holding.
+
+**`CLUSTERING_STATS` replaced `EXTRACT_CLUSTERING_STATS`.** The old process parsed
+BiG-SCAPE's `output_files/*_clustering_c*.tsv`, which ties it to one output *directory*;
+partitioned runs have one per partition. `stats_from_db.py` reads the database instead and
+was verified to emit **byte-identical** JSON on the unpartitioned Erwiniaceae run, so both
+paths use it and the TSV-parsing module is gone.
+
+Verified so far: the merge preserves clustering exactly (0 split, 0 merged co-membership
+against the reference on the 181 regions compared), BiG-SCAPE runs on a single-BGC
+partition, and the DAG resolves. **Not yet verified: a full pipeline run on the
+partitioned path**, which is the remaining gap before trusting it.
+
 ### `PEPM_ALL_BY_ALL` — pepM identity vs gene-neighbourhood similarity
 
 Reproduces Yu et al. (PNAS 2013;110(51):20759) Fig. 2B on the run's own data, and answers

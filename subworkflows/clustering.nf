@@ -1,6 +1,9 @@
 include { DOWNLOAD_PFAM } from '../modules/databases/download_pfam'
 include { BIGSCAPE } from '../modules/clustering/bigscape'
-include { EXTRACT_CLUSTERING_STATS } from '../modules/clustering/extract_clustering_stats'
+include { CLUSTERING_STATS } from '../modules/clustering/clustering_stats'
+include { PARTITION_BGCS } from '../modules/clustering/partition_bgcs'
+include { BIGSCAPE_PARTITION } from '../modules/clustering/bigscape_partition'
+include { MERGE_BIGSCAPE } from '../modules/clustering/merge_bigscape'
 include { EXTRACT_GCF_REPRESENTATIVES } from '../modules/clustering/extract_gcf_representatives'
 include { clusteringEnabled; placeholder } from './helpers'
 
@@ -25,11 +28,35 @@ workflow CLUSTERING {
         if (clusteringEnabled("bigscape")) {
             DOWNLOAD_PFAM()
             pfam_db_ch = DOWNLOAD_PFAM.out.pfam_db
-            BIGSCAPE(taxon, antismash_results, pfam_db_ch)
-            EXTRACT_CLUSTERING_STATS(taxon, BIGSCAPE.out.bigscape_dir)
-            bigscape_stats_ch = EXTRACT_CLUSTERING_STATS.out.stats_json
-            bigscape_db_ch = BIGSCAPE.out.bigscape_db
-            bigscape_dir_ch = BIGSCAPE.out.bigscape_dir
+
+            if (params.bigscape_partition) {
+                // Split by pepM identity so no single BiG-SCAPE job goes
+                // quadratic. Verified to rebuild the identical GCF network
+                // (ARI 1.0000); see CLAUDE.md. The partitioner falls back to one
+                // partition below params.bigscape_partition_min, so enabling this
+                // on a small taxon costs only the pepM alignment.
+                PARTITION_BGCS(taxon, antismash_results, pfam_db_ch)
+
+                partition_ch = PARTITION_BGCS.out.partitions
+                    .splitCsv(header: true, sep: '\t')
+                    .map { row -> tuple(row.partition, file(row.gbk)) }
+                    .groupTuple()
+
+                BIGSCAPE_PARTITION(taxon, partition_ch, pfam_db_ch)
+                MERGE_BIGSCAPE(taxon,
+                               BIGSCAPE_PARTITION.out.db.collect(),
+                               PARTITION_BGCS.out.partitions)
+                bigscape_db_ch  = MERGE_BIGSCAPE.out.bigscape_db
+                bigscape_dir_ch = MERGE_BIGSCAPE.out.bigscape_dir
+            } else {
+                BIGSCAPE(taxon, antismash_results, pfam_db_ch)
+                bigscape_db_ch  = BIGSCAPE.out.bigscape_db
+                bigscape_dir_ch = BIGSCAPE.out.bigscape_dir
+            }
+
+            // Reads the database, so it is identical on both paths.
+            CLUSTERING_STATS(taxon, bigscape_db_ch)
+            bigscape_stats_ch = CLUSTERING_STATS.out.stats_json
 
             // Extract GCF representatives (needs tabulation for KCB hit lookup)
             if (tabulation.name != 'NO_TABULATION') {
