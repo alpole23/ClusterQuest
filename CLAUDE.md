@@ -1378,14 +1378,35 @@ Four bugs surfaced only under Nextflow, all invisible to standalone testing:
    existing `'BIGSCAPE'` selector never covered it, and unlike a *stale* selector Nextflow
    does not warn about a missing one — it fails at runtime with `command not found`.
 
-**Known limitation: the GCF biosynthetic tree is not equivalent under partitioning.**
-`bgc_all_bgcs_tree.py` builds its distance matrix with `distances.get(key, 1.0)`, so every
-cross-partition pair becomes the maximum distance. On Erwiniaceae that is **23,712 of
-55,278 cells, 43% of the matrix**, substituted rather than measured. The clustering is
-unaffected — BiG-SCAPE never compared those pairs either — but the tree's topology is
-built partly on a constant. Treat the GCF tree from a partitioned run as indicative, or
-run the tree step unpartitioned. `GCF_BIOSYNTHETIC_TREE` also failed to exit in that run;
-that is unresolved and may be unrelated.
+**Trees under partitioning: a global centre tree plus per-partition drill-downs.**
+A partitioned run's merged `distance` table holds only within-partition comparisons, so a
+global all-BGCs tree substitutes a constant for every cross-partition pair — 23,712 of
+55,278 cells on Erwiniaceae. The clustering is unaffected (BiG-SCAPE never compared those
+pairs either) but a tree built on a uniform constant has an arbitrary backbone. Two
+processes replace that:
+
+- **`BIGSCAPE_CENTERS`** re-runs BiG-SCAPE over one representative GBK per family, so
+  every centre pair is *measured*. On Erwiniaceae that turned **92 of 171 substituted
+  centre pairs into 0**, in 16 seconds over 19 centres. `bgc_gcf_tree.py --centers_db`
+  consumes it. This scales because centre count tracks diversity rather than BGC count
+  (19 Erwiniaceae, 81 Streptomyces, 100 combined).
+- **`PARTITION_TREES`** builds one all-BGCs tree per partition. Each partition database
+  has complete within-partition distances, so these substitute nothing, and each is small
+  enough to read — which the global all-BGCs tree stops being well before a million
+  genomes.
+
+Both run only when `--bigscape_partition` is on; the unpartitioned path is untouched.
+Partitions with fewer than three BGCs are skipped rather than failed, since singleton
+partitions are normal.
+
+The all-BGCs tree does not scale regardless of partitioning: 121,000 leaves is 7.3e9 pairs
+and 1,890 GB, and is not a readable figure at any resolution. The centre tree is the
+global view that survives; at extreme diversity even it needs its own partitioning
+(52,000 centres would want 358 GB), but that ceiling is 5-270x further out.
+
+`GCF_BIOSYNTHETIC_TREE` failed to exit in the first partitioned run. Both tree scripts were
+subsequently run by hand against the merged database and completed normally (exit 0), so
+that was environmental rather than a hang in the tree code.
 
 Verified earlier: the merge preserves clustering exactly (0 split, 0 merged co-membership
 against the reference on the 181 regions compared), BiG-SCAPE runs on a single-BGC

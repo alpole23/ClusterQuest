@@ -9,6 +9,7 @@ process GCF_BIOSYNTHETIC_TREE {
     path "antismash_input/*", stageAs: 'antismash_input/*'
     path gtdbtk_tree
     path gtdbtk_summary
+    path centers_db
 
     output:
     path "gcf_species_heatmap.png",                     emit: heatmap_png,          optional: true
@@ -24,6 +25,10 @@ process GCF_BIOSYNTHETIC_TREE {
     script:
     def tree_arg    = Utils.optArg('--gtdbtk_tree',    gtdbtk_tree)
     def summary_arg = Utils.optArg('--gtdbtk_summary', gtdbtk_summary)
+    // Exact centre-to-centre distances when the main database is
+    // partitioned; without it the GCF tree substitutes 1.0 for every
+    // cross-partition centre pair and its backbone is arbitrary.
+    def centers_arg = Utils.optArg('--centers_db', centers_db)
     """
     # Cache key. The scripts below are interpolated paths, not declared inputs,
     # so Nextflow would not otherwise notice when they change. Listed explicitly
@@ -55,6 +60,7 @@ process GCF_BIOSYNTHETIC_TREE {
 
     # Step 4: Generate GCF biosynthetic NJ tree figure (GCF medoids)
     python ${projectDir}/scripts/bgc_gcf_tree.py \\
+        ${centers_arg} \\
         --db ${bigscape_db} \\
         --coupling_annotation phosphonate_itol_coupling.txt \\
         --outdir .

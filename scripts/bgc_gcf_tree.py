@@ -58,6 +58,56 @@ def get_gcf_info(conn, cutoff):
             for row in cur.fetchall()}
 
 
+def centers_db_distances(centers_db, gcf_info, conn):
+    """Distances between GCF centres from a dedicated BiG-SCAPE run over them.
+
+    Under partitioning the main database holds only within-partition
+    comparisons, so most centre pairs are absent and fall back to 1.0 — on
+    Erwiniaceae that was 92 of 171 pairs, leaving the tree's backbone arbitrary.
+    Re-running BiG-SCAPE on just the centres measures every pair for a few
+    seconds of compute.
+
+    That run clusters the centres into families of its *own*, so its record ids
+    mean nothing here. Centres are matched back by GBK filename, which is unique
+    per region (PARTITION_BGCS enforces this) and survives the round trip.
+    """
+    main = conn.cursor()
+    name_of = {}
+    for gcf_id, info in gcf_info.items():
+        row = main.execute(
+            'SELECT g.path FROM bgc_record br JOIN gbk g ON g.id = br.gbk_id '
+            'WHERE br.id = ?', (info['center_id'],)).fetchone()
+        if row:
+            name_of[Path(row[0]).name] = gcf_id
+
+    cen = sqlite3.connect(f'file:{centers_db}?mode=ro', uri=True)
+    rec_to_gcf = {}
+    for rid, path in cen.execute(
+            "SELECT br.id, g.path FROM bgc_record br JOIN gbk g ON g.id = br.gbk_id "
+            "WHERE br.record_type = 'region'"):
+        gcf = name_of.get(Path(path).name)
+        if gcf is not None:
+            rec_to_gcf[rid] = gcf
+
+    distances = {}
+    for a, b, d in cen.execute('SELECT record_a_id, record_b_id, distance FROM distance'):
+        ga, gb = rec_to_gcf.get(a), rec_to_gcf.get(b)
+        if ga is None or gb is None or ga == gb:
+            continue
+        distances[(min(ga, gb), max(ga, gb))] = d
+    cen.close()
+
+    want = set(combinations(sorted(gcf_info), 2))
+    missing = want - set(distances)
+    print(f'  Centre distances from {Path(centers_db).name}: '
+          f'{len(distances)} of {len(want)} pairs measured')
+    if missing:
+        print(f'  Warning: {len(missing)} centre pairs still missing (set to 1.0)')
+        for pair in missing:
+            distances[pair] = 1.0
+    return distances
+
+
 def get_center_distances(conn, gcf_info):
     """
     Look up the BiG-SCAPE pairwise distance between every pair of GCF centers.
@@ -216,6 +266,13 @@ def main():
     )
     parser.add_argument('--db',      required=True, help='BiG-SCAPE SQLite database')
     parser.add_argument('--outdir',  required=True, help='Output directory')
+    parser.add_argument('--centers_db', type=Path, default=None,
+
+                        help='BiG-SCAPE database from a run over family '
+
+                             'centres; gives exact centre distances when the '
+
+                             'main database is partitioned')
     parser.add_argument('--cutoff',  type=float, default=0.3,
                         help='GCF cutoff used in BiG-SCAPE run (default: 0.3)')
     parser.add_argument('--coupling_annotation', default=None,
@@ -234,7 +291,10 @@ def main():
         print(f'    GCF-{gid}: n={info["n_members"]:4d}  center_bgc_id={info["center_id"]}')
 
     print('\nLooking up center-to-center distances...')
-    distances = get_center_distances(conn, gcf_info)
+    if args.centers_db and Path(args.centers_db).exists():
+        distances = centers_db_distances(args.centers_db, gcf_info, conn)
+    else:
+        distances = get_center_distances(conn, gcf_info)
 
     print('\nDistance matrix (center-to-center):')
     header = '       ' + '  '.join(f'GCF-{g:<2}' for g in gcf_ids)

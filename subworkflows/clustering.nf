@@ -4,6 +4,7 @@ include { CLUSTERING_STATS } from '../modules/clustering/clustering_stats'
 include { PARTITION_BGCS } from '../modules/clustering/partition_bgcs'
 include { BIGSCAPE_PARTITION } from '../modules/clustering/bigscape_partition'
 include { MERGE_BIGSCAPE } from '../modules/clustering/merge_bigscape'
+include { BIGSCAPE_CENTERS } from '../modules/clustering/bigscape_centers'
 include { EXTRACT_GCF_REPRESENTATIVES } from '../modules/clustering/extract_gcf_representatives'
 include { clusteringEnabled; placeholder } from './helpers'
 
@@ -24,6 +25,8 @@ workflow CLUSTERING {
         bigscape_dir_ch = placeholder('NO_BIGSCAPE_DIR')
         gcf_data_ch = placeholder('NO_GCF_DATA')
         pfam_db_ch = placeholder('NO_PFAM_DB')
+        centers_db_ch = placeholder('NO_CENTERS_DB')
+        partition_dbs_ch = Channel.empty()
 
         if (clusteringEnabled("bigscape")) {
             DOWNLOAD_PFAM()
@@ -46,12 +49,23 @@ workflow CLUSTERING {
                 MERGE_BIGSCAPE(taxon,
                                BIGSCAPE_PARTITION.out.db.collect(),
                                PARTITION_BGCS.out.partitions)
+                // Keyed by the partition id in the filename, so the
+                // per-partition trees can be labelled and published apart.
+                partition_dbs_ch = BIGSCAPE_PARTITION.out.db
+                    .map { db -> tuple((db.name =~ /part_(\d+)\.db/)[0][1], db) }
                 bigscape_db_ch  = MERGE_BIGSCAPE.out.bigscape_db
                 bigscape_dir_ch = MERGE_BIGSCAPE.out.bigscape_dir
             } else {
                 BIGSCAPE(taxon, antismash_results, pfam_db_ch)
                 bigscape_db_ch  = BIGSCAPE.out.bigscape_db
                 bigscape_dir_ch = BIGSCAPE.out.bigscape_dir
+            }
+
+            // Only partitioned runs have an incomplete distance table, so only
+            // they need centre distances measured separately.
+            if (params.bigscape_partition) {
+                BIGSCAPE_CENTERS(taxon, bigscape_db_ch, pfam_db_ch)
+                centers_db_ch = BIGSCAPE_CENTERS.out.centers_db.ifEmpty(file('NO_CENTERS_DB'))
             }
 
             // Reads the database, so it is identical on both paths.
@@ -71,4 +85,6 @@ workflow CLUSTERING {
         bigscape_dir   = bigscape_dir_ch
         gcf_data       = gcf_data_ch
         pfam_db        = pfam_db_ch
+        centers_db     = centers_db_ch
+        partition_dbs  = partition_dbs_ch
 }

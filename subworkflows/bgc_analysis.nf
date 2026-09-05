@@ -4,6 +4,7 @@ include { AGGREGATE_TAXONOMY } from '../modules/analysis/aggregate_taxonomy'
 include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
 include { PEPM_ALL_BY_ALL } from '../modules/analysis/pepm_all_by_all'
+include { PARTITION_TREES } from '../modules/clustering/partition_trees'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
 
 include { ANTISMASH_ANALYSIS } from './antismash_analysis'
@@ -74,7 +75,8 @@ workflow BGC_ANALYSIS {
                     CLUSTERING.out.bigscape_db,
                     antismash_results,
                     PHYLOGENY.out.tree,
-                    PHYLOGENY.out.summary
+                    PHYLOGENY.out.summary,
+                    CLUSTERING.out.centers_db
                 )
                 // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
                 // data and reports whether pepM identity could partition
@@ -92,6 +94,17 @@ workflow BGC_ANALYSIS {
                     .flatten().filter { it.name.contains('bigscape_similarity') }
                     .ifEmpty(file('NO_PEPM_SVG'))
                 pepm_json_ch = PEPM_ALL_BY_ALL.out.summary.ifEmpty(file('NO_PEPM_JSON'))
+
+                // Drill-down beside the global centre tree. Each partition's own
+                // database has complete within-partition distances, so these
+                // trees substitute nothing — unlike a global all-BGCs tree on a
+                // partitioned run.
+                PARTITION_TREES(
+                    taxon,
+                    CLUSTERING.out.partition_dbs,
+                    GCF_BIOSYNTHETIC_TREE.out.coupling_annotation
+                        .ifEmpty(file('NO_COUPLING_ANNOTATION'))
+                )
 
                 gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
                 gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
