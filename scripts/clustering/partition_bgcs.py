@@ -30,6 +30,7 @@ failure is silent — a split family looks like two families, not like an error.
 """
 import argparse
 import collections
+import glob
 import os
 import shutil
 import subprocess
@@ -51,8 +52,15 @@ def region_gbks(root):
     "region" or "cluster" — so the whole-genome summary GenBank is excluded here
     for the same reason it is excluded there.
     """
-    return sorted(p for p in Path(root).rglob('*.gbk')
-                  if 'region' in p.name.lower() or 'cluster' in p.name.lower())
+    # glob.glob, not Path.rglob: Nextflow stages each antiSMASH result directory
+    # as a symlink, and pathlib does not descend into those — rglob returns 0
+    # here where glob returns 333. Python 3.13 added recurse_symlinks but it
+    # defaults to False, so this is not a version issue to wait out. BiG-SCAPE's
+    # own loader carries the same workaround for the same reason.
+    return sorted(Path(f) for f in glob.glob(os.path.join(root, '**', '*.gbk'),
+                                             recursive=True)
+                  if 'region' in Path(f).name.lower()
+                  or 'cluster' in Path(f).name.lower())
 
 
 def extract_proteins(gbks, dest):
@@ -246,7 +254,7 @@ def main():
         with args.out.open('w') as fh:
             fh.write('partition\tgbk\n')
             for g in gbks:
-                fh.write(f'0\t{g}\n')
+                fh.write(f'0\t{Path(g).resolve()}\n')
         return 0
 
     work = args.out.parent / '_partition'
@@ -302,11 +310,16 @@ def main():
           f'({100 * max(sizes) / len(gbks):.1f}%), '
           f'work {sum((s / len(gbks)) ** 2 for s in sizes):.0%} of one job')
 
+    # Absolute, symlink-resolved paths: the paths found by globbing are relative
+    # to *this* task's staging directory, which does not exist in the downstream
+    # BIGSCAPE_PARTITION tasks. Resolving reaches the real antiSMASH output, which
+    # Nextflow can then stage. Relative paths fail late and confusingly, as
+    # `cp: cannot stat ...region001.gbk` inside a partition job.
     with args.out.open('w') as fh:
         fh.write('partition\tgbk\n')
         for i, p in enumerate(parts):
             for g in p:
-                fh.write(f'{i}\t{g}\n')
+                fh.write(f'{i}\t{Path(g).resolve()}\n')
     shutil.rmtree(work, ignore_errors=True)
     print(f'wrote {args.out}')
     return 0

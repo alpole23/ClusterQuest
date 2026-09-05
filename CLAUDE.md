@@ -1358,7 +1358,36 @@ correlation table land in **GCF Analysis** (biological evidence, beside the clus
 justifies), the partitioning feasibility table in **Pipeline Info** (operational). Both
 sections return '' when the analysis did not run, so a report without it still renders.
 
-Verified so far: the merge preserves clustering exactly (0 split, 0 merged co-membership
+**Verified end to end (2026-09-04).** A partitioned Erwiniaceae run reproduces the
+unpartitioned clustering exactly: 333 BGCs, 19 families, 8 singletons, largest family 215,
+and **23,995 co-membership pairs with 0 split and 0 merged**. Six partitions, largest
+236; 31,566 within-partition comparisons against 55,278 all-pairs.
+
+Four bugs surfaced only under Nextflow, all invisible to standalone testing:
+
+1. **`Path.rglob` does not descend into symlinked directories.** Nextflow stages antiSMASH
+   results as symlinks; rglob found 0 GBKs where `glob.glob(recursive=True)` found 333.
+   Python 3.13 added `recurse_symlinks` but defaults it to False. BiG-SCAPE's own loader
+   carries the same workaround.
+2. **The partition manifest held paths relative to the partitioner's work directory**,
+   which does not exist downstream — Nextflow resolved them against the launch dir into
+   broken symlinks. Paths are now `Path(g).resolve()`.
+3. **A stale cached `PARTITION_BGCS` task served the old manifest** after the fix. Removing
+   the task directory forced the re-run.
+4. **`BIGSCAPE_PARTITION` had no conda environment.** `withName` matches exactly, so the
+   existing `'BIGSCAPE'` selector never covered it, and unlike a *stale* selector Nextflow
+   does not warn about a missing one — it fails at runtime with `command not found`.
+
+**Known limitation: the GCF biosynthetic tree is not equivalent under partitioning.**
+`bgc_all_bgcs_tree.py` builds its distance matrix with `distances.get(key, 1.0)`, so every
+cross-partition pair becomes the maximum distance. On Erwiniaceae that is **23,712 of
+55,278 cells, 43% of the matrix**, substituted rather than measured. The clustering is
+unaffected — BiG-SCAPE never compared those pairs either — but the tree's topology is
+built partly on a constant. Treat the GCF tree from a partitioned run as indicative, or
+run the tree step unpartitioned. `GCF_BIOSYNTHETIC_TREE` also failed to exit in that run;
+that is unresolved and may be unrelated.
+
+Verified earlier: the merge preserves clustering exactly (0 split, 0 merged co-membership
 against the reference on the 181 regions compared), BiG-SCAPE runs on a single-BGC
 partition, and the DAG resolves. **Not yet verified: a full pipeline run on the
 partitioned path**, which is the remaining gap before trusting it.
