@@ -11,6 +11,11 @@ process GCF_BIOSYNTHETIC_TREE {
     path gtdbtk_summary
     path centers_db
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "gcf_species_heatmap.png",                     emit: heatmap_png,          optional: true
     path "gcf_species_heatmap.svg",                     emit: heatmap_svg,          optional: true
@@ -30,10 +35,6 @@ process GCF_BIOSYNTHETIC_TREE {
     // cross-partition centre pair and its backbone is arbitrary.
     def centers_arg = Utils.optArg('--centers_db', centers_db)
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['bgc_all_bgcs_tree.py', 'bgc_coupling_annotation.py', 'bgc_gcf_heatmap.py', 'bgc_gcf_tree.py', 'bgc_pfam_tree.py', 'utils'])}
     # Step 1: Generate BGC metadata from BiG-SCAPE database (metadata only — skip slow NJ tree)
     python ${projectDir}/scripts/bgc_pfam_tree.py \\
         --db ${bigscape_db} \\

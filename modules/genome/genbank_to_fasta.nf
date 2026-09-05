@@ -12,15 +12,16 @@ process GENBANK_TO_FASTA {
     input:
     path genomes
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "*.fna", emit: fasta
 
     script:
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['genome/genbank_to_fasta.py'])}
     python ${projectDir}/scripts/genome/genbank_to_fasta.py ${genomes}
     """
 }

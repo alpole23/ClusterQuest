@@ -29,7 +29,8 @@ workflow {
     renamed.view { "RENAMED: ${it.name}" }
 
     // Mirrors subworkflows/phylogeny.nf
-    GENBANK_TO_FASTA(renamed.collate(batchSize()))
+    GENBANK_TO_FASTA(renamed.collate(batchSize()),
+                     Utils.scriptsHash(projectDir, ['genome/genbank_to_fasta.py']))
     GENBANK_TO_FASTA.out.fasta.flatten().view { "FASTA: ${it.name}" }
 
     // Mirrors the reuse branch of subworkflows/antismash_analysis.nf

@@ -37,7 +37,9 @@ workflow PHYLOGENY {
             }
 
             // Convert GenBank to FASTA (batched — ~1.5 s per genome)
-            GENBANK_TO_FASTA(genomes_for_gtdbtk.collate(batchSize()))
+            GENBANK_TO_FASTA(genomes_for_gtdbtk.collate(batchSize()),
+                             Utils.scriptsHash(projectDir,
+                                 ['genome/genbank_to_fasta.py']))
             fasta_ch = GENBANK_TO_FASTA.out.fasta.flatten()
             fasta_files = fasta_ch.collect()
 
@@ -60,7 +62,9 @@ workflow PHYLOGENY {
                     taxon,
                     genome_list_ch,
                     check_result.reuse.map { it[1] },
-                    check_result.reuse.map { it[2] }
+                    check_result.reuse.map { it[2] },
+                    Utils.scriptsHash(projectDir,
+                        ['phylogeny/filter_gtdbtk_results.py'])
                 )
 
                 // RUN path

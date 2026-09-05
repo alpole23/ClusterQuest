@@ -252,9 +252,10 @@ def main():
         print(f'{len(gbks)} BGCs is under --partition_threshold '
               f'({args.partition_threshold}); one partition')
         with args.out.open('w') as fh:
-            fh.write('partition\tgbk\n')
+            fh.write('partition\tgenome\tgbk\n')
             for g in gbks:
-                fh.write(f'0\t{Path(g).resolve()}\n')
+                r = Path(g).resolve()
+                fh.write(f'0\t{r.parent.name}\t{r}\n')
         return 0
 
     work = args.out.parent / '_partition'
@@ -315,11 +316,18 @@ def main():
     # BIGSCAPE_PARTITION tasks. Resolving reaches the real antiSMASH output, which
     # Nextflow can then stage. Relative paths fail late and confusingly, as
     # `cp: cannot stat ...region001.gbk` inside a partition job.
+    # The genome directory name travels with each file. Downstream, BiG-SCAPE
+    # records whatever directory it read a GBK from, and several consumers derive
+    # the genome from that path — flat staging makes every BGC look like it came
+    # from a directory called `part_input`, which sends
+    # bgc_coupling_annotation.py into a fallback that rescans every genome's JSON
+    # for every BGC.
     with args.out.open('w') as fh:
-        fh.write('partition\tgbk\n')
+        fh.write('partition\tgenome\tgbk\n')
         for i, p in enumerate(parts):
             for g in p:
-                fh.write(f'{i}\t{Path(g).resolve()}\n')
+                r = Path(g).resolve()
+                fh.write(f'{i}\t{r.parent.name}\t{r}\n')
     shutil.rmtree(work, ignore_errors=True)
     print(f'wrote {args.out}')
     return 0

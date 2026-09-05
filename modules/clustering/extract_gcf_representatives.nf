@@ -9,6 +9,11 @@ process EXTRACT_GCF_REPRESENTATIVES {
     path "antismash_input/*", stageAs: 'antismash_input/*'
     path tabulation_file
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "gcf_representatives.json", emit: gcf_data
 
@@ -16,10 +21,6 @@ process EXTRACT_GCF_REPRESENTATIVES {
     def taxon_clean = Utils.sanitizeTaxon(params.taxon)
     def tabulation_arg = Utils.optArg('--tabulation', tabulation_file)
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['clustering/extract_gcf_representatives.py', 'utils'])}
     python ${projectDir}/scripts/clustering/extract_gcf_representatives.py ${bigscape_dir} antismash_input gcf_representatives.json --taxon "${taxon_clean}" ${tabulation_arg}
     """
 }

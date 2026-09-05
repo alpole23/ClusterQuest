@@ -327,7 +327,18 @@ def build_record_index_map(antismash_dir):
     record_index_map = {}
     antismash_path = Path(antismash_dir)
 
+    # Only genomes that produced a BGC. The index maps (genome, record_id) to a
+    # record index for looking up regions, so a genome with no region contributes
+    # entries nobody can query — but its JSON still costs a full parse.
+    #
+    # On Erwiniaceae that is 298 of 2,770 directories, so this reads 2.4 GB rather
+    # than 20.8 GB. Measured at roughly a minute either way, so it is an I/O
+    # saving rather than a fix for anything — the two-hour GCF_BIOSYNTHETIC_TREE
+    # timeouts were caused by flat partition staging, not by this.
+    # A region GBK beside the JSON is the cheap filesystem test for "has a BGC".
     for json_file in antismash_path.glob("*/*.json"):
+        if not any(json_file.parent.glob("*.region*.gbk")):
+            continue
         genome_name = json_file.parent.name
         try:
             with open(json_file) as f:

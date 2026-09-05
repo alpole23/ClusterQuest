@@ -31,7 +31,8 @@ workflow DOWNLOAD_GENOMES {
             taxon,
             NCBI_DATASETS_DOWNLOAD.out.assembly_data_report,
             NCBI_DATASETS_DOWNLOAD.out.taxonomy_report,
-            DOWNLOAD_TAXONKIT_DB.out.taxdump_dir
+            DOWNLOAD_TAXONKIT_DB.out.taxdump_dir,
+            Utils.scriptsHash(projectDir, ['taxonomy/extract_taxonomy.py'])
         )
 
     emit:

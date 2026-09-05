@@ -38,17 +38,22 @@ workflow CLUSTERING {
                 // (ARI 1.0000); see CLAUDE.md. The partitioner falls back to one
                 // partition below params.bigscape_partition_min, so enabling this
                 // on a small taxon costs only the pepM alignment.
-                PARTITION_BGCS(taxon, antismash_results, pfam_db_ch)
+                PARTITION_BGCS(taxon, antismash_results, pfam_db_ch,
+                               Utils.scriptsHash(projectDir,
+                                   ['clustering/partition_bgcs.py', 'utils']))
 
                 partition_ch = PARTITION_BGCS.out.partitions
                     .splitCsv(header: true, sep: '\t')
                     .map { row -> tuple(row.partition, file(row.gbk)) }
                     .groupTuple()
 
-                BIGSCAPE_PARTITION(taxon, partition_ch, pfam_db_ch)
+                BIGSCAPE_PARTITION(taxon, partition_ch, pfam_db_ch,
+                                   PARTITION_BGCS.out.partitions)
                 MERGE_BIGSCAPE(taxon,
                                BIGSCAPE_PARTITION.out.db.collect(),
-                               PARTITION_BGCS.out.partitions)
+                               PARTITION_BGCS.out.partitions,
+                               Utils.scriptsHash(projectDir,
+                                   ['clustering/merge_bigscape_dbs.py']))
                 // Keyed by the partition id in the filename, so the
                 // per-partition trees can be labelled and published apart.
                 partition_dbs_ch = BIGSCAPE_PARTITION.out.db
@@ -64,17 +69,25 @@ workflow CLUSTERING {
             // Only partitioned runs have an incomplete distance table, so only
             // they need centre distances measured separately.
             if (params.bigscape_partition) {
-                BIGSCAPE_CENTERS(taxon, bigscape_db_ch, pfam_db_ch)
+                BIGSCAPE_CENTERS(taxon, bigscape_db_ch, pfam_db_ch,
+                                 Utils.scriptsHash(projectDir,
+                                     ['clustering/extract_family_centers.py']))
                 centers_db_ch = BIGSCAPE_CENTERS.out.centers_db.ifEmpty(file('NO_CENTERS_DB'))
             }
 
             // Reads the database, so it is identical on both paths.
-            CLUSTERING_STATS(taxon, bigscape_db_ch)
+            CLUSTERING_STATS(taxon, bigscape_db_ch,
+                             Utils.scriptsHash(projectDir,
+                                 ['clustering/stats_from_db.py']))
             bigscape_stats_ch = CLUSTERING_STATS.out.stats_json
 
             // Extract GCF representatives (needs tabulation for KCB hit lookup)
             if (tabulation.name != 'NO_TABULATION') {
-                EXTRACT_GCF_REPRESENTATIVES(taxon, bigscape_dir_ch, antismash_results, tabulation)
+                EXTRACT_GCF_REPRESENTATIVES(taxon, bigscape_dir_ch, antismash_results,
+                                            tabulation,
+                                            Utils.scriptsHash(projectDir,
+                                                ['clustering/extract_gcf_representatives.py',
+                                                 'utils']))
                 gcf_data_ch = EXTRACT_GCF_REPRESENTATIVES.out.gcf_data
             }
         }

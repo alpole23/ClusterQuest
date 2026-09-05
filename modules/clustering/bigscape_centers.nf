@@ -21,14 +21,17 @@ process BIGSCAPE_CENTERS {
     path bigscape_db
     path pfam_db
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "family_centers.db",  emit: centers_db, optional: true
     path "family_centers.tsv", emit: manifest,   optional: true
 
     script:
     """
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['clustering/extract_family_centers.py'])}
-
     python ${projectDir}/scripts/clustering/extract_family_centers.py \\
         --db ${bigscape_db} \\
         --outdir center_input \\

@@ -7,15 +7,16 @@ process TABULATE_REGIONS {
     val taxon
     path "antismash_results/*"
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "region_tabulation.tsv", emit: tabulation
 
     script:
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['analysis/tabulate_regions.py', 'utils'])}
     python ${projectDir}/scripts/analysis/tabulate_regions.py antismash_results region_tabulation.tsv
     """
 }

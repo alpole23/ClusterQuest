@@ -19,6 +19,11 @@ process PARTITION_BGCS {
     path "antismash_input/*", stageAs: 'antismash_input/*'
     path pfam_db
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "bgc_partitions.tsv", emit: partitions
 
@@ -27,11 +32,6 @@ process PARTITION_BGCS {
     // derive it from that allocation rather than from a guessed constant.
     def mem_gb = task.memory ? task.memory.toGiga() : 32
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['clustering/partition_bgcs.py', 'utils'])}
-
     python ${projectDir}/scripts/clustering/partition_bgcs.py \\
         --antismash_dir antismash_input \\
         --pfam ${pfam_db}/Pfam-A.hmm \\

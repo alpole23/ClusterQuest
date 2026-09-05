@@ -1,10 +1,12 @@
 /**
  * BiG-SCAPE over one pepM partition.
  *
- * Region GenBanks are staged flat: BiG-SCAPE globs recursively and filters on
- * filenames containing "region"/"cluster", so directory structure is not needed.
- * PARTITION_BGCS fails loudly if two region filenames collide, which is what
- * makes flat staging safe.
+ * Region GenBanks arrive staged flat, but are re-laid-out into one directory per
+ * genome before BiG-SCAPE sees them. BiG-SCAPE records the directory it read each
+ * GBK from, and downstream consumers derive the genome from that path — flat
+ * input makes every BGC look like it came from `part_input`, which sends
+ * bgc_coupling_annotation.py into a fallback that rescans every genome's JSON for
+ * every BGC. That took a 2 h task limit and two killed runs to find.
  */
 process BIGSCAPE_PARTITION {
     tag "${taxon} part ${part_id}"
@@ -14,6 +16,7 @@ process BIGSCAPE_PARTITION {
     val taxon
     tuple val(part_id), path(gbks)
     path pfam_db
+    path partitions
 
     output:
     path "part_${part_id}.db", emit: db
@@ -21,7 +24,28 @@ process BIGSCAPE_PARTITION {
     script:
     """
     export PFAM_PATH=\$(readlink -f ${pfam_db})/Pfam-A.hmm
-    mkdir -p part_input && cp ${gbks} part_input/
+
+    # Rebuild <genome>/<region>.gbk from the manifest's genome column.
+    mkdir -p part_input
+    python - <<'LAYOUT'
+import csv, os, shutil
+genome = {}
+with open('${partitions}') as fh:
+    for row in csv.DictReader(fh, delimiter='\t'):
+        genome[os.path.basename(row['gbk'])] = row['genome']
+missing = []
+for f in os.listdir('.'):
+    if not f.endswith('.gbk'):
+        continue
+    g = genome.get(f)
+    if g is None:
+        missing.append(f)
+        continue
+    os.makedirs(os.path.join('part_input', g), exist_ok=True)
+    shutil.copy2(f, os.path.join('part_input', g, f))
+if missing:
+    raise SystemExit(f'{len(missing)} staged GBKs absent from the manifest: {missing[:3]}')
+LAYOUT
 
     bigscape cluster \\
         -i part_input \\

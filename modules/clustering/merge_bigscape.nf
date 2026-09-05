@@ -18,6 +18,11 @@ process MERGE_BIGSCAPE {
     path partition_dbs
     path partitions
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "${Utils.sanitizeTaxon(params.taxon)}.db", emit: bigscape_db
     // EXTRACT_GCF_REPRESENTATIVES globs *.db out of a directory, so give it one
@@ -27,8 +32,6 @@ process MERGE_BIGSCAPE {
 
     script:
     """
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['clustering/merge_bigscape_dbs.py'])}
-
     python ${projectDir}/scripts/clustering/merge_bigscape_dbs.py \\
         --inputs ${partition_dbs} \\
         --out ${Utils.sanitizeTaxon(params.taxon)}.db \\

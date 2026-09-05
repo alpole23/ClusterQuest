@@ -9,15 +9,16 @@ process EXTRACT_TAXONOMY {
     path taxonomy_report
     path taxdump_dir
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "taxonomy_map.json", emit: taxonomy_map
 
     script:
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['taxonomy/extract_taxonomy.py'])}
     export TAXONKIT_DB='${taxdump_dir}'
     python ${projectDir}/scripts/taxonomy/extract_taxonomy.py ${assembly_report} ${taxdump_dir} taxonomy_map.json
     """

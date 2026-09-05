@@ -34,13 +34,18 @@ workflow BGC_ANALYSIS {
         taxonomy_tree_ch = placeholder('NO_TAXONOMY_TREE')
 
         if (params.run_analysis) {
-            COUNT_REGIONS(taxon, antismash_results)
+            COUNT_REGIONS(taxon, antismash_results,
+                          Utils.scriptsHash(projectDir, ['analysis/count_regions.py']))
             counts_ch = COUNT_REGIONS.out.counts
 
-            AGGREGATE_TAXONOMY(taxon, taxonomy_map, COUNT_REGIONS.out.counts, name_map)
+            AGGREGATE_TAXONOMY(taxon, taxonomy_map, COUNT_REGIONS.out.counts, name_map,
+                               Utils.scriptsHash(projectDir,
+                                   ['taxonomy/aggregate_taxonomy.py']))
             taxonomy_tree_ch = AGGREGATE_TAXONOMY.out.taxonomy_tree
 
-            TABULATE_REGIONS(taxon, antismash_results)
+            TABULATE_REGIONS(taxon, antismash_results,
+                             Utils.scriptsHash(projectDir,
+                                 ['analysis/tabulate_regions.py', 'utils']))
             tabulation_ch = TABULATE_REGIONS.out.tabulation
         }
 
@@ -76,7 +81,11 @@ workflow BGC_ANALYSIS {
                     antismash_results,
                     PHYLOGENY.out.tree,
                     PHYLOGENY.out.summary,
-                    CLUSTERING.out.centers_db
+                    CLUSTERING.out.centers_db,
+                    Utils.scriptsHash(projectDir,
+                        ['bgc_all_bgcs_tree.py', 'bgc_coupling_annotation.py',
+                         'bgc_gcf_heatmap.py', 'bgc_gcf_tree.py', 'bgc_pfam_tree.py',
+                         'utils'])
                 )
                 // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
                 // data and reports whether pepM identity could partition
@@ -85,7 +94,8 @@ workflow BGC_ANALYSIS {
                 PEPM_ALL_BY_ALL(
                     taxon,
                     CLUSTERING.out.bigscape_db,
-                    CLUSTERING.out.pfam_db
+                    CLUSTERING.out.pfam_db,
+                    Utils.scriptsHash(projectDir, ['analysis/pepm_all_by_all.py', 'utils'])
                 )
                 // The figure goes in GCF Analysis, the partitioning table in
                 // Pipeline Info. Both optional: PEPM_ALL_BY_ALL emits nothing
@@ -103,7 +113,8 @@ workflow BGC_ANALYSIS {
                     taxon,
                     CLUSTERING.out.partition_dbs,
                     GCF_BIOSYNTHETIC_TREE.out.coupling_annotation
-                        .ifEmpty(file('NO_COUPLING_ANNOTATION'))
+                        .ifEmpty(file('NO_COUPLING_ANNOTATION')),
+                    Utils.scriptsHash(projectDir, ['bgc_all_bgcs_tree.py', 'utils'])
                 )
 
                 gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
@@ -138,7 +149,8 @@ workflow BGC_ANALYSIS {
                 coupling_annotation_ch,
                 coupling_support_ch,
                 pepm_svg_ch,
-                pepm_json_ch
+                pepm_json_ch,
+                Utils.scriptsHash(projectDir, ['visualize_results.py', 'utils', 'viz'])
             )
         }
 }

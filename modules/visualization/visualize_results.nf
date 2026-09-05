@@ -28,6 +28,11 @@ process VISUALIZE_RESULTS {
     path pepm_svg
     path pepm_json
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "*.png", emit: plots, optional: true
     path "*.html", emit: reports, optional: true
@@ -63,10 +68,6 @@ process VISUALIZE_RESULTS {
     def skip_tree_arg = params.skip_tree ? "--skip_tree" : ""
     def outgroup_arg  = params.gtdbtk_outgroup ? "--outgroup '${params.gtdbtk_outgroup}'" : ""
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['visualize_results.py', 'utils', 'viz'])}
     python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${phylo_tree_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${outgroup_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${all_bgcs_tree_arg} ${all_bgcs_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${pepm_svg_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
     """
 }

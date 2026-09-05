@@ -16,12 +16,16 @@ process CLUSTERING_STATS {
     val taxon
     path bigscape_db
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "bigscape_statistics.json", emit: stats_json
 
     script:
     """
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['clustering/stats_from_db.py'])}
     python ${projectDir}/scripts/clustering/stats_from_db.py \\
         ${bigscape_db} bigscape_statistics.json
     """

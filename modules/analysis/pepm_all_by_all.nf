@@ -19,6 +19,11 @@ process PEPM_ALL_BY_ALL {
     path bigscape_db
     path pfam_db
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "pepm_vs_neighbourhood.tsv", emit: pairs,    optional: true
     path "pepm_all_by_all.json",      emit: summary,  optional: true
@@ -27,11 +32,6 @@ process PEPM_ALL_BY_ALL {
 
     script:
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['analysis/pepm_all_by_all.py', 'utils'])}
-
     python ${projectDir}/scripts/analysis/pepm_all_by_all.py \\
         --db ${bigscape_db} \\
         --pfam ${pfam_db}/Pfam-A.hmm \\

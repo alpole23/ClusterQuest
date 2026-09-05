@@ -20,14 +20,17 @@ process PARTITION_TREES {
     tuple val(part_id), path(partition_db)
     path coupling_annotation
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "partition_${part_id}/*", emit: trees, optional: true
 
     script:
     def coupling_arg = Utils.optArg('--coupling_annotation', coupling_annotation)
     """
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['bgc_all_bgcs_tree.py', 'utils'])}
-
     mkdir -p partition_${part_id}
 
     # A partition of one or two BGCs has no tree to draw; skip rather than fail,

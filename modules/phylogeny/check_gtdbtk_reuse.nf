@@ -82,6 +82,11 @@ process FILTER_GTDBTK_RESULTS {
     val reuse_summary     // Path to source summary TSV
     val reuse_tree        // Path to source tree file
 
+    // Digest of the Python this process runs. A val input, not an
+    // interpolation: Nextflow hashes the unevaluated script source plus the
+    // input values, never the rendered text. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "gtdbtk_output", emit: output_dir
     path "gtdbtk_output/gtdbtk.bac120.summary.tsv", emit: bacterial_summary
@@ -89,10 +94,6 @@ process FILTER_GTDBTK_RESULTS {
 
     script:
     """
-    # Cache key. The scripts below are interpolated paths, not declared inputs,
-    # so Nextflow would not otherwise notice when they change. Listed explicitly
-    # rather than hashing all of scripts/ — see Utils.scriptsHash.
-    # scripts-version: ${Utils.scriptsHash(projectDir, ['phylogeny/filter_gtdbtk_results.py'])}
     python ${projectDir}/scripts/phylogeny/filter_gtdbtk_results.py \\
         ${genome_list} \\
         "${reuse_summary}" \\

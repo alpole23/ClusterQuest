@@ -585,6 +585,62 @@ Error handling labels:
 - `tolerant`: Individual failures don't stop pipeline (per-genome processes)
 - `retry_on_error`: Retry on transient errors (network downloads)
 
+### Cache Invalidation: Nextflow Hashes Source, Not Rendered Script
+
+**Nextflow hashes the *unevaluated* script block plus the declared input values.
+It never hashes the rendered command.** Interpolating a value into the script
+body therefore does not invalidate anything.
+
+Measured on Nextflow 26.04 with a two-process probe:
+
+| Where the changed value lives | Task re-runs? |
+|---|---|
+| Interpolated into the `script:` body | **No** — `cached=1` |
+| Declared as a `val` input | **Yes** — `completed=1` |
+
+This matters because scripts are invoked as `python ${projectDir}/scripts/foo.py`
+— an interpolated path, not a declared input — so Nextflow cannot see the Python
+file at all. `Utils.scriptsHash` exists to close that gap, but it was embedded as
+a `# scripts-version:` **comment inside the script block**, which lands on the
+wrong side of the table above. It invalidated nothing.
+
+The consequence is silent: `-resume` reuses output produced by Python code that
+has since changed, with no error and no warning. Found when a partitioned run
+failed with `KeyError: 'genome'` because `PARTITION_BGCS` served a manifest built
+by the previous version of `partition_bgcs.py` — the digest had changed from
+`8cc0a42b6b97` to `cc4bf61ea8c5` and the task was reused regardless.
+
+**The fix is to pass the digest as a `val` input**, as `PARTITION_BGCS` now does:
+
+```groovy
+// module
+input:
+val scripts_version
+
+// call site
+PARTITION_BGCS(taxon, antismash_results, pfam_db_ch,
+               Utils.scriptsHash(projectDir,
+                   ['clustering/partition_bgcs.py', 'utils']))
+```
+
+`ANTISMASH` was never affected: it already passes `antismash_version` and
+`antismash_params_hash` as `val` inputs, which is the pattern that works.
+
+**15 of the 17 processes have been converted.** `tests/check_script_deps.py`
+accepts the digest from either the module's script block or the call site, so it
+keeps checking the two remaining modules while they still use the old spelling.
+
+Two are deliberately unconverted:
+
+| Module | Why it is still on the old spelling |
+|---|---|
+| `create_name_map`, `rename_genomes_parallel` | Upstream of antiSMASH via `renamed_genomes`. Converting them changes each process's source, so they re-run, their output lands in new work directories, and every antiSMASH task sees changed inputs — ~2,807 tasks, ~6 h. Convert when a full antiSMASH re-run is acceptable anyway. |
+
+`CHECK_GTDBTK_REUSE` needs no digest at all: it declares `cache false`. Its
+sibling `FILTER_GTDBTK_RESULTS` in the same file is the process that runs Python,
+and that is where the digest belongs — a reminder that one `.nf` file can hold
+more than one process.
+
 ## Reference Database Versions
 
 **Databases are pinned, and the pins are recorded in the output.** Every database
