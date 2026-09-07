@@ -626,15 +626,16 @@ PARTITION_BGCS(taxon, antismash_results, pfam_db_ch,
 `ANTISMASH` was never affected: it already passes `antismash_version` and
 `antismash_params_hash` as `val` inputs, which is the pattern that works.
 
-**15 of the 17 processes have been converted.** `tests/check_script_deps.py`
-accepts the digest from either the module's script block or the call site, so it
-keeps checking the two remaining modules while they still use the old spelling.
+**All 17 processes now take the digest as a `val` input.** The last two —
+`create_name_map` and `rename_genomes_parallel` — were deferred because they sit
+upstream of antiSMASH and converting them invalidates every antiSMASH task
+(~2,807, ~6 h). They were converted once that cache had been cleared for other
+reasons, when the re-run was already unavoidable and the conversion therefore
+free.
 
-Two are deliberately unconverted:
-
-| Module | Why it is still on the old spelling |
-|---|---|
-| `create_name_map`, `rename_genomes_parallel` | Upstream of antiSMASH via `renamed_genomes`. Converting them changes each process's source, so they re-run, their output lands in new work directories, and every antiSMASH task sees changed inputs — ~2,807 tasks, ~6 h. Convert when a full antiSMASH re-run is acceptable anyway. |
+`tests/check_script_deps.py` **rejects** the `# scripts-version:` comment spelling
+outright, so it cannot reappear silently. It reads the digest only from the call
+site.
 
 `CHECK_GTDBTK_REUSE` needs no digest at all: it declares `cache false`. Its
 sibling `FILTER_GTDBTK_RESULTS` in the same file is the process that runs Python,

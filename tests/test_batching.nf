@@ -24,7 +24,8 @@ workflow {
         .collate(batchSize())
         .map { batch -> tuple(batch.collect { it[0] }, batch.collect { it[1] }) }
 
-    RENAME_GENOMES(params.taxon, genome_batches, file("${params.fixtures}/name_map.json"))
+    RENAME_GENOMES(params.taxon, genome_batches, file("${params.fixtures}/name_map.json"),
+                   Utils.scriptsHash(projectDir, ['genome/rename_genome.py']))
     renamed = RENAME_GENOMES.out.renamed_genome.flatten()
     renamed.view { "RENAMED: ${it.name}" }
 

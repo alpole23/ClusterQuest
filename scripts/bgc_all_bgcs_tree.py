@@ -91,11 +91,28 @@ def load_bgc_data(conn, cutoff):
 
 # ─── Tree building ─────────────────────────────────────────────────────────────
 
-def build_nj_tree(bgc_ids, distances):
-    """Build NJ tree from full pairwise distance matrix."""
+# A tree built mostly from substituted values is not a tree of anything. Refuse
+# above this share rather than draw something that looks authoritative.
+MAX_SUBSTITUTED_FRACTION = 0.05
+
+
+def build_nj_tree(bgc_ids, distances, max_substituted=MAX_SUBSTITUTED_FRACTION):
+    """Build NJ tree from the pairwise distance matrix.
+
+    Unmeasured pairs have to become *some* number for neighbour-joining, and 1.0
+    (maximum distance) is the least-wrong choice. But substituting silently is
+    how a partitioned database once produced a confident-looking tree in which
+    42.9% of the matrix was that constant: the merged `distance` table holds only
+    within-partition comparisons by design, so every cross-partition pair was
+    missing. Count them, say so, and refuse when they dominate.
+
+    Callers with a genuinely complete matrix — a single BiG-SCAPE run, or one
+    partition's own database — see no change.
+    """
     n      = len(bgc_ids)
     labels = [str(i) for i in bgc_ids]
     dm_rows = []
+    substituted = 0
     for i in range(n):
         row = []
         for j in range(i + 1):
@@ -104,8 +121,26 @@ def build_nj_tree(bgc_ids, distances):
             else:
                 a, b = bgc_ids[j], bgc_ids[i]
                 key  = (min(a, b), max(a, b))
-                row.append(distances.get(key, 1.0))
+                if key in distances:
+                    row.append(distances[key])
+                else:
+                    substituted += 1
+                    row.append(1.0)
         dm_rows.append(row)
+
+    total = n * (n - 1) // 2
+    if substituted:
+        share = substituted / total if total else 0.0
+        print(f'  WARNING: {substituted:,} of {total:,} pairs ({share:.1%}) had no '
+              f'stored distance and were set to 1.0')
+        if share > max_substituted:
+            raise SystemExit(
+                f'refusing to build a tree from {share:.1%} substituted distances '
+                f'(limit {max_substituted:.0%}). This usually means the database is '
+                f'a merged partitioned run, whose distance table holds only '
+                f'within-partition pairs by design — build per-partition trees, or '
+                f'the family-centre tree, instead.')
+
     print(f'  Building NJ tree for {n} BGCs...')
     return _build_nj_tree(labels, dm_rows)
 

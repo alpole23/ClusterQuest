@@ -8,9 +8,10 @@ process therefore declares `Utils.scriptsHash(projectDir, [...])`.
 
 Nextflow hashes the *unevaluated* script source plus the input values, never the
 rendered text, so the digest only invalidates anything when it arrives as a `val`
-input — passed from the call site in subworkflows/. Older modules still embed it
-as a comment in the script block, where it has no effect; both spellings are
-accepted here so the two can coexist while modules are converted.
+input — passed from the call site in subworkflows/. Embedding it as a
+`# scripts-version:` comment inside the script block invalidates nothing, which
+is how it was written originally; this check rejects that spelling outright so it
+cannot come back silently.
 
 Those lists are written by hand, so they can drift when a script gains an import.
 This checks that every module a process actually reaches is covered by its declared
@@ -101,11 +102,14 @@ def main():
         for i, proc in enumerate(names):
             blk = text[blocks[i]:blocks[i + 1]]
             invoked = sorted(set(re.findall(r'scripts/([A-Za-z0-9_/]+\.py)', blk)))
-            decl_m = re.search(r'scriptsHash\(projectDir,\s*\[([^\]]*)\]\)', blk)
-            declared = re.findall(r"'([^']+)'", decl_m.group(1)) if decl_m else []
-            if not declared and proc in call_sites:
-                declared = call_sites[proc]
-                decl_m = True
+            if re.search(r'#\s*scripts-version:', blk):
+                problems.append(
+                    f"{nf.name}:{proc} declares its digest as a `# scripts-version:` "
+                    f"comment, which Nextflow does not hash. Pass it as a `val "
+                    f"scripts_version` input from the call site instead.")
+                continue
+            declared = call_sites.get(proc, [])
+            decl_m = bool(declared)
 
             if invoked and not decl_m:
                 problems.append(f"{nf.name}:{proc} runs {invoked} but declares no scripts-version")

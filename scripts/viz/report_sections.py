@@ -793,3 +793,127 @@ def build_partition_section(pepm_summary):
         </p>
     </div>
     '''
+
+
+# ─── Tab bodies ────────────────────────────────────────────────────────────────
+# These were inline in a single 300-line f-string inside generate_html_report,
+# which made every tab edit a careful string match into a wall of markup. Each
+# returns the inner HTML of one `.tab-content` div; the surrounding div and the
+# tab nav stay in visualize_results.py, where the tab numbering lives.
+
+_MISSING = ('<div style="color: #999; padding: 20px; background: #f8f9fa; '
+            'border-radius: 8px; text-align: center; font-size: 0.9em;">{}</div>')
+
+
+def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_section_html):
+    """Clustering statistics, the coupling-enzyme class table and the pepM figure.
+
+    The trees themselves are in the GCF Trees tab; the class table stays here
+    because it is a classification reference, and the tree figures carry their
+    own colour legends.
+    """
+    no_clustering = ('<div class="info-box" style="background-color: #f8f9fa; '
+                     'border-left: 4px solid #6c757d;"><p style="color: #666;">'
+                     'No clustering analysis was performed. To enable clustering, run the '
+                     'pipeline with <code>--clustering bigscape</code>.</p></div>')
+    th = ('text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;')
+    return f'''
+            <h3>GCF Biosynthetic Phylogeny</h3>
+            <p style="color: #666; margin-bottom: 20px;">
+                <em>Classification of phosphonate BGCs by the coupling enzyme acting on phosphonopyruvate — the branching step
+                immediately downstream of PEP mutase that determines the downstream biosynthetic pathway.
+                The trees themselves are in the <strong>GCF Trees</strong> tab.</em>
+            </p>
+
+            <div style="margin-top: 24px; background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                <h4 style="margin-top: 0;">Coupling Enzyme Classes</h4>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                    <thead>
+                        <tr style="background: #e9ecef;">
+                            <th style="{th}">Class</th>
+                            <th style="{th}">Marker</th>
+                            <th style="{th}">Product</th>
+                            <th style="{th}">Reference genes</th>
+                            <th style="{th}">GCFs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {coupling_table_rows}
+                    </tbody>
+                </table>
+            </div>
+
+            <hr class="tab-section-divider">
+
+            {bigscape_section_html}
+            {pepm_section_html}
+            {'' if bigscape_section_html else no_clustering}'''
+
+
+def build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime, partition_trees):
+    """The family-centre tree and one figure per pepM partition.
+
+    Both are built from fully measured distances — the centre tree via
+    BIGSCAPE_CENTERS, the partition trees from each partition's own database.
+    That is why the global all-BGCs tree is no longer here: on a partitioned run
+    43% of its matrix was a substituted constant. See CLAUDE.md.
+    """
+    centre = (f'<img src="data:{gcf_tree_mime};base64,{gcf_tree_b64}" '
+              f'alt="GCF family-centre tree" '
+              f'style="max-width: 100%; height: auto; display: block;">'
+              if gcf_tree_b64 else
+              _MISSING.format('Family-centre tree not generated.<br>'
+                              'Run with <code>--clustering bigscape</code> to enable.'))
+    blocks = ''.join(
+        f'''
+            <div class="plot" style="margin-top: 20px;">
+                <h4 style="margin: 0 0 8px 0; color: #333;">Partition {t['id']}</h4>
+                <img src="data:image/svg+xml;base64,{t['b64']}"
+                     alt="Partition {t['id']} BGC tree"
+                     style="max-width: 100%; height: auto; display: block;">
+            </div>'''
+        for t in (partition_trees or []))
+    partitions = blocks or _MISSING.format(
+        'No per-partition trees.<br>'
+        'Run with <code>--bigscape_partition true</code> to enable.')
+    return f'''
+            <h3>Gene Cluster Family Trees</h3>
+            <p style="color: #666; margin-bottom: 20px;">
+                <em>Branch colours are coupling enzyme classes; the class table is in the
+                <strong>GCF Analysis</strong> tab.</em>
+            </p>
+
+            <div class="plot" style="margin-top: 20px;">
+                <h4 style="margin: 0 0 8px 0; color: #333;">Family-Centre Tree</h4>
+                <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
+                    One representative (medoid) per Gene Cluster Family, circle size &prop; GCF membership.
+                    This is the global view: every centre-to-centre distance is measured, including across
+                    partitions, so the backbone is real rather than substituted.
+                </p>
+                {centre}
+            </div>
+
+            <hr class="tab-section-divider">
+
+            <h4 style="margin: 0 0 8px 0; color: #333;">Per-Partition Trees</h4>
+            <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
+                Every BGC inside one pepM partition. Each partition database holds complete
+                within-partition distances, so these substitute nothing. Partitions of fewer
+                than three BGCs have no tree, so gaps in the numbering are expected.
+            </p>
+            {partitions}'''
+
+
+def build_pipeline_tab(resource_usage_html, partition_section_html, versions_html):
+    """Nextflow resource usage, the partitioning feasibility table and versions."""
+    no_trace = ('<div class="info-box warning"><p>No resource usage data available. '
+                'Trace data will appear here after running the pipeline.</p></div>')
+    return f'''
+            <h2>Pipeline Information</h2>
+            <h3 style="margin-top: 20px;">Resource Usage</h3>
+            <p style="color: #666; margin-bottom: 20px; font-size: 0.9em;">
+                <em>Resource consumption metrics from Nextflow trace data, showing CPU, memory, and runtime for each pipeline process.</em>
+            </p>
+            {resource_usage_html or no_trace}
+            {partition_section_html}
+            {versions_html}'''

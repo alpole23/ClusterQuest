@@ -14,7 +14,8 @@ workflow DOWNLOAD_GENOMES {
 
     main:
         NCBI_DATASETS_DOWNLOAD(taxon)
-        CREATE_NAME_MAP(taxon, NCBI_DATASETS_DOWNLOAD.out.assembly_info)
+        CREATE_NAME_MAP(taxon, NCBI_DATASETS_DOWNLOAD.out.assembly_info,
+                        Utils.scriptsHash(projectDir, ['genome/create_name_map.py']))
         DOWNLOAD_TAXONKIT_DB()
 
         // Prepare genome pairs (assembly_id, genome_file), batched — renaming is a
@@ -25,7 +26,8 @@ workflow DOWNLOAD_GENOMES {
             .collate(batchSize())
             .map { batch -> tuple(batch.collect { it[0] }, batch.collect { it[1] }) }
 
-        RENAME_GENOMES(taxon, genome_batches, CREATE_NAME_MAP.out.name_map)
+        RENAME_GENOMES(taxon, genome_batches, CREATE_NAME_MAP.out.name_map,
+                       Utils.scriptsHash(projectDir, ['genome/rename_genome.py']))
 
         EXTRACT_TAXONOMY(
             taxon,
