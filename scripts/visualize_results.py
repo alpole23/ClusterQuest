@@ -160,7 +160,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
         <label for="tab4">GCF Analysis</label>
 
         <input type="radio" id="tab5" name="tabs">
-        <label for="tab5">Trees</label>
+        <label for="tab5">GCF Trees</label>
 
         <input type="radio" id="tab6" name="tabs">
         <label for="tab6">Novel BGCs</label>
@@ -250,7 +250,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Classification of phosphonate BGCs by the coupling enzyme acting on phosphonopyruvate — the branching step
                 immediately downstream of PEP mutase that determines the downstream biosynthetic pathway.
-                The trees themselves are in the <strong>Trees</strong> tab.</em>
+                The trees themselves are in the <strong>GCF Trees</strong> tab.</em>
             </p>
 
             <div style="margin-top: 24px; background: #f8f9fa; padding: 20px; border-radius: 10px;">

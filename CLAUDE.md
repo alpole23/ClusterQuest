@@ -746,12 +746,12 @@ per partition, where the distance matrix really is complete.
 
 ### Report Tabs
 
-Eight, in this order: Overview, Phylogeny, Genomes, GCF Analysis, **Trees**,
+Eight, in this order: Overview, Phylogeny, Genomes, GCF Analysis, **GCF Trees**,
 Novel BGCs, KCB Hits, Pipeline. Tabs are pure CSS radio buttons, so adding one
 means an `#tabN:checked ~ #contentN` rule in `viz/report_assets.py` alongside the
 markup — there is no JavaScript involved in tab switching.
 
-The Trees tab holds the family-centre tree and the per-partition trees. The
+The GCF Trees tab holds the family-centre tree and the per-partition trees. The
 coupling-enzyme class table stays in GCF Analysis: the tree figures carry their
 own colour legends, and the table is a classification reference rather than a
 tree legend.
