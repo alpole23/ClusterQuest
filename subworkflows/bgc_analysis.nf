@@ -67,11 +67,10 @@ workflow BGC_ANALYSIS {
             // --- GCF Biosynthetic Tree (runs before visualization so its output can be embedded) ---
             gcf_tree_png_ch         = placeholder('NO_GCF_TREE')
             gcf_tree_svg_ch         = placeholder('NO_GCF_TREE_SVG')
-            all_bgcs_tree_ch        = placeholder('NO_ALL_BGCS_TREE')
-            all_bgcs_tree_svg_ch    = placeholder('NO_ALL_BGCS_TREE_SVG')
             gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
+            partition_trees_ch      = Channel.value([])
             pepm_svg_ch             = placeholder('NO_PEPM_SVG')
             pepm_json_ch            = placeholder('NO_PEPM_JSON')
             if (clusteringEnabled("bigscape")) {
@@ -83,9 +82,8 @@ workflow BGC_ANALYSIS {
                     PHYLOGENY.out.summary,
                     CLUSTERING.out.centers_db,
                     Utils.scriptsHash(projectDir,
-                        ['bgc_all_bgcs_tree.py', 'bgc_coupling_annotation.py',
-                         'bgc_gcf_heatmap.py', 'bgc_gcf_tree.py', 'bgc_pfam_tree.py',
-                         'utils'])
+                        ['bgc_coupling_annotation.py', 'bgc_gcf_heatmap.py',
+                         'bgc_gcf_tree.py', 'bgc_pfam_tree.py', 'utils'])
                 )
                 // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
                 // data and reports whether pepM identity could partition
@@ -116,11 +114,13 @@ workflow BGC_ANALYSIS {
                         .ifEmpty(file('NO_COUPLING_ANNOTATION')),
                     Utils.scriptsHash(projectDir, ['bgc_all_bgcs_tree.py', 'utils'])
                 )
+                // One directory per partition, collected so the report can embed
+                // them all. Empty on an unpartitioned run: partition_dbs is an
+                // empty channel there, so PARTITION_TREES never fires.
+                partition_trees_ch = PARTITION_TREES.out.tree_dir.collect().ifEmpty([])
 
                 gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
                 gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
-                all_bgcs_tree_ch       = GCF_BIOSYNTHETIC_TREE.out.all_bgcs_tree_png.ifEmpty(file('NO_ALL_BGCS_TREE'))
-                all_bgcs_tree_svg_ch   = GCF_BIOSYNTHETIC_TREE.out.all_bgcs_tree_svg.ifEmpty(file('NO_ALL_BGCS_TREE_SVG'))
                 gcf_heatmap_svg_ch     = GCF_BIOSYNTHETIC_TREE.out.heatmap_svg.ifEmpty(file('NO_GCF_HEATMAP_SVG'))
                 coupling_annotation_ch = GCF_BIOSYNTHETIC_TREE.out.coupling_annotation.ifEmpty(file('NO_COUPLING_ANNOTATION'))
                 coupling_support_ch    = GCF_BIOSYNTHETIC_TREE.out.coupling_support.ifEmpty(file('NO_COUPLING_SUPPORT'))
@@ -143,9 +143,8 @@ workflow BGC_ANALYSIS {
                 versions_ch,
                 gcf_tree_png_ch,
                 gcf_tree_svg_ch,
-                all_bgcs_tree_ch,
-                all_bgcs_tree_svg_ch,
                 gcf_heatmap_svg_ch,
+                partition_trees_ch,
                 coupling_annotation_ch,
                 coupling_support_ch,
                 pepm_svg_ch,

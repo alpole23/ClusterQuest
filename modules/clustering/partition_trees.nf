@@ -26,7 +26,7 @@ process PARTITION_TREES {
     val scripts_version
 
     output:
-    path "partition_${part_id}/*", emit: trees, optional: true
+    path "partition_${part_id}", emit: tree_dir, optional: true
 
     script:
     def coupling_arg = Utils.optArg('--coupling_annotation', coupling_annotation)
@@ -42,6 +42,7 @@ print(c.execute(\\"SELECT COUNT(*) FROM bgc_record WHERE record_type='region'\\"
 ")
     if [ "\$n" -lt 3 ]; then
         echo "partition ${part_id} has \$n BGCs; no tree"
+        rmdir partition_${part_id}
         exit 0
     fi
 

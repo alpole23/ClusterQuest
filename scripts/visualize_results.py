@@ -52,8 +52,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          versions_data=None, rarefaction_stats=None,
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
                          gcf_tree_mime='image/png',
-                         all_bgcs_tree_b64=None, all_bgcs_tree_mime='image/png',
-                         gcf_heatmap_b64=None,
+                         gcf_heatmap_b64=None, partition_trees=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
                          pepm_b64=None, pepm_summary=None):
@@ -89,6 +88,18 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # table is operational and belongs with the pipeline diagnostics.
     pepm_section_html = build_pepm_section(pepm_b64, pepm_summary)
     partition_section_html = build_partition_section(pepm_summary)
+
+    # One block per partition that produced a tree. Empty string on an
+    # unpartitioned run, which collapses the section below to just its note.
+    partition_trees_html = ''.join(
+        f'''
+            <div class="plot" style="margin-top: 20px;">
+                <h4 style="margin: 0 0 8px 0; color: #333;">Partition {t['id']}</h4>
+                <img src="data:image/svg+xml;base64,{t['b64']}"
+                     alt="Partition {t['id']} BGC tree"
+                     style="max-width: 100%; height: auto; display: block;">
+            </div>'''
+        for t in (partition_trees or []))
 
     bigscape_section_html = _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html,
                                                         taxon_clean, gcf_support_rows)
@@ -149,13 +160,16 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
         <label for="tab4">GCF Analysis</label>
 
         <input type="radio" id="tab5" name="tabs">
-        <label for="tab5">Novel BGCs</label>
+        <label for="tab5">Trees</label>
 
         <input type="radio" id="tab6" name="tabs">
-        <label for="tab6">KCB Hits</label>
+        <label for="tab6">Novel BGCs</label>
 
         <input type="radio" id="tab7" name="tabs">
-        <label for="tab7">Pipeline</label>
+        <label for="tab7">KCB Hits</label>
+
+        <input type="radio" id="tab8" name="tabs">
+        <label for="tab8">Pipeline</label>
 
         <!-- Tab 1: Overview -->
         <div class="tab-content" id="content1">
@@ -235,28 +249,9 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             <h3>GCF Biosynthetic Phylogeny</h3>
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Classification of phosphonate BGCs by the coupling enzyme acting on phosphonopyruvate — the branching step
-                immediately downstream of PEP mutase that determines the downstream biosynthetic pathway.</em>
+                immediately downstream of PEP mutase that determines the downstream biosynthetic pathway.
+                The trees themselves are in the <strong>Trees</strong> tab.</em>
             </p>
-
-            <!-- GCF medoid tree (top half) -->
-            <div class="plot" style="margin-top: 20px;">
-                <h4 style="margin: 0 0 8px 0; color: #333;">GCF-Level Tree</h4>
-                <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
-                    One representative (medoid) per Gene Cluster Family. Circle size ∝ GCF membership.
-                </p>
-                {'<img src="data:' + gcf_tree_mime + ';base64,' + gcf_tree_b64 + '" alt="GCF Biosynthetic Phylogeny" style="max-width: 100%; height: auto; display: block;">' if gcf_tree_b64 else '<div style="color: #999; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; font-size: 0.9em;">GCF biosynthetic tree not generated.<br>Run with <code>--clustering bigscape</code> to enable.</div>'}
-            </div>
-
-            <hr class="tab-section-divider">
-
-            <!-- All-BGCs circular tree (bottom half) -->
-            <div class="plot">
-                <h4 style="margin: 0 0 8px 0; color: #333;">All-BGCs Circular Tree</h4>
-                <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
-                    Every BGC as a leaf. NJ tree from the full BiG-SCAPE pairwise distance matrix, colored by coupling enzyme class.
-                </p>
-                {'<img src="data:' + all_bgcs_tree_mime + ';base64,' + all_bgcs_tree_b64 + '" alt="All-BGCs Biosynthetic Tree" style="max-width: 100%; height: auto; display: block;">' if all_bgcs_tree_b64 else '<div style="color: #999; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; font-size: 0.9em;">All-BGCs tree not generated.<br>Run with <code>--clustering bigscape</code> to enable.</div>'}
-            </div>
 
             <div style="margin-top: 24px; background: #f8f9fa; padding: 20px; border-radius: 10px;">
                 <h4 style="margin-top: 0;">Coupling Enzyme Classes</h4>
@@ -283,18 +278,48 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             {f'<div class="info-box" style="background-color: #f8f9fa; border-left: 4px solid #6c757d;"><p style="color: #666;">No clustering analysis was performed. To enable clustering, run the pipeline with <code>--clustering bigscape</code>.</p></div>' if not bigscape_section_html else ''}
         </div>
 
-        <!-- Tab 5: Novel BGCs -->
+        <!-- Tab 5: Trees -->
         <div class="tab-content" id="content5">
+
+            <h3>Gene Cluster Family Trees</h3>
+            <p style="color: #666; margin-bottom: 20px;">
+                <em>Branch colours are coupling enzyme classes; the class table is in the
+                <strong>GCF Analysis</strong> tab.</em>
+            </p>
+
+            <div class="plot" style="margin-top: 20px;">
+                <h4 style="margin: 0 0 8px 0; color: #333;">Family-Centre Tree</h4>
+                <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
+                    One representative (medoid) per Gene Cluster Family, circle size &prop; GCF membership.
+                    This is the global view: every centre-to-centre distance is measured, including across
+                    partitions, so the backbone is real rather than substituted.
+                </p>
+                {'<img src="data:' + gcf_tree_mime + ';base64,' + gcf_tree_b64 + '" alt="GCF family-centre tree" style="max-width: 100%; height: auto; display: block;">' if gcf_tree_b64 else '<div style="color: #999; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; font-size: 0.9em;">Family-centre tree not generated.<br>Run with <code>--clustering bigscape</code> to enable.</div>'}
+            </div>
+
+            <hr class="tab-section-divider">
+
+            <h4 style="margin: 0 0 8px 0; color: #333;">Per-Partition Trees</h4>
+            <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
+                Every BGC inside one pepM partition. Each partition database holds complete
+                within-partition distances, so these substitute nothing. Partitions of fewer
+                than three BGCs have no tree, so gaps in the numbering are expected.
+            </p>
+            {partition_trees_html if partition_trees_html else '<div style="color: #999; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: center; font-size: 0.9em;">No per-partition trees.<br>Run with <code>--bigscape_partition true</code> to enable.</div>'}
+        </div>
+
+        <!-- Tab 6: Novel BGCs -->
+        <div class="tab-content" id="content6">
             {novel_bgcs_tab_content}
         </div>
 
-        <!-- Tab 6: KCB Hits -->
-        <div class="tab-content" id="content6">
+        <!-- Tab 7: KCB Hits -->
+        <div class="tab-content" id="content7">
             {kcb_hits_tab_content}
         </div>
 
-        <!-- Tab 7: Pipeline Info -->
-        <div class="tab-content" id="content7">
+        <!-- Tab 8: Pipeline Info -->
+        <div class="tab-content" id="content8">
             <h2>Pipeline Information</h2>
             <h3 style="margin-top: 20px;">Resource Usage</h3>
             <p style="color: #666; margin-bottom: 20px; font-size: 0.9em;">
@@ -346,9 +371,8 @@ def main():
     parser.add_argument('--outgroup', type=str, help='Outgroup taxon pattern for tree pruning (e.g., "g__Escherichia")')
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
-    parser.add_argument('--all_bgcs_tree', type=Path, help='Path to all-BGCs circular NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
-    parser.add_argument('--all_bgcs_tree_svg', type=Path, help='Path to all-BGCs circular NJ tree SVG (preferred over PNG: vector, and ~45%% smaller once base64-encoded)')
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
+    parser.add_argument('--partition_trees', type=Path, help='Directory of per-partition tree directories from PARTITION_TREES')
     parser.add_argument('--pepm_svg', type=Path, help='pepM vs BiG-SCAPE similarity SVG from PEPM_ALL_BY_ALL')
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
@@ -527,24 +551,22 @@ def main():
         with open(args.gcf_heatmap_svg, 'rb') as f:
             gcf_heatmap_b64 = base64.b64encode(f.read()).decode('ascii')
 
-    # Load all-BGCs circular tree as base64. SVG first: it is vector (this figure has
-    # ~320 leaves and is unreadable without zoom) and much smaller once base64-encoded
-    # — 1.8 MB PNG vs 972 KB SVG on the Pantoea genus run.
-    all_bgcs_tree_b64 = None
-    all_bgcs_tree_mime = 'image/png'
-    _all_bgcs_svg = args.all_bgcs_tree_svg
-    if not (_all_bgcs_svg and _all_bgcs_svg.exists()) and args.all_bgcs_tree:
-        # fall back to an SVG sitting beside the PNG (kept for standalone invocation;
-        # under Nextflow only declared inputs are staged, so the sibling is usually absent)
-        sibling = args.all_bgcs_tree.with_suffix('.svg')
-        _all_bgcs_svg = sibling if sibling.exists() else None
-    if _all_bgcs_svg and _all_bgcs_svg.exists():
-        with open(_all_bgcs_svg, 'rb') as f:
-            all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
-        all_bgcs_tree_mime = 'image/svg+xml'
-    elif args.all_bgcs_tree and args.all_bgcs_tree.exists():
-        with open(args.all_bgcs_tree, 'rb') as f:
-            all_bgcs_tree_b64 = base64.b64encode(f.read()).decode('ascii')
+    # Per-partition trees, keyed by the partition id in the directory name. Only
+    # partitioned runs have these; PARTITION_TREES also emits nothing for a
+    # partition of fewer than three BGCs, so gaps in the numbering are normal.
+    partition_trees = []
+    if args.partition_trees and args.partition_trees.is_dir():
+        for d in sorted(args.partition_trees.iterdir(),
+                        key=lambda x: int(x.name.split('_')[-1])
+                        if x.name.split('_')[-1].isdigit() else 1 << 30):
+            svg = d / 'all_bgcs_biosynthetic_tree_circular.svg'
+            if not svg.exists():
+                continue
+            with open(svg, 'rb') as f:
+                partition_trees.append({
+                    'id': d.name.split('_')[-1],
+                    'b64': base64.b64encode(f.read()).decode('ascii'),
+                })
 
     # pepM all-by-all: the figure goes in GCF Analysis, the partitioning table in
     # the pipeline-info block on Overview. Both are optional — the analysis is a
@@ -596,9 +618,8 @@ def main():
                             gtdbtk_summary_path=gtdbtk_summary_path,
                             gcf_tree_b64=gcf_tree_b64,
                             gcf_tree_mime=gcf_tree_mime,
-                            all_bgcs_tree_b64=all_bgcs_tree_b64,
-                            all_bgcs_tree_mime=all_bgcs_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
+                            partition_trees=partition_trees,
                             coupling_table_rows=coupling_table_rows,
                             gcf_classes=gcf_classes,
                             gcf_support_rows=gcf_support_rows)

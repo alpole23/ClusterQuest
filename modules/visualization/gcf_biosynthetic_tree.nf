@@ -21,8 +21,6 @@ process GCF_BIOSYNTHETIC_TREE {
     path "gcf_species_heatmap.svg",                     emit: heatmap_svg,          optional: true
     path "gcf_biosynthetic_tree.png",                   emit: gcf_tree_png,         optional: true
     path "gcf_biosynthetic_tree.svg",                   emit: gcf_tree_svg,         optional: true
-    path "all_bgcs_biosynthetic_tree_circular.png",     emit: all_bgcs_tree_png,    optional: true
-    path "all_bgcs_biosynthetic_tree_circular.svg",     emit: all_bgcs_tree_svg,    optional: true
     path "phosphonate_metadata.json",                   emit: metadata,             optional: true
     path "phosphonate_itol_coupling.txt",               emit: coupling_annotation,  optional: true
     path "phosphonate_coupling_support.tsv",            emit: coupling_support,     optional: true
@@ -65,12 +63,5 @@ process GCF_BIOSYNTHETIC_TREE {
         --db ${bigscape_db} \\
         --coupling_annotation phosphonate_itol_coupling.txt \\
         --outdir .
-
-    # Step 5: Generate all-BGCs circular NJ tree (full distance matrix)
-    python ${projectDir}/scripts/bgc_all_bgcs_tree.py \\
-        --db ${bigscape_db} \\
-        --coupling_annotation phosphonate_itol_coupling.txt \\
-        --outdir . \\
-        --layout circular
     """
 }

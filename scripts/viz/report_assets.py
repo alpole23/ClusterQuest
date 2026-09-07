@@ -59,7 +59,8 @@ REPORT_CSS = """\
         #tab4:checked ~ #content4,
         #tab5:checked ~ #content5,
         #tab6:checked ~ #content6,
-        #tab7:checked ~ #content7 {
+        #tab7:checked ~ #content7,
+        #tab8:checked ~ #content8 {
             display: block;
         }
 

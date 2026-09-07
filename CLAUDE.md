@@ -712,6 +712,50 @@ The report uses 7 tabs:
 - **Novel BGCs**: BGC regions without KnownClusterBlast matches
 - **KCB Hits**: Known cluster matches grouped by MIBiG entry
 
+### The All-BGCs Tree Was Removed
+
+The report used to carry a global all-BGCs circular tree beside the family-centre
+tree. It is gone, on both partitioned and unpartitioned runs.
+
+**On a partitioned run it was quietly wrong.** `bgc_all_bgcs_tree.py` fills
+unmeasured pairs with a constant:
+
+```python
+row.append(distances.get(key, 1.0))
+```
+
+The merged `distance` table holds only within-partition comparisons by design, so
+on Erwiniaceae 23,712 of 55,278 pairs — **42.9%** — were that constant, with no
+warning printed (unlike `bgc_gcf_tree.py`, which reports its missing pairs). This
+is the same failure that `BIGSCAPE_CENTERS` was built to fix for the GCF tree; the
+all-BGCs tree never got the equivalent treatment.
+
+It was still valid unpartitioned, where BiG-SCAPE measures every pair, so gating
+it on `params.bigscape_partition` was an option. It was removed outright instead,
+so that a figure means the same thing in every run mode.
+
+The pair that replaces it is complete in both modes:
+
+| Figure | Distances |
+|---|---|
+| Family-centre tree | Every centre pair measured, via `BIGSCAPE_CENTERS` |
+| Per-partition trees | Complete within a partition, by construction |
+
+`scripts/bgc_all_bgcs_tree.py` is still in the tree — `PARTITION_TREES` runs it
+per partition, where the distance matrix really is complete.
+
+### Report Tabs
+
+Eight, in this order: Overview, Phylogeny, Genomes, GCF Analysis, **Trees**,
+Novel BGCs, KCB Hits, Pipeline. Tabs are pure CSS radio buttons, so adding one
+means an `#tabN:checked ~ #contentN` rule in `viz/report_assets.py` alongside the
+markup — there is no JavaScript involved in tab switching.
+
+The Trees tab holds the family-centre tree and the per-partition trees. The
+coupling-enzyme class table stays in GCF Analysis: the tree figures carry their
+own colour legends, and the table is a classification reference rather than a
+tree legend.
+
 ### The GTDB-Tk Tree Is Not Drawn in the Report
 
 `prepare_phylo_tree_for_js` prunes the GTDB-Tk tree to the analysed genomes and writes
