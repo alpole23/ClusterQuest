@@ -33,7 +33,6 @@ from viz.clustering import generate_bigscape_stats_html, generate_gcf_visualizat
 from viz.tables import (calculate_summary_statistics, create_bgc_distribution_table,
                         generate_genome_table_html)
 from viz.taxonomy import generate_taxonomy_tree_html
-from viz.tree_viz import prepare_phylo_tree_for_js
 from viz.report_assets import REPORT_CSS, REPORT_JS
 from viz.distribution import generate_bgc_distribution_html
 from viz.genome_pages import create_genome_metadata_pages
@@ -305,7 +304,6 @@ def main():
     parser.add_argument('--name_map', type=Path, help='Path to name_map.json')
     parser.add_argument('--taxonomy_map', type=Path, help='Path to taxonomy_map.json')
     parser.add_argument('--taxonomy_tree', type=Path, help='Path to taxonomy_tree.json')
-    parser.add_argument('--phylo_tree', type=Path, help='Path to Newick phylogenetic tree file from GTDB-Tk')
     parser.add_argument('--gtdbtk_summary', type=Path, help='Path to GTDB-Tk summary TSV file')
     parser.add_argument('--bigscape_stats', type=Path, help='Path to bigscape_statistics.json')
     parser.add_argument('--bigscape_db', type=Path, help='Path to BiG-SCAPE SQLite database for rarefaction curve')
@@ -316,7 +314,6 @@ def main():
     parser.add_argument('--mibig_included', action='store_true', help='Whether MIBiG references were included in BiG-SCAPE analysis')
     parser.add_argument('--versions', type=Path, help='Path to software_versions.json')
     parser.add_argument('--skip_tree', action='store_true', help='Skip phylogenetic tree visualization (useful for very large datasets)')
-    parser.add_argument('--outgroup', type=str, help='Outgroup taxon pattern for tree pruning (e.g., "g__Escherichia")')
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
@@ -381,30 +378,13 @@ def main():
         tree_html = _tax['html']
         taxonomy_genome_json = _tax['genome_json']
 
-    # Generate phylogenetic tree data for JavaScript visualization
+    # The GTDB-Tk tree is no longer produced. GTDBTK_CLASSIFY is sharded for wall
+    # time, and a per-shard tree spans a disjoint genome set — N of them cannot be
+    # concatenated into one phylogeny. The taxonomy *assignments* merge cleanly and
+    # are what the Phylogeny tab and the GCF x genus heatmap actually consume.
     phylo_tree_generated = False
     phylo_tree_data = None
     gtdbtk_summary_path = str(args.gtdbtk_summary) if args.gtdbtk_summary and args.gtdbtk_summary.exists() else None
-    if args.skip_tree:
-        print("Skipping phylogenetic tree visualization (--skip_tree enabled)")
-        phylo_tree_data = {'skipped': True, 'reason': 'user_disabled'}
-    elif args.phylo_tree and args.phylo_tree.exists():
-        print(f"Preparing phylogenetic tree for visualization...")
-        gtdbtk_summary_path = str(args.gtdbtk_summary) if args.gtdbtk_summary and args.gtdbtk_summary.exists() else None
-        counts_path = str(args.counts) if args.counts and args.counts.exists() else None
-
-        # Prepare pruned tree data for JavaScript visualization
-        phylo_tree_data = prepare_phylo_tree_for_js(
-            str(args.phylo_tree),
-            gtdbtk_summary_path,
-            counts_path,
-            str(args.outdir),
-            outgroup=args.outgroup
-        )
-
-        if phylo_tree_data:
-            phylo_tree_generated = True
-            print(f"Prepared interactive tree with {phylo_tree_data.get('leaf_count', 0)} genomes")
 
     # Generate BiG-SCAPE statistics visualization
     bigscape_stats_html = ''

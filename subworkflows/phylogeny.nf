@@ -1,8 +1,9 @@
 include { GENBANK_TO_FASTA } from '../modules/genome/genbank_to_fasta'
 include { DOWNLOAD_GTDBTK_DB } from '../modules/databases/download_gtdbtk_db'
 include { GTDBTK_CLASSIFY } from '../modules/phylogeny/gtdbtk'
+include { MERGE_GTDBTK } from '../modules/phylogeny/merge_gtdbtk'
 include { CHECK_GTDBTK_REUSE; FILTER_GTDBTK_RESULTS } from '../modules/phylogeny/check_gtdbtk_reuse'
-include { batchSize; placeholder } from './helpers'
+include { batchSize; gtdbtkShardSize; placeholder } from './helpers'
 
 /*
  * Subworkflow: GTDB-Tk phylogenetic classification (with optional result reuse)
@@ -14,7 +15,6 @@ workflow PHYLOGENY {
         counts
 
     main:
-        phylo_tree_ch = placeholder('NO_PHYLO_TREE')
         gtdbtk_summary_ch = placeholder('NO_GTDBTK_SUMMARY')
 
         if (params.run_gtdbtk) {
@@ -62,7 +62,6 @@ workflow PHYLOGENY {
                     taxon,
                     genome_list_ch,
                     check_result.reuse.map { it[1] },
-                    check_result.reuse.map { it[2] },
                     Utils.scriptsHash(projectDir,
                         ['phylogeny/filter_gtdbtk_results.py'])
                 )
@@ -71,27 +70,30 @@ workflow PHYLOGENY {
                 DOWNLOAD_GTDBTK_DB()
                 fasta_for_fresh_run = check_result.run
                     .combine(fasta_files)
-                    .map { status, summary, tree, files -> files }
+                    .map { status, summary, files -> files }
+                    .flatten()
+                    .collate(gtdbtkShardSize())
+                    .map { shard -> tuple(shard.hashCode().abs(), shard) }
                 GTDBTK_CLASSIFY(taxon, fasta_for_fresh_run, DOWNLOAD_GTDBTK_DB.out.db_dir)
+                MERGE_GTDBTK(taxon, GTDBTK_CLASSIFY.out.bacterial_summary.collect())
 
-                // Combine outputs
-                phylo_tree_ch = FILTER_GTDBTK_RESULTS.out.bacterial_tree
-                    .mix(GTDBTK_CLASSIFY.out.bacterial_tree)
-                    .ifEmpty(file('NO_PHYLO_TREE'))
                 gtdbtk_summary_ch = FILTER_GTDBTK_RESULTS.out.bacterial_summary
-                    .mix(GTDBTK_CLASSIFY.out.bacterial_summary)
+                    .mix(MERGE_GTDBTK.out.bacterial_summary)
                     .ifEmpty(file('NO_GTDBTK_SUMMARY'))
             } else {
                 // === GTDB-Tk NORMAL MODE ===
                 DOWNLOAD_GTDBTK_DB()
-                GTDBTK_CLASSIFY(taxon, fasta_files, DOWNLOAD_GTDBTK_DB.out.db_dir)
+                // One shard below gtdbtkShardSize(), so small runs are unchanged.
+                gtdbtk_shards = fasta_ch
+                    .collate(gtdbtkShardSize())
+                    .map { shard -> tuple(shard.hashCode().abs(), shard) }
+                GTDBTK_CLASSIFY(taxon, gtdbtk_shards, DOWNLOAD_GTDBTK_DB.out.db_dir)
+                MERGE_GTDBTK(taxon, GTDBTK_CLASSIFY.out.bacterial_summary.collect())
 
-                phylo_tree_ch = GTDBTK_CLASSIFY.out.bacterial_tree.ifEmpty(file('NO_PHYLO_TREE'))
-                gtdbtk_summary_ch = GTDBTK_CLASSIFY.out.bacterial_summary.ifEmpty(file('NO_GTDBTK_SUMMARY'))
+                gtdbtk_summary_ch = MERGE_GTDBTK.out.bacterial_summary.ifEmpty(file('NO_GTDBTK_SUMMARY'))
             }
         }
 
     emit:
-        tree    = phylo_tree_ch
         summary = gtdbtk_summary_ch
 }

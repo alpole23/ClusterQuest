@@ -15,29 +15,19 @@ process CHECK_GTDBTK_REUSE {
     path genome_list  // File with list of genome names (one per line)
 
     output:
-    tuple env('STATUS'), env('REUSE_SUMMARY'), env('REUSE_TREE'), emit: check_result
+    tuple env('STATUS'), env('REUSE_SUMMARY'), emit: check_result
 
     script:
     // Use Utils helper to build absolute reuse path
     def reuse_dir = Utils.buildReusePath(params, projectDir, "gtdbtk", reuse_taxon, "gtdbtk_output")
     def reuse_summary = "${reuse_dir}/gtdbtk.bac120.summary.tsv"
-    // Tree files have class index suffix in GTDB-Tk v2.x
-    def reuse_tree_pattern = "${reuse_dir}/classify/gtdbtk.bac120.classify.tree.*.tree"
     """
     STATUS="RUN"
     REUSE_SUMMARY=""
-    REUSE_TREE=""
 
     # Check if reuse summary exists
     if [ ! -f "${reuse_summary}" ]; then
         echo "RUN: Reuse summary not found at ${reuse_summary}"
-        exit 0
-    fi
-
-    # Find tree file (may have different class index)
-    REUSE_TREE_FILE=\$(ls ${reuse_tree_pattern} 2>/dev/null | head -1)
-    if [ -z "\$REUSE_TREE_FILE" ]; then
-        echo "RUN: Reuse tree not found matching ${reuse_tree_pattern}"
         exit 0
     fi
 
@@ -54,7 +44,6 @@ process CHECK_GTDBTK_REUSE {
     if [ "\$MISSING" -eq 0 ]; then
         STATUS="REUSE"
         REUSE_SUMMARY="${reuse_summary}"
-        REUSE_TREE="\$REUSE_TREE_FILE"
         CURRENT_COUNT=\$(wc -l < current_genomes.txt)
         REUSE_COUNT=\$(wc -l < reuse_genomes.txt)
         echo "REUSE: All \$CURRENT_COUNT genomes found in reuse results (\$REUSE_COUNT total in source)"
@@ -80,7 +69,6 @@ process FILTER_GTDBTK_RESULTS {
     val taxon
     path genome_list      // File with list of genome names
     val reuse_summary     // Path to source summary TSV
-    val reuse_tree        // Path to source tree file
 
     // Digest of the Python this process runs. A val input, not an
     // interpolation: Nextflow hashes the unevaluated script source plus the
@@ -90,14 +78,12 @@ process FILTER_GTDBTK_RESULTS {
     output:
     path "gtdbtk_output", emit: output_dir
     path "gtdbtk_output/gtdbtk.bac120.summary.tsv", emit: bacterial_summary
-    path "gtdbtk_output/classify/gtdbtk.bac120.classify.tree.1.tree", emit: bacterial_tree, optional: true
 
     script:
     """
     python ${projectDir}/scripts/phylogeny/filter_gtdbtk_results.py \\
         ${genome_list} \\
         "${reuse_summary}" \\
-        "${reuse_tree}" \\
         gtdbtk_output
     """
 }

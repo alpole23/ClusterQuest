@@ -1,7 +1,6 @@
 """Visualization modules for BGC analysis pipeline."""
 
 from .charts import get_bgc_color, plot_kcb_identification_chart
-from .tree_viz import prepare_phylo_tree_for_js
 from .tables import (
     get_genome_count,
     generate_genome_table_html,
@@ -35,7 +34,6 @@ __all__ = [
     'get_bgc_color',
     'plot_kcb_identification_chart',
     # tree_viz
-    'prepare_phylo_tree_for_js',
     # tables
     'get_genome_count',
     'generate_genome_table_html',

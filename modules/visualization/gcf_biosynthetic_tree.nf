@@ -7,7 +7,6 @@ process GCF_BIOSYNTHETIC_TREE {
     val taxon
     path bigscape_db
     path "antismash_input/*", stageAs: 'antismash_input/*'
-    path gtdbtk_tree
     path gtdbtk_summary
     path centers_db
 
@@ -26,7 +25,6 @@ process GCF_BIOSYNTHETIC_TREE {
     path "phosphonate_coupling_support.tsv",            emit: coupling_support,     optional: true
 
     script:
-    def tree_arg    = Utils.optArg('--gtdbtk_tree',    gtdbtk_tree)
     def summary_arg = Utils.optArg('--gtdbtk_summary', gtdbtk_summary)
     // Exact centre-to-centre distances when the main database is
     // partitioned; without it the GCF tree substitutes 1.0 for every
@@ -53,7 +51,6 @@ process GCF_BIOSYNTHETIC_TREE {
     python ${projectDir}/scripts/bgc_gcf_heatmap.py \\
         --metadata phosphonate_metadata.json \\
         --coupling_annotation phosphonate_itol_coupling.txt \\
-        ${tree_arg} \\
         ${summary_arg} \\
         --outdir .
 

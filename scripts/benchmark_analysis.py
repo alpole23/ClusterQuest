@@ -155,10 +155,19 @@ def compute_process_stats(tasks):
         done    = [t for t in ptasks if t['status'] == 'COMPLETED']
         failed  = [t for t in ptasks if t['status'] == 'FAILED']
         cached  = [t for t in ptasks if t['status'] == 'CACHED']
-        times   = [t['realtime_s']  for t in done if t['realtime_s'] > 0]
-        mems    = [t['peak_rss_b']  for t in done if t['peak_rss_b'] > 0]
-        cpus    = [t['cpu_pct']     for t in done if t['cpu_pct']    > 0]
-        cpu_s   = [t['cpu_s']       for t in done]
+
+        # Resource metrics come from COMPLETED *and* CACHED tasks. A cached row
+        # carries the realtime, peak_rss and %cpu of the execution it is standing
+        # in for, so it describes real work — and on any -resume almost every row
+        # is cached, which previously made this report show 0 CPU hours for
+        # everything. Wall-clock throughput is a different matter: those tasks ran
+        # at different times, so end-to-end duration must come from the run itself,
+        # not from summing or spanning trace timestamps.
+        measured = done + cached
+        times   = [t['realtime_s']  for t in measured if t['realtime_s'] > 0]
+        mems    = [t['peak_rss_b']  for t in measured if t['peak_rss_b'] > 0]
+        cpus    = [t['cpu_pct']     for t in measured if t['cpu_pct']    > 0]
+        cpu_s   = [t['cpu_s']       for t in measured]
 
         def pct(lst, p):
             if not lst:
@@ -168,7 +177,7 @@ def compute_process_stats(tasks):
             return s[idx]
 
         stats[proc] = {
-            'n_completed':    len(done),
+            'n_completed':    len(done) + len(cached),
             'n_failed':       len(failed),
             'n_cached':       len(cached),
             'subworkflow':    (done or ptasks)[0]['subworkflow'],

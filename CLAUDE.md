@@ -304,11 +304,25 @@ write-up with the cost model: `docs/benchmark_2026-08-29.html`.
 | `NCBI_DATASETS_DOWNLOAD` | 0.51 → 0.86 | 1.68x | 1.1% |
 | `BIGSCAPE` | 0.14 → 0.16 | 1.14x | 0.2% |
 
-**Three scaling regimes, and only one is a problem.** antiSMASH is O(n) and dominant
-today. GTDB-Tk is effectively O(1): fitting the two points gives 11.5 CPU-h fixed per
-invocation plus 1.2 CPU-s per genome, so 59% more genomes cost 3% more — batch it as
-coarsely as possible, since batch size is worth ~10x. BiG-SCAPE was measured separately
-(below) rather than assumed.
+**antiSMASH is O(n) and dominant today.** BiG-SCAPE was measured separately (below).
+
+**GTDB-Tk's scaling is NOT established, and an earlier version of this file said it was.**
+The claim was "59% more genomes cost 3% more, therefore O(1)" — but that compares *total*
+genomes (1,736 → 2,758), while `gtdbtk_bgc_genomes_only` means GTDB-Tk only ever saw the
+BGC-positive ones: **285 → 298, 4.6% apart**, for 2.8% more cost. Two points that close
+cannot separate fixed cost from linear cost. At a million genomes the two models differ by
+94x:
+
+| model | 1M genomes |
+|---|---:|
+| fixed-dominated (11.5 CPU-h + 1.2 CPU-s/genome) | 48 CPU-h, ~0.2 days |
+| linear in genomes processed | 4,500 CPU-h, ~23 days |
+
+`GTDBTK_CLASSIFY` is sharded (`gtdbtk_shard_size`, default 5,000) as insurance against the
+linear case. If cost really is fixed-dominated, sharding multiplies a ~11.5 CPU-h overhead
+by the shard count — a few dollars — which is the cheaper mistake. **Resolve it by
+measuring one run with a deliberately small shard size** and comparing per-shard cost
+against the single-task figure.
 
 ### Measured: BiG-SCAPE scaling (2026-08-30)
 
@@ -1288,6 +1302,53 @@ When adding or changing a batched process:
   assembly-ID list via a manifest
 - **`collate()` needs a real Integer.** Params given on the command line arrive as
   strings, which silently fail to dispatch — always go through `batchSize()`
+
+### Wall Time at Scale: antiSMASH Batching and GTDB-Tk Sharding
+
+Elapsed time for a large run is set by two stages; everything else is under a day
+combined.
+
+| Stage | before | after | mechanism |
+|---|---:|---:|---|
+| antiSMASH | 34.7 d | 0.7 d submit / 2.4 d compute | 50-genome batches |
+| GTDB-Tk | up to 23 d | ~2.3 d at 10 shards | 5,000-genome shards |
+
+**antiSMASH was submission-bound, not compute-bound.** At one task per genome and 20
+submissions/min, a million genomes spends 34.7 days being *submitted* against 2.4 days
+computing. `params.antismash_batch_size` (default 50) puts submission at 0.7 days,
+comfortably under compute; larger batches buy nothing and only coarsen retry granularity.
+
+The batch loop **continues past a failed genome** rather than exiting. That mattered less
+when a failure cost one genome; batched, an aborting task would forfeit 50. The task exits
+non-zero only when *every* genome in the batch failed, which signals a broken environment
+(the conda startup race, a missing database) rather than bad input — and that is what the
+retry in `conf/labels.config` is for. `time` is raised to 8h since 50 genomes run
+sequentially.
+
+Results are written under `as_out/` so the output glob cannot match the staged database
+directory, and `saveAs` strips the prefix so the published layout is unchanged.
+
+**GTDB-Tk is sharded, and its tree is gone.** `classify_wf` still builds a tree internally
+— pplacer placement is how it classifies — but a per-shard tree spans a disjoint genome
+set, and N of them cannot be concatenated into one phylogeny. `MERGE_GTDBTK` concatenates
+the summaries instead, which is lossless (one independent row per genome) and is what
+every consumer actually reads. It fails if any genome appears in two shards, since that
+would silently inflate every per-clade count.
+
+Removing the tree touched more than the tree:
+
+- **The GCF x genus heatmap loses its phylogenetic column ordering.** It already guarded
+  on `--gtdbtk_tree` being absent, so it degrades to unordered columns rather than failing.
+- **GTDB-Tk reuse would have broken silently.** `CHECK_GTDBTK_REUSE` required a tree file
+  to exist before returning REUSE; with no run producing one, every reuse would have
+  fallen back to a full re-run. It now checks the summary alone.
+- `prune_tree` in `filter_gtdbtk_results.py`, `--outgroup` / `params.gtdbtk_outgroup`, and
+  `prepare_phylo_tree_for_js` are all gone or orphaned — nothing produces a whole-set tree
+  to root, prune, or render. `viz/tree_viz.py` itself is retained but no longer imported
+  by `viz/__init__`.
+
+**Batching antiSMASH invalidates every cached antiSMASH task**: the process source and its
+input cardinality both change, so the first run after this costs a full re-analysis.
 
 ### Report JavaScript Is Not Covered by the Python Checks
 
