@@ -735,15 +735,14 @@ It was still valid unpartitioned, where BiG-SCAPE measures every pair, so gating
 it on `params.bigscape_partition` was an option. It was removed outright instead,
 so that a figure means the same thing in every run mode.
 
-The pair that replaces it is complete in both modes:
+What replaces it is the **family-centre tree**, whose every centre-to-centre
+distance is measured via `BIGSCAPE_CENTERS`, so it means the same thing in both
+run modes.
 
-| Figure | Distances |
-|---|---|
-| Family-centre tree | Every centre pair measured, via `BIGSCAPE_CENTERS` |
-| Per-partition trees | Complete within a partition, by construction |
-
-`scripts/bgc_all_bgcs_tree.py` is still in the tree — `PARTITION_TREES` runs it
-per partition, where the distance matrix really is complete.
+`scripts/bgc_all_bgcs_tree.py` has no caller since `PARTITION_TREES` was removed.
+It is kept as a standalone tool and now counts substituted distances, warns, and
+refuses above 5% — which is exactly the protection an ad-hoc run against a merged
+partitioned database needs.
 
 ### Report Tabs
 
@@ -752,7 +751,7 @@ Novel BGCs, KCB Hits, Pipeline. Tabs are pure CSS radio buttons, so adding one
 means an `#tabN:checked ~ #contentN` rule in `viz/report_assets.py` alongside the
 markup — there is no JavaScript involved in tab switching.
 
-The GCF Trees tab holds the family-centre tree and the per-partition trees. The
+The GCF Trees tab holds the family-centre tree. The
 coupling-enzyme class table stays in GCF Analysis: the tree figures carry their
 own colour legends, and the table is a classification reference rather than a
 tree legend.
@@ -1479,25 +1478,31 @@ Four bugs surfaced only under Nextflow, all invisible to standalone testing:
    existing `'BIGSCAPE'` selector never covered it, and unlike a *stale* selector Nextflow
    does not warn about a missing one — it fails at runtime with `command not found`.
 
-**Trees under partitioning: a global centre tree plus per-partition drill-downs.**
+**Trees under partitioning: one global centre tree.**
 A partitioned run's merged `distance` table holds only within-partition comparisons, so a
 global all-BGCs tree substitutes a constant for every cross-partition pair — 23,712 of
 55,278 cells on Erwiniaceae. The clustering is unaffected (BiG-SCAPE never compared those
-pairs either) but a tree built on a uniform constant has an arbitrary backbone. Two
-processes replace that:
+pairs either) but a tree built on a uniform constant has an arbitrary backbone.
 
 - **`BIGSCAPE_CENTERS`** re-runs BiG-SCAPE over one representative GBK per family, so
   every centre pair is *measured*. On Erwiniaceae that turned **92 of 171 substituted
-  centre pairs into 0**, in 16 seconds over 19 centres. `bgc_gcf_tree.py --centers_db`
-  consumes it. This scales because centre count tracks diversity rather than BGC count
-  (19 Erwiniaceae, 81 Streptomyces, 100 combined).
-- **`PARTITION_TREES`** builds one all-BGCs tree per partition. Each partition database
-  has complete within-partition distances, so these substitute nothing, and each is small
-  enough to read — which the global all-BGCs tree stops being well before a million
-  genomes.
+  centre pairs into 0**, in 16 seconds over 19 centres; a later full run measured
+  **171 of 171**. `bgc_gcf_tree.py --centers_db` consumes it. This scales because centre
+  count tracks diversity rather than BGC count (19 Erwiniaceae, 81 Streptomyces, 100
+  combined).
 
-Both run only when `--bigscape_partition` is on; the unpartitioned path is untouched.
-Partitions with fewer than three BGCs are skipped rather than failed, since singleton
+**`PARTITION_TREES` was built and then removed.** It drew one all-BGCs tree per
+partition, on the theory that the centre tree gives the global view and these give the
+detail inside it. The composition table killed that argument: a partition is a pepM
+identity component sized to bound BiG-SCAPE's memory, not a biological unit. On
+Erwiniaceae partition 0 held 236 BGCs across **2 families** — 215 in one — so 91% of the
+figure was within-family variation at a leaf count nobody can read, while partition 2 was
+4 BGCs in 1 family. The trees also appeared only on partitioned runs, reintroducing the
+mode-dependence that removing the all-BGCs tree had just eliminated. If per-BGC detail is
+wanted, the unit to draw is a **family**, not a partition.
+
+`BIGSCAPE_CENTERS` runs only when `--bigscape_partition` is on; the unpartitioned path is
+untouched. Partitions with fewer than three BGCs are skipped rather than failed, since singleton
 partitions are normal.
 
 The all-BGCs tree does not scale regardless of partitioning: 121,000 leaves is 7.3e9 pairs

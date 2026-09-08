@@ -850,13 +850,19 @@ def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_sect
             {'' if bigscape_section_html else no_clustering}'''
 
 
-def build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime, partition_trees):
-    """The family-centre tree and one figure per pepM partition.
+def build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime):
+    """The family-centre tree.
 
-    Both are built from fully measured distances — the centre tree via
-    BIGSCAPE_CENTERS, the partition trees from each partition's own database.
-    That is why the global all-BGCs tree is no longer here: on a partitioned run
-    43% of its matrix was a substituted constant. See CLAUDE.md.
+    Every centre-to-centre distance is measured — via BIGSCAPE_CENTERS on a
+    partitioned run — so nothing here is substituted, and the figure means the
+    same thing in both run modes.
+
+    Per-partition trees were tried here and removed. A partition is a pepM
+    identity component sized to bound BiG-SCAPE's memory, not a biological
+    grouping: on Erwiniaceae partition 0 held 236 BGCs but only 2 families, 215
+    of them one family, so 91% of that figure was within-family variation drawn
+    at a leaf count nobody can read. If per-BGC detail is wanted, the unit to
+    draw is a family, not a partition.
     """
     centre = (f'<img src="data:{gcf_tree_mime};base64,{gcf_tree_b64}" '
               f'alt="GCF family-centre tree" '
@@ -864,18 +870,6 @@ def build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime, partition_trees):
               if gcf_tree_b64 else
               _MISSING.format('Family-centre tree not generated.<br>'
                               'Run with <code>--clustering bigscape</code> to enable.'))
-    blocks = ''.join(
-        f'''
-            <div class="plot" style="margin-top: 20px;">
-                <h4 style="margin: 0 0 8px 0; color: #333;">Partition {t['id']}</h4>
-                <img src="data:image/svg+xml;base64,{t['b64']}"
-                     alt="Partition {t['id']} BGC tree"
-                     style="max-width: 100%; height: auto; display: block;">
-            </div>'''
-        for t in (partition_trees or []))
-    partitions = blocks or _MISSING.format(
-        'No per-partition trees.<br>'
-        'Run with <code>--bigscape_partition true</code> to enable.')
     return f'''
             <h3>Gene Cluster Family Trees</h3>
             <p style="color: #666; margin-bottom: 20px;">
@@ -887,21 +881,11 @@ def build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime, partition_trees):
                 <h4 style="margin: 0 0 8px 0; color: #333;">Family-Centre Tree</h4>
                 <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
                     One representative (medoid) per Gene Cluster Family, circle size &prop; GCF membership.
-                    This is the global view: every centre-to-centre distance is measured, including across
-                    partitions, so the backbone is real rather than substituted.
+                    Every centre-to-centre distance is measured, including across partitions,
+                    so the backbone is real rather than substituted.
                 </p>
                 {centre}
-            </div>
-
-            <hr class="tab-section-divider">
-
-            <h4 style="margin: 0 0 8px 0; color: #333;">Per-Partition Trees</h4>
-            <p style="color: #666; font-size: 0.85em; margin: 0 0 12px 0;">
-                Every BGC inside one pepM partition. Each partition database holds complete
-                within-partition distances, so these substitute nothing. Partitions of fewer
-                than three BGCs have no tree, so gaps in the numbering are expected.
-            </p>
-            {partitions}'''
+            </div>'''
 
 
 def build_pipeline_tab(resource_usage_html, partition_section_html, versions_html):

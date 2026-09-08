@@ -26,7 +26,6 @@ workflow CLUSTERING {
         gcf_data_ch = placeholder('NO_GCF_DATA')
         pfam_db_ch = placeholder('NO_PFAM_DB')
         centers_db_ch = placeholder('NO_CENTERS_DB')
-        partition_dbs_ch = Channel.empty()
 
         if (clusteringEnabled("bigscape")) {
             DOWNLOAD_PFAM()
@@ -54,10 +53,6 @@ workflow CLUSTERING {
                                PARTITION_BGCS.out.partitions,
                                Utils.scriptsHash(projectDir,
                                    ['clustering/merge_bigscape_dbs.py']))
-                // Keyed by the partition id in the filename, so the
-                // per-partition trees can be labelled and published apart.
-                partition_dbs_ch = BIGSCAPE_PARTITION.out.db
-                    .map { db -> tuple((db.name =~ /part_(\d+)\.db/)[0][1], db) }
                 bigscape_db_ch  = MERGE_BIGSCAPE.out.bigscape_db
                 bigscape_dir_ch = MERGE_BIGSCAPE.out.bigscape_dir
             } else {
@@ -99,5 +94,4 @@ workflow CLUSTERING {
         gcf_data       = gcf_data_ch
         pfam_db        = pfam_db_ch
         centers_db     = centers_db_ch
-        partition_dbs  = partition_dbs_ch
 }

@@ -68,7 +68,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          versions_data=None, rarefaction_stats=None,
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
                          gcf_tree_mime='image/png',
-                         gcf_heatmap_b64=None, partition_trees=None,
+                         gcf_heatmap_b64=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
                          pepm_b64=None, pepm_summary=None):
@@ -137,7 +137,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # coupling_table_rows and would otherwise interpolate a literal "None".
     gcf_analysis_tab = build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html,
                                               pepm_section_html)
-    gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime, partition_trees)
+    gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime)
     pipeline_tab     = build_pipeline_tab(resource_usage_html, partition_section_html,
                                           versions_html)
 
@@ -320,7 +320,6 @@ def main():
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
-    parser.add_argument('--partition_trees', type=Path, help='Directory of per-partition tree directories from PARTITION_TREES')
     parser.add_argument('--pepm_svg', type=Path, help='pepM vs BiG-SCAPE similarity SVG from PEPM_ALL_BY_ALL')
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
@@ -486,18 +485,6 @@ def main():
     gcf_tree_b64, gcf_tree_mime = embed_image(args.gcf_tree_svg, args.gcf_tree)
     gcf_heatmap_b64, _ = embed_image(args.gcf_heatmap_svg)
 
-    # Per-partition trees, keyed by the partition id in the directory name. Only
-    # partitioned runs have these; PARTITION_TREES also emits nothing for a
-    # partition of fewer than three BGCs, so gaps in the numbering are normal.
-    partition_trees = []
-    if args.partition_trees and args.partition_trees.is_dir():
-        for d in sorted(args.partition_trees.iterdir(),
-                        key=lambda x: int(x.name.split('_')[-1])
-                        if x.name.split('_')[-1].isdigit() else 1 << 30):
-            b64, _ = embed_image(d / 'all_bgcs_biosynthetic_tree_circular.svg')
-            if b64:
-                partition_trees.append({'id': d.name.split('_')[-1], 'b64': b64})
-
     # pepM all-by-all: the figure goes in GCF Analysis, the partitioning table in
     # the pipeline-info block on Overview. Both are optional — the analysis is a
     # separate process and a run without it should still produce a report.
@@ -546,7 +533,6 @@ def main():
                             gcf_tree_b64=gcf_tree_b64,
                             gcf_tree_mime=gcf_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
-                            partition_trees=partition_trees,
                             coupling_table_rows=coupling_table_rows,
                             gcf_classes=gcf_classes,
                             gcf_support_rows=gcf_support_rows)

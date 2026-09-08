@@ -21,7 +21,6 @@ process VISUALIZE_RESULTS {
     path gcf_tree_png
     path gcf_tree_svg
     path gcf_heatmap_svg
-    path partition_tree_dirs, stageAs: 'partition_trees/*'
     path coupling_annotation
     path coupling_support
     path pepm_svg
@@ -56,7 +55,6 @@ process VISUALIZE_RESULTS {
     def gcf_tree_arg            = Utils.optArg('--gcf_tree',            gcf_tree_png)
     def gcf_tree_svg_arg        = Utils.optArg('--gcf_tree_svg',        gcf_tree_svg)
     def gcf_heatmap_svg_arg     = Utils.optArg('--gcf_heatmap_svg',     gcf_heatmap_svg)
-    def partition_trees_arg     = partition_tree_dirs ? '--partition_trees partition_trees' : ''
     def pepm_svg_arg            = Utils.optArg('--pepm_svg',            pepm_svg)
     def pepm_json_arg           = Utils.optArg('--pepm_json',           pepm_json)
     def coupling_annotation_arg = Utils.optArg('--coupling_annotation', coupling_annotation)
@@ -66,6 +64,6 @@ process VISUALIZE_RESULTS {
     def skip_tree_arg = params.skip_tree ? "--skip_tree" : ""
     def outgroup_arg  = params.gtdbtk_outgroup ? "--outgroup '${params.gtdbtk_outgroup}'" : ""
     """
-    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${phylo_tree_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${outgroup_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${gcf_heatmap_svg_arg} ${partition_trees_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${pepm_svg_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
+    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${phylo_tree_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${outgroup_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${pepm_svg_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
     """
 }

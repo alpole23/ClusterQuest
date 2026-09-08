@@ -4,7 +4,6 @@ include { AGGREGATE_TAXONOMY } from '../modules/analysis/aggregate_taxonomy'
 include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
 include { PEPM_ALL_BY_ALL } from '../modules/analysis/pepm_all_by_all'
-include { PARTITION_TREES } from '../modules/clustering/partition_trees'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
 
 include { ANTISMASH_ANALYSIS } from './antismash_analysis'
@@ -70,7 +69,6 @@ workflow BGC_ANALYSIS {
             gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
-            partition_trees_ch      = Channel.value([])
             pepm_svg_ch             = placeholder('NO_PEPM_SVG')
             pepm_json_ch            = placeholder('NO_PEPM_JSON')
             if (clusteringEnabled("bigscape")) {
@@ -103,21 +101,6 @@ workflow BGC_ANALYSIS {
                     .ifEmpty(file('NO_PEPM_SVG'))
                 pepm_json_ch = PEPM_ALL_BY_ALL.out.summary.ifEmpty(file('NO_PEPM_JSON'))
 
-                // Drill-down beside the global centre tree. Each partition's own
-                // database has complete within-partition distances, so these
-                // trees substitute nothing — unlike a global all-BGCs tree on a
-                // partitioned run.
-                PARTITION_TREES(
-                    taxon,
-                    CLUSTERING.out.partition_dbs,
-                    GCF_BIOSYNTHETIC_TREE.out.coupling_annotation
-                        .ifEmpty(file('NO_COUPLING_ANNOTATION')),
-                    Utils.scriptsHash(projectDir, ['bgc_all_bgcs_tree.py', 'utils'])
-                )
-                // One directory per partition, collected so the report can embed
-                // them all. Empty on an unpartitioned run: partition_dbs is an
-                // empty channel there, so PARTITION_TREES never fires.
-                partition_trees_ch = PARTITION_TREES.out.tree_dir.collect().ifEmpty([])
 
                 gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
                 gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
@@ -144,7 +127,6 @@ workflow BGC_ANALYSIS {
                 gcf_tree_png_ch,
                 gcf_tree_svg_ch,
                 gcf_heatmap_svg_ch,
-                partition_trees_ch,
                 coupling_annotation_ch,
                 coupling_support_ch,
                 pepm_svg_ch,
