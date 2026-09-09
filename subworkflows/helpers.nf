@@ -61,3 +61,13 @@ def antismashBatchSize() {
 def gtdbtkShardSize() {
     params.gtdbtk_shard_size.toString().toInteger()
 }
+
+/**
+ * Genomes per pepM pre-screen task.
+ *
+ * Larger than the antiSMASH batch because the per-genome work is ~45x smaller
+ * (0.9 CPU-s against 41.4), so the fixed cost of a task dominates sooner.
+ */
+def pepmBatchSize() {
+    params.pepm_prescreen_batch_size.toString().toInteger()
+}

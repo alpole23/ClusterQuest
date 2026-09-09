@@ -1303,6 +1303,63 @@ When adding or changing a batched process:
 - **`collate()` needs a real Integer.** Params given on the command line arrive as
   strings, which silently fail to dispatch — always go through `batchSize()`
 
+### pepM Pre-Screen (`--pepm_prescreen`)
+
+**Off by default.** It *removes* genomes from the analysis, so turn it on
+deliberately — the same posture as `--bigscape_partition`.
+
+Every phosphonate BGC carries a PEP mutase, so a genome without one cannot hold
+what this pipeline looks for. Establishing that costs **~0.9 CPU-s** against
+antiSMASH's **41.4**, which is what makes an order-scale run tractable.
+
+```
+RENAME_GENOMES -> PEPM_PRESCREEN -> ANTISMASH   (only genomes that pass)
+```
+
+**Two modes, one decision.** NCBI GenBank annotation is inconsistent — 794 of
+2,771 Erwiniaceae genomes (28.7%) carry no CDS translations at all:
+
+| genome | mode | cost |
+|---|---|---:|
+| annotated | `diamond blastp` over its proteins | 0.234 CPU-s |
+| unannotated | `diamond blastx` over its contigs | 2.030 CPU-s |
+
+Both search the same seven references at the same threshold. On the 341 genomes
+where both could run they agreed on **100.0%** of calls at bitscore 100 — same
+tool, same references, same cutoff, only the input representation differs. That is
+why this branch is safe where the others in this codebase were not: the two paths
+are verified to make identical decisions, rather than merely intended to.
+
+**blastp is 9.2x cheaper** (measured; an earlier estimate of 14x was optimistic),
+which takes the screen from 2.11 to 0.88 days at a million genomes.
+
+**Validated over all 2,771 Erwiniaceae genomes against the real BGC calls:**
+
+| | |
+|---|---:|
+| sensitivity | **298 / 298** |
+| false positives | 8 of 2,473 |
+| retained | 306 (11.0%) |
+| true-positive bitscore | 154-552 |
+| background bitscore | <= 51 |
+
+The margin either side of the cut is ~50 points, so 100 is not a knife edge. A
+`--min_density` guard (500 proteins/Mb) routes partially-annotated genomes to
+blastx, closing the one failure mode the two modes do not share. Observed density
+was 576-1,015 with nothing below 500, so it costs nothing today.
+
+**Expanding the reference set made it worse.** Mining MIBiG by HMM added eight
+unique pepMs (15 total); sensitivity stayed at 298/298 while false positives rose
+from 8 to 67. Those extras are pepMs from fosfomycin and dehydrophos clusters,
+divergent enough to attract spurious matches without catching anything new. Note
+the curated seven include a *Pantoea* pepM (HvrA, Pantaphos), which favours this
+test set — the expansion is unproven rather than useless, and worth revisiting for
+a taxonomically distant clade.
+
+`prescreen_results/<taxon>/prescreen_*.tsv` records every genome with its mode,
+CDS density, best bitscore and verdict, so what was skipped is auditable rather
+than silent.
+
 ### Wall Time at Scale: antiSMASH Batching and GTDB-Tk Sharding
 
 Elapsed time for a large run is set by two stages; everything else is under a day
