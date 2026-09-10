@@ -292,6 +292,33 @@ REPORT_CSS = """\
 """
 
 REPORT_JS = """\
+        // Jump from the BGC Novelty priority table to a family's representative card.
+        // Defined here, not in viz/clustering.py, because the caller and the target
+        // live in different sections: clustering.py's <script> is only emitted when
+        // there are GCF cards to render, so a handler defined there is undefined
+        // whenever a run has a novelty ranking and no representatives. The report
+        // linter caught exactly that.
+        //
+        // The tabs are CSS radio buttons, so <a href="#gcf_7"> would scroll to an
+        // element that is display:none and appear to do nothing — the radio has to be
+        // checked first.
+        function showGCF(familyId) {
+            const card = document.getElementById('gcf_' + familyId);
+            if (!card) return;                      // no representatives in this run
+            const tab = document.getElementById('tab3');   // Gene Cluster Families > Analysis
+            if (tab) tab.checked = true;
+            const content = document.getElementById('gcf_' + familyId + '_content');
+            const toggle = document.getElementById('gcf_' + familyId + '_toggle');
+            if (content && content.style.display === 'none') {
+                content.style.display = 'block';
+                if (toggle) toggle.textContent = '-';
+            }
+            card.scrollIntoView({behavior: 'smooth', block: 'center'});
+            card.style.transition = 'box-shadow .3s';
+            card.style.boxShadow = '0 0 0 3px #2c5aa0';
+            setTimeout(function () { card.style.boxShadow = ''; }, 1600);
+        }
+
             const input = document.getElementById('genomeSearch');
             const filter = searchNorm(input.value);
             const tbody = document.getElementById('genomeTableBody');

@@ -328,7 +328,7 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
         antismash_link_html = f'<a href="{antismash_link}" target="_blank" style="color: #2c5aa0;">View in antiSMASH</a>' if antismash_link else ''
 
         gcf_cards += f'''
-        <div class="gcf-card" data-type="{badge_class}" data-size="{member_count}" data-product="{product}" data-novelty="{'novel' if not kcb_hit else 'known'}">
+        <div class="gcf-card" id="gcf_{family_id}" data-type="{badge_class}" data-size="{member_count}" data-product="{product}" data-novelty="{'novel' if not kcb_hit else 'known'}">
             <div class="gcf-header" onclick="toggleGCF('gcf_{family_id}')">
                 <span class="gcf-title">GCF-{family_id}: {product}</span>
                 <span class="gcf-badge {badge_class}">{badge_text}</span>

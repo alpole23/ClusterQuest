@@ -66,7 +66,8 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None):
                         badge_title = f' title="Coupling class: {cls}"' if cls else ''
                         gcf_cell = (f'<td style="text-align: center;">'
                                     f'<span{badge_title} style="background: {badge_bg}; color: white; '
-                                    f'padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">GCF-{fid}</span>'
+                                    f'padding: 2px 8px; border-radius: 4px; font-size: 0.85em; '
+                                    f'display: inline-block; white-space: nowrap;">GCF-{fid}</span>'
                                     f'</td><td style="text-align: center;">{mc}</td>')
                     else:
                         gcf_cell = '<td style="text-align: center; color: #999;">-</td><td style="text-align: center; color: #999;">-</td>'
@@ -602,7 +603,8 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             rows_html.append(
                 f'<tr{bg}>'
                 f'<td style="{td}"><span style="background: {colour}; color: white; '
-                f'padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">GCF-{fid}</span></td>'
+                f'padding: 2px 8px; border-radius: 4px; font-size: 0.85em; '
+                f'display: inline-block; white-space: nowrap;">GCF-{fid}</span></td>'
                 f'<td style="{td}">{cls}</td>'
                 f'<td style="{td} text-align: center;">{len(vals)}</td>'
                 f'<td style="{td} text-align: center;">{med:.1f}%</td>'
@@ -941,7 +943,10 @@ def build_priority_section(ranking_path):
     unc_html = ''
     if unc:
         items = ''.join(
-            f'<tr><td style="padding:6px 10px;"><strong>GCF-{r["gcf"]}</strong></td>'
+            f'<tr><td style="padding:6px 10px;white-space:nowrap;">'
+            f'<a href="javascript:void(0)" onclick="showGCF(\'{r["gcf"]}\')" '
+            f'style="color:#8a5a0c;font-weight:600;text-decoration:none;'
+            f'border-bottom:1px dotted #8a5a0c;">GCF-{r["gcf"]}</a></td>'
             f'<td style="padding:6px 10px;text-align:right;">{r["members"]}</td>'
             f'<td style="padding:6px 10px;text-align:right;">{r["genomes"]}</td>'
             f'<td style="padding:6px 10px;text-align:right;">{float(r["intact"]):.0%}</td></tr>'
@@ -968,7 +973,11 @@ def build_priority_section(ranking_path):
     body = ''.join(
         f'<tr>'
         f'<td style="padding:7px 10px;color:#888;text-align:right;">{r["rank"]}</td>'
-        f'<td style="padding:7px 10px;"><strong>GCF-{r["gcf"]}</strong></td>'
+        f'<td style="padding:7px 10px;white-space:nowrap;">'
+        f'<a href="javascript:void(0)" onclick="showGCF(\'{r["gcf"]}\')" '
+        f'style="color:#2c5aa0;font-weight:600;text-decoration:none;'
+        f'border-bottom:1px dotted #2c5aa0;" '
+        f'title="Show this family in Gene Cluster Families">GCF-{r["gcf"]}</a></td>'
         f'<td style="padding:7px 10px;font-weight:600;text-align:right;'
         f'font-variant-numeric:tabular-nums;">{float(r["priority"]):.3f}</td>'
         f'<td style="padding:7px 10px;">{bar(float(r["distance"]), "#0e5c6b")}</td>'
