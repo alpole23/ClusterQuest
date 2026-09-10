@@ -1341,10 +1341,20 @@ which takes the screen from 2.11 to 0.88 days at a million genomes.
 | false positives | 8 of 2,473 |
 | retained | 306 (11.0%) |
 | true-positive bitscore | 154-552 |
-| background bitscore | <= 51 |
 
-The margin either side of the cut is ~50 points, so 100 is not a knife edge. A
-`--min_density` guard (500 proteins/Mb) routes partially-annotated genomes to
+**The separation is wide but not absolute, and an earlier version of this table said
+otherwise.** It quoted "background bitscore <= 51", which cannot be true of the full
+validation: the 8 false positives *are* negatives scoring above the cut of 100. That
+figure came from a 60-genome unannotated sample (true positives 154-552, negatives
+topping out at 51) and was wrongly carried over as a property of all 2,473 negatives.
+
+Those 8 are not misfires. They are genomes carrying a credible PEP mutase with no
+assembled cluster around it — antiSMASH examines them and correctly reports nothing,
+which is the behaviour a screen should have at its margin. The bound that matters is
+the one on the other side: **no true positive scored below 154**, so the cut at 100 has
+54 points of headroom against a miss, which is the direction that loses data.
+
+A `--min_density` guard (500 proteins/Mb) routes partially-annotated genomes to
 blastx, closing the one failure mode the two modes do not share. Observed density
 was 576-1,015 with nothing below 500, so it costs nothing today.
 
