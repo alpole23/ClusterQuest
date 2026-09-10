@@ -3,6 +3,7 @@ include { TABULATE_REGIONS } from '../modules/analysis/tabulate_regions'
 include { AGGREGATE_TAXONOMY } from '../modules/analysis/aggregate_taxonomy'
 include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
+include { NOVELTY_SCORE } from '../modules/analysis/novelty_score'
 include { PEPM_ALL_BY_ALL } from '../modules/analysis/pepm_all_by_all'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
 
@@ -69,6 +70,7 @@ workflow BGC_ANALYSIS {
             gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
+            novelty_ch              = placeholder('NO_NOVELTY')
             pepm_svg_ch             = placeholder('NO_PEPM_SVG')
             pepm_json_ch            = placeholder('NO_PEPM_JSON')
             if (clusteringEnabled("bigscape")) {
@@ -106,6 +108,17 @@ workflow BGC_ANALYSIS {
                 gcf_heatmap_svg_ch     = GCF_BIOSYNTHETIC_TREE.out.heatmap_svg.ifEmpty(file('NO_GCF_HEATMAP_SVG'))
                 coupling_annotation_ch = GCF_BIOSYNTHETIC_TREE.out.coupling_annotation.ifEmpty(file('NO_COUPLING_ANNOTATION'))
                 coupling_support_ch    = GCF_BIOSYNTHETIC_TREE.out.coupling_support.ifEmpty(file('NO_COUPLING_SUPPORT'))
+
+                // Needs the coupling support, so it runs after the tree rather than
+                // beside the clustering that produced the families.
+                NOVELTY_SCORE(
+                    taxon,
+                    CLUSTERING.out.gcf_data,
+                    tabulation_ch,
+                    GCF_BIOSYNTHETIC_TREE.out.coupling_support,
+                    Utils.scriptsHash(projectDir, ['analysis/novelty_score.py'])
+                )
+                novelty_ch = NOVELTY_SCORE.out.ranking.ifEmpty(file('NO_NOVELTY'))
             }
 
             VISUALIZE_RESULTS(
@@ -127,6 +140,7 @@ workflow BGC_ANALYSIS {
                 gcf_heatmap_svg_ch,
                 coupling_annotation_ch,
                 coupling_support_ch,
+                novelty_ch,
                 pepm_svg_ch,
                 pepm_json_ch,
                 Utils.scriptsHash(projectDir, ['visualize_results.py', 'utils', 'viz'])

@@ -805,7 +805,8 @@ _MISSING = ('<div style="color: #999; padding: 20px; background: #f8f9fa; '
             'border-radius: 8px; text-align: center; font-size: 0.9em;">{}</div>')
 
 
-def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_section_html):
+def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_section_html,
+                           priority_html=''):
     """Clustering statistics, the coupling-enzyme class table and the pepM figure.
 
     The trees themselves are in the GCF Trees tab; the class table stays here
@@ -818,6 +819,8 @@ def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_sect
                      'pipeline with <code>--clustering bigscape</code>.</p></div>')
     th = ('text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;')
     return f'''
+            {priority_html}
+
             <h3>GCF Biosynthetic Phylogeny</h3>
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Classification of phosphonate BGCs by the coupling enzyme acting on phosphonopyruvate — the branching step
@@ -901,3 +904,114 @@ def build_pipeline_tab(resource_usage_html, partition_section_html, versions_htm
             {resource_usage_html or no_trace}
             {partition_section_html}
             {versions_html}'''
+
+
+def build_priority_section(ranking_path):
+    """Gene cluster families ranked by how much they warrant laboratory follow-up.
+
+    Distance and evidence are shown beside the priority they multiply to, deliberately.
+    The weights behind them are reasoned, not fitted — there is no set of leads that
+    panned out to fit against — and a single number would hide that. With the components
+    visible a reader can disagree with the weighting and re-order by eye: the score
+    orders the list, the components justify the order.
+
+    Families whose coupling enzyme matches no characterised class are listed first and
+    carry no score at all. An enzyme resembling nothing described is the strongest
+    novelty signal in the data, and it is the one thing a distance cannot express.
+    """
+    import csv as _csv
+    from pathlib import Path as _Path
+    if not ranking_path or not _Path(ranking_path).exists():
+        return ''
+    rows = list(_csv.DictReader(_Path(ranking_path).open(), delimiter='\t'))
+    if not rows:
+        return ''
+
+    unc = [r for r in rows if r['status'] == 'unclassified']
+    ranked = [r for r in rows if r['status'] == 'ranked']
+
+    def bar(frac, tone):
+        pct = max(0.0, min(1.0, frac)) * 100
+        return (f'<div style="display:flex;align-items:center;gap:.45rem">'
+                f'<div style="flex:0 0 46px;height:6px;background:#e9ecef;border-radius:3px;'
+                f'overflow:hidden"><div style="width:{pct:.0f}%;height:100%;'
+                f'background:{tone}"></div></div>'
+                f'<span style="font-variant-numeric:tabular-nums">{frac:.2f}</span></div>')
+
+    unc_html = ''
+    if unc:
+        items = ''.join(
+            f'<tr><td style="padding:6px 10px;"><strong>GCF-{r["gcf"]}</strong></td>'
+            f'<td style="padding:6px 10px;text-align:right;">{r["members"]}</td>'
+            f'<td style="padding:6px 10px;text-align:right;">{r["genomes"]}</td>'
+            f'<td style="padding:6px 10px;text-align:right;">{float(r["intact"]):.0%}</td></tr>'
+            for r in unc)
+        unc_html = f'''
+        <div style="background:#fdf6e3;border-left:3px solid #9a6b0f;padding:14px 18px;margin:0 0 22px;">
+            <h4 style="margin:0 0 6px;">Unclassifiable coupling enzyme — {len(unc)} famil{'y' if len(unc)==1 else 'ies'}</h4>
+            <p style="margin:0 0 10px;color:#555;font-size:.9em;max-width:66ch;">
+                These matched no characterised coupling class, so they carry no distance and
+                are not ranked. That is either a truncated cluster or chemistry with no
+                described analogue — worth a look by hand before anything below.
+            </p>
+            <table style="border-collapse:collapse;font-size:.9em;">
+                <thead><tr style="background:#f4ead3;">
+                    <th style="text-align:left;padding:5px 10px;">Family</th>
+                    <th style="text-align:right;padding:5px 10px;">BGCs</th>
+                    <th style="text-align:right;padding:5px 10px;">Genomes</th>
+                    <th style="text-align:right;padding:5px 10px;">Intact</th>
+                </tr></thead>
+                <tbody>{items}</tbody>
+            </table>
+        </div>'''
+
+    body = ''.join(
+        f'<tr>'
+        f'<td style="padding:7px 10px;color:#888;text-align:right;">{r["rank"]}</td>'
+        f'<td style="padding:7px 10px;"><strong>GCF-{r["gcf"]}</strong></td>'
+        f'<td style="padding:7px 10px;font-weight:600;text-align:right;'
+        f'font-variant-numeric:tabular-nums;">{float(r["priority"]):.3f}</td>'
+        f'<td style="padding:7px 10px;">{bar(float(r["distance"]), "#0e5c6b")}</td>'
+        f'<td style="padding:7px 10px;">{bar(float(r["evidence"]), "#166b47")}</td>'
+        f'<td style="padding:7px 10px;text-align:right;">{r["members"]}</td>'
+        f'<td style="padding:7px 10px;text-align:right;">{r["genera"]}</td>'
+        f'<td style="padding:7px 10px;text-align:right;">{float(r["intact"]):.0%}</td>'
+        f'<td style="padding:7px 10px;">{r["coupling_class"]}</td>'
+        f'</tr>'
+        for r in ranked)
+
+    return f'''
+    <div class="section">
+        <h3>Priority for Laboratory Follow-Up</h3>
+        <p style="color:#555;max-width:70ch;">
+            Families ordered by <strong>distance × evidence</strong>. Distance is how far the
+            coupling enzyme sits from any characterised one; evidence is how confident we can
+            be the family is real rather than an assembly artefact — independent genomes,
+            independent genera, and the share of regions not truncated at a contig edge.
+            They multiply because both are necessary.
+        </p>
+        <p style="color:#555;max-width:70ch;font-size:.92em;">
+            <strong>The components are shown deliberately.</strong> Their weights are reasoned,
+            not fitted to any set of leads that panned out, so the ordering is a considered
+            opinion rather than a measurement. Read across the row, not just down the score:
+            a family with high distance and low evidence is a different proposition from a
+            middling one on both.
+        </p>
+        {unc_html}
+        <div class="table-container">
+        <table style="width:100%;border-collapse:collapse;font-size:.9em;">
+            <thead><tr style="background:#e9ecef;">
+                <th style="text-align:right;padding:6px 10px;">#</th>
+                <th style="text-align:left;padding:6px 10px;">Family</th>
+                <th style="text-align:right;padding:6px 10px;">Priority</th>
+                <th style="text-align:left;padding:6px 10px;">Distance</th>
+                <th style="text-align:left;padding:6px 10px;">Evidence</th>
+                <th style="text-align:right;padding:6px 10px;">BGCs</th>
+                <th style="text-align:right;padding:6px 10px;">Genera</th>
+                <th style="text-align:right;padding:6px 10px;">Intact</th>
+                <th style="text-align:left;padding:6px 10px;">Coupling class</th>
+            </tr></thead>
+            <tbody>{body}</tbody>
+        </table>
+        </div>
+    </div>'''

@@ -44,6 +44,7 @@ from viz.report_sections import (_build_bigscape_section_html,
                                  build_overview_stats,
                                  _build_versions_html, build_coupling_table_rows,
                                  build_gcf_analysis_tab, build_gcf_trees_tab,
+                                 build_priority_section,
                                  build_pipeline_tab)
 
 
@@ -67,7 +68,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          versions_data=None, rarefaction_stats=None,
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
                          gcf_tree_mime='image/png',
-                         gcf_heatmap_b64=None,
+                         gcf_heatmap_b64=None, novelty_ranking=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
                          pepm_b64=None, pepm_summary=None):
@@ -134,8 +135,9 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     # Built after the placeholder defaults above, not before: these consume
     # coupling_table_rows and would otherwise interpolate a literal "None".
+    priority_html    = build_priority_section(novelty_ranking)
     gcf_analysis_tab = build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html,
-                                              pepm_section_html)
+                                              pepm_section_html, priority_html)
     gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime)
     pipeline_tab     = build_pipeline_tab(resource_usage_html, partition_section_html,
                                           versions_html)
@@ -320,6 +322,7 @@ def main():
     parser.add_argument('--pepm_svg', type=Path, help='pepM vs BiG-SCAPE similarity SVG from PEPM_ALL_BY_ALL')
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
+    parser.add_argument('--novelty_ranking', type=Path, help='novelty_ranking.tsv from NOVELTY_SCORE')
     parser.add_argument('--coupling_support', type=Path,
                         help='phosphonate_coupling_support.tsv from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--seed', type=int, default=0, help='RNG seed for the rarefaction resampling; fixed by default so reports are reproducible')
@@ -513,6 +516,7 @@ def main():
                             gcf_tree_b64=gcf_tree_b64,
                             gcf_tree_mime=gcf_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
+                            novelty_ranking=args.novelty_ranking,
                             coupling_table_rows=coupling_table_rows,
                             gcf_classes=gcf_classes,
                             gcf_support_rows=gcf_support_rows)
