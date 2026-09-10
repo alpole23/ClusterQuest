@@ -1360,6 +1360,39 @@ a taxonomically distant clade.
 CDS density, best bitscore and verdict, so what was skipped is auditable rather
 than silent.
 
+### Validation Matrix (2026-09-09)
+
+Five configurations, all on Erwiniaceae, all reproducing the same GCF network.
+**Comparisons are by nucleotide sequence and co-membership, not by counts** —
+matching totals can hide a substitution.
+
+| Run | Genomes to antiSMASH | BGCs | Families | vs baseline |
+|---|---:|---:|---:|---|
+| screen off, unpartitioned *(baseline)* | 2,771 | 333 | 19 | — |
+| screen off, partitioned | 2,771 | 333 | 19 | ARI 1.0000 |
+| screen on, unpartitioned | **306** | 333 | 19 | ARI 1.0000 |
+| screen on, partitioned | **306** | 333 | 19 | ARI 1.0000 |
+| screen on + antiSMASH reuse (*P. ananatis*) | **0** | 225 / 225 | 6 | 0 lost, 0 extra |
+
+Every ARI comparison is over 23,995 co-membership pairs with **0 split and 0
+merged**. The screened runs recovered all 333 BGCs with **333/333 identical
+nucleotide sequences**, 5,845,237 bases either way.
+
+**antiSMASH output is not byte-reproducible.** BiG-SCAPE's `gbk.hash` differed on
+all 333 BGCs between two runs that were otherwise identical, because antiSMASH
+stamps `Run date` into every region GenBank. Compare `nt_seq`, never file hashes.
+
+**Reuse and the screen compound.** The *P. ananatis* run downloaded 343 genomes,
+screened 192 through, and ran antiSMASH **zero** times — every screened genome
+already had a result under Erwiniaceae. All 225 of its BGCs matched the
+Erwiniaceae subset base-for-base (3,526,555 bases). The screen filters
+`renamed_genomes` before the reuse branch, so both paths consume the narrowed set
+and there is no second code path to keep in step.
+
+The partitioned runs split 236/88/4/2/2/1 and `BIGSCAPE_CENTERS` measured
+**171 of 171** centre pairs, so the family-centre tree has a fully measured
+backbone in every configuration.
+
 ### Wall Time at Scale: antiSMASH Batching and GTDB-Tk Sharding
 
 Elapsed time for a large run is set by two stages; everything else is under a day
