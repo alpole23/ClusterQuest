@@ -1437,8 +1437,13 @@ would silently inflate every per-clade count.
 
 Removing the tree touched more than the tree:
 
-- **The GCF x genus heatmap loses its phylogenetic column ordering.** It already guarded
-  on `--gtdbtk_tree` being absent, so it degrades to unordered columns rather than failing.
+- **The GCF x genus heatmap lost its phylogenetic column ordering, and it has been
+  restored from a better source.** The order used to come from the run's own pplacer
+  tree; it now comes from GTDB's *reference* phylogeny, shipped in the GTDB-Tk data
+  package at `pplacer/gtdb_r<rel>_bac120.refpkg/gtdb_r<rel>_bac120_decorated_unrooted.tree`.
+  That is curated, identical between runs, and independent of which genomes happened to
+  be sequenced — where a pplacer order could shift with the query set. See
+  `genus_tree_from_gtdb_reference()`.
 - **GTDB-Tk reuse would have broken silently.** `CHECK_GTDBTK_REUSE` required a tree file
   to exist before returning REUSE; with no run producing one, every reuse would have
   fallen back to a full re-run. It now checks the summary alone.

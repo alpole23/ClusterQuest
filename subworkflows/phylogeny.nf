@@ -16,6 +16,7 @@ workflow PHYLOGENY {
 
     main:
         gtdbtk_summary_ch = placeholder('NO_GTDBTK_SUMMARY')
+        gtdbtk_db_ch      = placeholder('NO_GTDBTK_DB')
 
         if (params.run_gtdbtk) {
             // Determine which genomes to process
@@ -68,6 +69,7 @@ workflow PHYLOGENY {
 
                 // RUN path
                 DOWNLOAD_GTDBTK_DB()
+                gtdbtk_db_ch = DOWNLOAD_GTDBTK_DB.out.db_dir
                 fasta_for_fresh_run = check_result.run
                     .combine(fasta_files)
                     .map { status, summary, files -> files }
@@ -83,6 +85,7 @@ workflow PHYLOGENY {
             } else {
                 // === GTDB-Tk NORMAL MODE ===
                 DOWNLOAD_GTDBTK_DB()
+                gtdbtk_db_ch = DOWNLOAD_GTDBTK_DB.out.db_dir
                 // One shard below gtdbtkShardSize(), so small runs are unchanged.
                 gtdbtk_shards = fasta_ch
                     .collate(gtdbtkShardSize())
@@ -95,5 +98,6 @@ workflow PHYLOGENY {
         }
 
     emit:
-        summary = gtdbtk_summary_ch
+        summary   = gtdbtk_summary_ch
+        gtdbtk_db = gtdbtk_db_ch
 }

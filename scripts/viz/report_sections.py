@@ -1015,3 +1015,44 @@ def build_priority_section(ranking_path):
         </table>
         </div>
     </div>'''
+
+
+def build_novelty_tab(priority_html, all_regions_html, n_regions=0):
+    """BGC Novelty: what to look at, then everything else.
+
+    The ranking is 17 rows; the full region list is 333. Presenting them as equals
+    buries the actionable part under a table where every row says the same thing —
+    which is what the old "Novel BGCs" tab did, at 30.7% of the whole report. The list
+    is kept, because it is genuinely useful, but folded into a `<details>` so it is one
+    click away rather than the first thing in the section.
+    """
+    count = f' ({n_regions:,} regions)' if n_regions else ''
+    listing = f'''
+        <details style="margin-top:26px;border:1px solid #dee2e6;border-radius:8px;padding:0;">
+            <summary style="cursor:pointer;padding:13px 18px;font-weight:600;background:#f8f9fa;
+                            border-radius:8px;">
+                All detected regions{count}
+            </summary>
+            <div style="padding:4px 18px 18px;">
+                <p style="color:#666;font-size:.9em;max-width:70ch;">
+                    Every phosphonate region found, whether or not its family ranked above.
+                    Use this to locate a specific contig or genome; use the ranking to decide
+                    what to work on.
+                </p>
+                {all_regions_html}
+            </div>
+        </details>''' if all_regions_html else ''
+
+    if not priority_html and not all_regions_html:
+        return ('<div class="info-box"><p style="color:#666;">No BGC novelty analysis '
+                'available. Run with <code>--clustering bigscape</code> to enable.</p></div>')
+
+    return f'''
+            <h2>BGC Novelty</h2>
+            <p style="color:#666;max-width:70ch;">
+                <em>Which gene cluster families are worth taking into the laboratory, and why.
+                Ordered by divergence from characterised chemistry, discounted by how well
+                evidenced each family is.</em>
+            </p>
+            {priority_html}
+            {listing}'''

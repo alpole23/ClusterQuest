@@ -8,6 +8,7 @@ process GCF_BIOSYNTHETIC_TREE {
     path bigscape_db
     path "antismash_input/*", stageAs: 'antismash_input/*'
     path gtdbtk_summary
+    path gtdbtk_db
     path centers_db
 
     // Digest of the Python this process runs. A val input, not an
@@ -26,6 +27,12 @@ process GCF_BIOSYNTHETIC_TREE {
 
     script:
     def summary_arg = Utils.optArg('--gtdbtk_summary', gtdbtk_summary)
+    // GTDB's own reference phylogeny, shipped in the data package. Orders the heatmap
+    // columns by genus without needing a per-run tree, which sharded GTDBTK_CLASSIFY
+    // no longer produces.
+    def ref_tree = Utils.isValidInput(gtdbtk_db)
+        ? "--gtdb_reference_tree ${gtdbtk_db}/release${params.gtdb_release}/pplacer/gtdb_r${params.gtdb_release}_bac120.refpkg/gtdb_r${params.gtdb_release}_bac120_decorated_unrooted.tree"
+        : ''
     // Exact centre-to-centre distances when the main database is
     // partitioned; without it the GCF tree substitutes 1.0 for every
     // cross-partition centre pair and its backbone is arbitrary.
@@ -52,6 +59,7 @@ process GCF_BIOSYNTHETIC_TREE {
         --metadata phosphonate_metadata.json \\
         --coupling_annotation phosphonate_itol_coupling.txt \\
         ${summary_arg} \\
+        ${ref_tree} \\
         --outdir .
 
     # Step 4: Generate GCF biosynthetic NJ tree figure (GCF medoids)

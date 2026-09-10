@@ -13,43 +13,56 @@ REPORT_CSS = """\
         h3 { color: #444; margin-top: 25px; }
         .subtitle { text-align: center; color: #666; font-size: 1.1em; margin-bottom: 20px; }
 
-        /* Tab Styles */
+        /* ---- Sidebar navigation -------------------------------------------
+           Still pure CSS: the radio inputs drive `#tabN:checked ~ #contentN`,
+           which does not care whether the labels sit above or beside the panes.
+           Group headings are static labels, so sub-sections need no mechanism of
+           their own — they are simply more radios under a heading. */
         .tabs {
             margin-top: 20px;
+            display: grid;
+            grid-template-columns: 224px minmax(0, 1fr);
+            gap: 0 26px;
+            align-items: start;
         }
-        .tabs input[type="radio"] {
-            display: none;
-        }
+        .tabs input[type="radio"] { display: none; }
         .tabs label {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #e9ecef;
-            color: #666;
+            grid-column: 1;
+            display: block;
+            padding: 9px 14px;
+            color: #555;
             cursor: pointer;
-            border-radius: 8px 8px 0 0;
-            margin-right: 4px;
+            border-left: 3px solid transparent;
+            border-radius: 0 5px 5px 0;
+            font-size: 0.93em;
             font-weight: 500;
-            transition: all 0.2s;
-            border: 1px solid #ddd;
-            border-bottom: none;
-            white-space: nowrap;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
-        .tabs label:hover {
-            background: #dee2e6;
-            color: #333;
-        }
+        .tabs label.sub { padding-left: 28px; font-size: 0.9em; }
+        .tabs label:hover { background: #eef2f6; color: #1f3b5f; }
         .tabs input[type="radio"]:checked + label {
-            background: white;
+            background: #e8eff7;
+            border-left-color: #2c5aa0;
             color: #2c5aa0;
-            border-color: #5b8ac5;
             font-weight: 600;
         }
+        .nav-group {
+            grid-column: 1;
+            padding: 16px 14px 5px;
+            font-size: 0.7em;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: #97a3b0;
+        }
         .tab-content {
+            grid-column: 2;
+            grid-row: 1 / 99;
             display: none;
             background: white;
-            padding: 30px;
+            padding: 28px 30px;
             border: 1px solid #ddd;
-            border-radius: 0 8px 8px 8px;
+            border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             min-height: 400px;
         }
@@ -62,6 +75,25 @@ REPORT_CSS = """\
         #tab7:checked ~ #content7,
         #tab8:checked ~ #content8 {
             display: block;
+        }
+        /* Below this width a 224px rail costs more than it gives, so the nav
+           stacks above the pane and the labels sit inline. */
+        @media (max-width: 760px) {
+            .tabs { grid-template-columns: 1fr; gap: 0; }
+            .tabs label, .nav-group, .tab-content { grid-column: 1; }
+            .tab-content { grid-row: auto; margin-top: 14px; }
+            .tabs label {
+                display: inline-block;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+                border-radius: 5px 5px 0 0;
+            }
+            .tabs label.sub { padding-left: 14px; }
+            .tabs input[type="radio"]:checked + label {
+                border-left-color: transparent;
+                border-bottom-color: #2c5aa0;
+            }
+            .nav-group { padding: 12px 4px 2px; }
         }
 
         /* Collapsible details block (Pipeline Info in Overview) */

@@ -33,6 +33,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -350,6 +351,102 @@ def _draw_cladogram(ax, clade, max_depth, color='#333333', lw=1.2):
         _draw_cladogram(ax, child, max_depth, color, lw)
 
 
+def _genus_of(species):
+    """Genus from a heatmap column label, tolerating NCBI's qualifiers.
+
+    Labels come from species_from_organism, so they read "Pantoea ananatis" — but also
+    "uncultured Pantoea" and "Candidatus Pantoea ...", where the first token is not the
+    genus.
+    """
+    for token in species.split():
+        if token[:1].isupper() and token not in ('Candidatus',):
+            return token
+    return species.split()[0] if species.split() else species
+
+
+def genus_tree_from_gtdb_reference(reference_tree, summary_path, records):
+    """(tree, species order) for the heatmap columns, from GTDB's reference phylogeny.
+
+    Column ordering used to come from the GTDB-Tk run's output tree — the reference tree
+    with this run's genomes grafted on by pplacer. That tree no longer exists:
+    GTDBTK_CLASSIFY is sharded for wall time, and a per-shard tree spans a disjoint
+    genome set, so no run produces one covering the whole set.
+
+    The reference phylogeny shipped in the GTDB-Tk data package is a better source
+    anyway. It is curated and published, identical between runs, and independent of
+    which genomes happened to be sequenced — where a pplacer tree's genus order could
+    shift when the query set changed.
+
+    Genus positions come from the internal nodes GTDB decorates (`'100.0:g__Pantoea'`),
+    so no pruning is needed. Their order comes from average-linkage clustering of
+    pairwise branch-length distances, **not** a tree traversal: on an unrooted tree a
+    preorder walk interleaves clades, and on Erwiniaceae it put Erwinia between Pantoea
+    and Mixta, which are the closer pair (0.056 against 0.059).
+
+    Columns are species, so each genus clade carries its species as a polytomy beneath
+    it — species group under their genus, genera sit in phylogenetic order.
+    """
+    import itertools
+    import numpy as np
+    from scipy.cluster.hierarchy import linkage
+    from scipy.spatial.distance import squareform
+
+    # records carry the column label directly under 'species' — the same value
+    # build_matrix uses for the heatmap's columns, so ordering cannot drift from it.
+    species = sorted({r.get('species', '') for r in records})
+    species = [sp for sp in species if sp and sp != 'Unknown']
+    by_genus = defaultdict(list)
+    for sp in species:
+        by_genus[_genus_of(sp)].append(sp)
+    if len(by_genus) < 2:
+        return None, None
+
+    if not os.path.exists(str(reference_tree)):
+        print(f'  reference tree not found at {reference_tree}; columns left unordered')
+        return None, None
+    tree = Phylo.read(str(reference_tree), 'newick')
+    node = {}
+    for clade in tree.find_clades():
+        if not clade.name:
+            continue
+        for g in re.findall(r'g__[A-Za-z0-9]+(?:_[A-Z])?', clade.name):
+            bare = g[3:]
+            if bare in by_genus and bare not in node:
+                node[bare] = clade
+
+    placed = sorted(node)
+    if len(placed) < 2:
+        return None, None
+
+    n = len(placed)
+    dist = np.zeros((n, n))
+    for a, b in itertools.combinations(range(n), 2):
+        dist[a, b] = dist[b, a] = tree.distance(node[placed[a]], node[placed[b]])
+    link = linkage(squareform(dist), method='average')
+
+    # Each genus becomes a clade holding its species; the merge order rebuilds the
+    # relationships between those clades.
+    clades = [Phylo.BaseTree.Clade(
+        clades=[Phylo.BaseTree.Clade(name=sp) for sp in sorted(by_genus[g])])
+        for g in placed]
+    for a, b, _, _ in link:
+        clades.append(Phylo.BaseTree.Clade(clades=[clades[int(a)], clades[int(b)]]))
+    tree_out = Phylo.BaseTree.Tree(root=clades[-1])
+
+    # _assign_layout stamps the _x and _depth the cladogram drawing reads and returns
+    # leaves in drawing order. Taking the column order from *that* keeps the dendrogram
+    # and the columns beneath it in step by construction.
+    leaves = _assign_layout(tree_out.root, [0])
+    ordered = [leaf.name for leaf in leaves]
+
+    unplaced = [sp for g, sps in by_genus.items() if g not in node for sp in sps]
+    if unplaced:
+        print(f'  {len(unplaced)} species whose genus is absent from the reference '
+              f'tree, appended unordered: {", ".join(sorted(unplaced)[:4])}'
+              f'{" ..." if len(unplaced) > 4 else ""}')
+    return tree_out, ordered
+
+
 def load_and_prune_phylo_tree(tree_path, summary_path, records):
     """
     Prune GTDB-Tk tree to one representative genome per heatmap species.
@@ -623,6 +720,11 @@ def main():
     parser.add_argument('--metadata',            required=True)
     parser.add_argument('--coupling_annotation', required=True)
     parser.add_argument('--outdir',              required=True)
+    parser.add_argument('--gtdb_reference_tree', default=None,
+                        help="GTDB's own reference phylogeny from the GTDB-Tk data "
+                             "package; orders columns by genus. Preferred over "
+                             "--gtdbtk_tree, which needs a per-run tree the sharded "
+                             "GTDBTK_CLASSIFY no longer produces.")
     parser.add_argument('--gtdbtk_tree',   default=None,
                         help='GTDB-Tk classify tree (Newick) for column ordering')
     parser.add_argument('--gtdbtk_summary', default=None,
@@ -650,7 +752,15 @@ def main():
 
     # Phylogenetic tree for column ordering
     phylo_tree = phylo_order = None
-    if args.gtdbtk_tree and args.gtdbtk_summary:
+    if args.gtdb_reference_tree and args.gtdbtk_summary:
+        print('Ordering columns from the GTDB reference phylogeny...')
+        phylo_tree, phylo_order = genus_tree_from_gtdb_reference(
+            args.gtdb_reference_tree, args.gtdbtk_summary, records)
+        if phylo_order:
+            print(f'  genus order: {", ".join(phylo_order)}')
+        else:
+            print('  fewer than two genera resolved; columns left unordered')
+    elif args.gtdbtk_tree and args.gtdbtk_summary:
         print('Loading phylogenetic tree...')
         phylo_tree, phylo_order = load_and_prune_phylo_tree(
             args.gtdbtk_tree, args.gtdbtk_summary, records)

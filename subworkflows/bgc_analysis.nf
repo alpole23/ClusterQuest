@@ -79,6 +79,7 @@ workflow BGC_ANALYSIS {
                     CLUSTERING.out.bigscape_db,
                     antismash_results,
                     PHYLOGENY.out.summary,
+                    PHYLOGENY.out.gtdbtk_db,
                     CLUSTERING.out.centers_db,
                     Utils.scriptsHash(projectDir,
                         ['bgc_coupling_annotation.py', 'bgc_gcf_heatmap.py',

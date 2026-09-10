@@ -44,7 +44,7 @@ from viz.report_sections import (_build_bigscape_section_html,
                                  build_overview_stats,
                                  _build_versions_html, build_coupling_table_rows,
                                  build_gcf_analysis_tab, build_gcf_trees_tab,
-                                 build_priority_section,
+                                 build_priority_section, build_novelty_tab,
                                  build_pipeline_tab)
 
 
@@ -135,9 +135,12 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     # Built after the placeholder defaults above, not before: these consume
     # coupling_table_rows and would otherwise interpolate a literal "None".
+    # Region count for the collapsed listing's summary line.
+    n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
     priority_html    = build_priority_section(novelty_ranking)
+    novelty_tab      = build_novelty_tab(priority_html, novel_bgcs_tab_content, n_regions)
     gcf_analysis_tab = build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html,
-                                              pepm_section_html, priority_html)
+                                              pepm_section_html)
     gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime)
     pipeline_tab     = build_pipeline_tab(resource_usage_html, partition_section_html,
                                           versions_html)
@@ -162,30 +165,33 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     <div class="tabs">
         <input type="radio" id="tab1" name="tabs" checked>
-        <label for="tab1">Overview</label>
+        <label for="tab1">Overview Stats</label>
 
         <input type="radio" id="tab2" name="tabs">
-        <label for="tab2">Phylogeny</label>
+        <label for="tab2">BGC Novelty</label>
 
+        <div class="nav-group">Gene Cluster Families</div>
         <input type="radio" id="tab3" name="tabs">
-        <label for="tab3">Genomes</label>
+        <label for="tab3" class="sub">Analysis</label>
 
         <input type="radio" id="tab4" name="tabs">
-        <label for="tab4">GCF Analysis</label>
+        <label for="tab4" class="sub">Trees</label>
 
+        <div class="nav-group">Context</div>
         <input type="radio" id="tab5" name="tabs">
-        <label for="tab5">GCF Trees</label>
+        <label for="tab5" class="sub">Phylogeny</label>
 
         <input type="radio" id="tab6" name="tabs">
-        <label for="tab6">Novel BGCs</label>
+        <label for="tab6" class="sub">Genomes Search</label>
 
+        <div class="nav-group">Reference</div>
         <input type="radio" id="tab7" name="tabs">
-        <label for="tab7">KCB Hits</label>
+        <label for="tab7" class="sub">KnownClusterBlast Hits</label>
 
         <input type="radio" id="tab8" name="tabs">
-        <label for="tab8">Pipeline</label>
+        <label for="tab8" class="sub">Pipeline Info</label>
 
-        <!-- Tab 1: Overview -->
+        <!-- 1. Overview Stats -->
         <div class="tab-content" id="content1">
             <p style="color: #666; font-size: 0.9em; margin: 4px 0 2px;">
                 <em>Detection is restricted to the antiSMASH <strong>phosphonate</strong> rule
@@ -200,8 +206,20 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
         </div>
 
-        <!-- Tab 2: Phylogeny (Taxonomy tree + GTDB-Tk BGC distribution) -->
-        <div class="tab-content" id="content2">
+        <!-- 2. BGC Novelty -->
+        <div class="tab-content" id="content2">{novelty_tab}
+        </div>
+
+        <!-- 3. GCF Analysis -->
+        <div class="tab-content" id="content3">{gcf_analysis_tab}
+        </div>
+
+        <!-- 4. GCF Trees -->
+        <div class="tab-content" id="content4">{gcf_trees_tab}
+        </div>
+
+        <!-- 5. Phylogeny -->
+        <div class="tab-content" id="content5">
             <h3>Taxonomic Distribution of BGCs</h3>
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Expandable NCBI taxonomy tree showing BGC statistics at each taxonomic level. Click on nodes to expand/collapse.
@@ -222,8 +240,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             {tree_section}
         </div>
 
-        <!-- Tab 3: Genomes -->
-        <div class="tab-content" id="content3">
+        <!-- 6. Genomes Search -->
+        <div class="tab-content" id="content6">
             <h2>All Genomes</h2>
             <p style="color: #666; margin-bottom: 15px;">
                 <em>Searchable table of all analyzed genomes. Click genome names for detailed metadata pages.</em>
@@ -257,25 +275,12 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             <script id="genomeData" type="application/json">{genome_data_json}</script>
         </div>
 
-        <!-- Tab 4: GCF Analysis (Clustering + Coupling Enzyme) -->
-        <div class="tab-content" id="content4">{gcf_analysis_tab}
-        </div>
-
-        <!-- Tab 5: Trees -->
-        <div class="tab-content" id="content5">{gcf_trees_tab}
-        </div>
-
-        <!-- Tab 6: Novel BGCs -->
-        <div class="tab-content" id="content6">
-            {novel_bgcs_tab_content}
-        </div>
-
-        <!-- Tab 7: KCB Hits -->
+        <!-- 7. KnownClusterBlast Hits -->
         <div class="tab-content" id="content7">
             {kcb_hits_tab_content}
         </div>
 
-        <!-- Tab 8: Pipeline Info -->
+        <!-- 8. Pipeline Info -->
         <div class="tab-content" id="content8">{pipeline_tab}
         </div>
 
