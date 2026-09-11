@@ -188,7 +188,7 @@ results/
             ├── Synthase/
             │   ├── Synthase_tree.nwk
             │   └── itol_*.txt
-            ├── Decarboxylase/   # Decarboxylase + Decarboxylase-Nucleotidyltransferase share one tree
+            ├── Decarboxylase/
             │   ├── Decarboxylase_tree.nwk
             │   └── itol_*.txt
             ├── Reductase/
@@ -1044,7 +1044,8 @@ python scripts/bgc_coupling_annotation.py \
 **⚠️ The GCF numbers below are run-specific and will not match your output.**
 Counts are also from that older run. For reference, the Pantoea genus run of
 2026-08-25 (1,735 genomes, 320 regions) gave: Synthase 236, Reductase 29,
-Decarboxylase-Nucleotidyltransferase 27, Decarboxylase 22, Transaminase 6,
+Decarboxylase 49 (27 of which were then split off as a separate
+Decarboxylase-Nucleotidyltransferase class — see below), Transaminase 6,
 Unknown 0 — the zero being the segment-based membership fix.
 `family.id` in the BiG-SCAPE database is an `INTEGER PRIMARY KEY AUTOINCREMENT` — it
 records the order families happened to be written, not a stable biological identity.
@@ -1065,8 +1066,7 @@ table self-corrects. Only the hard-coded numbers in this file go stale.
 |-------|--------|---------|-----|-------|
 | FrbC | SMCOG1271 (HMGL-like) | → phosphonomethylmalate → phosphinothricin-type | GCF-2/3 | 920 |
 | Fe-ADH | Fe-ADH rule | → phosphonolactate (reductase route) | GCF-4/6 | 112 |
-| TPP+NTP | TPP_enzyme_C + NTP_transf_3 rules | → phosphonolipid (CDP-pathway) | GCF-5 | 84 |
-| Ppd | SMCOG1055 (ThDP-decarboxylase) | → 2-phosphonoacetaldehyde → 2-AEP | GCF-1/8 | 72 |
+| Ppd | SMCOG1055 (ThDP) or TPP_enzyme_C | → 2-phosphonoacetaldehyde → 2-AEP | GCF-1/5/8 | 156 |
 | PalB | SMCOG1019 (Aminotran_1_2/PF00155) | → phosphonoalanine | GCF-7 | 20 |
 | Unknown | — | — | — | 4 |
 
@@ -1078,8 +1078,37 @@ it reclassifies BGCs whose region feature has a compound location.
 **Key insights:**
 - Classification maps almost perfectly onto BiG-SCAPE GCF families — coupling enzyme type is the primary determinant of GCF membership.
 - The `Fe-ADH` rule-based marker (iron-containing alcohol dehydrogenase / 2-Hacid_dh_C) is antiSMASH's marker for the phosphonopyruvate reductase (→ phosphonolactate) pathway.
-- GCF-5 in that run (TPP+NTP) confirmed as **phosphonolipid BGCs**: Ppd-type ThDP enzyme + two NTP_transf_3 cytidylyltransferases + CDP-alcohol phosphatidyltransferases + Asn_synthase (CDP-phosphonate pathway). Well-annotated NCBI genomes explicitly label the ThDP enzyme as "phosphonopyruvate decarboxylase".
 - AEP-pathway BGCs (GCF-1/8 in that run) use Ppd as coupling enzyme regardless of tailoring enzymes downstream.
+
+**The Decarboxylase-Nucleotidyltransferase class was removed on 2026-09-11.** From
+2026-08 to 2026-09 a fifth class split off the decarboxylases on `TPP_enzyme_C` plus an
+`NTP_transf_3`/`NTP_transf_2` hit, on the theory that a cytidylyltransferase in the BGC
+marked the CDP-activated phosphonolipid route. Checked against the two clusters whose
+chemistry is known from lab work, it came out **inverted**:
+
+| Cluster | Lab truth | Class assigned | Margin |
+|---|---|---|---|
+| *P. ananatis* LMG 5342 `HE617160.1.region002` | phosphonolipid | Decarboxylase | 0.0 |
+| *Winslowiella iniecta* B149 `JRXF01000012.1.region001` | **not** a lipid | Decarb-Nucleotidyltransferase | 0.0 |
+
+The confirmed lipid carries no NTP_transf at all — several of its biosynthetic CDS are
+unannotated in that assembly, so the marker simply is not visible — while the confirmed
+non-lipid carries one, activating a substrate for some other energetically unfavourable
+step. NTP transfer is generic activation chemistry, not a lipid signature.
+
+The margin is structural, not incidental: both classes scored against the same DhpF /
+Fom2 / Ppd reference set (via the `_SHARED_REFS` mechanism, now also gone), so percent
+identity was identical for both by construction and `margin` was always exactly 0.0. No
+amount of added sequence evidence could have separated them.
+
+`LEGACY_CLASS_NAMES` in `utils/constants.py` still maps the old `TPP+NTP` and `Ppd-CDP`
+spellings, now onto `Decarboxylase`, so annotation files from those runs still load.
+
+**Predicting phosphonolipid vs. small molecule is unsolved.** Four signals were tried —
+coupling class, `NTP_transf_3` copy number, CDP-alcohol phosphatidyltransferase
+proximity, and TIGRFAM assignments — and none separates the two characterised examples.
+This matters for prioritisation (a phosphonolipid is a less interesting lab target than
+a small molecule), so it is worth revisiting, but not with the markers tried so far.
 
 **PalB detection was corrected on 2026-08-25.** It previously used SMCOG1013
 (Aminotran_3, fold type IV PLP), which is a different aminotransferase class from
@@ -1119,14 +1148,14 @@ Builds FastTree ML trees (LG model) for pepM (Tree A) and per-class coupling enz
 **Sequence extraction (annotation-first with HMM fallback):**
 - Primary: antiSMASH annotation markers (SMCOG/domain hits from `gene_functions` / `sec_met_domain`) — zero extra compute, already in JSON
 - Fallback: for any BGCs the annotation missed, extract all CDS from the region and run `hmmsearch` against the class reference HMM; select the highest-scoring hit per BGC
-- This handles divergent sequences that escape SMCOG thresholds (e.g. Ppd-CDP ThDP decarboxylases, which carry `TPP_enzyme_C` but not `SMCOG1055`)
+- This handles divergent sequences that escape SMCOG thresholds (ThDP decarboxylases that carry `TPP_enzyme_C` but not `SMCOG1055`)
 
 **CLASS_MARKERS — extraction markers per class:**
 
 | Class | Marker type | Marker | Rationale |
 |-------|-------------|--------|-----------|
 | Synthase (FrbC-like) | smcog | SMCOG1271 | HMGL-like phosphonomethylmalate synthase |
-| Decarboxylase / Decarboxylase-Nucleotidyltransferase | domain | TPP_enzyme_C | Both classes carry this; the nucleotidyltransferase variant lacks SMCOG1055 |
+| Decarboxylase (Ppd-like) | domain | TPP_enzyme_C | Divergent ThDP decarboxylases carry this but not SMCOG1055 |
 | Reductase (VlpB-like) | domain | Fe-ADH | Phosphonopyruvate reductase (iron-containing ADH) |
 | Transaminase (PalB-like) | smcog | SMCOG1019 | Aminotran_1_2/PF00155, AAT superfamily (corrected 2026-08-25) |
 

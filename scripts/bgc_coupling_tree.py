@@ -8,8 +8,7 @@ Two tree types:
      Unknown BGCs fall naturally into the closest clade.
 
   B: Per-class coupling enzyme trees — one tree per class using the class-defining marker
-     gene. Ppd and Ppd-CDP share one tree (same enzyme; class distinction is an annotation
-     layer). References anchor each class tree.
+     gene. References anchor each class tree.
 
 HMM strategy (no external MSA tool required):
   1. hmmbuild from single seed reference    → initial HMM
@@ -82,15 +81,13 @@ REF_COUPLING_CLASS = {
 }
 
 # Markers for coupling enzyme CDS extraction.
-# TPP_enzyme_C (Pfam clusterhmmer) is used for Decarboxylase and
-# Decarboxylase-Nucleotidyltransferase rather than SMCOG1055: all Decarboxylase BGCs
-# carry both annotations, but Decarboxylase-Nucleotidyltransferase BGCs have
-# TPP_enzyme_C only — their ThDP decarboxylases are too divergent from the SMCOG1055
-# seed to get a hit. Both classes share one combined tree keyed as 'Decarboxylase'.
+# Decarboxylase keys on TPP_enzyme_C (Pfam clusterhmmer) rather than SMCOG1055:
+# most decarboxylase BGCs carry both annotations, but the divergent ones carry
+# TPP_enzyme_C only — their ThDP decarboxylases are too far from the SMCOG1055
+# seed to get a hit, and keying on the SMCOG would drop them from the tree.
 CLASS_MARKERS = {
     'Synthase':                             ('smcog',  'SMCOG1271'),
     'Decarboxylase':                        ('domain', 'TPP_enzyme_C'),
-    'Decarboxylase-Nucleotidyltransferase': ('domain', 'TPP_enzyme_C'),
     'Reductase':                            ('domain', 'Fe-ADH'),
     # PalB is AAT superfamily (fold type I PLP) = Aminotran_1_2 / PF00155 / SMCOG1019.
     # Not SMCOG1013 (Aminotran_3, fold type IV), which was used until 2026-08-25.
@@ -618,24 +615,23 @@ def build_tree_b(args, metadata, coupling_classes, json_index, ref_coupling_reco
     outdir_b = os.path.join(args.outdir, 'tree_B')
     os.makedirs(outdir_b, exist_ok=True)
 
-    # Group BGCs by class; merge Ppd + Ppd-CDP into one tree.
     # Skip BiG-SCAPE sub-record duplicates (_1, _2, _3 suffixes) — they share the
     # same CDS with the main region label and would produce duplicate sequences.
     class_bgcs = defaultdict(list)
     for lbl, cls in coupling_classes.items():
         if re.search(r'_\d+$', lbl):
             continue
-        key = 'Decarboxylase' if cls in ('Decarboxylase', 'Decarboxylase-Nucleotidyltransferase') else cls
+        key = cls
         class_bgcs[key].append(lbl)
 
-    # Group reference sequences by class; merge both Decarboxylase classes into one tree
+    # Group reference sequences by class
     ref_by_class = defaultdict(list)
     for r in ref_coupling_records:
         parts = r.id.split('|')
         name = parts[2] if len(parts) > 2 else ''
         cls  = REF_COUPLING_CLASS.get(name)
         if cls:
-            key = 'Decarboxylase' if cls in ('Decarboxylase', 'Decarboxylase-Nucleotidyltransferase') else cls
+            key = cls
             ref_by_class[key].append(r)
 
     tree_b_results = []

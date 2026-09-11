@@ -12,12 +12,8 @@ Coupling enzyme classes detected (checked in priority order):
   Synthase      SMCOG1271          Phosphonomethylmalate synthase (HMGL superfamily)
                                    phosphonopyruvate + acetyl-CoA → phosphonomethylmalate
                                    → phosphinothricin-type products (refs: FrbC, HvrC)
-  Ppd-CDP       SMCOG1055          Same ThDP decarboxylation as Ppd, but BGC additionally
-                 + NTP_transf_3    encodes cytidylyltransferase(s) (NTP_transf_3) for
-                                   CDP-activation → phosphonolipid pathway.
-                                   Checked before plain Ppd because both share SMCOG1055.
-  Ppd           SMCOG1055          Phosphonopyruvate decarboxylase (ThDP-dependent)
-                                   → 2-phosphonoacetaldehyde; BGC lacks cytidylyltransferase.
+  Decarboxylase SMCOG1055          Phosphonopyruvate decarboxylase (ThDP-dependent)
+                or TPP_enzyme_C    → 2-phosphonoacetaldehyde.
                                    Checked before Reductase: some BGCs contain an unrelated
                                    Fe-ADH gene elsewhere in the region that would otherwise
                                    mask the SMCOG1055-annotated coupling enzyme (e.g. GCF11).
@@ -66,7 +62,6 @@ CLASSES = [
     # (class_id, display_label, hex_color)
     ('Synthase',                        'Synthase — phosphonomethylmalate synthase (PnPyr + AcCoA)',            '#e41a1c'),
     ('Decarboxylase',                   'Decarboxylase — phosphonopyruvate decarboxylase (ThDP-dependent)',     '#377eb8'),
-    ('Decarboxylase-Nucleotidyltransferase', 'Decarboxylase-Nucleotidyltransferase — phosphonopyruvate decarboxylase + CDP-activation', '#a65628'),
     ('Reductase',                       'Reductase — phosphonopyruvate reductase (Fe-ADH)',                    '#4daf4a'),
     ('Transaminase',                    'Transaminase — phosphonopyruvate transaminase, PalB-like Aminotran_1_2 (→ PnAla)','#ff7f00'),
     ('Unknown',                         'Unknown / not detected',                                               '#aaaaaa'),
@@ -149,19 +144,22 @@ def classify_bgc(json_path, contig_id, region_num):
         # Classification (checked in priority order)
         if 'SMCOG1271' in smcog_hits:
             return 'Synthase', 'SMCOG1271', marker_seqs
-        # Ppd-CDP before plain Ppd: both share SMCOG1055, but Ppd-CDP additionally
-        # encodes cytidylyltransferase(s) (NTP_transf_3) for CDP-activation.
-        has_tpp = 'TPP_enzyme_C' in rule_hits or 'TPP_enzyme_M' in rule_hits
-        has_ntp = 'NTP_transf_3' in rule_hits or 'NTP_transf_2' in rule_hits
-        if has_tpp and has_ntp:
-            return 'Decarboxylase-Nucleotidyltransferase', 'TPP_enzyme_C', marker_seqs
+        # TPP + NTP_transf_3 used to split off a 'Decarboxylase-Nucleotidyltransferase'
+        # class, on the theory that a cytidylyltransferase marked the CDP-activated
+        # phosphonolipid route. It came out inverted on both characterised clusters:
+        # P. ananatis LMG 5342 region 2 (confirmed phosphonolipid) carries no NTP_transf
+        # at all, while Winslowiella iniecta B149 (confirmed not a lipid) carries one.
+        # NTP transfer activates a substrate for any unfavourable step — it is generic
+        # chemistry, not a lipid signature. Both classes also scored against the same
+        # Ppd references, so their identity margin was always 0.0 and no amount of
+        # sequence evidence could have separated them. Merged back into Decarboxylase.
         if 'SMCOG1055' in smcog_hits:
             return 'Decarboxylase', 'SMCOG1055', marker_seqs
         # Fallback: TPP_enzyme_C alone is sufficient evidence for a decarboxylase
         # coupling enzyme. Some BGCs have ThDP enzymes too divergent to score against
         # the SMCOG1055 HMM but still carry the TPP_enzyme_C domain in antiSMASH's
         # rule-based scan (e.g. GCF-1, GCF-12 singletons in Pantoea).
-        if has_tpp:
+        if 'TPP_enzyme_C' in rule_hits or 'TPP_enzyme_M' in rule_hits:
             return 'Decarboxylase', 'TPP_enzyme_C', marker_seqs
         # Reductase after Ppd: some BGCs contain an unrelated Fe-ADH gene elsewhere
         # in the antiSMASH region that would mask an SMCOG1055-annotated coupling enzyme.

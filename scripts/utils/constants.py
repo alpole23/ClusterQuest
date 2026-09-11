@@ -177,23 +177,18 @@ KCB_COLORS = {
 COUPLING_COLORS = {
     'Synthase':                        '#e41a1c',
     'Decarboxylase':                   '#377eb8',
-    # Brown, not the ColorBrewer Set1 purple. Against '#377eb8' (Decarboxylase)
-    # the purple gives deuteranopes dE 3.5 — below the usable floor — and these
-    # two classes are chemically adjacent, so confusing them is not harmless.
-    # Brown lifts that pair to dE 7.8. Verified with the palette validator.
-    'Decarboxylase-Nucleotidyltransferase': '#a65628',
     'Reductase':                       '#4daf4a',
     'Transaminase':                    '#ff7f00',
     'Unknown':                         '#aaaaaa',
 }
 
 # Display order for coupling enzyme classes in legends
-COUPLING_ORDER = ['Synthase', 'Reductase', 'Decarboxylase', 'Decarboxylase-Nucleotidyltransferase', 'Transaminase', 'Unknown']
+COUPLING_ORDER = ['Synthase', 'Reductase', 'Decarboxylase', 'Transaminase', 'Unknown']
 
 # Normalize legacy coupling class names from older annotation files
 LEGACY_CLASS_NAMES = {
     'Fe-ADH':    'Reductase',
-    'TPP+NTP':   'Decarboxylase-Nucleotidyltransferase',
+    'TPP+NTP':   'Decarboxylase',
     'PalB':      'Transaminase',
     'FrbC':      'Synthase',
     # pre-rename class IDs
@@ -201,7 +196,7 @@ LEGACY_CLASS_NAMES = {
     'VlpB-like': 'Reductase',
     'PalB-like': 'Transaminase',
     'Ppd':       'Decarboxylase',
-    'Ppd-CDP':   'Decarboxylase-Nucleotidyltransferase',
+    'Ppd-CDP':   'Decarboxylase',
 }
 
 # Pfam accession → short human-readable name.

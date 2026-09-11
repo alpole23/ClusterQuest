@@ -70,12 +70,6 @@ def class_of_reference(description):
     return None
 
 
-# Classes that share another class's references. The CDP-activating variant is still a
-# phosphonopyruvate decarboxylase — it just additionally encodes a cytidylyltransferase —
-# so it is scored against the same DhpF/Fom2/Ppd set rather than against nothing.
-_SHARED_REFS = {'Decarboxylase-Nucleotidyltransferase': 'Decarboxylase'}
-
-
 def genus_species(name):
     """`Streptomyces durhamensis NRRL B-3309` -> `Streptomyces durhamensis`.
 
@@ -106,9 +100,6 @@ def load_references(fasta_path):
         name = fields[2].strip() if len(fields) > 2 else rec.id
         organism = genus_species(fields[4].strip() if len(fields) > 4 else '')
         out.setdefault(cls, []).append((name, str(rec.seq), organism))
-    for derived, source in _SHARED_REFS.items():
-        if source in out:
-            out.setdefault(derived, list(out[source]))
     return out
 
 

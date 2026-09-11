@@ -462,9 +462,6 @@ _COUPLING_META = {
     'Reductase': (
         'Reductase', 'Fe-ADH',
         'Phosphonolactate', 'VlpB'),
-    'Decarboxylase-Nucleotidyltransferase': (
-        'Decarboxylase-Nucleotidyltransferase', 'SMCOG1055 + NTP_transf_3',
-        'Phosphonolipid (CDP-activated)', 'DhpF, Fom2, Ppd'),
     'Decarboxylase': (
         'Decarboxylase', 'SMCOG1055 (ThDP)',
         '2-Phosphonoacetaldehyde (2-AEP)', 'DhpF, Fom2, Ppd'),
@@ -475,7 +472,7 @@ _COUPLING_META = {
         'Unknown', 'no marker matched',
         'not assignable', 'none'),
 }
-_COUPLING_ROW_ORDER = ['Synthase', 'Reductase', 'Decarboxylase-Nucleotidyltransferase', 'Decarboxylase', 'Transaminase', 'Unknown']
+_COUPLING_ROW_ORDER = ['Synthase', 'Reductase', 'Decarboxylase', 'Transaminase', 'Unknown']
 
 def gcf_coupling_classes(coupling_annotation_path, bigscape_db_path, cutoff=0.3):
     """Map each GCF id to its dominant coupling enzyme class.
