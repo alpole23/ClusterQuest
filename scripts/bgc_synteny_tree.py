@@ -43,7 +43,6 @@ Outputs:
 """
 
 import argparse
-import sqlite3
 import os
 import sys
 import json
@@ -54,74 +53,12 @@ from Bio import Phylo
 from io import StringIO
 
 sys.path.insert(0, str(Path(__file__).parent))
-from utils.constants import DOMAIN_NAMES
+from utils import bigscape_db as db
+from utils.constants import domain_name
 from utils.bgc_labels import label_from_path, make_labels_unique
 from utils.tree_building import build_nj_tree
 
 sys.setrecursionlimit(10000)
-
-
-def domain_name(accession):
-    """Return a readable name for a Pfam accession, stripping version suffix."""
-    base = accession.split('.')[0]
-    return DOMAIN_NAMES.get(base, base)
-
-
-# ─── Database queries ─────────────────────────────────────────────────────────
-
-BGC_QUERY = """
-    SELECT
-        br.id       AS bgc_id,
-        br.product,
-        g.id        AS gbk_id,
-        g.path      AS gbk_path,
-        g.organism
-    FROM bgc_record br
-    JOIN gbk g ON br.gbk_id = g.id
-    WHERE LOWER(br.product) LIKE ?
-    ORDER BY g.path
-"""
-
-BGC_QUERY_FAMILY = """
-    SELECT
-        br.id       AS bgc_id,
-        br.product,
-        g.id        AS gbk_id,
-        g.path      AS gbk_path,
-        g.organism
-    FROM bgc_record br
-    JOIN gbk g ON br.gbk_id = g.id
-    JOIN bgc_record_family brf ON br.id = brf.record_id
-    WHERE LOWER(br.product) LIKE ?
-      AND brf.family_id = ?
-    ORDER BY g.path
-"""
-
-# Returns all domain hits per CDS, sorted by genomic position then bit score.
-# We group in Python to take the best hit per CDS.
-DOMAIN_SEQ_QUERY = """
-    SELECT
-        c.id        AS cds_id,
-        c.nt_start,
-        c.strand,
-        h.accession,
-        h.bit_score
-    FROM cds c
-    JOIN scanned_cds sc ON sc.cds_id = c.id
-    JOIN hsp h ON h.cds_id = c.id
-    WHERE c.gbk_id = ?
-      AND h.accession != ''
-      AND h.bit_score >= 20
-    ORDER BY c.nt_start ASC, h.bit_score DESC
-"""
-
-FAMILY_QUERY = """
-    SELECT brf.family_id, f.cutoff
-    FROM bgc_record_family brf
-    JOIN family f ON brf.family_id = f.id
-    WHERE brf.record_id = ?
-    ORDER BY f.cutoff
-"""
 
 
 # ─── Ordered domain sequence extraction ──────────────────────────────────────
@@ -131,19 +68,7 @@ def get_ordered_sequence(cur, gbk_id):
     Return the ordered list of best-scoring Pfam accessions for a BGC,
     one per annotated CDS, sorted by genomic position.
     """
-    cur.execute(DOMAIN_SEQ_QUERY, (gbk_id,))
-    rows = cur.fetchall()
-
-    # Take the best-scoring domain per CDS (rows already ordered by score DESC)
-    seen_cds = {}
-    ordered = []
-    for row in rows:
-        cds_id = row['cds_id']
-        if cds_id not in seen_cds:
-            seen_cds[cds_id] = True
-            ordered.append(row['accession'].split('.')[0])  # strip version
-
-    return ordered
+    return db.fetch_best_domain_per_cds(cur, gbk_id)
 
 
 # ─── LCS distance ─────────────────────────────────────────────────────────────
@@ -181,16 +106,12 @@ def load_bgc_sequences(db_path, bgc_type_filter, family_id=None):
     labels, sequences, metadata = [], [], []
     skipped = 0
 
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
+    with db.connect(db_path) as conn:
         cur = conn.cursor()
 
         if family_id is not None:
-            cur.execute(BGC_QUERY_FAMILY, (f'%{bgc_type_filter.lower()}%', family_id))
             print(f"  Filtering to GCF family {family_id}")
-        else:
-            cur.execute(BGC_QUERY, (f'%{bgc_type_filter.lower()}%',))
-        bgc_rows = cur.fetchall()
+        bgc_rows = db.fetch_bgc_records(cur, bgc_type_filter, family_id)
 
         if not bgc_rows:
             raise ValueError(f"No BGCs found matching '{bgc_type_filter}'")
@@ -203,20 +124,13 @@ def load_bgc_sequences(db_path, bgc_type_filter, family_id=None):
                 skipped += 1
                 continue
 
-            cur.execute(FAMILY_QUERY, (row['bgc_id'],))
-            families = [{'family_id': r['family_id'], 'cutoff': r['cutoff']}
-                        for r in cur.fetchall()]
-
             label = label_from_path(row['gbk_path'])
             labels.append(label)
             sequences.append(seq)
             metadata.append({
-                'label':    label,
-                'product':  row['product'],
-                'organism': row['organism'] or os.path.basename(os.path.dirname(row['gbk_path'])),
-                'gbk_path': row['gbk_path'],
+                **db.record_metadata(row, label),
                 'n_genes':  len(seq),
-                'families': families,
+                'families': db.fetch_families(cur, row['bgc_id']),
                 'sequence': seq,                          # accessions
                 'sequence_named': [domain_name(d) for d in seq],  # readable names
             })

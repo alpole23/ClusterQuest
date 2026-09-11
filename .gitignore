@@ -1,23 +1,19 @@
-# Nextflow
-work/
-.nextflow/
-.nextflow.log*
-
-# Results (user-generated)
-results/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
 
 # Claude
+# IDE
+# Nextflow
+# OS
+# Python
+# Results (user-generated)
+*.pyc
+*.pyo
+.DS_Store
 .claude/
+.idea/
+.nextflow.log*
+.nextflow/
+.vscode/
+Thumbs.db
+__pycache__/
+results/
+work/

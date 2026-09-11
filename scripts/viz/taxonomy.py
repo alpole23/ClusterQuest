@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Taxonomy tree visualization functions."""
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -9,12 +10,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def generate_taxonomy_tree_html(taxonomy_tree_data):
-    """Generate interactive HTML for the taxonomy tree with genome-level data."""
+    '''Generate interactive HTML for the taxonomy tree with genome-level data'''
     tree = taxonomy_tree_data.get('tree', {})
     metadata = taxonomy_tree_data.get('metadata', {})
+    genome_payload = {}
 
     def render_genome_list(genomes, level):
-        """Render genome list under a species node with heatmap coloring."""
+        '''Render genome list under a species node with heatmap coloring'''
         if not genomes:
             return ''
 
@@ -39,7 +41,7 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
         total_max = total_max if total_max > 0 else 1
 
         def get_green_bg_color(count, max_count):
-            """Convert count to sequential green background color for Total BGCs."""
+            '''Convert count to sequential green background color for Total BGCs'''
             if count == 0:
                 return ''
             intensity = count / max_count
@@ -55,7 +57,7 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
                 return '#2e7d32'
 
         def get_red_font_color(count, max_count):
-            """Convert count to sequential red font color for BGC types."""
+            '''Convert count to sequential red font color for BGC types'''
             if count == 0:
                 return ''
             intensity = count / max_count
@@ -103,7 +105,7 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
         return genome_list_html
 
     def render_node(node, level=0):
-        """Recursively render tree nodes."""
+        '''Recursively render tree nodes'''
         name = node.get('name', 'Unknown')
         rank = node.get('rank', '')
         stats = node.get('stats', {})
@@ -127,7 +129,23 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
             if len(bgc_distribution) > 3:
                 bgc_types_html += f" (+{len(bgc_distribution)-3} more)"
 
-        node_id = f"node_{abs(hash(name + rank + str(level)))}"
+        # md5 (not builtin hash) so ids are stable across processes:
+        # PYTHONHASHSEED randomises str hashing, which made every report differ
+        node_key = f"{name}{rank}{level}".encode("utf-8")
+        # Prevalence leads: "how much of this clade carries a BGC" is the question the
+        # tree exists to answer. genomes_with_bgcs was computed here and never displayed,
+        # while the headline number was an average over every genome including the many
+        # with none — the same distortion that made "avg BGCs/genome 0.2" useless on the
+        # Overview.
+        if genome_count:
+            _pct = 100.0 * genomes_with_bgcs / genome_count
+            prevalence = f'{genomes_with_bgcs} of {genome_count} genomes ({_pct:.1f}%)'
+        else:
+            prevalence = f'{genome_count} genomes'
+        per_positive = (f' | {total_bgcs / genomes_with_bgcs:.2f} per BGC-positive genome'
+                        if genomes_with_bgcs else '')
+
+        node_id = f"node_{hashlib.md5(node_key).hexdigest()[:12]}"
         has_children = len(children) > 0
         has_genomes = len(genomes) > 0 and rank == 'species'
 
@@ -140,7 +158,7 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
                 <span class="toggle-icon">{toggle_icon}</span>
                 <span class="node-name"><strong>{name}</strong> <em>({rank})</em></span>
                 <span class="node-stats">
-                    {genome_count} genomes | {total_bgcs} BGCs | avg {avg_bgcs:.2f}
+                    {prevalence} | {total_bgcs} BGCs{per_positive}
                     {(' | ' + bgc_types_html) if bgc_types_html else ''}
                 </span>
             </div>'''
@@ -152,7 +170,18 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
                 html += render_node(child_node, level + 1)
 
             if has_genomes:
-                html += render_genome_list(genomes, level + 1)
+                # Placeholder only. The rows are rendered from JSON on first expand —
+                # fully inlined they were ~1,735 genome entries, a second copy of the
+                # Genomes tab and roughly 90% of this tree's weight.
+                genome_payload[node_id] = [
+                    [g.get('name', ''), g.get('total_bgcs', 0),
+                     {k: v for k, v in (g.get('bgc_types') or {}).items() if v}]
+                    for g in genomes
+                ]
+                html += (f'<div class="genome-list-lazy" data-node="{node_id}">'
+                         f'<em style="color:#888;font-size:0.9em;">'
+                         f'{len(genomes)} genome{"s" if len(genomes) != 1 else ""} — expanding…'
+                         f'</em></div>')
 
             html += '</div>'
 
@@ -283,4 +312,12 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
         {render_node(tree)}
     </div>'''
 
-    return tree_html
+    import json as _json
+    return {
+        'html': tree_html,
+        # Genome rows per species node, rendered by JS on first expand. Emitted as a
+        # separate payload rather than inline HTML: fully rendered these were a second
+        # copy of all 1,735 genomes and ~90% of the tree's weight.
+        'genome_json': _json.dumps(genome_payload, separators=(',', ':')),
+        'genome_nodes': len(genome_payload),
+    }

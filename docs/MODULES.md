@@ -1,6 +1,6 @@
-# BGC-LOOM Module Reference
+# ClusterQuest Module Reference
 
-This document provides a detailed summary of each module in the BGC-LOOM pipeline.
+This document provides a detailed summary of each module in the ClusterQuest pipeline.
 
 ## Pipeline Architecture
 
@@ -95,6 +95,8 @@ Downloads NCBI TaxDump for taxonomy processing.
 ### NCBI_DATASETS_DOWNLOAD
 **Location:** `modules/genome/ncbi_datasets_download.nf`
 
+**Note:** publishes only the NCBI metadata files, not the downloaded `*.gbff`. The genomes reach downstream steps through the output channel, and `RENAME_GENOMES` publishes them as `renamed_genomes/`; publishing both was a second full copy of every genome (8.91 MB each).
+
 Downloads genomes from NCBI using the datasets CLI for a given taxon.
 
 | Property | Value |
@@ -174,6 +176,8 @@ Runs antiSMASH BGC detection on a genome.
 **Features:**
 - Hardcoded phosphonate-only detection (`--hmmdetection-limit-to-rule-names phosphonate`)
 - Always enables KnownClusterBlast, clusterhmmer, and tigrfam for domain analysis
+- Always passes `--no-zip-output` — the default `{genome}.zip` merely archives the output directory it sits in (~6 MB/genome, ~24% of `antismash_results/`) and no downstream step reads it
+- Passes `--no-summary-gbk` unless `--antismash_summary_gbk` is set — the whole-genome `{genome}.gbk` is ~11 MB each and is filtered out of BiG-SCAPE clustering anyway
 - Writes `.antismash_meta` file for version/params tracking
 - Skips genomes that already have results in publishDir
 

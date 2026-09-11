@@ -13,6 +13,7 @@ This page documents all configurable and non-configurable parameters in ClusterQ
 | `--taxon` | `"Erwiniaceae"` | string | **Required.** NCBI taxon name (species, genus, family, order, etc.) |
 | `--workflow` | `"full"` | string | Pipeline mode: `download`, `bgc_analysis`, or `full` |
 | `--outdir` | `"results"` | string | Output directory for all results |
+| `--publish_mode` | `"link"` | string | How `publishDir` moves output into `outdir`. `link` hard-links, so published files cost no extra disk and still survive `nextflow clean -f`; requires `outdir` and `workDir` on one filesystem. Use `"copy"` otherwise, or if anything edits published files in place |
 
 **Workflow modes:**
 - `download` — Download and prepare genomes from NCBI only
@@ -36,10 +37,11 @@ This page documents all configurable and non-configurable parameters in ClusterQ
 | `--antismash_minimal` | `false` | bool | Minimal mode: skips domain analysis for faster runs. Disables most `--antismash_*` options below |
 | `--antismash_cb_general` | `false` | bool | ClusterBlast: compare detected BGCs against the full antiSMASH database |
 | `--antismash_cc_mibig` | `false` | bool | ClusterCompare: advanced scoring against MIBiG (more sensitive than KnownClusterBlast) |
-| `--antismash_smcog_trees` | `true` | bool | Generate phylogenetic trees for BGC core biosynthetic genes |
+| `--antismash_smcog_trees` | `false` | bool | Generate phylogenetic trees for BGC core biosynthetic genes |
+| `--antismash_summary_gbk` | `false` | bool | Write `{genome}.gbk`, the whole annotated genome (~11 MB each). No pipeline step reads it and BiG-SCAPE filters it out of clustering; enable it to browse a small set, leave it off at genus scale |
 | `--reuse_antismash_from` | `null` | string | Taxon name to reuse antiSMASH results from (see [Cross-Taxon Reuse](#cross-taxon-result-reuse)) |
 
-> **Note:** Detection is hardcoded to phosphonate BGCs only (`--hmmdetection-limit-to-rule-names phosphonate`). KnownClusterBlast (`--cb-knownclusters`), `clusterhmmer`, and `tigrfam` are always enabled and cannot be turned off.
+> **Note:** Detection is hardcoded to phosphonate BGCs only (`--hmmdetection-limit-to-rule-names phosphonate`). KnownClusterBlast (`--cb-knownclusters`), `clusterhmmer`, and `tigrfam` are always enabled and cannot be turned off. `--no-zip-output` is always passed to suppress the redundant per-genome `.zip` archive, and the whole-genome summary GenBank is suppressed unless `--antismash_summary_gbk` is set.
 
 ---
 
@@ -124,6 +126,7 @@ These settings are hard-coded in the pipeline and cannot be changed via command-
 | `--cb-knownclusters` always enabled | `modules/analysis/antismash.nf` | Always compare against MIBiG |
 | `clusterhmmer` always enabled | `modules/analysis/antismash.nf` | Ensures consistent domain annotation across all analyses |
 | `tigrfam` always enabled | `modules/analysis/antismash.nf` | Required for reliable BGC gene family classification |
+| `--no-zip-output` always passed | `modules/analysis/antismash.nf` | `{genome}.zip` only archives the directory it sits in; ~6 MB/genome no step reads |
 
 ### Resource Labels (`conf/labels.config`)
 

@@ -2,6 +2,7 @@
 """Shared antiSMASH JSON parsing utilities."""
 
 import json
+import os
 import re
 from pathlib import Path
 from .constants import GENE_COLORS
@@ -326,7 +327,18 @@ def build_record_index_map(antismash_dir):
     record_index_map = {}
     antismash_path = Path(antismash_dir)
 
+    # Only genomes that produced a BGC. The index maps (genome, record_id) to a
+    # record index for looking up regions, so a genome with no region contributes
+    # entries nobody can query — but its JSON still costs a full parse.
+    #
+    # On Erwiniaceae that is 298 of 2,770 directories, so this reads 2.4 GB rather
+    # than 20.8 GB. Measured at roughly a minute either way, so it is an I/O
+    # saving rather than a fix for anything — the two-hour GCF_BIOSYNTHETIC_TREE
+    # timeouts were caused by flat partition staging, not by this.
+    # A region GBK beside the JSON is the cheap filesystem test for "has a BGC".
     for json_file in antismash_path.glob("*/*.json"):
+        if not any(json_file.parent.glob("*.region*.gbk")):
+            continue
         genome_name = json_file.parent.name
         try:
             with open(json_file) as f:
@@ -346,3 +358,128 @@ def build_record_index_map(antismash_dir):
             continue
 
     return record_index_map
+
+
+# ─── BGC label / region helpers ───────────────────────────────────────────────
+# Shared by bgc_coupling_annotation.py and bgc_coupling_tree.py, which both walk
+# antiSMASH JSON output to find the CDSes inside a named BGC region.
+
+def build_json_index(antismash_dir):
+    """Walk antismash_dir → {genome_name: json_path}."""
+    index = {}
+    for genome in os.listdir(antismash_dir):
+        json_path = os.path.join(antismash_dir, genome, f'{genome}.json')
+        if os.path.exists(json_path):
+            index[genome] = json_path
+    return index
+
+
+def genome_from_gbk_path(gbk_path):
+    """Genome folder name from a metadata gbk_path (…/<genome>/<contig>.regionNNN.gbk)."""
+    return os.path.basename(os.path.dirname(gbk_path))
+
+
+def parse_bgc_label(label):
+    """'CONTIG.regionNNN' → (contig_id, zero-padded region string).
+
+    Trailing '_N' duplicate suffixes (added by make_labels_unique) are stripped.
+    """
+    label = re.sub(r'_\d+$', '', label)
+    m = re.search(r'^(.+?)\.region(\d+)$', label)
+    if m:
+        return m.group(1), m.group(2).zfill(3)
+    return label, '001'
+
+
+def parse_location_segments(loc_str):
+    """Every coordinate pair in an antiSMASH location string, as [(start, end), ...].
+
+    A compound location — `join{[114343:121989](+), [0:32816](+)}` — is a region that
+    wraps the origin of a circular replicon. It is genuinely two disjoint intervals,
+    and collapsing it to a single (start, end) is lossy in both directions: taking the
+    first pair discards the second segment, while taking (min_start, max_end) invents
+    a span covering the gap between them, which on an origin-spanning region is most
+    of the replicon. Callers deciding CDS membership should use the segments.
+    """
+    coords = re.findall(r'\[(\d+):(\d+)\]', str(loc_str))
+    return [(int(s), int(e)) for s, e in coords]
+
+
+def parse_location_bounds(loc_str, span=True):
+    """Bounds of an antiSMASH location string, or (None, None) if it has no coordinates.
+
+    span=True  → (min_start, max_end) across every coordinate pair.
+    span=False → the first coordinate pair only.
+
+    Both readings are lossy for compound locations — prefer
+    `parse_location_segments` plus `cds_in_segments` when deciding what belongs to a
+    region. Measured on Pantoea (2026-08-25): all 5 origin-spanning phosphonate
+    regions were classified `Unknown` under span=False because the coupling enzyme
+    (SMCOG1271) sits in the discarded second segment.
+    """
+    coords = parse_location_segments(loc_str)
+    if not coords:
+        return None, None
+    if not span:
+        return coords[0]
+    return min(s for s, _ in coords), max(e for _, e in coords)
+
+
+def find_region_feature(record, region_num, product_filter=None):
+    """The region feature with this number, optionally requiring a product substring."""
+    for feat in record.get('features', []):
+        if feat.get('type') != 'region':
+            continue
+        qualifiers = feat.get('qualifiers', {})
+        rnum = str(qualifiers.get('region_number', ['?'])[0]).zfill(3)
+        if rnum != str(region_num).zfill(3):
+            continue
+        if product_filter and not any(product_filter in p for p in qualifiers.get('product', [])):
+            continue
+        return feat
+    return None
+
+
+def region_bounds(record, region_num, product_filter=None):
+    """(start, end) of a region feature, or (None, None) if not found.
+
+    Lossy for compound locations; prefer `region_segments`.
+    """
+    feat = find_region_feature(record, region_num, product_filter)
+    if feat is None:
+        return None, None
+    return parse_location_bounds(feat.get('location', ''))
+
+
+def region_segments(record, region_num, product_filter=None):
+    """Coordinate segments of a region feature, or [] if not found."""
+    feat = find_region_feature(record, region_num, product_filter)
+    if feat is None:
+        return []
+    return parse_location_segments(feat.get('location', ''))
+
+
+def cds_in_region(feat, region_start, region_end):
+    """True if a CDS feature overlaps the region (or bounds are unknown)."""
+    if region_start is None:
+        return True
+    start, end = parse_location_bounds(feat.get('location', ''))
+    if start is None:
+        return True
+    return not (end < region_start or start > region_end)
+
+
+def cds_in_segments(feat, segments):
+    """True if a CDS overlaps any segment of a (possibly compound) region.
+
+    Correct for origin-spanning regions, where a single (start, end) either drops a
+    segment or spans the gap between them.
+    """
+    if not segments:
+        return True
+    cds = parse_location_segments(feat.get('location', ''))
+    if not cds:
+        return True
+    return any(not (ce < rs or cs > re_)
+               for cs, ce in cds
+               for rs, re_ in segments)

@@ -67,7 +67,7 @@ def parse_memory(mem_str):
     return 0
 
 
-def format_bytes(bytes_val):
+def format_bytes(bytes_val, precision=1):
     """Format bytes to human-readable string."""
     if bytes_val == 0:
         return "0 B"
@@ -77,7 +77,7 @@ def format_bytes(bytes_val):
     while val >= 1024 and i < len(units) - 1:
         val /= 1024
         i += 1
-    return f"{val:.1f} {units[i]}"
+    return f"{val:.{precision}f} {units[i]}"
 
 
 def format_duration_str(seconds):
@@ -104,47 +104,6 @@ def parse_timestamp(ts_str):
         except ValueError:
             continue
     return None
-
-
-def parse_newick(newick_str):
-    """Parse a Newick format string into a tree structure.
-
-    Returns a dict with 'name', 'children', and 'length' keys.
-    """
-    idx = 0
-
-    def parse_node():
-        nonlocal idx
-        node = {'name': '', 'children': [], 'length': 0}
-
-        if newick_str[idx] == '(':
-            idx += 1  # skip '('
-            while newick_str[idx] != ')':
-                node['children'].append(parse_node())
-                if newick_str[idx] == ',':
-                    idx += 1
-            idx += 1  # skip ')'
-
-        # Parse name and branch length
-        name_end = idx
-        while name_end < len(newick_str) and newick_str[name_end] not in ',):;':
-            name_end += 1
-
-        name_part = newick_str[idx:name_end]
-        if ':' in name_part:
-            name, length = name_part.rsplit(':', 1)
-            node['name'] = name.strip("'\"")
-            try:
-                node['length'] = float(length)
-            except ValueError:
-                node['length'] = 0
-        else:
-            node['name'] = name_part.strip("'\"")
-
-        idx = name_end
-        return node
-
-    return parse_node()
 
 
 def sanitize_taxon(name):

@@ -26,7 +26,6 @@ Usage:
 import argparse
 import colorsys
 import hashlib
-import sqlite3
 import os
 import sys
 import json
@@ -38,59 +37,16 @@ from Bio import Phylo
 from io import StringIO
 
 sys.path.insert(0, str(Path(__file__).parent))
-from utils.constants import DOMAIN_NAMES
+from utils import bigscape_db as db
+from utils import itol
+from utils.constants import domain_name
 from utils.tree_building import build_nj_tree
 from utils.colors import genus_color as _genus_color
 
 sys.setrecursionlimit(10000)
 
 
-def domain_name(acc):
-    base = acc.split('.')[0]
-    return DOMAIN_NAMES.get(base, base)
-
-
 # ─── Database queries ─────────────────────────────────────────────────────────
-
-BGC_QUERY = """
-    SELECT br.id AS bgc_id, br.product,
-           g.id AS gbk_id, g.path AS gbk_path, g.organism
-    FROM bgc_record br
-    JOIN gbk g ON br.gbk_id = g.id
-    WHERE LOWER(br.product) LIKE ?
-    ORDER BY g.path
-"""
-
-BGC_QUERY_FAMILY = """
-    SELECT br.id AS bgc_id, br.product,
-           g.id AS gbk_id, g.path AS gbk_path, g.organism
-    FROM bgc_record br
-    JOIN gbk g ON br.gbk_id = g.id
-    JOIN bgc_record_family brf ON br.id = brf.record_id
-    WHERE LOWER(br.product) LIKE ?
-      AND brf.family_id = ?
-    ORDER BY g.path
-"""
-
-DOMAIN_QUERY = """
-    SELECT h.accession, h.bit_score
-    FROM cds c
-    JOIN scanned_cds sc ON sc.cds_id = c.id
-    JOIN hsp h ON h.cds_id = c.id
-    WHERE c.gbk_id = ?
-      AND h.accession != ''
-      AND h.bit_score >= 20
-    ORDER BY c.nt_start ASC, h.bit_score DESC
-"""
-
-FAMILY_QUERY = """
-    SELECT brf.family_id, f.cutoff
-    FROM bgc_record_family brf
-    JOIN family f ON brf.family_id = f.id
-    WHERE brf.record_id = ?
-    ORDER BY f.cutoff
-"""
-
 
 # ─── Domain extraction ────────────────────────────────────────────────────────
 
@@ -99,28 +55,7 @@ def get_domain_counter(cur, gbk_id):
     Return a Counter of domain accessions for a BGC.
     Takes the best-scoring domain per CDS; counts multiple copies separately.
     """
-    cur.execute("""
-        SELECT c.id as cds_id, c.nt_start, h.accession, h.bit_score
-        FROM cds c
-        JOIN scanned_cds sc ON sc.cds_id = c.id
-        JOIN hsp h ON h.cds_id = c.id
-        WHERE c.gbk_id = ?
-          AND h.accession != ''
-          AND h.bit_score >= 20
-        ORDER BY c.nt_start ASC, h.bit_score DESC
-    """, (gbk_id,))
-    rows = cur.fetchall()
-
-    seen_cds = {}
-    counter = Counter()
-    for row in rows:
-        cds_id = row[0]
-        if cds_id not in seen_cds:
-            seen_cds[cds_id] = True
-            acc = row[2].split('.')[0]
-            counter[acc] += 1
-
-    return counter
+    return Counter(db.fetch_best_domain_per_cds(cur, gbk_id))
 
 
 # ─── Distance ─────────────────────────────────────────────────────────────────
@@ -149,16 +84,12 @@ def load_and_group(db_path, bgc_type_filter, family_id=None):
     skipped = 0
     groups = defaultdict(lambda: {'counter': None, 'genomes': [], 'organisms': []})
 
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
+    with db.connect(db_path) as conn:
         cur = conn.cursor()
 
         if family_id is not None:
-            cur.execute(BGC_QUERY_FAMILY, (f'%{bgc_type_filter.lower()}%', family_id))
             print(f"  Filtering to GCF family {family_id}")
-        else:
-            cur.execute(BGC_QUERY, (f'%{bgc_type_filter.lower()}%',))
-        bgc_rows = cur.fetchall()
+        bgc_rows = db.fetch_bgc_records(cur, bgc_type_filter, family_id)
 
         if not bgc_rows:
             raise ValueError(f"No BGCs found matching '{bgc_type_filter}'")
@@ -295,13 +226,10 @@ def save_outputs(outdir, bgc_type, architectures, dist_matrix, tree):
 # ─── iTOL writers ─────────────────────────────────────────────────────────────
 
 def _write_itol_count_bar(architectures, outdir, bgc_type):
-    path = os.path.join(outdir, f'{bgc_type}_itol_count.txt')
-    with open(path, 'w') as f:
-        f.write('DATASET_SIMPLEBAR\nSEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\tBGC count\n')
-        f.write('COLOR\t#2c7bb6\nWIDTH\t300\nSHOW_INTERNAL\t0\nDATA\n')
-        for a in architectures:
-            f.write(f"{a['label']}\t{a['count']}\n")
+    path = itol.dataset_path(outdir, bgc_type, 'count')
+    itol.write_simplebar(path, 'BGC count',
+                         [(a['label'], a['count']) for a in architectures],
+                         color='#2c7bb6', width=300)
     print(f"  iTOL count bar:    {path}")
 
 
@@ -325,21 +253,14 @@ def _write_itol_domain_binary(architectures, outdir, bgc_type):
     active = [(acc, lbl, col, shp) for acc, lbl, col, shp in KEY_DOMAINS_ITOL
               if acc in all_domains]
 
-    path = os.path.join(outdir, f'{bgc_type}_itol_domains.txt')
-    with open(path, 'w') as f:
-        f.write('DATASET_BINARY\nSEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\tKey domains\nCOLOR\t#333333\n')
-        f.write('FIELD_SHAPES\t'  + '\t'.join(str(s) for _, _, _, s in active) + '\n')
-        f.write('FIELD_LABELS\t'  + '\t'.join(l for _, l, _, _ in active) + '\n')
-        f.write('FIELD_COLORS\t'  + '\t'.join(c for _, _, c, _ in active) + '\n')
-        f.write('LEGEND_TITLE\tPathway domains\n')
-        f.write('LEGEND_SHAPES\t' + '\t'.join(str(s) for _, _, _, s in active) + '\n')
-        f.write('LEGEND_COLORS\t' + '\t'.join(c for _, _, c, _ in active) + '\n')
-        f.write('LEGEND_LABELS\t' + '\t'.join(l for _, l, _, _ in active) + '\n')
-        f.write('DATA\n')
-        for a in architectures:
-            vals = '\t'.join('1' if acc in a['counter'] else '0' for acc, *_ in active)
-            f.write(f"{a['label']}\t{vals}\n")
+    fields = [(shp, lbl, col) for _, lbl, col, shp in active]
+    path = itol.dataset_path(outdir, bgc_type, 'domains')
+    itol.write_binary(
+        path, 'Key domains', fields,
+        entries=[(a['label'], ['1' if acc in a['counter'] else '0' for acc, *_ in active])
+                 for a in architectures],
+        legend=('Pathway domains', [(lbl, col, shp) for _, lbl, col, shp in active]),
+    )
     print(f"  iTOL domain binary:{path}")
 
 
@@ -349,35 +270,32 @@ def _write_itol_genus_colorstrip(architectures, outdir, bgc_type):
     genus_rank = {g: i for i, g in enumerate(ranked)}
     n_top = min(12, len(ranked))
 
-    path = os.path.join(outdir, f'{bgc_type}_itol_genus.txt')
-    with open(path, 'w') as f:
-        f.write('DATASET_COLORSTRIP\nSEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\tDominant genus\nCOLOR\t#777777\n')
-        f.write('LEGEND_TITLE\tGenus\n')
-        f.write('LEGEND_SHAPES\t' + '\t'.join(['1'] * n_top) + '\n')
-        f.write('LEGEND_COLORS\t' + '\t'.join(
-            _genus_color(g, genus_rank[g], n_top) for g in ranked[:n_top]) + '\n')
-        f.write('LEGEND_LABELS\t' + '\t'.join(ranked[:n_top]) + '\n')
-        f.write('DATA\n')
-        for a in architectures:
-            g = a['dominant_genus']
-            color = _genus_color(g, genus_rank[g], n_top)
-            f.write(f"{a['label']}\t{color}\t{g}\n")
+    def color_of(genus):
+        return _genus_color(genus, genus_rank[genus], n_top)
+
+    path = itol.dataset_path(outdir, bgc_type, 'genus')
+    itol.write_colorstrip(
+        path, 'Dominant genus',
+        entries=[(a['label'], color_of(a['dominant_genus']), a['dominant_genus'])
+                 for a in architectures],
+        legend=('Genus', itol.simple_legend([(g, color_of(g)) for g in ranked[:n_top]])),
+    )
     print(f"  iTOL genus strip:  {path}")
 
 
 def _write_itol_arch_label(architectures, outdir, bgc_type):
     """DATASET_TEXT: show the domain composition string next to each leaf."""
-    path = os.path.join(outdir, f'{bgc_type}_itol_archlabel.txt')
-    with open(path, 'w') as f:
-        f.write('DATASET_TEXT\nSEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\tDomain architecture\nCOLOR\t#333333\n')
-        f.write('SHOW_INTERNAL\t0\nSIZE_FACTOR\t0.8\nDATA\n')
-        for a in architectures:
-            label_str = a['domain_str']
-            if len(label_str) > 120:
-                label_str = label_str[:117] + '...'
-            f.write(f"{a['label']}\t{label_str}\t-1\t#333333\tnormal\t1\n")
+    def truncated(a):
+        label_str = a['domain_str']
+        return label_str[:117] + '...' if len(label_str) > 120 else label_str
+
+    path = itol.dataset_path(outdir, bgc_type, 'archlabel')
+    itol.write_text(
+        path, 'Domain architecture',
+        entries=[(a['label'], truncated(a)) for a in architectures],
+        options=[('SHOW_INTERNAL', 0), ('SIZE_FACTOR', 0.8)],
+        position=-1,
+    )
     print(f"  iTOL arch labels:  {path}")
 
 
@@ -388,19 +306,19 @@ def _write_itol_genome_list(architectures, outdir, bgc_type):
     - n=2–10   : show all genome names pipe-separated
     - n>10     : show first 5 names + '(+N more)'
     """
-    path = os.path.join(outdir, f'{bgc_type}_itol_genomes.txt')
-    with open(path, 'w') as f:
-        f.write('DATASET_TEXT\nSEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\tGenomes\nCOLOR\t#333333\n')
-        f.write('SHOW_INTERNAL\t0\nSIZE_FACTOR\t0.8\nDATA\n')
-        for a in architectures:
-            genomes = a['genomes']
-            n = len(genomes)
-            if n <= 10:
-                text = ' | '.join(genomes)
-            else:
-                text = ' | '.join(genomes[:5]) + f' (+{n - 5} more)'
-            f.write(f"{a['label']}\t{text}\t-1\t#555555\tnormal\t1\n")
+    def summary(genomes):
+        n = len(genomes)
+        if n <= 10:
+            return ' | '.join(genomes)
+        return ' | '.join(genomes[:5]) + f' (+{n - 5} more)'
+
+    path = itol.dataset_path(outdir, bgc_type, 'genomes')
+    itol.write_text(
+        path, 'Genomes',
+        entries=[(a['label'], summary(a['genomes'])) for a in architectures],
+        options=[('SHOW_INTERNAL', 0), ('SIZE_FACTOR', 0.8)],
+        position=-1, text_color='#555555',
+    )
     print(f"  iTOL genome list:  {path}")
 
 

@@ -1,0 +1,11 @@
+{
+  "antismash": "8.0.4",
+  "bigscape": "2.0.1",
+  "gtdbtk": "gtdbtk: version 2.6.1 Copyright 2017 Pierre-Alain Chaumeil, Aaron Mussig and Donovan Parks",
+  "taxonkit": "0.20.0",
+  "nextflow": "26.04.3",
+  "pipeline_version": "1.0.0",
+  "db_gtdb_release": "226",
+  "db_pfam_release": "38.2",
+  "db_taxdump_date": "2026-08-01"
+}

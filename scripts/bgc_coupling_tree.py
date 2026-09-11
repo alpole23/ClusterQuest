@@ -8,8 +8,7 @@ Two tree types:
      Unknown BGCs fall naturally into the closest clade.
 
   B: Per-class coupling enzyme trees — one tree per class using the class-defining marker
-     gene. Ppd and Ppd-CDP share one tree (same enzyme; class distinction is an annotation
-     layer). References anchor each class tree.
+     gene. References anchor each class tree.
 
 HMM strategy (no external MSA tool required):
   1. hmmbuild from single seed reference    → initial HMM
@@ -49,6 +48,10 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 sys.path.insert(0, str(Path(__file__).parent))
+from utils import itol
+from utils.antismash_parser import (build_json_index, cds_in_segments as _cds_in_segments,
+                                    genome_from_gbk_path, parse_bgc_label as parse_label,
+                                    parse_location_bounds, region_segments)
 from utils.constants import (COUPLING_COLORS as _BASE_COUPLING_COLORS, LEGACY_CLASS_NAMES,
                               GCF_PALETTE, load_coupling_classes)
 
@@ -78,17 +81,17 @@ REF_COUPLING_CLASS = {
 }
 
 # Markers for coupling enzyme CDS extraction.
-# TPP_enzyme_C (Pfam clusterhmmer) is used for Decarboxylase and
-# Decarboxylase-Nucleotidyltransferase rather than SMCOG1055: all Decarboxylase BGCs
-# carry both annotations, but Decarboxylase-Nucleotidyltransferase BGCs have
-# TPP_enzyme_C only — their ThDP decarboxylases are too divergent from the SMCOG1055
-# seed to get a hit. Both classes share one combined tree keyed as 'Decarboxylase'.
+# Decarboxylase keys on TPP_enzyme_C (Pfam clusterhmmer) rather than SMCOG1055:
+# most decarboxylase BGCs carry both annotations, but the divergent ones carry
+# TPP_enzyme_C only — their ThDP decarboxylases are too far from the SMCOG1055
+# seed to get a hit, and keying on the SMCOG would drop them from the tree.
 CLASS_MARKERS = {
     'Synthase':                             ('smcog',  'SMCOG1271'),
     'Decarboxylase':                        ('domain', 'TPP_enzyme_C'),
-    'Decarboxylase-Nucleotidyltransferase': ('domain', 'TPP_enzyme_C'),
     'Reductase':                            ('domain', 'Fe-ADH'),
-    'Transaminase':                         ('smcog',  'SMCOG1013'),
+    # PalB is AAT superfamily (fold type I PLP) = Aminotran_1_2 / PF00155 / SMCOG1019.
+    # Not SMCOG1013 (Aminotran_3, fold type IV), which was used until 2026-08-25.
+    'Transaminase':                         ('smcog',  'SMCOG1019'),
 }
 
 # ─── Data loading ─────────────────────────────────────────────────────────────
@@ -115,62 +118,7 @@ def load_metadata(path):
     return meta
 
 
-def build_json_index(antismash_dir):
-    """Walk antismash_dir → {genome_name: json_path}."""
-    index = {}
-    for genome in os.listdir(antismash_dir):
-        jp = os.path.join(antismash_dir, genome, f'{genome}.json')
-        if os.path.exists(jp):
-            index[genome] = jp
-    return index
-
-
-def genome_from_gbk_path(gbk_path):
-    return os.path.basename(os.path.dirname(gbk_path))
-
-
-def parse_label(label):
-    """'CONTIG.regionNNN' → (contig_id, zero-padded region str)."""
-    label = re.sub(r'_\d+$', '', label)
-    m = re.search(r'^(.+?)\.region(\d+)$', label)
-    if m:
-        return m.group(1), m.group(2).zfill(3)
-    return label, '001'
-
-
-def parse_location_bounds(loc_str):
-    """Extract (min_start, max_end) from an antiSMASH location string."""
-    coords = re.findall(r'\[(\d+):(\d+)\]', str(loc_str))
-    if not coords:
-        return None, None
-    starts = [int(s) for s, _ in coords]
-    ends   = [int(e) for _, e in coords]
-    return min(starts), max(ends)
-
-
 # ─── Sequence extraction ──────────────────────────────────────────────────────
-
-def _cds_in_region(feat, region_start, region_end):
-    """Return True if a CDS feature overlaps the region."""
-    if region_start is None:
-        return True
-    start, end = parse_location_bounds(feat.get('location', ''))
-    if start is None:
-        return True
-    return not (end < region_start or start > region_end)
-
-
-def _get_region_bounds(rec, contig_id, region_num):
-    """Find the phosphonate region and return its (start, end)."""
-    for feat in rec.get('features', []):
-        if feat.get('type') != 'region':
-            continue
-        rnum = str(feat.get('qualifiers', {}).get('region_number', ['?'])[0]).zfill(3)
-        products = feat.get('qualifiers', {}).get('product', [])
-        if rnum == region_num and any('phosphonate' in p for p in products):
-            return parse_location_bounds(feat.get('location', ''))
-    return None, None
-
 
 def extract_cds_from_json(json_path, contig_id, region_num,
                            is_pepm=False, smcog=None, domain=None):
@@ -193,12 +141,12 @@ def extract_cds_from_json(json_path, contig_id, region_num,
         if contig_id not in rec.get('id', ''):
             continue
 
-        r_start, r_end = _get_region_bounds(rec, contig_id, region_num)
+        r_segs = region_segments(rec, region_num, product_filter='phosphonate')
 
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
                 continue
-            if not _cds_in_region(feat, r_start, r_end):
+            if not _cds_in_segments(feat, r_segs):
                 continue
 
             quals = feat.get('qualifiers', {})
@@ -242,11 +190,11 @@ def extract_all_cds_from_region(json_path, contig_id, region_num):
     for rec in data['records']:
         if contig_id not in rec.get('id', ''):
             continue
-        r_start, r_end = _get_region_bounds(rec, contig_id, region_num)
+        r_segs = region_segments(rec, region_num, product_filter='phosphonate')
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
                 continue
-            if not _cds_in_region(feat, r_start, r_end):
+            if not _cds_in_segments(feat, r_segs):
                 continue
             quals = feat.get('qualifiers', {})
             translation = quals.get('translation', [''])[0]
@@ -498,44 +446,31 @@ def build_fasttree(alignment, out_nwk, fasttree_bin):
 
 # ─── iTOL annotation writers ──────────────────────────────────────────────────
 
+# Colorstrips on the coupling trees are drawn wider and bordered so the class
+# blocks stay readable on trees with hundreds of leaves.
+STRIP_OPTIONS = [('STRIP_WIDTH', 40), ('SHOW_BORDER', 1), ('BORDER_WIDTH', 0.5)]
+
+
 def write_itol_colorstrip(labels, color_fn, display_fn, dataset_label, legend_items, out_path):
     """
-    Generic DATASET_COLORSTRIP writer.
+    DATASET_COLORSTRIP for a tree, driven by per-label callbacks.
     color_fn(label)   → hex color string
     display_fn(label) → display label string (shown in strip tooltip)
     legend_items      → [(label_str, color_str), ...]
     """
-    with open(out_path, 'w') as f:
-        f.write('DATASET_COLORSTRIP\n')
-        f.write('SEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\t{dataset_label}\n')
-        f.write('COLOR\t#333333\n')
-        f.write('STRIP_WIDTH\t40\n')
-        f.write('SHOW_BORDER\t1\n')
-        f.write('BORDER_WIDTH\t0.5\n')
-        if legend_items:
-            f.write(f'LEGEND_TITLE\t{dataset_label}\n')
-            f.write('LEGEND_SHAPES\t' + '\t'.join('1' for _ in legend_items) + '\n')
-            f.write('LEGEND_COLORS\t' + '\t'.join(c for _, c in legend_items) + '\n')
-            f.write('LEGEND_LABELS\t' + '\t'.join(l for l, _ in legend_items) + '\n')
-        f.write('DATA\n')
-        for lbl in labels:
-            f.write(f'{lbl}\t{color_fn(lbl)}\t{display_fn(lbl)}\n')
+    itol.write_colorstrip(
+        out_path, dataset_label,
+        entries=[(lbl, color_fn(lbl), display_fn(lbl)) for lbl in labels],
+        legend=(dataset_label, itol.simple_legend(legend_items)) if legend_items else None,
+        color='#333333',
+        options=STRIP_OPTIONS,
+    )
 
 
 def write_itol_text(labels, text_fn, dataset_label, out_path):
     """DATASET_TEXT writer for leaf label annotations (e.g. organism names)."""
-    with open(out_path, 'w') as f:
-        f.write('DATASET_TEXT\n')
-        f.write('SEPARATOR TAB\n')
-        f.write(f'DATASET_LABEL\t{dataset_label}\n')
-        f.write('COLOR\t#333333\n')
-        f.write('DATA\n')
-        for lbl in labels:
-            text = text_fn(lbl)
-            if text:
-                # node_id, text, position (1=after), color, style, size_factor
-                f.write(f'{lbl}\t{text}\t1\t#333333\tnormal\t1\n')
+    itol.write_text(out_path, dataset_label,
+                    entries=[(lbl, text_fn(lbl)) for lbl in labels])
 
 
 def write_tree_itol(seq_labels, get_class_fn, metadata, ref_records, outdir):
@@ -680,24 +615,23 @@ def build_tree_b(args, metadata, coupling_classes, json_index, ref_coupling_reco
     outdir_b = os.path.join(args.outdir, 'tree_B')
     os.makedirs(outdir_b, exist_ok=True)
 
-    # Group BGCs by class; merge Ppd + Ppd-CDP into one tree.
     # Skip BiG-SCAPE sub-record duplicates (_1, _2, _3 suffixes) — they share the
     # same CDS with the main region label and would produce duplicate sequences.
     class_bgcs = defaultdict(list)
     for lbl, cls in coupling_classes.items():
         if re.search(r'_\d+$', lbl):
             continue
-        key = 'Decarboxylase' if cls in ('Decarboxylase', 'Decarboxylase-Nucleotidyltransferase') else cls
+        key = cls
         class_bgcs[key].append(lbl)
 
-    # Group reference sequences by class; merge both Decarboxylase classes into one tree
+    # Group reference sequences by class
     ref_by_class = defaultdict(list)
     for r in ref_coupling_records:
         parts = r.id.split('|')
         name = parts[2] if len(parts) > 2 else ''
         cls  = REF_COUPLING_CLASS.get(name)
         if cls:
-            key = 'Decarboxylase' if cls in ('Decarboxylase', 'Decarboxylase-Nucleotidyltransferase') else cls
+            key = cls
             ref_by_class[key].append(r)
 
     tree_b_results = []

@@ -1,0 +1,17 @@
+BGC0000904|ABB90392|FrbC|phosphonomethylmalate synthase|Streptomyces rubellomurinus
+BGC0000897|ACZ13457|DhpF|phosphonopyruvate decarboxylase|Streptomyces luridus
+BGC0000938|ACG70832|Fom2|phosphonopyruvate decarboxylase|Streptomyces fradiae
+BGC0000806|AHL24480|Ppd|phosphonopyruvate decarboxylase|Glycomyces sp. NRRL B-16210
+Phosphonoalamide_BGC|WP_051781701|PnaA|phosphonopyruvate transaminase|Streptomyces sp. NRRL B-2790
+Valinophos_BGC|WP_063765859|VlpB|phosphonopyruvate reductase|Streptomyces durhamensis NRRL B-3309
+Pantaphos_BGC|WP_013027159|HvrC|phosphonomethylmalate synthase|Pantoea ananatis LMG 5342
+
+
+
+BGC0000904|ABB90393|FrbD|phosphoenolpyruvate mutase|Streptomyces rubellomurinus
+BGC0000897|ACZ13456|DhpE|phosphoenolpyruvate mutase|Streptomyces luridus
+BGC0000938|ACG70831|Fom1|phosphoenolpyruvate mutase|Streptomyces fradiae
+BGC0000806|AHL24479|PepM|phosphoenolpyruvate mutase|Glycomyces sp. NRRL B-16210
+Phosphonoalamide_BGC|WP_030764868|PnaD|phosphoenolpyruvate mutase|Streptomyces sp. NRRL B-2790
+Valinophos_BGC|WP_031174023|VlpA|phosphoenolpyruvate mutase|Streptomyces durhamensis NRRL B-3309
+Pantaphos_BGC|WP_013027161|HvrA|phosphoenolpyruvate mutase|Pantoea ananatis LMG 5342

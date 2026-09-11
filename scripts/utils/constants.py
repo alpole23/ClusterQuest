@@ -177,19 +177,18 @@ KCB_COLORS = {
 COUPLING_COLORS = {
     'Synthase':                        '#e41a1c',
     'Decarboxylase':                   '#377eb8',
-    'Decarboxylase-Nucleotidyltransferase': '#984ea3',
     'Reductase':                       '#4daf4a',
     'Transaminase':                    '#ff7f00',
     'Unknown':                         '#aaaaaa',
 }
 
 # Display order for coupling enzyme classes in legends
-COUPLING_ORDER = ['Synthase', 'Reductase', 'Decarboxylase', 'Decarboxylase-Nucleotidyltransferase', 'Transaminase', 'Unknown']
+COUPLING_ORDER = ['Synthase', 'Reductase', 'Decarboxylase', 'Transaminase', 'Unknown']
 
 # Normalize legacy coupling class names from older annotation files
 LEGACY_CLASS_NAMES = {
     'Fe-ADH':    'Reductase',
-    'TPP+NTP':   'Decarboxylase-Nucleotidyltransferase',
+    'TPP+NTP':   'Decarboxylase',
     'PalB':      'Transaminase',
     'FrbC':      'Synthase',
     # pre-rename class IDs
@@ -197,7 +196,7 @@ LEGACY_CLASS_NAMES = {
     'VlpB-like': 'Reductase',
     'PalB-like': 'Transaminase',
     'Ppd':       'Decarboxylase',
-    'Ppd-CDP':   'Decarboxylase-Nucleotidyltransferase',
+    'Ppd-CDP':   'Decarboxylase',
 }
 
 # Pfam accession → short human-readable name.
@@ -234,6 +233,12 @@ DOMAIN_NAMES = {
     'PF22617': 'PF22617',
     'PF05321': 'PF05321',
 }
+
+
+def domain_name(accession):
+    """Readable name for a Pfam accession, stripping any version suffix."""
+    base = accession.split('.')[0]
+    return DOMAIN_NAMES.get(base, base)
 
 
 def load_coupling_classes(path, region_only=False):

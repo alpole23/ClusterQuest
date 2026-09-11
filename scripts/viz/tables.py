@@ -17,10 +17,28 @@ def get_genome_count(counts_file):
     return len(counts_df)
 
 
+# Rows rendered into the HTML up front. Enough to fill the first screen; the rest are
+# rendered from JSON on search or on demand.
+INITIAL_GENOME_ROWS = 100
+
+
+def _genome_row_html(r):
+    """One genome row. Mirrored by renderGenomeRows() in report_assets.py — change both."""
+    return (f"<tr>"
+            f"<td><a href=\"genomes/{r['genome_name']}.html\">{r['genome_name']}</a></td>"
+            f"<td>{r['assembly_id']}</td>"
+            f"<td title=\"{r['organism']}\">{r['organism']}</td>"
+            f"<td>{r['taxonomy']}</td>"
+            f"<td>{r['total_bgcs']}</td>"
+            f"<td>{r['top_bgcs']}</td>"
+            f"</tr>")
+
+
 def generate_genome_table_html(counts_file, assembly_info, name_map, taxonomy_map_data=None):
-    """Generate HTML for a searchable genome table."""
+    '''Generate HTML for a searchable genome table'''
+
     # Read counts to get genome list with BGC data
-    counts_df = pd.read_csv(counts_file, sep='\t', comment='#')
+    counts_df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
 
     # Read assembly info
     assembly_df = pd.read_csv(assembly_info, sep='\t')
@@ -40,6 +58,8 @@ def generate_genome_table_html(counts_file, assembly_info, name_map, taxonomy_ma
         genome_name = row['record'].replace('.gbff', '')
         assembly_id = reverse_map.get(genome_name, 'N/A')
         total_bgcs = row.get('total_count', 0)
+        if pd.isna(total_bgcs):
+            total_bgcs = 0
 
         # Get top BGC types for this genome
         bgc_counts = {col: row.get(col, 0) for col in bgc_cols if row.get(col, 0) > 0}
@@ -77,25 +97,31 @@ def generate_genome_table_html(counts_file, assembly_info, name_map, taxonomy_ma
     # Sort by total BGCs descending
     table_rows.sort(key=lambda x: -x['total_bgcs'])
 
-    # Generate HTML rows
+    # Only the first slice is rendered as HTML; the rest ships as a compact JSON array
+    # that the page renders on demand. At 1,735 genomes the fully-rendered table was
+    # 612 KB of DOM — the largest single element in the report — and every row was
+    # parsed and painted on load even though almost nobody scrolls past the first
+    # screenful. The same rows as JSON are roughly a third the size, and search now
+    # runs over the array rather than over the DOM, so it still covers every genome.
     html_rows = []
-    for r in table_rows:
-        html_rows.append(f'''
-            <tr>
-                <td><a href="genomes/{r['genome_name']}.html">{r['genome_name']}</a></td>
-                <td>{r['assembly_id']}</td>
-                <td title="{r['organism']}">{r['organism']}</td>
-                <td>{r['taxonomy']}</td>
-                <td>{r['total_bgcs']}</td>
-                <td>{r['top_bgcs']}</td>
-            </tr>''')
+    for r in table_rows[:INITIAL_GENOME_ROWS]:
+        html_rows.append(_genome_row_html(r))
 
-    return '\n'.join(html_rows)
+    # array-of-arrays, not objects: repeating six keys 1,735 times is pure overhead
+    data = [[r['genome_name'], r['assembly_id'], r['organism'],
+             r['taxonomy'], r['total_bgcs'], r['top_bgcs']] for r in table_rows]
+
+    return {
+        'initial_rows': '\n'.join(html_rows),
+        'data_json': json.dumps(data, separators=(',', ':')),
+        'total': len(table_rows),
+        'shown': min(INITIAL_GENOME_ROWS, len(table_rows)),
+    }
 
 
 def calculate_summary_statistics(counts_file, tabulation_file=None):
-    """Calculate summary statistics for the dataset including tabulation stats."""
-    df = pd.read_csv(counts_file, sep='\t', comment='#')
+    '''Calculate summary statistics for the dataset including tabulation stats'''
+    df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
 
     # Select BGC columns
     numeric_cols = df.select_dtypes(include='number').columns
@@ -103,10 +129,12 @@ def calculate_summary_statistics(counts_file, tabulation_file=None):
 
     total_genomes = len(df)
     total_bgcs = df['total_count'].sum()
+    if pd.isna(total_bgcs):
+        total_bgcs = 0
     avg_bgcs = df['total_count'].mean()
     std_bgcs = df['total_count'].std()
-    min_bgcs = int(df['total_count'].min())
-    max_bgcs = int(df['total_count'].max())
+    min_bgcs = int(df['total_count'].min()) if not pd.isna(df['total_count'].min()) else 0
+    max_bgcs = int(df['total_count'].max()) if not pd.isna(df['total_count'].max()) else 0
     median_bgcs = df['total_count'].median()
     genomes_with_no_bgcs = len(df[df['total_count'] == 0])
     genomes_with_bgcs = total_genomes - genomes_with_no_bgcs
@@ -234,8 +262,8 @@ def calculate_summary_statistics(counts_file, tabulation_file=None):
 
 
 def create_bgc_distribution_table(counts_file, outdir):
-    """Create interactive HTML table for BGC distribution with clickable genome links and color-coding."""
-    df = pd.read_csv(counts_file, sep='\t', comment='#')
+    '''Create interactive HTML table for BGC distribution with clickable genome links and color-coding'''
+    df = pd.read_csv(counts_file, sep='\t', skiprows=lambda i: i == 0)
 
     # Select BGC columns
     numeric_cols = df.select_dtypes(include='number').columns
@@ -248,7 +276,7 @@ def create_bgc_distribution_table(counts_file, outdir):
         max_values[col] = df[col].max() if df[col].max() > 0 else 1
 
     def get_color(value, max_val):
-        """Generate color based on value using sequential green palette."""
+        '''Generate color based on value using sequential green palette'''
         if value == 0 or pd.isna(value):
             return ''
         # Scale from light green to dark green
@@ -271,8 +299,9 @@ def create_bgc_distribution_table(counts_file, outdir):
         row_html = f'<tr><td><a href="{genome_link}">{genome_name}</a></td>'
 
         # Total count with color
-        total_color = get_color(row["total_count"], max_total)
-        row_html += f'<td style="{total_color}">{int(row["total_count"])}</td>'
+        total_count = row["total_count"] if not pd.isna(row["total_count"]) else 0
+        total_color = get_color(total_count, max_total)
+        row_html += f'<td style="{total_color}">{int(total_count)}</td>'
 
         # Add BGC counts for each type with color coding
         for bgc_type in bgc_cols:
@@ -291,3 +320,5 @@ def create_bgc_distribution_table(counts_file, outdir):
     header += '</tr>'
 
     return header, '\n'.join(html_rows)
+
+

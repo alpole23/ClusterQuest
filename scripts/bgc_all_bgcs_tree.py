@@ -29,8 +29,11 @@ import numpy as np
 from Bio import Phylo
 
 sys.path.insert(0, str(Path(__file__).parent))
+from utils.plotting import SVG_METADATA, canonicalise_svg
 from utils.constants import COUPLING_COLORS, COUPLING_ORDER, load_coupling_classes
 from utils.tree_building import build_nj_tree as _build_nj_tree
+from utils.tree_layout import (assign_circular_layout, assign_layout, draw_circular_cladogram,
+                               draw_cladogram, max_depth, max_depth_circ)
 
 
 # ─── Data loading ─────────────────────────────────────────────────────────────
@@ -88,11 +91,28 @@ def load_bgc_data(conn, cutoff):
 
 # ─── Tree building ─────────────────────────────────────────────────────────────
 
-def build_nj_tree(bgc_ids, distances):
-    """Build NJ tree from full pairwise distance matrix."""
+# A tree built mostly from substituted values is not a tree of anything. Refuse
+# above this share rather than draw something that looks authoritative.
+MAX_SUBSTITUTED_FRACTION = 0.05
+
+
+def build_nj_tree(bgc_ids, distances, max_substituted=MAX_SUBSTITUTED_FRACTION):
+    """Build NJ tree from the pairwise distance matrix.
+
+    Unmeasured pairs have to become *some* number for neighbour-joining, and 1.0
+    (maximum distance) is the least-wrong choice. But substituting silently is
+    how a partitioned database once produced a confident-looking tree in which
+    42.9% of the matrix was that constant: the merged `distance` table holds only
+    within-partition comparisons by design, so every cross-partition pair was
+    missing. Count them, say so, and refuse when they dominate.
+
+    Callers with a genuinely complete matrix — a single BiG-SCAPE run, or one
+    partition's own database — see no change.
+    """
     n      = len(bgc_ids)
     labels = [str(i) for i in bgc_ids]
     dm_rows = []
+    substituted = 0
     for i in range(n):
         row = []
         for j in range(i + 1):
@@ -101,86 +121,28 @@ def build_nj_tree(bgc_ids, distances):
             else:
                 a, b = bgc_ids[j], bgc_ids[i]
                 key  = (min(a, b), max(a, b))
-                row.append(distances.get(key, 1.0))
+                if key in distances:
+                    row.append(distances[key])
+                else:
+                    substituted += 1
+                    row.append(1.0)
         dm_rows.append(row)
+
+    total = n * (n - 1) // 2
+    if substituted:
+        share = substituted / total if total else 0.0
+        print(f'  WARNING: {substituted:,} of {total:,} pairs ({share:.1%}) had no '
+              f'stored distance and were set to 1.0')
+        if share > max_substituted:
+            raise SystemExit(
+                f'refusing to build a tree from {share:.1%} substituted distances '
+                f'(limit {max_substituted:.0%}). This usually means the database is '
+                f'a merged partitioned run, whose distance table holds only '
+                f'within-partition pairs by design — build per-partition trees, or '
+                f'the family-centre tree, instead.')
+
     print(f'  Building NJ tree for {n} BGCs...')
     return _build_nj_tree(labels, dm_rows)
-
-
-# ─── Layout helpers (linear) ──────────────────────────────────────────────────
-
-def assign_layout(clade, counter, depth=0):
-    """Assign ._x (leaf y-position) and ._depth to every node."""
-    clade._depth = depth
-    if clade.is_terminal():
-        clade._x = counter[0]
-        counter[0] += 1
-        return
-    for child in clade.clades:
-        assign_layout(child, counter, depth + 1)
-    clade._x = sum(c._x for c in clade.clades) / len(clade.clades)
-
-
-def max_depth(clade):
-    if clade.is_terminal():
-        return clade._depth
-    return max(max_depth(c) for c in clade.clades)
-
-
-def draw_cladogram(ax, clade, color='#333333', lw=0.6):
-    """Root on left, leaves on right."""
-    if clade.is_terminal():
-        return
-    x_node   = clade._depth
-    child_ys = [c._x for c in clade.clades]
-    ax.plot([x_node, x_node], [min(child_ys), max(child_ys)],
-            color=color, lw=lw, solid_capstyle='round')
-    for child in clade.clades:
-        ax.plot([x_node, child._depth], [child._x, child._x],
-                color=color, lw=lw, solid_capstyle='round')
-        draw_cladogram(ax, child, color, lw)
-
-
-# ─── Layout helpers (circular) ────────────────────────────────────────────────
-
-def assign_circular_layout(clade, leaf_angles, counter, depth=0):
-    """Assign ._angle and ._depth to every node for a fan/circular tree."""
-    clade._depth = depth
-    if clade.is_terminal():
-        clade._angle = leaf_angles[counter[0]]
-        counter[0] += 1
-        return
-    for child in clade.clades:
-        assign_circular_layout(child, leaf_angles, counter, depth + 1)
-    child_angles = [c._angle for c in clade.clades]
-    clade._angle = (min(child_angles) + max(child_angles)) / 2
-
-
-def max_depth_circ(clade):
-    if clade.is_terminal():
-        return clade._depth
-    return max(max_depth_circ(c) for c in clade.clades)
-
-
-def draw_circular_cladogram(ax, clade, md, color='#888888', lw=0.35):
-    """Draw fan-tree branches: arcs at parent radius + radial arms to children."""
-    if clade.is_terminal():
-        return
-    r_n = clade._depth / md
-    child_angles = [c._angle for c in clade.clades]
-    a_min, a_max = min(child_angles), max(child_angles)
-
-    # Arc at parent radius spanning all children
-    n_pts = max(3, int((a_max - a_min) * 100) + 2)
-    arc_θ = np.linspace(a_min, a_max, n_pts)
-    ax.plot(arc_θ, np.full(n_pts, r_n), color=color, lw=lw, solid_capstyle='butt')
-
-    # Radial arm from parent radius to each child radius
-    for child in clade.clades:
-        r_c = child._depth / md
-        ax.plot([child._angle, child._angle], [r_n, r_c],
-                color=color, lw=lw, solid_capstyle='butt')
-        draw_circular_cladogram(ax, child, md, color, lw)
 
 
 # ─── Figure ───────────────────────────────────────────────────────────────────
@@ -288,7 +250,8 @@ def plot_tree(tree, bgc_ids, id_to_meta, coupling_classes, outdir):
     out_png = os.path.join(outdir, 'all_bgcs_biosynthetic_tree.png')
     out_svg = os.path.join(outdir, 'all_bgcs_biosynthetic_tree.svg')
     fig.savefig(out_png, dpi=180, bbox_inches='tight')
-    fig.savefig(out_svg,           bbox_inches='tight')
+    fig.savefig(out_svg,           bbox_inches='tight', metadata=SVG_METADATA)
+    canonicalise_svg(out_svg)
     print(f'Saved: {out_png}')
     print(f'Saved: {out_svg}')
     plt.close(fig)
@@ -372,7 +335,8 @@ def plot_circular_tree(tree, bgc_ids, id_to_meta, coupling_classes, outdir):
     out_png = os.path.join(outdir, 'all_bgcs_biosynthetic_tree_circular.png')
     out_svg = os.path.join(outdir, 'all_bgcs_biosynthetic_tree_circular.svg')
     fig.savefig(out_png, dpi=200, bbox_inches='tight')
-    fig.savefig(out_svg,           bbox_inches='tight')
+    fig.savefig(out_svg,           bbox_inches='tight', metadata=SVG_METADATA)
+    canonicalise_svg(out_svg)
     print(f'Saved: {out_png}')
     print(f'Saved: {out_svg}')
     plt.close(fig)

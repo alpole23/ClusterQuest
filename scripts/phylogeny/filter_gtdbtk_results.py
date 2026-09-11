@@ -2,17 +2,20 @@
 """
 Filter GTDB-Tk results to only include genomes from a subset run.
 
-This script filters the GTDB-Tk summary TSV and prunes the phylogenetic tree
-to only include genomes specified in the genome list. Used for cross-taxon
-result reuse, where a larger taxon run's results are filtered for a subset taxon.
+This script filters the GTDB-Tk summary TSV to only include genomes specified in
+the genome list. Used for cross-taxon result reuse, where a larger taxon run's
+results are filtered for a subset taxon.
+
+Tree pruning was removed with the GTDB-Tk tree itself: GTDBTK_CLASSIFY is sharded
+for wall time and per-shard trees span disjoint genome sets, so no run produces a
+whole-set tree to prune.
 
 Usage:
-    filter_gtdbtk_results.py <genome_list> <reuse_summary> <reuse_tree> <output_dir>
+    filter_gtdbtk_results.py <genome_list> <reuse_summary> <output_dir>
 
 Arguments:
     genome_list   - File with list of genome paths (one per line)
     reuse_summary - Path to source GTDB-Tk summary TSV
-    reuse_tree    - Path to source phylogenetic tree (Newick)
     output_dir    - Output directory for filtered results
 """
 
@@ -29,8 +32,6 @@ def parse_args():
                         help='File with list of genome paths')
     parser.add_argument('reuse_summary', type=Path,
                         help='Source GTDB-Tk summary TSV')
-    parser.add_argument('reuse_tree', type=Path,
-                        help='Source phylogenetic tree (Newick)')
     parser.add_argument('output_dir', type=Path,
                         help='Output directory')
     return parser.parse_args()
@@ -63,60 +64,12 @@ def filter_summary(reuse_summary: Path, current_genomes: set, output_path: Path)
     filtered_df.to_csv(output_path, sep='\t', index=False)
 
 
-def prune_tree(reuse_tree: Path, current_genomes: set, output_path: Path):
-    """
-    Prune phylogenetic tree to only include specified genomes.
-    Falls back to copying original tree if pruning fails.
-    """
-    try:
-        from Bio import Phylo
-        import shutil
-
-        # Increase recursion limit for large trees
-        sys.setrecursionlimit(15000)
-
-        print(f"Reading tree from {reuse_tree}")
-        tree = Phylo.read(str(reuse_tree), 'newick')
-
-        terminals = tree.get_terminals()
-        print(f"Original tree has {len(terminals)} terminals")
-
-        # Find terminals to keep
-        terminals_to_keep = set()
-        for t in terminals:
-            if t.name in current_genomes:
-                terminals_to_keep.add(t.name)
-
-        print(f"Keeping {len(terminals_to_keep)} terminals")
-
-        # Remove terminals not in current genomes
-        terminals_to_remove = [t for t in terminals if t.name not in terminals_to_keep]
-        print(f"Removing {len(terminals_to_remove)} terminals")
-
-        for terminal in terminals_to_remove:
-            try:
-                tree.prune(terminal)
-            except Exception:
-                pass  # May already be removed
-
-        # Write pruned tree
-        Phylo.write(tree, str(output_path), 'newick')
-        print(f"Wrote pruned tree to {output_path}")
-
-    except Exception as e:
-        import shutil
-        print(f"Warning: Could not prune tree: {e}")
-        print("Copying original tree instead")
-        shutil.copy(reuse_tree, output_path)
-
-
 def main():
     args = parse_args()
 
     # Setup output directories
     outdir = args.output_dir
     outdir.mkdir(exist_ok=True)
-    (outdir / "classify").mkdir(exist_ok=True)
 
     # Read genome list
     current_genomes = read_genome_list(args.genome_list)
@@ -125,10 +78,6 @@ def main():
     # Filter summary
     summary_output = outdir / "gtdbtk.bac120.summary.tsv"
     filter_summary(args.reuse_summary, current_genomes, summary_output)
-
-    # Prune tree
-    tree_output = outdir / "classify" / "gtdbtk.bac120.classify.tree.1.tree"
-    prune_tree(args.reuse_tree, current_genomes, tree_output)
 
     print("GTDB-Tk result filtering complete")
 

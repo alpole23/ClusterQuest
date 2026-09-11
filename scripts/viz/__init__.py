@@ -1,17 +1,6 @@
 """Visualization modules for BGC analysis pipeline."""
 
 from .charts import get_bgc_color, plot_kcb_identification_chart
-from .tree_viz import (
-    parse_newick,
-    collect_phylo_leaves,
-    prune_tree_to_leaves,
-    tree_to_newick,
-    calculate_phylo_positions,
-    plot_circular_taxonomy_tree,
-    plot_circular_phylogenetic_tree,
-    prepare_phylo_tree_for_js,
-    generate_static_circular_tree
-)
 from .tables import (
     get_genome_count,
     generate_genome_table_html,
@@ -23,7 +12,18 @@ from .clustering import (
     generate_gcf_visualization_html
 )
 from .taxonomy import generate_taxonomy_tree_html
-from .resources import (
+from .distribution import (
+    extract_assembly_id_from_genome_name,
+    build_gcf_taxonomy_distribution,
+    generate_bgc_distribution_html
+)
+from .genome_pages import create_genome_metadata_pages
+from .rarefaction import generate_rarefaction_curve
+from .report_assets import REPORT_CSS, REPORT_JS
+from .report_sections import build_coupling_table_rows
+# Trace/resource rendering lives in utils.trace (single implementation); re-exported
+# here so `viz.generate_resource_usage_html` keeps working.
+from utils.trace import (
     aggregate_trace_by_process,
     generate_gantt_chart_html,
     generate_resource_usage_html
@@ -34,15 +34,6 @@ __all__ = [
     'get_bgc_color',
     'plot_kcb_identification_chart',
     # tree_viz
-    'parse_newick',
-    'collect_phylo_leaves',
-    'prune_tree_to_leaves',
-    'tree_to_newick',
-    'calculate_phylo_positions',
-    'plot_circular_taxonomy_tree',
-    'plot_circular_phylogenetic_tree',
-    'prepare_phylo_tree_for_js',
-    'generate_static_circular_tree',
     # tables
     'get_genome_count',
     'generate_genome_table_html',
@@ -57,4 +48,14 @@ __all__ = [
     'aggregate_trace_by_process',
     'generate_gantt_chart_html',
     'generate_resource_usage_html',
+    # distribution / genome pages / rarefaction
+    'extract_assembly_id_from_genome_name',
+    'build_gcf_taxonomy_distribution',
+    'generate_bgc_distribution_html',
+    'create_genome_metadata_pages',
+    'generate_rarefaction_curve',
+    # report assembly
+    'REPORT_CSS',
+    'REPORT_JS',
+    'build_coupling_table_rows',
 ]

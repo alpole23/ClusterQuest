@@ -1,0 +1,667 @@
+<title>Cost of a Million Genomes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&display=swap">
+
+<style>
+:root{
+  --ground:#F7F7F5;
+  --panel:#FFFFFF;
+  --panel-2:#F1F0EC;
+  --ink:#1A1917;
+  --ink-2:#413E39;
+  --muted:#6E6A62;
+  --faint:#98938A;
+  --rule:#DEDBD3;
+  --rule-2:#C9C5BA;
+  --accent:#A65628;
+  --accent-soft:#F0E2D6;
+  --cool:#22645F;
+  --cool-soft:#DCEAE7;
+  --warn:#8A6212;
+  --crit:#993A21;
+  --shadow:0 1px 2px rgba(26,25,23,.05), 0 8px 24px -16px rgba(26,25,23,.22);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#141311;
+    --panel:#1D1C19;
+    --panel-2:#252320;
+    --ink:#F2F0EB;
+    --ink-2:#D2CEC5;
+    --muted:#98938A;
+    --faint:#726D64;
+    --rule:#2F2D28;
+    --rule-2:#413E38;
+    --accent:#D98A54;
+    --accent-soft:#3A2A1D;
+    --cool:#63B3AB;
+    --cool-soft:#1B302E;
+    --warn:#D0A548;
+    --crit:#DE7757;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#141311;
+  --panel:#1D1C19;
+  --panel-2:#252320;
+  --ink:#F2F0EB;
+  --ink-2:#D2CEC5;
+  --muted:#98938A;
+  --faint:#726D64;
+  --rule:#2F2D28;
+  --rule-2:#413E38;
+  --accent:#D98A54;
+  --accent-soft:#3A2A1D;
+  --cool:#63B3AB;
+  --cool-soft:#1B302E;
+  --warn:#D0A548;
+  --crit:#DE7757;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.62; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:0 28px 96px}
+.col{max-width:68ch}
+
+/* ---------- masthead ---------- */
+.mast{padding:72px 0 40px; border-bottom:2px solid var(--ink)}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); margin:0 0 18px;
+}
+h1{
+  font-family:Archivo,system-ui,sans-serif; font-weight:700;
+  font-size:clamp(2.4rem,6vw,4rem); line-height:.98; letter-spacing:-.028em;
+  margin:0 0 20px; text-wrap:balance;
+}
+.standfirst{font-size:1.12rem; color:var(--ink-2); margin:0; text-wrap:pretty}
+.mast-meta{
+  display:flex; flex-wrap:wrap; gap:10px 30px; margin-top:26px;
+  font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--muted);
+}
+.mast-meta b{color:var(--ink); font-weight:500}
+
+/* ---------- sections ---------- */
+section{padding-top:60px}
+h2{
+  font-family:Archivo,system-ui,sans-serif; font-weight:600;
+  font-size:1.62rem; letter-spacing:-.017em; line-height:1.18;
+  margin:0 0 6px; text-wrap:balance;
+}
+h3{
+  font-family:Archivo,system-ui,sans-serif; font-weight:600;
+  font-size:1.02rem; letter-spacing:-.008em; margin:34px 0 8px;
+}
+.dek{color:var(--muted); margin:0 0 26px; max-width:68ch; text-wrap:pretty}
+p{margin:0 0 16px; max-width:68ch}
+a{color:var(--accent); text-decoration-thickness:1px; text-underline-offset:2px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:2px}
+code{
+  font-family:"IBM Plex Mono",monospace; font-size:.86em;
+  background:var(--panel-2); border:1px solid var(--rule);
+  padding:.08em .34em; border-radius:3px; color:var(--ink-2);
+}
+
+/* status label: measured vs projected — the spine of the document */
+.tag{
+  display:inline-flex; align-items:center; gap:7px;
+  font-family:"IBM Plex Mono",monospace; font-size:.68rem;
+  letter-spacing:.11em; text-transform:uppercase; font-weight:500;
+  padding:3px 9px; border-radius:2px; vertical-align:2px;
+}
+.tag.m{background:var(--cool-soft); color:var(--cool); border:1px solid transparent}
+.tag.p{background:transparent; color:var(--accent); border:1px dashed var(--accent)}
+.tag::before{content:""; width:5px; height:5px; border-radius:50%; background:currentColor}
+
+/* ---------- headline figures ---------- */
+.figs{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+  gap:1px; background:var(--rule); border:1px solid var(--rule);
+  margin:30px 0 4px; border-radius:4px; overflow:hidden;
+}
+.fig{background:var(--panel); padding:18px 18px 16px}
+.fig .n{
+  font-family:"IBM Plex Mono",monospace; font-weight:600;
+  font-size:1.72rem; letter-spacing:-.03em; line-height:1.1;
+  font-variant-numeric:tabular-nums; color:var(--ink);
+}
+.fig .n small{font-size:.55em; font-weight:500; color:var(--muted); letter-spacing:0}
+.fig .l{font-size:.82rem; color:var(--muted); margin-top:3px}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto; margin:22px 0; border:1px solid var(--rule); border-radius:4px; background:var(--panel)}
+table{border-collapse:collapse; width:100%; font-size:.87rem; min-width:520px}
+th,td{padding:9px 14px; text-align:left; border-bottom:1px solid var(--rule)}
+thead th{
+  font-family:"IBM Plex Mono",monospace; font-weight:500;
+  font-size:.7rem; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted); background:var(--panel-2); white-space:nowrap;
+  border-bottom:1px solid var(--rule-2);
+}
+tbody tr:last-child td{border-bottom:none}
+.num{
+  font-family:"IBM Plex Mono",monospace; text-align:right;
+  font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+tbody th{font-weight:500; white-space:nowrap}
+tr.total td,tr.total th{
+  border-top:1px solid var(--rule-2); background:var(--panel-2); font-weight:600;
+}
+.mono{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.dim{color:var(--faint)}
+.up{color:var(--crit)} .down{color:var(--cool)}
+
+/* proportional bar inside a table cell */
+.bar{display:flex; align-items:center; gap:9px; justify-content:flex-end}
+.bar i{
+  display:block; height:7px; border-radius:1px; background:var(--accent);
+  opacity:.85; flex:none; min-width:1px;
+}
+
+/* ---------- regime cards ---------- */
+.regimes{display:grid; grid-template-columns:repeat(auto-fit,minmax(232px,1fr)); gap:14px; margin:26px 0}
+.regime{
+  background:var(--panel); border:1px solid var(--rule); border-radius:4px;
+  padding:18px 18px 20px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:8px;
+}
+.regime .law{
+  font-family:"IBM Plex Mono",monospace; font-size:1.28rem; font-weight:600;
+  letter-spacing:-.02em; color:var(--accent);
+}
+.regime .who{font-family:Archivo,sans-serif; font-weight:600; font-size:.97rem}
+.regime .ev{
+  font-family:"IBM Plex Mono",monospace; font-size:.74rem; color:var(--muted);
+  border-top:1px dotted var(--rule-2); padding-top:9px; margin-top:2px; line-height:1.55;
+}
+.regime p{font-size:.87rem; color:var(--ink-2); margin:0}
+
+/* ---------- callout ---------- */
+.note{
+  border-left:3px solid var(--accent); background:var(--panel);
+  padding:18px 20px; margin:26px 0; border-radius:0 4px 4px 0;
+  box-shadow:var(--shadow);
+}
+.note.cool{border-left-color:var(--cool)}
+.note.warn{border-left-color:var(--warn)}
+.note .h{
+  font-family:Archivo,sans-serif; font-weight:600; font-size:.98rem; margin:0 0 6px;
+}
+.note p{font-size:.92rem; color:var(--ink-2); margin:0 0 10px; max-width:64ch}
+.note p:last-child{margin-bottom:0}
+
+/* ---------- size ladder ---------- */
+.ladder{display:flex; flex-direction:column; gap:7px; margin:22px 0}
+.rung{display:grid; grid-template-columns:132px 1fr 74px; align-items:center; gap:14px}
+.rung .lab{font-family:"IBM Plex Mono",monospace; font-size:.76rem; color:var(--muted); text-align:right}
+.rung .track{background:var(--panel-2); border-radius:2px; height:20px; overflow:hidden; border:1px solid var(--rule)}
+.rung .fill{height:100%; background:var(--accent); opacity:.82; border-radius:1px 0 0 1px}
+.rung .val{
+  font-family:"IBM Plex Mono",monospace; font-size:.8rem; font-weight:500;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ---------- checklist ---------- */
+.actions{list-style:none; padding:0; margin:24px 0 0; display:flex; flex-direction:column; gap:2px}
+.actions li{
+  display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:baseline;
+  padding:15px 4px; border-top:1px solid var(--rule);
+}
+.actions li:last-child{border-bottom:1px solid var(--rule)}
+.actions .k{
+  font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--accent); padding-top:2px; white-space:nowrap;
+}
+.actions .t{font-family:Archivo,sans-serif; font-weight:600; font-size:.98rem; margin-bottom:3px}
+.actions p{font-size:.89rem; color:var(--muted); margin:0; max-width:62ch}
+
+footer{
+  margin-top:72px; padding-top:24px; border-top:1px solid var(--rule);
+  font-family:"IBM Plex Mono",monospace; font-size:.75rem; color:var(--faint);
+}
+footer p{max-width:68ch; margin:0 0 8px}
+
+@media (max-width:640px){
+  .wrap{padding:0 18px 64px}
+  .mast{padding:48px 0 32px}
+  .rung{grid-template-columns:96px 1fr 62px; gap:9px}
+  .rung .lab{font-size:.68rem}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">ClusterQuest · resource benchmark</p>
+  <h1>Cost of a Million Genomes</h1>
+  <p class="standfirst">Two full pipeline runs — the <i>Pantoea</i> genus and the <i>Erwiniaceae</i> family that contains it — measured end to end, then extrapolated. Measured on a clean run from an empty <code>results/</code>. A million genomes costs about <strong>$1,140 internal / $1,515 external</strong> in compute — cheap enough that it is not the constraint. Memory looked like the wall — BiG-SCAPE needs ~1.9 TB to cluster that many BGCs in one pass — until partitioning by pepM identity brought it to 84 GB with a verifiably identical GCF network.</p>
+  <div class="mast-meta">
+    <span>Measured <b>31 Aug 2026</b>, pinned databases</span>
+    <span>BiG-SCAPE sweep <b>333–10,000</b> BGCs</span>
+    <span>Local executor · <b>56 GB RAM</b></span>
+    <span><b>2,807</b> tasks, <b>0</b> failures</span>
+    <span>antiSMASH <b>8.0.4</b> · BiG-SCAPE <b>2.0.1</b> · GTDB-Tk <b>2.6.1</b></span>
+    <span>GTDB <b>r226</b> · Pfam <b>38.2</b> · taxdump <b>2026-08-01</b></span>
+  </div>
+</header>
+
+<section>
+  <h2>What was measured <span class="tag m">measured</span></h2>
+  <p class="dek">Both runs analysed every genome fresh — no <code>--reuse_antismash_from</code>, even though 63% of Erwiniaceae <em>is</em> Pantoea. Reuse would have produced a set where 1,736 directories were written under the old antiSMASH flags and 1,022 under the new ones, which is exactly the contamination a storage benchmark cannot tolerate.</p>
+
+  <div class="figs">
+    <div class="fig"><div class="n">70.7<small> CPU-h</small></div><div class="l">Erwiniaceae, 2,758 genomes</div></div>
+    <div class="fig"><div class="n">6<small>h</small> 06<small>m</small></div><div class="l">wall clock, 1 machine</div></div>
+    <div class="fig"><div class="n">$3.55<small> / $4.69</small></div><div class="l">internal / external rates</div></div>
+    <div class="fig"><div class="n">26.4<small> MB</small></div><div class="l">peak per genome, all copies</div></div>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>Run</th><th class="num">Genomes</th><th class="num">Tasks</th><th class="num">CPU-h</th>
+        <th class="num">Wall</th><th class="num">BGCs</th><th class="num">BGC+ genomes</th><th class="num">GCFs</th>
+      </tr></thead>
+      <tbody>
+        <tr><th><i>Pantoea</i> (genus)</th><td class="num">1,736</td><td class="num">1,771</td><td class="num">60.43</td><td class="num">4h50m</td><td class="num">320</td><td class="num">285 <span class="dim">16.4%</span></td><td class="num">13</td></tr>
+        <tr><th><i>Erwiniaceae</i> (family)</th><td class="num">2,758</td><td class="num">2,805</td><td class="num">75.14</td><td class="num">5h53m</td><td class="num">333</td><td class="num">298 <span class="dim">10.8%</span></td><td class="num">19</td></tr>
+        <tr class="total"><th>ratio</th><td class="num">1.59×</td><td class="num">1.58×</td><td class="num down">1.25×</td><td class="num">1.23×</td><td class="num">1.04×</td><td class="num">1.05×</td><td class="num">1.46×</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Widening from the genus to the whole family added <strong>59% more genomes for 25% more compute</strong>. It also added only 13 BGCs — but 6 new gene cluster families, all outside <i>Pantoea</i>. Phosphonate prevalence across Erwiniaceae (10.8%) is well below <i>Pantoea</i>'s (16.4%), so the genus is carrying the family.</p>
+</section>
+
+<section>
+  <h2>Where the time goes <span class="tag m">measured</span></h2>
+  <p class="dek">Two processes are 98% of the bill. Everything else — download, rename, tabulate, cluster, draw — is rounding error at this scale.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>Process</th><th class="num">Pantoea CPU-h</th><th class="num">Erwiniaceae CPU-h</th>
+        <th class="num">Scaled</th><th class="num" style="width:34%">Share of Erwiniaceae</th>
+      </tr></thead>
+      <tbody>
+        <tr><th>ANTISMASH</th><td class="num">47.28</td><td class="num">61.33</td><td class="num">1.30×</td>
+            <td><div class="bar"><i style="width:82%"></i><span class="mono">81.5%</span></div></td></tr>
+        <tr><th>GTDBTK_CLASSIFY</th><td class="num">12.08</td><td class="num">12.36</td><td class="num">1.02×</td>
+            <td><div class="bar"><i style="width:16.4%"></i><span class="mono">16.4%</span></div></td></tr>
+        <tr><th>NCBI_DATASETS_DOWNLOAD</th><td class="num">0.51</td><td class="num">0.72</td><td class="num">1.41×</td>
+            <td><div class="bar"><i style="width:1.1%"></i><span class="mono">1.1%</span></div></td></tr>
+        <tr><th>RENAME_GENOMES</th><td class="num">0.14</td><td class="num">0.30</td><td class="num">2.14×</td>
+            <td><div class="bar"><i style="width:0.3%"></i><span class="mono">0.3%</span></div></td></tr>
+        <tr><th>BIGSCAPE</th><td class="num">0.14</td><td class="num">0.15</td><td class="num">1.07×</td>
+            <td><div class="bar"><i style="width:0.2%"></i><span class="mono">0.2%</span></div></td></tr>
+        <tr><th>GCF_BIOSYNTHETIC_TREE</th><td class="num">0.11</td><td class="num">0.12</td><td class="num">1.05×</td>
+            <td><div class="bar"><i style="width:0.16%"></i><span class="mono">0.2%</span></div></td></tr>
+        <tr><th class="dim">all others</th><td class="num dim">0.17</td><td class="num dim">0.16</td><td class="num dim">0.94×</td>
+            <td><div class="bar"><i style="width:0.2%;opacity:.4"></i><span class="mono dim">0.2%</span></div></td></tr>
+        <tr class="total"><th>total</th><td class="num">60.43</td><td class="num">75.14</td><td class="num">1.24×</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Three scaling regimes</h2>
+  <p class="dek">The two runs are far enough apart to separate the stages by how they respond to more genomes. This is the part that governs a million-genome plan — not the absolute numbers above.</p>
+
+  <div class="regimes">
+    <div class="regime">
+      <div class="law">O(n)</div>
+      <div class="who">antiSMASH</div>
+      <p>Linear in genomes, and the dominant cost today. Embarrassingly parallel — throw cores at it and the wall clock falls.</p>
+      <div class="ev">98.0 → 80.4 CPU-s / genome<br>1,736 → 2,758 genomes</div>
+    </div>
+    <div class="regime">
+      <div class="law">O(1)</div>
+      <div class="who">GTDB-Tk</div>
+      <p>Effectively fixed. 59% more genomes cost 3% more compute, because pplacer's expense is loading the reference tree, not placing queries onto it.</p>
+      <div class="ev">12.08 → 12.42 CPU-h<br>+3% for +59% genomes</div>
+    </div>
+    <div class="regime">
+      <div class="law">O(n²)</div>
+      <div class="who">BiG-SCAPE</div>
+      <p>All-pairs confirmed directly. Cheap in CPU even at scale — but peak memory turns quadratic above 4,000 BGCs and becomes the hard limit.</p>
+      <div class="ev">333 → 10,000 BGCs measured<br>cpu exp 1.05 → 1.89, RAM exp → 2.01</div>
+    </div>
+  </div>
+
+  <div class="note cool">
+    <p class="h">The GTDB-Tk result is the useful surprise</p>
+    <p>Fitting the two points as <span class="mono">fixed + per-genome</span> gives <strong>11.5 CPU-h per invocation</strong> plus <strong>1.2 CPU-s per genome</strong>. The fixed term is 97% of a 2,758-genome run. That inverts the usual advice: for GTDB-Tk you want <em>few, large</em> batches, and batch size is worth more than any other tuning knob available.</p>
+  </div>
+</section>
+
+<section>
+  <h2>antiSMASH scales with base pairs, not genomes <span class="tag m">measured</span></h2>
+  <p class="dek">Per-genome cost <em>fell</em> from 98.0 to 80.4 CPU-seconds when the taxon widened. Nothing got faster — the genomes got smaller. Erwiniaceae includes 213 <i>Buchnera</i> endosymbionts with ~0.6 Mb genomes, and they pulled the mean down.</p>
+
+  <div class="ladder">
+    <div class="rung"><div class="lab">0.6–6.5 MB · n=551</div><div class="track"><div class="fill" style="width:68.7%"></div></div><div class="val">31.8 s</div></div>
+    <div class="rung"><div class="lab">6.5–7.2 MB · n=552</div><div class="track"><div class="fill" style="width:94.4%"></div></div><div class="val">43.7 s</div></div>
+    <div class="rung"><div class="lab">7.2–8.7 MB · n=551</div><div class="track"><div class="fill" style="width:95.5%"></div></div><div class="val">44.2 s</div></div>
+    <div class="rung"><div class="lab">8.7–9.2 MB · n=552</div><div class="track"><div class="fill" style="width:75.6%"></div></div><div class="val">35.0 s</div></div>
+    <div class="rung"><div class="lab">9.2–13.0 MB · n=552</div><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">46.3 s</div></div>
+  </div>
+
+  <p>Smallest to largest is a <strong>6.2× spread</strong> in runtime (6.9 s vs 42.6 s). So neither run's per-genome figure transfers cleanly to an arbitrary million-genome set: <i>Pantoea</i>'s 98 CPU-s overestimates for anything with small genomes in it, Erwiniaceae's 80.4 underestimates for a set without endosymbionts. The projections below use <strong>90 CPU-s</strong> and you should treat ±20% as the honest band.</p>
+</section>
+
+<section>
+  <h2>The 104 GB that was never there <span class="tag m">measured</span></h2>
+  <p class="dek">Nextflow's trace reports <code>peak_rss</code> of 104 GB for GTDB-Tk. This machine has 56 GB of RAM. Both runs completed.</p>
+
+  <p>Three independent lines say the figure is an artefact. It <strong>did not move</strong> between runs — 104.3 GB on 1,736 genomes, 104.0 GB on 2,758 — which no real working set does under a 59% larger query load. It exceeds physical memory plus swap (88 GB), so it cannot be unique resident memory. And a 30-second sampler running alongside the Erwiniaceae job recorded what the kernel actually did:</p>
+
+  <div class="figs">
+    <div class="fig"><div class="n">47.0<small> GB</small></div><div class="l">largest single process (pplacer)</div></div>
+    <div class="fig"><div class="n">19.2<small> GB</small></div><div class="l">peak system memory in use</div></div>
+    <div class="fig"><div class="n">37.6<small> GB</small></div><div class="l">minimum memory available</div></div>
+    <div class="fig"><div class="n">2.0<small> GB</small></div><div class="l">peak swap</div></div>
+  </div>
+
+  <p>Nextflow sums RSS across a process tree, and pplacer forks children that all map the same GTDB reference database — so every shared page is counted once per child. Even pplacer's own 47 GB is mostly file-backed <code>mmap</code>, which is why system memory in use never passed 19.2 GB at the same moment.</p>
+
+  <div class="note warn">
+    <p class="h">The SLURM allocation is a judgement call, not a measurement</p>
+    <p><code>process_high_memory</code> requests <strong>128 GB</strong>. Nothing measured needs it: file-backed pages are charged to a cgroup but stay reclaimable, so they should be evicted under pressure rather than trigger an OOM kill. The request stands because the failure modes are asymmetric — an OOM kill costs a 90-minute task and its queue slot, the over-request costs about $0.05.</p>
+    <p>It is not free of consequences. At 8 cores, 128 GB tips the billed dimension from cores ($9.52/day) to memory ($10.24/day). If GTDB-Tk is ever sharded across many concurrent jobs, that premium multiplies — re-measure with <code>sacct -o MaxRSS</code>, which reports per-step RSS rather than a summed figure, before paying it at scale.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Storage, measured on a clean run <span class="tag m">measured</span></h2>
+  <p class="dek">The earlier figure in this report counted <code>antismash_results/</code> alone and missed that <code>publishDir</code> used <code>mode: 'copy'</code>, so <code>work/</code> held a second copy of everything. This run started from an empty <code>results/</code> with both fixes in place.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Per genome, all copies</th><th class="num">Before</th><th class="num">Now</th><th class="num">Change</th></tr></thead>
+      <tbody>
+        <tr><th>published + work, settled</th><td class="num">51.99 MB</td><td class="num">26.42 MB</td><td class="num down">−49%</td></tr>
+        <tr><th>raw download, published copy</th><td class="num">8.91 MB</td><td class="num">0.004 MB</td><td class="num down">metadata only</td></tr>
+        <tr><th>1M genomes, peak</th><td class="num">49.6 TB</td><td class="num">25.2 TB</td><td class="num down">−24.4 TB</td></tr>
+        <tr class="total"><th>at $8.75 / TB / month</th><td class="num">$434/mo</td><td class="num">$220/mo</td><td class="num down">−$2,568/yr</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Two changes did it. <code>publish_mode = 'link'</code> hard-links published output, so a file and its <code>work/</code> counterpart share an inode — <code>du</code> across both now reports 71.2 GB where the apparent size is 118 GB. And <code>NCBI_DATASETS_DOWNLOAD</code> publishes only metadata, since <code>RENAME_GENOMES</code> republishes the genomes anyway: 24 GB became 10 MB.</p>
+
+  <p>It is <em>not</em> the 16 MB/genome an earlier draft projected. That assumed dropping the raw-download publish removed the data entirely; it only removed the second copy. <code>work/</code> still holds 23.5 GB of raw download, because the task that fetched it has to keep its output.</p>
+
+  <div class="note warn">
+    <p class="h">GTDB-Tk transiently needs 94 GB of scratch</p>
+    <p>Nothing had measured this. While <code>GTDBTK_CLASSIFY</code> runs, its task directory holds <strong>98 GB</strong> — 94 GB of it <code>scratch_tmp</code> — which is released on completion, leaving 2.7 GB of output. It is the peak-disk driver for the whole pipeline, and it is <em>additional</em> to the 140 GB reference database the config already warns about.</p>
+    <p>On a cluster where <code>workDir</code> sits on a quota'd scratch filesystem, that is an allocation requirement rather than a footnote. Measuring settled storage after a run, as every earlier figure here did, misses it entirely.</p>
+  </div>
+
+  <p>I/O did not improve and is the number to watch on a shared filesystem: <strong>8,883 GB</strong> of reads and writes for 2,758 genomes, about 3.2 GB per genome, most of it small-file traffic that parallel filesystems handle worst.</p>
+</section>
+
+<section>
+  <h2>Extrapolation to one million genomes <span class="tag p">projected</span></h2>
+  <p class="dek">Everything below is modelled from the two measured runs, at UIUC internal rates: <span class="mono">max(cores × $1.19, GB × $0.08)</span> per day, storage $8.75/TB/month. External rates are $1.59 and $0.09.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>1,000,000 genomes</th><th class="num">Amount</th>
+        <th class="num">Internal</th><th class="num">External</th>
+      </tr></thead>
+      <tbody>
+        <tr><th>Compute</th><td class="num">22,868 CPU-h</td><td class="num">$1,140</td><td class="num">$1,515</td></tr>
+        <tr><th>Storage <span class="dim">per month</span></th><td class="num">25.9 TB</td><td class="num">$227</td><td class="num">$227</td></tr>
+        <tr class="total"><th>Total <span class="dim">first month</span></th><td class="num"></td><td class="num">$1,367</td><td class="num">$1,742</td></tr>
+        <tr class="total"><th>Per genome</th><td class="num"></td><td class="num">$0.00137</td><td class="num">$0.00174</td></tr>
+        <tr class="total"><th>Duration</th><td class="num up">~44 days</td><td class="num dim" colspan="2">same on either rate — see below</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Compute is one-off; storage recurs at $227/month on either rate. Per-genome
+  compute alone is $0.00114 internal, $0.00152 external.</p>
+
+  <div class="note warn">
+    <p class="h">44 days is a scheduler artefact, not a compute cost — batching antiSMASH cuts it to 11</p>
+    <p>Every genome is its own antiSMASH job today. At the cluster's <code>submitRateLimit = '20/1min'</code>, submitting a million of them takes <strong>833 hours before any queueing</strong>, against 55 hours of actual compute at <code>queueSize = 200</code>. The scheduler is the bottleneck by 15×.</p>
+    <div class="scroll" style="margin:14px 0 0">
+      <table>
+        <thead><tr><th>Stage</th><th class="num">As architected</th><th class="num">antiSMASH batched ×100</th></tr></thead>
+        <tbody>
+          <tr><th>download <span class="dim">serial, network</span></th><td class="num">72 h</td><td class="num">72 h</td></tr>
+          <tr><th>antiSMASH</th><td class="num up">833 h</td><td class="num down">55 h</td></tr>
+          <tr><th>BiG-SCAPE <span class="dim">one job, all-pairs</span></th><td class="num">136 h</td><td class="num">136 h</td></tr>
+          <tr><th>GTDB-Tk <span class="dim">20 concurrent batches</span></th><td class="num">3.5 h</td><td class="num">3.5 h</td></tr>
+          <tr class="total"><th>total</th><td class="num">1,045 h · 44 d</td><td class="num">266 h · 11 d</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The pipeline already batches its short per-genome steps for exactly this reason; antiSMASH was left unbatched because at 39 s per genome it did not look short. At a million genomes it is the single largest lever on wall clock, and it costs nothing in CPU-hours. After that the limits are BiG-SCAPE, which is one unsplittable job, and the serial NCBI download.</p>
+  </div>
+
+  <h3>Where the CPU-hours go</h3>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Stage</th><th class="num">CPU-h</th><th class="num">Share</th><th>Basis</th></tr></thead>
+      <tbody>
+        <tr><th>antiSMASH</th><td class="num">20,787</td><td class="num">90.9%</td><td class="dim">linear; 92.3 CPU-s/genome measured</td></tr>
+        <tr><th>BiG-SCAPE</th><td class="num">1,090</td><td class="num">4.8%</td><td class="dim">121k BGCs; 1.9 TB in one job, <strong>84 GB partitioned</strong></td></tr>
+        <tr><th>GTDB-Tk <span class="dim">50k batches</span></th><td class="num">563</td><td class="num">2.5%</td><td class="dim">11.5 CPU-h fixed per batch</td></tr>
+        <tr><th>download + rename</th><td class="num">319</td><td class="num">1.4%</td><td class="dim">network-bound</td></tr>
+        <tr><th class="dim">other</th><td class="num dim">109</td><td class="num dim">0.5%</td><td class="dim"></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Rates as billed by the campus cluster: internal <span class="mono">max(cores × $1.19, GB × $0.08)</span> per day, external <span class="mono">max(cores × $1.59, GB × $0.09)</span>, storage $8.75/TB/month for both. External runs about <strong>33% more</strong> for compute — the gap is the core rate, since every stage except GTDB-Tk is billed on cores rather than memory.</p>
+
+  <h3>The BiG-SCAPE sweep <span class="tag m">measured</span></h3>
+  <p>Real Erwiniaceae BGCs replicated to each size, each copy given a unique <code>LOCUS</code>/<code>ACCESSION</code> so BiG-SCAPE's sha256 deduplication does not collapse them. Every BGC is phosphonate, so <code>--classify category</code> puts them in one bin and compares every pair — the worst case.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th class="num">BGCs</th><th class="num">Comparisons</th><th class="num">Wall</th>
+        <th class="num">CPU-s</th><th class="num">µs / pair</th><th class="num">Peak RSS</th><th class="num">Database</th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="num">333</td><td class="num">55,278</td><td class="num">45.1 s</td><td class="num">277</td><td class="num">816</td><td class="num">1.62 GB</td><td class="num">15 MB</td></tr>
+        <tr><td class="num">600</td><td class="num">179,700</td><td class="num">80.8 s</td><td class="num">515</td><td class="num">450</td><td class="num">1.73 GB</td><td class="num dim">—</td></tr>
+        <tr><td class="num">1,000</td><td class="num">499,500</td><td class="num">148.1 s</td><td class="num">911</td><td class="num">297</td><td class="num">2.01 GB</td><td class="num dim">—</td></tr>
+        <tr><td class="num">1,500</td><td class="num">1,124,250</td><td class="num">237.4 s</td><td class="num">1,509</td><td class="num">211</td><td class="num">2.39 GB</td><td class="num dim">—</td></tr>
+        <tr><td class="num">2,000</td><td class="num">1,999,000</td><td class="num">350.4 s</td><td class="num">2,217</td><td class="num">175</td><td class="num">2.54 GB</td><td class="num">232 MB</td></tr>
+        <tr><td class="num">3,000</td><td class="num">4,498,500</td><td class="num">642.9 s</td><td class="num">3,949</td><td class="num">143</td><td class="num">2.87 GB</td><td class="num dim">—</td></tr>
+        <tr><td class="num">4,000</td><td class="num">7,998,000</td><td class="num">991.3 s</td><td class="num">6,077</td><td class="num">124</td><td class="num">3.40 GB</td><td class="num">856 MB</td></tr>
+        <tr><td class="num">6,000</td><td class="num">17,997,000</td><td class="num">32.4 m</td><td class="num">11,148</td><td class="num">108</td><td class="num">5.68 GB</td><td class="num">1.86 GB</td></tr>
+        <tr><td class="num">8,000</td><td class="num">31,996,000</td><td class="num">55.4 m</td><td class="num">18,729</td><td class="num">104</td><td class="num">9.08 GB</td><td class="num">3.25 GB</td></tr>
+        <tr><td class="num">10,000</td><td class="num">49,995,000</td><td class="num">85.6 m</td><td class="num">28,535</td><td class="num">103</td><td class="num up">14.21 GB</td><td class="num">5.06 GB</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Comparisons track n(n−1)/2 exactly — the middle column is 100% of all-pairs at every row. What falls is the cost <em>per</em> comparison, 816 → 103 µs, and it has now flattened. The local exponent climbs 1.05 → 1.89 across the sweep and is converging on 2, so the runtime has finally caught up with the algorithm. A power-law fit still reads 1.241; extrapolating <em>that</em> would understate a 121,000-BGC run tenfold.</p>
+  <p>Fitting <span class="mono">cpu_s = 1,643 + 2.68×10⁻⁴·n²</span> on the top four sizes (worst residual 2.4%) gives <strong>~1,090 CPU-h at 121,000 BGCs</strong> — about $54. Compute was never going to be the problem.</p>
+
+  <h3>GTDB-Tk: batch size is worth 10×</h3>
+  <p>Because 11.5 of the 12.4 CPU-h are fixed per invocation, how you shard dominates the cost.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th class="num">Genomes / batch</th><th class="num">Batches</th><th class="num">CPU-h</th><th class="num">Internal cost</th></tr></thead>
+      <tbody>
+        <tr><td class="num">2,758 <span class="dim">(as measured)</span></td><td class="num">363</td><td class="num">4,508</td><td class="num up">$240</td></tr>
+        <tr><td class="num">10,000</td><td class="num">100</td><td class="num">1,483</td><td class="num">$79</td></tr>
+        <tr><td class="num">50,000</td><td class="num">20</td><td class="num">563</td><td class="num">$30</td></tr>
+        <tr><td class="num">200,000</td><td class="num">5</td><td class="num">391</td><td class="num down">$21</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <p class="h">Memory is the wall, and it only appears above 4,000 BGCs</p>
+    <p>Peak RSS looks harmless across the first seven sizes — 1.62 to 3.40 GB — which is why an earlier draft of this page concluded memory was not a constraint. It was measured over a range where memory growth had not started. Extending to 10,000 BGCs shows the local exponent going <strong>0.11 → 0.29 → 0.59 → 1.27 → 1.63 → 2.01</strong>. Above ~4,000 BGCs it is exactly quadratic.</p>
+    <p>Fitting <span class="mono">GB = 1.14 + 1.29×10⁻⁷·n²</span> gives <strong>~1.9 TB of RAM at 121,000 BGCs</strong>, and 4.3 TB at <i>Pantoea</i>-level BGC yield. No single node runs that. The practical ceiling for one BiG-SCAPE job — <em>before partitioning, which the next section resolves</em>:</p>
+    <div class="scroll" style="margin:14px 0 0">
+      <table>
+        <thead><tr><th class="num">RAM budget</th><th class="num">Largest single job</th></tr></thead>
+        <tbody>
+          <tr><td class="num">48 GB <span class="dim">(current label)</span></td><td class="num">19,100 BGCs</td></tr>
+          <tr><td class="num">64 GB <span class="dim">(SLURM override)</span></td><td class="num">22,100 BGCs</td></tr>
+          <tr><td class="num">128 GB</td><td class="num">31,400 BGCs</td></tr>
+          <tr><td class="num">256 GB</td><td class="num">44,500 BGCs</td></tr>
+          <tr><td class="num">1 TB</td><td class="num">89,100 BGCs</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note cool">
+    <p class="h">The database estimate held</p>
+    <p>Bytes per comparison converged to <strong>101</strong> (267 → 101 across the sweep), so 121,000 BGCs means 7.3 billion rows and <strong>~0.74 TB</strong> in one SQLite file; 16.9 billion rows and 1.71 TB at the higher yield. Real, but a smaller problem than the RAM.</p>
+  </div>
+
+  <p>Compute for a million genomes lands near <strong>$1,140</strong> internal and <strong>$1,515</strong> external, which is small enough that it is not the constraint. Wall clock and scheduler behaviour are. At the campus limit of 20 submissions/minute, one job per genome is 833 hours of pure submission — which is why the short per-genome steps are already batched and antiSMASH is capped at 2 CPUs.</p>
+</section>
+
+<section>
+  <h2>Partitioning removes the memory wall <span class="tag m">measured</span></h2>
+  <p class="dek">The 1.9 TB above assumes one all-pairs job. Splitting the input by pepM sequence identity first — a cheap profile alignment, linear where BGC comparison is quadratic — reproduces the same GCF network at a fraction of the peak memory. Verified by re-running BiG-SCAPE both ways and comparing the clusterings, not by inference.</p>
+
+  <h3>The same network, three times over</h3>
+  <p>Families compared by <em>co-membership</em>, not by label: GCF ids are per-run autoincrements, so the only meaningful question is whether two BGCs land together in both runs.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr>
+        <th>Set</th><th class="num">Partitions</th><th class="num">Largest</th>
+        <th class="num">Families ref / part.</th><th class="num">Co-membership pairs</th>
+        <th class="num">Split</th><th class="num">ARI</th>
+      </tr></thead>
+      <tbody>
+        <tr><th><i>Streptomyces</i></th><td class="num">19</td><td class="num">38 of 185</td><td class="num">81 / 81</td><td class="num">466 / 466</td><td class="num">0</td><td class="num down">1.0000</td></tr>
+        <tr><th><i>Erwiniaceae</i></th><td class="num">6</td><td class="num">236 of 333</td><td class="num">19 / 19</td><td class="num">23,995 / 23,995</td><td class="num">0</td><td class="num down">1.0000</td></tr>
+        <tr><th>Combined</th><td class="num">24</td><td class="num">236 of 518</td><td class="num">100 / 100</td><td class="num">24,461 / 24,461</td><td class="num">0</td><td class="num down">1.0000</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><i>Erwiniaceae</i> is the strongest evidence despite partitioning worst — its largest partition holds 71% of the BGCs, so exact agreement there is not an artefact of small, easy pieces.</p>
+
+  <h3>What it does to peak memory</h3>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>121,000 BGCs</th><th class="num">Largest job</th><th class="num">Peak RAM</th><th>Fits</th></tr></thead>
+      <tbody>
+        <tr><th>one job, unpartitioned</th><td class="num">121,000</td><td class="num up">1,890 GB</td><td class="dim">no node</td></tr>
+        <tr><th><i>Erwiniaceae</i>-like split (71%)</th><td class="num">85,910</td><td class="num">953 GB</td><td class="dim">2 TB node only</td></tr>
+        <tr class="total"><th><i>Streptomyces</i>-like split (21%)</th><td class="num">25,410</td><td class="num down">84 GB</td><td>existing 128 GB allocation</td></tr>
+        <tr><th>at a 0.80 cut (14%)</th><td class="num">16,940</td><td class="num down">38 GB</td><td>48 GB label</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <p class="h">The safe window is 0.60–0.80, and the cheap screen understates damage</p>
+    <p>At pepM identity 0.90 partitioning breaks as predicted: 65 partitions, 81 → 83 families, <strong>23 same-family pairs split</strong>, ARI 0.974. So the screen is directionally sound — but it predicted <strong>7</strong>, not 23. It uses pairwise similarity ≥ 0.70 as a proxy for family membership, while BiG-SCAPE families are <em>transitively closed</em> and 9% of same-family pairs sit below that cutoff, joined through a third BGC.</p>
+    <p><strong>Treat a non-zero count as disqualifying, not as a damage budget.</strong> Zero remains a reliable all-clear, since nothing separable means nothing splits.</p>
+  </div>
+
+  <div class="note cool">
+    <p class="h">The verdict reversed once it was tested on diversity</p>
+    <p>Measured on <i>Erwiniaceae</i> alone, partitioning looked useless — work fell only to 57% of a single job. That is the one clade where it cannot work: 216 of its 333 BGCs sit in a single GCF of near-identical pepMs.</p>
+    <div class="scroll" style="margin:14px 0 0">
+      <table>
+        <thead><tr><th></th><th class="num"><i>Erwiniaceae</i></th><th class="num">Combined</th><th class="num"><i>Streptomyces</i></th></tr></thead>
+        <tbody>
+          <tr><th>r vs BiG-SCAPE similarity</th><td class="num">+0.641</td><td class="num">+0.683</td><td class="num">+0.884</td></tr>
+          <tr><th>largest component @0.60</th><td class="num">236 (71%)</td><td class="num">236 (46%)</td><td class="num">38 (21%)</td></tr>
+          <tr><th>work vs one job</th><td class="num up">57%</td><td class="num">26%</td><td class="num down">11%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">Judge partitioning on taxonomic breadth, not BGC count. 1,573 <i>Streptomyces</i> genomes spanning 1,094 organism names partition five times better than 2,758 <i>Erwiniaceae</i> genomes dominated by one clade.</p>
+  </div>
+
+  <h3>Peak memory tracks the deepest-sampled clade, not the dataset <span class="tag m">measured</span></h3>
+  <p>Partitioning dilutes dense clusters rather than breaking them up, so what governs peak memory is whether a cluster like <i>Pantoea</i>'s keeps growing as more genomes arrive. Holding <i>Erwiniaceae</i> fixed and adding <i>Streptomyces</i> in nine steps answers it directly:</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th class="num">Added</th><th class="num">Total BGCs</th><th class="num">Largest component</th><th class="num">Share</th><th class="num">Components</th></tr></thead>
+      <tbody>
+        <tr><td class="num">0</td><td class="num">333</td><td class="num">236</td><td class="num">70.9%</td><td class="num">6.0</td></tr>
+        <tr><td class="num">46</td><td class="num">379</td><td class="num">236</td><td class="num">63.3%</td><td class="num">19.6</td></tr>
+        <tr><td class="num">92</td><td class="num">425</td><td class="num">236</td><td class="num">55.5%</td><td class="num">21.7</td></tr>
+        <tr><td class="num">139</td><td class="num">472</td><td class="num">236</td><td class="num">50.0%</td><td class="num">22.9</td></tr>
+        <tr class="total"><td class="num">185</td><td class="num">518</td><td class="num">236</td><td class="num">45.6%</td><td class="num">24.0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Growth across the whole addition: <strong>+0 BGCs</strong>. New diversity adds components beside the dense cluster and never enlarges it. So a million genomes spread across many clades enlarges no single component — <strong>the risk is a million concentrated on one over-sequenced phosphonate-carrying clade</strong>, and NCBI's sampling is skewed enough that this is the case to watch.</p>
+
+  <div class="note">
+    <p class="h">A negative result worth recording: random subsampling cannot answer this</p>
+    <p>The obvious rarefaction — subsample the set at increasing depths and watch the largest component — returns ~45.6% at <em>every</em> depth (slope ratio 0.95, share pinned 44–47% across a 12× range). That is arithmetic, not biology: draw randomly from a pool where 45.6% of BGCs sit in one component and you get 45.6% back. The curve describes the pool it came from and is blind to what adding new clades does, which is what scaling means. Both modes are kept in <code>bench_component_rarefaction.py</code> so the distinction is not rediscovered.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What to change before scaling</h2>
+  <p class="dek">Ordered by how much they matter for a run 360× larger than the one measured.</p>
+
+  <ol class="actions">
+    <li>
+      <div class="k">done</div>
+      <div>
+        <div class="t">BiG-SCAPE scaling, measured 29 Aug</div>
+        <p>Ten-point sweep, 333 → 10,000 BGCs, via <code>scripts/bench_bigscape_scaling.py</code>. Cut the compute projection from 21,000 to ~1,090 CPU-h, and found the real limit: peak RSS turns quadratic above 4,000 BGCs, reaching ~1.9 TB at 121,000.</p>
+      </div>
+    </li>
+    <li>
+      <div class="k">build</div>
+      <div>
+        <div class="t">Shard GTDB-Tk into large batches</div>
+        <p>Currently one invocation per run. At 50,000 genomes per batch the stage costs $30 instead of $240, purely from amortising the reference-tree load.</p>
+      </div>
+    </li>
+    <li>
+      <div class="k">verify</div>
+      <div>
+        <div class="t">Confirm GTDB-Tk memory with <code>sacct -o MaxRSS</code></div>
+        <p>The 128 GB request is insurance against a number we have good reason to believe is wrong by 2×. One cluster run settles it, and 64 GB would keep cores as the billed dimension.</p>
+      </div>
+    </li>
+    <li>
+      <div class="k">build</div>
+      <div>
+        <div class="t">Partition BiG-SCAPE by pepM identity at 0.60–0.80</div>
+        <p>A single job caps at ~31,000 BGCs on a 128 GB node and ~22,000 on the 64 GB the SLURM profile allocates, against 121,000 for a million genomes. Partitioning is verified lossless on three sets (ARI 1.0000) and takes peak RAM from 1,890 GB to ~84 GB, inside the existing allocation. The remaining unknown is a taxonomically broad real sample — only two clades have been tested, and NCBI's skew toward a few over-sequenced lineages is the case that would hurt. The 0.74 TB database is untouched by this and remains the structural problem.</p>
+      </div>
+    </li>
+    <li>
+      <div class="k">watch</div>
+      <div>
+        <div class="t">Small-file I/O, not capacity</div>
+        <p>3.2 GB per genome of read+write, spread across thousands of tiny files per directory. Capacity at 8.15 TB is trivial; metadata operations on a parallel filesystem are not.</p>
+      </div>
+    </li>
+    <li>
+      <div class="k">note</div>
+      <div>
+        <div class="t">GCF numbers are per-run identifiers</div>
+        <p>BiG-SCAPE's <code>family.id</code> follows file discovery order. Comparing the two <i>Pantoea</i> runs, all 13 families had identical membership and 9 came back with a different number. Cite GCF numbers against a specific run, never across runs.</p>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<footer>
+  <p><strong>Method.</strong> Both runs on one machine, local executor, 56 GB RAM + 32 GB swap, conda environments. CPU-hours are <code>realtime × cpus</code> summed from <code>pipeline_trace.tsv</code>. Costs apply the configured SLURM allocations to the measured durations; no run was executed on SLURM. Memory sampled every 30 s from <code>/proc</code> via <code>free</code> and <code>ps</code>.</p>
+  <p><strong>Reference data.</strong> GTDB r226 (what gtdbtk 2.6.1 declares as its minimum), Pfam 38.2, NCBI taxdump 2026-08-01 — pinned in <code>nextflow.config</code> and recorded in <code>software_versions.json</code> as <code>db_gtdb_release</code>, <code>db_pfam_release</code> and <code>db_taxdump_date</code>. Every figure on this page comes from a run that states what produced it.</p>
+  <p>Genome counts use the pipeline's own NCBI query — <code>--assembly-source GenBank --exclude-atypical</code>. Detection is phosphonate-only (<code>--hmmdetection-limit-to-rule-names phosphonate</code>); a general antiSMASH run would cost substantially more.</p>
+</footer>
+
+</div>

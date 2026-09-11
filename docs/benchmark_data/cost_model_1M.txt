@@ -1,0 +1,40 @@
+ClusterQuest — cost for 1,000,000 genomes
+Measured on Erwiniaceae (2,758 genomes, 2026-08-31, pinned databases)
+UIUC Biocluster: internal max(cores x $1.19, GB x $0.08)/day
+                 external max(cores x $1.59, GB x $0.09)/day
+                 storage $8.75/TB/month (same both rates)
+
+                      amount        internal      external
+  compute        22,868 CPU-h          $1,140        $1,515
+  storage             25.9 TB            $227          $227   per month
+  ----------------------------------------------------------------
+  TOTAL, first month                   $1,367        $1,742
+  per genome                         $0.00137      $0.00174
+  duration                            ~44 days      ~44 days
+
+  compute only, per genome           $0.00114      $0.00152
+  storage only, per month                $227          $227
+
+Duration — the scheduler, not the compute
+  Every genome is its own antiSMASH job. At submitRateLimit = 20/1min, submitting
+  1M of them takes 833 h before any queueing; the actual compute at queueSize=200
+  is 55 h. Batching antiSMASH x100 cuts the total from 44 days to 11.
+
+                            as architected    antiSMASH batched
+    download (serial)               72 h              72 h
+    antiSMASH                      833 h              55 h
+    BiG-SCAPE (one job)            136 h             136 h
+    GTDB-Tk (20 batches)           3.5 h             3.5 h
+    ------------------------------------------------------------
+    TOTAL                    1,045 h / 44 d     266 h / 11 d
+
+Where the CPU-hours go
+  antiSMASH              20,787   90.9%   linear, 92.3 CPU-s/genome measured
+  BiG-SCAPE               1,090    4.8%   121k BGCs; needs ~1.9 TB RAM
+  GTDB-Tk (50k batches)     563    2.5%   11.5 CPU-h fixed per batch
+  download + rename         319    1.4%   network-bound
+  other                     109    0.5%
+
+Measured basis: 2,807 tasks, 0 failures, 6h06m wall, 70.72 CPU-h for 2,758
+genomes; $3.55 internal / $4.69 external for that run. Storage 26.42 MB/genome
+settled across published output and work/ combined.

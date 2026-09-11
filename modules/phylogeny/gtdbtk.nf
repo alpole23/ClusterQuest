@@ -1,22 +1,31 @@
+/**
+ * GTDB-Tk classification over one shard of genomes.
+ *
+ * Sharded so that wall time is not set by a single monolithic task; see
+ * gtdbtkShardSize(). Runs below the shard size get exactly one shard, which is
+ * the previous behaviour.
+ *
+ * **No tree is emitted.** classify_wf still builds one internally — pplacer
+ * placement is how it classifies — but a per-shard tree spans a disjoint genome
+ * set, and N such trees cannot be concatenated into one phylogeny. The taxonomy
+ * assignments merge cleanly by row and are what every downstream consumer
+ * actually uses.
+ */
 process GTDBTK_CLASSIFY {
-    tag "${taxon}"
+    tag "${taxon} shard ${shard_id}"
     label 'process_high_memory'
-    publishDir "${params.outdir}/gtdbtk_results/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
     cache 'lenient'  // GTDB-Tk is memory-intensive - use lenient caching
 
     input:
     val taxon
-    path fasta_files
+    tuple val(shard_id), path(fasta_files)
     path gtdbtk_db
 
     output:
-    path "gtdbtk_output", emit: output_dir
-    // GTDB-Tk v2.x outputs - tree files include class index (e.g., .1.tree)
-    path "gtdbtk_output/classify/gtdbtk.bac120.classify.tree.*.tree", emit: bacterial_tree, optional: true
-    path "gtdbtk_output/classify/gtdbtk.ar53.classify.tree.*.tree", emit: archaeal_tree, optional: true
-    // Summary files are at top-level in GTDB-Tk v2.x output
-    path "gtdbtk_output/gtdbtk.bac120.summary.tsv", emit: bacterial_summary, optional: true
-    path "gtdbtk_output/gtdbtk.ar53.summary.tsv", emit: archaeal_summary, optional: true
+    // Summary files are at top-level in GTDB-Tk v2.x output. Renamed per shard so
+    // MERGE_GTDBTK can stage them all in one directory without collision.
+    path "gtdbtk.bac120.summary.${shard_id}.tsv", emit: bacterial_summary, optional: true
+    path "gtdbtk.ar53.summary.${shard_id}.tsv",   emit: archaeal_summary,  optional: true
 
     script:
     def cpus = params.gtdbtk_cpus ?: task.cpus ?: 8  // Use dedicated param, fallback to task.cpus
@@ -111,9 +120,13 @@ process GTDBTK_CLASSIFY {
         echo "Archaeal genomes classified: \$AR_COUNT"
     fi
 
-    # List tree files
-    echo ""
-    echo "Phylogenetic tree files:"
-    ls -la gtdbtk_output/classify/*.tree 2>/dev/null || echo "  No tree files found"
+    # Shard-tagged copies for the merge. The tree classify_wf produced is left in
+    # gtdbtk_output and not emitted: see the process docstring.
+    for DOMAIN in bac120 ar53; do
+        if [ -f "gtdbtk_output/gtdbtk.\${DOMAIN}.summary.tsv" ]; then
+            cp "gtdbtk_output/gtdbtk.\${DOMAIN}.summary.tsv" \\
+               "gtdbtk.\${DOMAIN}.summary.${shard_id}.tsv"
+        fi
+    done
     """
 }

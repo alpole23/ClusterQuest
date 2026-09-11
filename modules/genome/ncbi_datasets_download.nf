@@ -2,24 +2,40 @@ process NCBI_DATASETS_DOWNLOAD {
     tag "$taxon"
     label 'process_medium'
     label 'retry_on_error'
-    publishDir "${params.outdir}/ncbi_genomes/${Utils.sanitizeTaxon(params.taxon)}", mode: 'copy'
+    // Publish the small metadata files, not the genomes. The *.gbff payload under
+    // ncbi_dataset/data/<accession>/ is republished by RENAME_GENOMES as
+    // renamed_genomes/, and those are genuinely different files (records are
+    // rewritten), so keeping both is a second full copy of every genome —
+    // 8.91 MB/genome, 24 GB of the Erwiniaceae run, ~8.5 TB at a million.
+    // Downstream steps take genomes from the channel, not from here; main.nf's
+    // bgc_analysis entry reads assembly_info_table.txt from the published path,
+    // which this still writes.
+    //
+    // saveAs, not pattern: `pattern` silently publishes nothing at all when an
+    // output is declared with a ** glob, as `genomes` is below. Returning null
+    // from saveAs skips that file. Both were verified against this exact set of
+    // output declarations.
+    publishDir "${params.outdir}/ncbi_genomes/${Utils.sanitizeTaxon(params.taxon)}",
+        mode: params.publish_mode,
+        saveAs: { fn -> fn.endsWith('.gbff') ? null : fn }
 
     input:
     val taxon
 
     output:
     path "ncbi_dataset/data/**/*.gbff", emit: genomes
-    path "ncbi_dataset/", emit: dataset_dir
     path "ncbi_dataset/data/assembly_info_table.txt", emit: assembly_info
     path "ncbi_dataset/data/assembly_data_report.jsonl", emit: assembly_data_report
     path "ncbi_dataset/data/taxonomy_report.jsonl", emit: taxonomy_report, optional: true
 
     script:
+    def level_flag = params.assembly_level ? "--assembly-level ${params.assembly_level}" : ''
     """    
     datasets download genome taxon "${taxon}" \
         --include gbff \
         --assembly-source GenBank \
         --exclude-atypical \
+        ${level_flag} \
         --filename ncbi_dataset.zip \
         --dehydrated
 
