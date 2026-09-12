@@ -97,41 +97,25 @@ hard-linked (see `--publish_mode`).
 
 ## Scale
 
-Three separate limits govern how large a taxon can be analysed, and each has its own
-control.
+Three things limit how large a taxon you can analyse, and each has one control.
 
-**antiSMASH is the compute cost.** The pepM pre-screen runs between genome download
-and antiSMASH, using DIAMOND to find PEP mutase — `blastp` against annotated proteins,
-`blastx` against DNA for genomes below `--pepm_prescreen_min_density` proteins/Mb.
-Genomes with no hit cannot carry a phosphonate BGC and are skipped. On Erwiniaceae this
-took 2,771 genomes down to 306 while recovering all 333 BGCs. Every verdict is written
-to `prescreen_results/{taxon}/`, so what was skipped stays auditable.
+| Limit | Control | What it does |
+|-------|---------|--------------|
+| antiSMASH compute | `--pepm_prescreen` *(on)* | Skips genomes with no PEP mutase — 2,771 → 306 on Erwiniaceae, all 333 BGCs still recovered |
+| BiG-SCAPE memory | `--bigscape_partition` *(off)* | Clusters in pepM-identity partitions instead of one job whose memory grows with the square of the BGC count |
+| Disk | `--publish_mode link` *(default)* | Hard-links published output to `work/` — ~16 MB per genome instead of ~52 |
 
-**BiG-SCAPE memory is the hard limit.** Peak memory is quadratic above ~4,000 BGCs,
-measured as `GB = 1.14 + 1.29e-7·n²` — about 1.9 TB at the 121,000 BGCs a million
-genomes would produce. Setting `--bigscape_partition true` splits the input by pepM
-identity first, which rebuilds the same GCF network (ARI 1.0000 against unpartitioned
-runs) with the largest job near 84 GB. It is **off by default**: validated at 185–518
-BGCs, not yet at the scale that needs it, and never run on SLURM. Below
-`--bigscape_partition_threshold` BGCs it is also a net loss, because every partition
-re-pays BiG-SCAPE's fixed Pfam-load cost.
+Short per-genome steps are batched and GTDB-Tk is sharded automatically
+(`--task_batch_size`, `--antismash_batch_size`, `--gtdbtk_shard_size`).
 
-**Storage is mostly duplication.** `--publish_mode link` (the default) hard-links
-published output so `results/` and `work/` share inodes; published files survive
-`nextflow clean -f`. With raw downloads no longer published, peak storage is ~16 MB per
-genome rather than ~52 MB. Set `copy` if `outdir` and `workDir` are on different
-filesystems, or if anything edits published files in place.
+**Partitioning is off by default on purpose.** It reproduced the unpartitioned GCF
+network exactly in testing, but has only been validated at a few hundred BGCs, has never
+run on SLURM, and below `--bigscape_partition_threshold` it is slower rather than faster.
+Turn it on deliberately.
 
-Short per-genome steps are batched (`--task_batch_size`, `--antismash_batch_size`) since
-they run in 0.2–1.5 s and were dominated by scheduler overhead; GTDB-Tk is sharded at
-`--gtdbtk_shard_size` genomes.
-
-Projected to 1M genomes at UIUC internal rates: antiSMASH ~25,000 CPU-h, BiG-SCAPE
-~1,090 CPU-h, GTDB-Tk 563 CPU-h, ~16 TB storage. Compute is not the constraint at
-roughly $1,320 — BiG-SCAPE's memory requirement is, and it forces partitioning.
-
-See [`docs/benchmark_erwiniaceae.html`](docs/benchmark_erwiniaceae.html) for the full
-cost and timing analysis.
+BiG-SCAPE memory, not compute cost, is what actually caps a run. See
+[`docs/benchmark_erwiniaceae.html`](docs/benchmark_erwiniaceae.html) for the
+measurements, the scaling fit, and cost projections to a million genomes.
 
 ## Parameters
 
