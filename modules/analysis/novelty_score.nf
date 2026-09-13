@@ -6,11 +6,16 @@
  * phosphonate clusters, all from actinomycetes, so an Enterobacterales BGC cannot match
  * one. That flag is structurally constant for this chemistry and orders nothing.
  *
- * This ranks on the axis that does vary: divergence from the characterised coupling
- * enzymes the pipeline already aligns against, discounted by how well evidenced the
- * family is. Both components are published beside the score, because the weights are
- * reasoned rather than fitted — there is no set of leads-that-panned-out to fit against,
- * and a lone number would launder that judgement into something that looks measured.
+ * Divergence from the characterised references was the first attempt and is itself
+ * biased: six of the seven references are Streptomyces, so identities are bimodal with
+ * nothing between 45% and 94% — a readout of whether a same-taxon reference exists.
+ * This ranks on ISOLATION instead: how far a family sits from every other family in the
+ * run, over the all-pairs matrix BiG-SCAPE already computes. Reference identity is kept
+ * as reported context and used only to zero a family whose chemistry is characterised.
+ *
+ * Both components are published beside the score, because the weights are reasoned
+ * rather than fitted — there is no set of leads-that-panned-out to fit against, and a
+ * lone number would launder that judgement into something that looks measured.
  */
 process NOVELTY_SCORE {
     tag "$taxon"
@@ -23,6 +28,7 @@ process NOVELTY_SCORE {
     path gcf_representatives
     path tabulation
     path coupling_support
+    path bigscape_db
 
     // Digest of the Python this process runs. A val input, not an
     // interpolation: Nextflow hashes the unevaluated script source plus the
@@ -38,6 +44,8 @@ process NOVELTY_SCORE {
         --gcf_representatives ${gcf_representatives} \\
         --tabulation ${tabulation} \\
         --coupling_support ${coupling_support} \\
+        --bigscape_db ${bigscape_db} \\
+        --cutoff ${(params.bigscape_cutoffs.toString().split(',')[0]).trim()} \\
         --out novelty_ranking.tsv
     """
 }
