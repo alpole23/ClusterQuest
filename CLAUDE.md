@@ -1773,6 +1773,75 @@ GCF-11 rising from 12th to 3rd is worth noting: the lab picked that cluster for
 characterisation on independent grounds, and the unbiased axis agrees with them where
 the reference-based one did not.
 
+### `utils/domain_functions.py` — Pfam accession → biosynthetic role
+
+**Why accessions and not product text.** A keyword metric over NCBI product names was
+tried first and inverted on the two lab-confirmed clusters. The cause was not subtle:
+`serine hydroxymethyltransferase` matched `methyltransferase` and
+`aspartate-semialdehyde dehydrogenase` matched `dehydrogenase`, so two core
+amino-acid metabolism genes counted as tailoring chemistry. Pfam separates them by
+construction — SHMT is **PF00464**, a methyltransferase is **PF13649**.
+
+Coverage is the second reason. antiSMASH scans every region with clusterhmmer whether
+or not NCBI annotated the assembly, so domains reach **77.6% of CDS uniformly**, where
+product text reached 40.2% and tracked annotation quality.
+
+| category | what it means |
+|---|---|
+| `core` | the phosphonate pathway itself — pepM and the coupling enzymes |
+| `tailoring` | chemistry past the coupling step |
+| `lipid` | lipid handling, kept separate given the open lipid/small-molecule question |
+| `transport` | moves the product |
+| `regulation` | controls expression |
+| `mobile` | how the cluster arrived, never counted as chemistry |
+| `primary` | core metabolism swept in at region edges — **explicitly excluded from tailoring** |
+
+`PRIMARY` exists because antiSMASH region boundaries catch chromosomal neighbours.
+Peptidyl-tRNA hydrolase and DnaB are not tailoring enzymes however many sit beside a
+BGC, and counting them is exactly what broke the first attempt.
+
+`elaboration()` counts **distinct** tailoring/lipid domains, not occurrences: three
+copies of one methyltransferase domain is one kind of chemistry, and counting
+occurrences would let a tandem duplication look like elaboration.
+
+**The map is curated and incomplete** — ~100 domains covering 93% of observed hits.
+Everything else returns `other`, which means *not classified here*, never *not a
+biosynthetic gene*. Do not read an absence as evidence.
+
+**Effect on the three characterised clusters** (elaboration, domain-based):
+
+| family | truth | keyword version | domain version |
+|---|---|---:|---:|
+| GCF-18 | confirmed **phosphonolipid** | 3.00 | **2.00** |
+| GCF-11 | confirmed **not** a lipid | 1.00 | **4.00** |
+| GCF-2 | pantaphos, small molecule | — | **5.33** |
+
+The ordering is now lipid < non-lipid < small molecule, where the keyword version had
+it inverted. GCF-18 also shows `primary` = 7.00, the highest of any family, confirming
+that region is mostly swept-in housekeeping around a minimal cluster.
+
+**This is not validation of the lipid hypothesis.** There is still exactly one
+confirmed lipid, two metrics have now given two different answers, and GCF-14 and
+GCF-16 tie GCF-18 at 2.00. What changed is that the metric is no longer confounded by
+annotation quality or by keyword collisions — it is worth computing, not yet worth
+predicting from.
+
+### Consensus gene content in the report
+
+`build_consensus_clusters_section()` renders one consensus cluster per family from
+`gcf_consensus_clusters.tsv`, replacing the single-representative view. A representative
+shows one genome's annotation, which on this data is usually a bad draw.
+
+**Prevalence is the column that matters.** A gene at 1.00 is in every member and helps
+define the family; one at 0.24 is accessory and may be a neighbour the region boundary
+caught. The GCF-2 consensus shows the pantaphos cluster as eight genes at prevalence
+0.98-1.00 — including a GNAT acetyltransferase and an ATP-grasp protein that
+*P. ananatis* LMG 5342's own annotation calls "hypothetical" — with the SpoIIE
+phosphatase correctly at 0.69 and tagged `primary`.
+
+The Naming column carries provenance: a name backed by one genome is flagged as one
+genome's opinion, not consensus.
+
 ### `GCF_ANNOTATION_TRANSFER` — complete a BGC's annotation from its relatives
 
 **The problem it solves.** Only **40.2%** of CDS in the Erwiniaceae run carry an

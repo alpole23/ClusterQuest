@@ -38,6 +38,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils import domain_functions
+
 # A product that names a function. BiG-SCAPE stores no products at all, so these
 # come from the region GenBanks antiSMASH wrote, where an unannotated assembly
 # leaves either an empty string or a placeholder.
@@ -74,9 +77,24 @@ def family_members(db_path, cutoff):
 
 
 def read_region(gbk_path):
-    """[(locus_tag, product, translation)] for one region GenBank."""
+    """[(locus_tag, product, translation, [pfam_acc])] for one region GenBank.
+
+    Domains come from antiSMASH's own clusterhmmer scan (`PFAM_domain` features), so
+    unlike the product they are present whether or not NCBI annotated the assembly.
+    That is what makes them usable for functional comparison across families; see
+    utils/domain_functions.py.
+    """
     from Bio import SeqIO
-    out = []
+    out, doms = [], collections.defaultdict(list)
+    for rec in SeqIO.parse(str(gbk_path), 'genbank'):
+        for feat in rec.features:
+            if feat.type != 'PFAM_domain':
+                continue
+            q = feat.qualifiers
+            tag = (q.get('locus_tag') or ['?'])[0]
+            for ref in q.get('db_xref', []):
+                if ref.startswith('PF'):
+                    doms[tag].append(ref.split('.')[0])
     for rec in SeqIO.parse(str(gbk_path), 'genbank'):
         for feat in rec.features:
             if feat.type != 'CDS':
@@ -86,7 +104,7 @@ def read_region(gbk_path):
             prod = (q.get('product') or [''])[0]
             seq = (q.get('translation') or [''])[0]
             if seq:
-                out.append((tag, prod, seq))
+                out.append((tag, prod, seq, doms.get(tag, [])))
     return out
 
 
@@ -182,8 +200,8 @@ def main():
                 print(f'  warn: missing {path}', file=sys.stderr)
                 continue
             label = region_file[:-4] if region_file.endswith('.gbk') else region_file
-            for tag, prod, seq in read_region(path):
-                cds.append((label, genome, tag, prod, seq))
+            for tag, prod, seq, dm in read_region(path):
+                cds.append((label, genome, tag, prod, seq, dm))
         if not cds:
             continue
 
@@ -191,7 +209,7 @@ def main():
 
         fasta = work / f'fam{fam_id}.faa'
         with fasta.open('w') as fh:
-            for i, (_, _, _, _, seq) in enumerate(cds):
+            for i, (_, _, _, _, seq, _) in enumerate(cds):
                 fh.write(f'>{i}\n{seq}\n')
 
         # A family with one member has no relative to learn from; skip the search
@@ -216,14 +234,26 @@ def main():
             sources = sorted({src for n, src in named if n == cons})
             agree = sum(1 for n, _ in named if n == cons)
             disagree = len(named) - agree
-            if cons:
-                per_group.append(dict(
-                    family=fam_id, group=g, consensus_product=cons,
-                    group_size=len(idxs), n_annotated=len(named),
-                    n_sources=len(sources), n_agree=agree, n_disagree=disagree,
-                    prevalence=round(len(idxs) / len(members), 3)))
+            # Domains are per-group, not per-CDS: a group is one gene seen across
+            # members, so take the domains any member carries. Unlike the product this
+            # needs no transfer — antiSMASH scanned every member.
+            gdoms = collections.Counter()
             for i in idxs:
-                label, genome, tag, prod, _ = cds[i]
+                for d in cds[i][5]:
+                    gdoms[d] += 1
+            top_doms = [d for d, _ in gdoms.most_common(6)]
+            roles = {domain_functions.category(d) for d in top_doms} - {'other'}
+            per_group.append(dict(
+                family=fam_id, group=g,
+                consensus_product=cons or '(unnamed)',
+                domains=';'.join(domain_functions.name(d) for d in top_doms),
+                domain_accessions=';'.join(top_doms),
+                role=sorted(roles)[0] if roles else 'other',
+                group_size=len(idxs), n_annotated=len(named),
+                n_sources=len(sources), n_agree=agree, n_disagree=disagree,
+                prevalence=round(len(idxs) / len(members), 3)))
+            for i in idxs:
+                label, genome, tag, prod, _, _ = cds[i]
                 orig_ok = informative(prod)
                 transferred = prod.strip() if orig_ok else cons
                 if transferred:
@@ -253,8 +283,9 @@ def main():
           'transferred_product', 'origin', 'source_genomes', 'n_sources',
           'n_agree', 'n_disagree', 'group_size']),
         ('gcf_consensus_clusters.tsv', per_group,
-         ['family', 'group', 'consensus_product', 'group_size', 'n_annotated',
-          'n_sources', 'n_agree', 'n_disagree', 'prevalence'])):
+         ['family', 'group', 'consensus_product', 'role', 'domains',
+          'domain_accessions', 'prevalence', 'group_size', 'n_annotated',
+          'n_sources', 'n_agree', 'n_disagree'])):
         with (args.outdir / name).open('w', newline='') as fh:
             w = csv.DictWriter(fh, fieldnames=fields, delimiter='\t')
             w.writeheader()

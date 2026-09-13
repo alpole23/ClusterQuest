@@ -44,6 +44,7 @@ from viz.report_sections import (_build_bigscape_section_html,
                                  build_overview_stats,
                                  _build_versions_html, build_coupling_table_rows,
                                  build_gcf_analysis_tab, build_gcf_trees_tab,
+                                 build_consensus_clusters_section,
                                  build_priority_section, build_novelty_tab,
                                  build_pipeline_tab)
 
@@ -69,6 +70,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
                          gcf_tree_mime='image/png',
                          gcf_heatmap_b64=None, novelty_ranking=None,
+                         consensus_clusters=None, transfer_summary=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
                          pepm_b64=None, pepm_summary=None):
@@ -139,8 +141,10 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
     priority_html    = build_priority_section(novelty_ranking)
     novelty_tab      = build_novelty_tab(priority_html, novel_bgcs_tab_content, n_regions)
+    consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary)
     gcf_analysis_tab = build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html,
-                                              pepm_section_html)
+                                              pepm_section_html,
+                                              consensus_html=consensus_html)
     gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime)
     pipeline_tab     = build_pipeline_tab(resource_usage_html, partition_section_html,
                                           versions_html)
@@ -328,6 +332,10 @@ def main():
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--novelty_ranking', type=Path, help='novelty_ranking.tsv from NOVELTY_SCORE')
+    parser.add_argument('--consensus_clusters', type=Path,
+                        help='gcf_consensus_clusters.tsv from GCF_ANNOTATION_TRANSFER')
+    parser.add_argument('--transfer_summary', type=Path,
+                        help='gcf_annotation_transfer.json from GCF_ANNOTATION_TRANSFER')
     parser.add_argument('--coupling_support', type=Path,
                         help='phosphonate_coupling_support.tsv from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--seed', type=int, default=0, help='RNG seed for the rarefaction resampling; fixed by default so reports are reproducible')
@@ -522,6 +530,8 @@ def main():
                             gcf_tree_mime=gcf_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
                             novelty_ranking=args.novelty_ranking,
+                            consensus_clusters=args.consensus_clusters,
+                            transfer_summary=args.transfer_summary,
                             coupling_table_rows=coupling_table_rows,
                             gcf_classes=gcf_classes,
                             gcf_support_rows=gcf_support_rows)
