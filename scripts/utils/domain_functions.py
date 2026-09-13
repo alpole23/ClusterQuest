@@ -136,19 +136,30 @@ MOBILE = {
 # in. Listed explicitly so they are EXCLUDED from tailoring rather than silently
 # inflating it — the exact failure that broke the product-keyword version.
 #
-# Measured against gene position: Rhodanese sits a median 14 genes / 12.3 kb from
-# pepM and HAD-like hydrolase 12 genes / 10.5 kb, neither ever within 3 genes, which
-# is what a flanking chromosomal gene looks like.
+# Corroborated by GENE-ORDER PROXIMITY to pepM — deliberately not "operon position".
+# BGCs are not reliably single operons: measured here, the Ppd coupling enzyme
+# (TPP_enzyme_C) is on the OPPOSITE strand from pepM in 48% of the clusters that carry
+# it, so anything requiring co-orientation would discard half of a known pathway gene's
+# calls. The measure is strand-agnostic for that reason.
 #
-# BUT PROXIMITY IS A WEAK TEST AND ASYMMETRIC. Two of the four known coupling enzymes
-# fail it: Fe-ADH sits a median 4 genes from pepM and is NEVER within 3 (0%), and
-# Aminotran_1_2 a median 12 genes away (9.7% within 3) — the phosphonoalamide cluster
-# famously places PalB far from pepM. So being far from pepM is not evidence against
-# pathway membership; it only fails to provide evidence for it. These assignments
-# rest on the enzymes' known primary-metabolic function, with position as corroboration
-# where it happens to agree.
+# Rhodanese sits a median 14 genes / 12.3 kb from pepM and HAD-like hydrolase 12 genes
+# / 10.5 kb, neither ever within 3 genes — what a flanking chromosomal gene looks like.
+#
+# THE TEST IS ASYMMETRIC AND WEAK IN ONE DIRECTION. Two of the four known coupling
+# enzymes fail it: Fe-ADH is never within 3 genes of pepM (0%) and Aminotran_1_2 sits a
+# median 12 genes away — the phosphonoalamide cluster famously places PalB far from
+# pepM. Distance is therefore not evidence AGAINST pathway membership; it only fails to
+# supply evidence for it. These assignments rest on the enzymes' known primary-metabolic
+# function, with position as corroboration where it happens to agree.
 PRIMARY_METABOLISM = {
     'PF00464': 'SHMT',                # serine hydroxymethyltransferase (one-carbon)
+    # OPEN QUESTION. Semialdhyde_dh is the one entry here whose position argues against
+    # the assignment: within 3 genes of pepM in 55% of cases, SAME strand 100% of the
+    # time, median 989 bp intergenic — indistinguishable from the HMGL-like coupling
+    # enzyme (same strand, 1,361 bp). It is a classic Lys/Thr biosynthesis enzyme, so
+    # the adjacency may be genome organisation rather than pathway membership, but it
+    # sits beside the pathway in GCF-18, the confirmed phosphonolipid. Moving it to
+    # TAILORING would raise that cluster's elaboration from 2.00.
     'PF01118': 'Semialdhyde_dh',      # aspartate-semialdehyde dehydrogenase (Lys/Thr)
     'PF22698': 'Semialdhyde_dhC_1', 'PF02774': 'Semialdhyde_dhC',
     'PF00162': 'PGK',                 # phosphoglycerate kinase (glycolysis)
@@ -157,10 +168,12 @@ PRIMARY_METABOLISM = {
     'PF01926': 'MMR_HSR1', 'PF06071': 'YchF-GTPase_C',
     'PF00772': 'DnaB', 'PF03796': 'DnaB_C', 'PF00817': 'IMS',
     'PF00849': 'PseudoU_synth_2', 'PF00085': 'Thioredoxin', 'PF01323': 'DSBA',
-        # CONTESTED — these three sit operonically close to pepM (Semialdhyde_dh 55%,
-    # SpoIIE 86%, CBS 75% within 3 genes), unlike the rest of this category. They may
-    # be pathway genes rather than neighbours. Left here pending a call; moving them
-    # to TAILORING would raise the elaboration of GCF-2 and GCF-18 in particular.
+        # SpoIIE and CBS (one protein — a CBS-domain ser/thr phosphatase) sit within 3
+    # genes of pepM in 86% and 75% of cases, which looked like pathway membership until
+    # strand and spacing were checked: they are on the OPPOSITE strand 100% of the time
+    # with a median 3,722 bp intergenic gap. A bidirectional promoter shares a short
+    # intergenic region, typically under ~500 bp; 3.7 kb across a strand switch reads as
+    # a separate transcriptional unit. They stay here.
     'PF00571': 'CBS', 'PF07228': 'SpoIIE', 'PF00149': 'Metallophos',
     'PF00702': 'Hydrolase', 'PF00370': 'FGGY_N', 'PF00581': 'Rhodanese',
     'PF04264': 'YceI', 'PF05899': 'Cupin_3',
