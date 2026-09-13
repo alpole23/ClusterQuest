@@ -12,11 +12,17 @@ assembly, so coverage is uniform (77.6% of CDS on Erwiniaceae) rather than track
 annotation quality (40.2%).
 
 The categories answer "what role does this play in the cluster", not "what fold is
-this". PRIMARY exists because antiSMASH region boundaries sweep in chromosomal
-neighbours: peptidyl-tRNA hydrolase and DnaB are not tailoring enzymes no matter how
+this". PRIMARY_METABOLISM exists because antiSMASH region boundaries sweep in
+chromosomal neighbours: peptidyl-tRNA hydrolase and DnaB are not tailoring enzymes no matter how
 many of them sit next to a BGC, and counting them is what made the first attempt
 fail. MOBILE is separate because a transposase says something about how the cluster
 got there, not about its chemistry.
+
+Note what CORE means here: core to *phosphonate chemistry in general* -- the pepM
+hallmark and the coupling enzymes that every phosphonate pathway branches through.
+It does not mean "core to this BGC". A cluster's own defining biosynthetic genes
+mostly live in TAILORING, which is where the chemistry that distinguishes one
+phosphonate product from another is counted.
 
 This map is CURATED AND INCOMPLETE. It covers the ~100 domains that account for 93%
 of observed hits on Erwiniaceae; everything else returns 'other'. 'other' means "not
@@ -31,7 +37,10 @@ CORE = {
     'PF02775': 'TPP_enzyme_C',        # Ppd, phosphonopyruvate decarboxylase
     'PF02776': 'TPP_enzyme_N',
     'PF00682': 'HMGL-like',           # synthase route (FrbC/HvrC)
-    'PF22617': 'HCS_D2',              # homocitrate synthase post-HMGL domain
+    # Always a second domain on the SAME protein as PF00682, never alone: 236 of 236
+    # HCS_D2 hits co-occur with HMGL-like. It adds no independent signal and is here
+    # only so a divergent synthase that loses the HMGL hit is still called core.
+    'PF22617': 'HCS_D2',
     'PF00465': 'Fe-ADH',              # reductase route (VlpB)
     'PF25137': 'ADH_Fe_C',
     'PF00155': 'Aminotran_1_2',       # transaminase route (PalB/PnaA)
@@ -86,11 +95,14 @@ TAILORING = {
 # cluster (P. ananatis LMG 5342 region 2) carries NONE of these: the headgroup is
 # made by the BGC and conjugated by the cell's general lipid machinery. Presence is
 # informative; absence is not evidence against a lipid product.
+# NOTE only PF01066 is exercised by the Erwiniaceae data (42 hits). The other three
+# have ZERO hits there — they are forward-looking entries for datasets that carry
+# them, and nothing about this category has been tested beyond the one domain.
 LIPID = {
-    'PF01066': 'CDP-OH_P_transf',     # CDP-alcohol phosphatidyltransferase
-    'PF00975': 'Thioesterase',
-    'PF01553': 'Acyltransferase',
-    'PF03279': 'Lipid_A_acyltrans',
+    'PF01066': 'CDP-OH_P_transf',     # CDP-alcohol phosphatidyltransferase; 42 hits
+    'PF00975': 'Thioesterase',        # unexercised on Erwiniaceae
+    'PF01553': 'Acyltransferase',     # unexercised on Erwiniaceae
+    'PF03279': 'Lipid_A_acyltrans',   # unexercised on Erwiniaceae
 }
 
 # ─── Transport ───────────────────────────────────────────────────────────────
@@ -117,11 +129,25 @@ MOBILE = {
     'PF00717': 'Peptidase_S24', 'PF08775': 'ParB',
 }
 
-# ─── Primary metabolism and housekeeping ─────────────────────────────────────
-# Chromosomal neighbours antiSMASH's region boundary sweeps in. Listed explicitly
-# so they are EXCLUDED from tailoring rather than silently inflating it — this is
-# the exact failure that broke the product-keyword version of this metric.
-PRIMARY = {
+# ─── Primary metabolism ──────────────────────────────────────────────────────
+# Named for what the ENZYME does (primary/central metabolism), not for its role in
+# the cluster — "primary" alone reads as "primary to this BGC", which is the exact
+# opposite of the meaning. Chromosomal neighbours antiSMASH's region boundary sweeps
+# in. Listed explicitly so they are EXCLUDED from tailoring rather than silently
+# inflating it — the exact failure that broke the product-keyword version.
+#
+# Measured against gene position: Rhodanese sits a median 14 genes / 12.3 kb from
+# pepM and HAD-like hydrolase 12 genes / 10.5 kb, neither ever within 3 genes, which
+# is what a flanking chromosomal gene looks like.
+#
+# BUT PROXIMITY IS A WEAK TEST AND ASYMMETRIC. Two of the four known coupling enzymes
+# fail it: Fe-ADH sits a median 4 genes from pepM and is NEVER within 3 (0%), and
+# Aminotran_1_2 a median 12 genes away (9.7% within 3) — the phosphonoalamide cluster
+# famously places PalB far from pepM. So being far from pepM is not evidence against
+# pathway membership; it only fails to provide evidence for it. These assignments
+# rest on the enzymes' known primary-metabolic function, with position as corroboration
+# where it happens to agree.
+PRIMARY_METABOLISM = {
     'PF00464': 'SHMT',                # serine hydroxymethyltransferase (one-carbon)
     'PF01118': 'Semialdhyde_dh',      # aspartate-semialdehyde dehydrogenase (Lys/Thr)
     'PF22698': 'Semialdhyde_dhC_1', 'PF02774': 'Semialdhyde_dhC',
@@ -131,6 +157,10 @@ PRIMARY = {
     'PF01926': 'MMR_HSR1', 'PF06071': 'YchF-GTPase_C',
     'PF00772': 'DnaB', 'PF03796': 'DnaB_C', 'PF00817': 'IMS',
     'PF00849': 'PseudoU_synth_2', 'PF00085': 'Thioredoxin', 'PF01323': 'DSBA',
+        # CONTESTED — these three sit operonically close to pepM (Semialdhyde_dh 55%,
+    # SpoIIE 86%, CBS 75% within 3 genes), unlike the rest of this category. They may
+    # be pathway genes rather than neighbours. Left here pending a call; moving them
+    # to TAILORING would raise the elaboration of GCF-2 and GCF-18 in particular.
     'PF00571': 'CBS', 'PF07228': 'SpoIIE', 'PF00149': 'Metallophos',
     'PF00702': 'Hydrolase', 'PF00370': 'FGGY_N', 'PF00581': 'Rhodanese',
     'PF04264': 'YceI', 'PF05899': 'Cupin_3',
@@ -139,7 +169,7 @@ PRIMARY = {
 CATEGORIES = {
     'core': CORE, 'tailoring': TAILORING, 'lipid': LIPID,
     'transport': TRANSPORT, 'regulation': REGULATION, 'mobile': MOBILE,
-    'primary': PRIMARY,
+    'primary metabolism': PRIMARY_METABOLISM,
 }
 
 # Counted as "elaboration" — chemistry the cluster performs on its own product.

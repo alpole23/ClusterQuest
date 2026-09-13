@@ -1110,7 +1110,8 @@ _ROLE_STYLE = {
     'transport':  ('#1a4f8a', '#e2ecf9', 'moves the product'),
     'regulation': ('#4a4a10', '#f3f2dd', 'controls expression'),
     'mobile':     ('#7a1f1f', '#fbe4e4', 'how the cluster arrived'),
-    'primary':    ('#666666', '#eeeeee', 'core metabolism, swept in at the edge'),
+    'primary metabolism': ('#666666', '#eeeeee',
+                           'central metabolism — a chromosomal neighbour, not part of the cluster'),
     'other':      ('#888888', '#f4f4f4', 'not classified'),
 }
 
@@ -1244,8 +1245,8 @@ def build_consensus_clusters_section(consensus_path, transfer_summary_path=None)
             may simply be a neighbour the region boundary caught. <strong>Roles come from
             Pfam accessions, not product text</strong>, so they are computed identically
             whether or not NCBI annotated the assembly — which is why
-            <em>serine hydroxymethyltransferase</em> lands in <code>primary</code> rather
-            than being counted as a tailoring methyltransferase.
+            <em>serine hydroxymethyltransferase</em> lands in <code>primary metabolism</code>
+            rather than being counted as a tailoring methyltransferase.
         </p>
         <p style="color:#555;max-width:72ch;font-size:.92em;">
             A transferred name is an <strong>inference from a homologue, not an
