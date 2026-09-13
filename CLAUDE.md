@@ -1714,6 +1714,69 @@ against the reference on the 181 regions compared), BiG-SCAPE runs on a single-B
 partition, and the DAG resolves. **Not yet verified: a full pipeline run on the
 partitioned path**, which is the remaining gap before trusting it.
 
+### `GCF_ANNOTATION_TRANSFER` — complete a BGC's annotation from its relatives
+
+**The problem it solves.** Only **40.2%** of CDS in the Erwiniaceae run carry an
+informative product, and **170 of 333 regions carry none at all**. Those assemblies
+are GenBank-only, with no functional annotation — the clusters are not bare, they
+are unreadable. Any gene-content metric built on product text is therefore comparing
+NCBI annotation pipelines rather than biology, and it fails *silently*: an
+unannotated cluster scores zero on every functional category and looks minimal.
+
+This was found the hard way. An "elaboration" metric (tailoring + transport genes
+per cluster) appeared to separate the confirmed phosphonolipid from the confirmed
+non-lipid, until GCF-8 scored a perfect zero — not a bare cluster, a genome with
+0/22 products annotated.
+
+**Why transfer works here.** GCF members are homologous by construction, and
+annotation quality across them is extremely uneven: the typical family has a
+*median* member at 0% and a *best* member at 88-100%. One RefSeq-quality genome
+carries the whole family.
+
+| | before | after |
+|---|---:|---:|
+| CDS with an informative product | **40.2%** | **80.2%** |
+
+Per family, the ones that were unusable become usable: GCF-2 29.7 → 80.6, GCF-5
+29.9 → 84.7, GCF-6 29.9 → 81.4, GCF-9 35.1 → 87.7, GCF-7 14.3 → 61.9.
+
+**How.** `diamond blastp` all-vs-all *within* each family (never across), orthologue
+groups by single linkage over edges passing `--min_identity` (50%) and
+**mutual** `--min_coverage` (0.70, both directions — one-sided coverage would accept
+a short fragment aligning inside a long multidomain protein). Consensus product per
+group by majority vote, ties broken toward the longer (more specific) name.
+
+**Validation.**
+
+| control | result |
+|---|---|
+| pepM/Ppd groups get the correct consensus | every family with an annotated one |
+| GCF-2 resolves into coherent groups | 8 groups at prevalence 0.98-1.00 across 215 members |
+| transferred calls resting on a **single** source genome | 127 / 2,074 (**6.1%**) |
+| groups where annotated members disagree | 73 / 313 (23.3%), mostly RefSeq-vs-GenBank synonyms |
+
+The consensus GCF-2 cluster recovers genes LMG 5342's own annotation calls
+"hypothetical" — a GNAT N-acetyltransferase and an ATP-grasp protein among them.
+
+**What it is not: an observation.** A transferred product is an inference from a
+homologue. Every row in `gcf_annotation_transfer.tsv` carries `origin`
+(observed / transferred / none) plus the source genomes, `n_sources`, `n_agree` and
+`n_disagree`. The failure mode is error propagation — one mis-annotated RefSeq gene
+becomes N of them, and the agreement count looks reassuring *because they share a
+single origin*. **`n_sources` is the column that exposes that**; treat a call with
+`n_sources=1` as one genome's opinion, not as consensus.
+
+**Three families gain nothing** (GCF-8, 13, 16 on Erwiniaceae): singletons with no
+annotated relative. They are emitted with `origin=none` so downstream code can
+exclude them rather than read absent annotation as absent genes.
+
+**It does not resolve phosphonolipid vs small molecule.** The two lab-confirmed
+clusters are the worst possible pair for it: GCF-18 is a well-annotated singleton
+(nothing to transfer from) and GCF-11's two members are uniformly half-annotated
+(both missing the same genes — its `NTP_transf_3` CDS is labelled "hypothetical
+protein"). Neither improves. See "Predicting phosphonolipid vs. small molecule is
+unsolved" above.
+
 ### `PEPM_ALL_BY_ALL` — pepM identity vs gene-neighbourhood similarity
 
 Reproduces Yu et al. (PNAS 2013;110(51):20759) Fig. 2B on the run's own data, and answers

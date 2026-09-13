@@ -4,6 +4,7 @@ include { AGGREGATE_TAXONOMY } from '../modules/analysis/aggregate_taxonomy'
 include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
 include { NOVELTY_SCORE } from '../modules/analysis/novelty_score'
+include { GCF_ANNOTATION_TRANSFER } from '../modules/analysis/gcf_annotation_transfer'
 include { PEPM_ALL_BY_ALL } from '../modules/analysis/pepm_all_by_all'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
 
@@ -85,6 +86,22 @@ workflow BGC_ANALYSIS {
                         ['bgc_coupling_annotation.py', 'bgc_gcf_heatmap.py',
                          'bgc_gcf_tree.py', 'bgc_pfam_tree.py', 'utils'])
                 )
+                // Annotation transfer needs family membership, so it runs after
+                // CLUSTERING. Independent of the tree and the all-by-all, so
+                // Nextflow runs all three concurrently.
+                transfer_ch = placeholder('NO_TRANSFER')
+                if (params.annotation_transfer) {
+                    GCF_ANNOTATION_TRANSFER(
+                        taxon,
+                        CLUSTERING.out.bigscape_db,
+                        antismash_results,
+                        Utils.scriptsHash(projectDir,
+                            ['analysis/gcf_annotation_transfer.py'])
+                    )
+                    transfer_ch = GCF_ANNOTATION_TRANSFER.out.per_cds
+                        .ifEmpty(file('NO_TRANSFER'))
+                }
+
                 // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
                 // data and reports whether pepM identity could partition
                 // BiG-SCAPE. Independent of the tree above, so Nextflow runs
