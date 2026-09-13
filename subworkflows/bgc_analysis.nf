@@ -134,6 +134,7 @@ workflow BGC_ANALYSIS {
                     CLUSTERING.out.gcf_data,
                     tabulation_ch,
                     GCF_BIOSYNTHETIC_TREE.out.coupling_support,
+                    CLUSTERING.out.bigscape_db,
                     Utils.scriptsHash(projectDir, ['analysis/novelty_score.py'])
                 )
                 novelty_ch = NOVELTY_SCORE.out.ranking.ifEmpty(file('NO_NOVELTY'))

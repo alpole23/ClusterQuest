@@ -1714,6 +1714,65 @@ against the reference on the 181 regions compared), BiG-SCAPE runs on a single-B
 partition, and the DAG resolves. **Not yet verified: a full pipeline run on the
 partitioned path**, which is the remaining gap before trusting it.
 
+### `NOVELTY_SCORE` — ranking families for laboratory follow-up
+
+`priority = distance x evidence`. They multiply because both are necessary: a maximally
+divergent single truncated region is not a lead.
+
+**The distance axis was reference-biased, and the bias was the whole signal.** The first
+version measured identity to the 7 characterised references. Six of those are
+*Streptomyces*; the one Enterobacterial reference (HvrC) is the pantaphos synthase.
+Measured over all 333 Erwiniaceae regions the identities are bimodal with an empty gap:
+
+```
+22-45%   every Decarboxylase, Reductase and Transaminase family   (n=364)
+         nothing at all between 45.4% and 93.8%
+94-100%  every Synthase family                                    (n=944)
+```
+
+That is a binary readout of *"does a same-taxon reference exist"*. Consequences:
+
+- Ranks 1, 3, 4, 6 and 14 were **all Reductase** — top-ranked only because VlpB
+  (*S. durhamensis*) is the most distant reference in the set.
+- Within a class the value was effectively constant: every Reductase member scored
+  0.75-0.78 regardless of its own sequence. Ranks 5-13 were separated by noise.
+- Two families could not be ranked **at all**, having no coupling class to score.
+
+**Isolation replaces it.** BiG-SCAPE already writes the complete all-pairs distance
+matrix — 55,278 rows for 333 regions, exactly `n(n-1)/2`, no reference set involved.
+Isolation is the **median** over members of that member's smallest distance to any
+region *outside* its family. Median, so one atypical member cannot make a family look
+either connected or isolated.
+
+| check | result |
+|---|---|
+| Spearman rho(isolation, reference divergence) | **-0.17** — carries independent information |
+| Spearman rho(isolation, family size) | -0.45, but singletons mean 0.490 vs multi-member 0.505 and singletons span 0.256-0.861 — **not a size artefact** |
+| families rankable | **19 / 19** (was 17; GCF-16, the single most isolated family in the run at 0.861, was one of the two that could not be ranked) |
+
+**Reference identity is kept, demoted to two jobs.** It is published as context —
+`reference_status`, `reference_pct_id`, `reference_organism` — because seeing
+"23.9% to *Streptomyces durhamensis*" is what tells a reader the number describes the
+reference set rather than the family. And it gates: a family at >= `CHARACTERISED_PCT`
+(60%) has its distance zeroed, because it is a solved cluster whatever its isolation.
+**The threshold sits inside the empty 45.4-93.8% gap, so any value in that range gives
+identical results** — robust, not tuned.
+
+**Effect on the Erwiniaceae ranking:**
+
+| GCF | old rank | new rank | note |
+|---|---:|---:|---|
+| 4 | 7 | **1** | isolation 0.814 |
+| 11 | 12 | **3** | *Winslowiella iniecta* B149 — the cluster the lab independently chose to characterise |
+| 16 | unranked | **7** | most isolated family in the run |
+| 1 | **1** | 9 | Reductase; was top on VlpB distance alone |
+| 9 | 3 | 11 | Reductase |
+| 2 | 17 | 18 | pantaphos — `characterised`, distance zeroed, correctly at the bottom |
+
+GCF-11 rising from 12th to 3rd is worth noting: the lab picked that cluster for
+characterisation on independent grounds, and the unbiased axis agrees with them where
+the reference-based one did not.
+
 ### `GCF_ANNOTATION_TRANSFER` — complete a BGC's annotation from its relatives
 
 **The problem it solves.** Only **40.2%** of CDS in the Erwiniaceae run carry an

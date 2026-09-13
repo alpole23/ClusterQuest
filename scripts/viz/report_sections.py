@@ -905,6 +905,24 @@ def build_pipeline_tab(resource_usage_html, partition_section_html, versions_htm
             {versions_html}'''
 
 
+def _ref_cell(r):
+    """Nearest characterised reference, shown so the reader can judge the number.
+
+    "23.9% to Streptomyces durhamensis" reads very differently from a bare 0.76
+    divergence: it says the reference set has nothing close, which is a statement
+    about the reference set rather than about the family.
+    """
+    status = (r.get('reference_status') or '').strip()
+    pct, org = (r.get('reference_pct_id') or '').strip(), (r.get('reference_organism') or '').strip()
+    if status == 'none for this class':
+        return '<span style="color:#9a6b0f;">no reference for this class</span>'
+    if not pct:
+        return '—'
+    tone = '#166b47' if status == 'characterised' else '#666'
+    org_txt = f' <em>{org}</em>' if org else ''
+    return f'<span style="color:{tone};">{pct}%{org_txt}</span>'
+
+
 def build_priority_section(ranking_path):
     """Gene cluster families ranked by how much they warrant laboratory follow-up.
 
@@ -914,9 +932,13 @@ def build_priority_section(ranking_path):
     visible a reader can disagree with the weighting and re-order by eye: the score
     orders the list, the components justify the order.
 
-    Families whose coupling enzyme matches no characterised class are listed first and
-    carry no score at all. An enzyme resembling nothing described is the strongest
-    novelty signal in the data, and it is the one thing a distance cannot express.
+    Distance is ISOLATION in BiG-SCAPE space -- how far the family sits from everything
+    else in this run -- not distance to a reference. The reference set is 6 Streptomyces
+    enzymes plus one Pantoea, which made the old axis a binary readout of "does a
+    same-taxon reference exist" and put five Reductase families on top purely because
+    VlpB is the most distant reference in the set. The reference columns are still
+    shown, as context: seeing "23.9% to Streptomyces durhamensis" is what tells a reader
+    the number means an absent reference rather than novel chemistry.
     """
     import csv as _csv
     from pathlib import Path as _Path
@@ -926,7 +948,7 @@ def build_priority_section(ranking_path):
     if not rows:
         return ''
 
-    unc = [r for r in rows if r['status'] == 'unclassified']
+    unc = [r for r in rows if r['status'] != 'ranked']
     ranked = [r for r in rows if r['status'] == 'ranked']
 
     def bar(frac, tone):
@@ -950,11 +972,10 @@ def build_priority_section(ranking_path):
             for r in unc)
         unc_html = f'''
         <div style="background:#fdf6e3;border-left:3px solid #9a6b0f;padding:14px 18px;margin:0 0 22px;">
-            <h4 style="margin:0 0 6px;">Unclassifiable coupling enzyme — {len(unc)} famil{'y' if len(unc)==1 else 'ies'}</h4>
+            <h4 style="margin:0 0 6px;">No clustering distances — {len(unc)} famil{'y' if len(unc)==1 else 'ies'}</h4>
             <p style="margin:0 0 10px;color:#555;font-size:.9em;max-width:66ch;">
-                These matched no characterised coupling class, so they carry no distance and
-                are not ranked. That is either a truncated cluster or chemistry with no
-                described analogue — worth a look by hand before anything below.
+                BiG-SCAPE produced no all-pairs distances for these, so there is nothing
+                honest to rank them on. Worth a look by hand.
             </p>
             <table style="border-collapse:collapse;font-size:.9em;">
                 <thead><tr style="background:#f4ead3;">
@@ -983,6 +1004,8 @@ def build_priority_section(ranking_path):
         f'<td style="padding:7px 10px;text-align:right;">{r["genera"]}</td>'
         f'<td style="padding:7px 10px;text-align:right;">{float(r["intact"]):.0%}</td>'
         f'<td style="padding:7px 10px;">{r["coupling_class"]}</td>'
+        f'<td style="padding:7px 10px;font-size:.9em;color:#666;white-space:nowrap;">'
+        f'{_ref_cell(r)}</td>'
         f'</tr>'
         for r in ranked)
 
@@ -990,11 +1013,12 @@ def build_priority_section(ranking_path):
     <div class="section">
         <h3>Priority for Laboratory Follow-Up</h3>
         <p style="color:#555;max-width:70ch;">
-            Families ordered by <strong>distance × evidence</strong>. Distance is how far the
-            coupling enzyme sits from any characterised one; evidence is how confident we can
-            be the family is real rather than an assembly artefact — independent genomes,
-            independent genera, and the share of regions not truncated at a contig edge.
-            They multiply because both are necessary.
+            Families ordered by <strong>distance × evidence</strong>. Distance is
+            <strong>isolation</strong>: how far this family sits from every other family in
+            this run, measured over BiG-SCAPE's all-pairs matrix. Evidence is how confident
+            we can be the family is real rather than an assembly artefact — independent
+            genomes, independent genera, and the share of regions not truncated at a contig
+            edge. They multiply because both are necessary.
         </p>
         <p style="color:#555;max-width:70ch;font-size:.92em;">
             <strong>The components are shown deliberately.</strong> Their weights are reasoned,
@@ -1002,6 +1026,15 @@ def build_priority_section(ranking_path):
             opinion rather than a measurement. Read across the row, not just down the score:
             a family with high distance and low evidence is a different proposition from a
             middling one on both.
+        </p>
+        <p style="color:#555;max-width:70ch;font-size:.92em;">
+            <strong>Why isolation and not distance to a reference.</strong> Six of the seven
+            characterised references are <em>Streptomyces</em>; the one Enterobacterial
+            reference is the pantaphos synthase. Identities against that set are bimodal
+            with nothing between 45% and 94% — a binary readout of whether a same-taxon
+            reference happens to exist, not a novelty gradient. Reference identity is kept
+            in the last column as context, and is used only to zero the distance of a family
+            whose chemistry is already characterised.
         </p>
         {unc_html}
         <div class="table-container">
@@ -1016,6 +1049,7 @@ def build_priority_section(ranking_path):
                 <th style="text-align:right;padding:6px 10px;">Genera</th>
                 <th style="text-align:right;padding:6px 10px;">Intact</th>
                 <th style="text-align:left;padding:6px 10px;">Coupling class</th>
+                <th style="text-align:left;padding:6px 10px;">Nearest reference</th>
             </tr></thead>
             <tbody>{body}</tbody>
         </table>
