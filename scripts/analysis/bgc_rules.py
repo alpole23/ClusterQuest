@@ -163,25 +163,30 @@ def validate(spec, regions=None):
     known = {k['region']: k for k in spec['known_clusters']}
     # A product-class rule must rest on examples that cannot share an explanation by
     # descent. Three lipid rules each fit ONE cluster and inverted; the failure mode is
-    # fitting a single example, so the guard counts independent lineages, not clusters.
+    # fitting a single example, so the guard counts independent lineages. The rule names
+    # its supporting clusters explicitly -- inferring them from the rule id was fragile.
     pc = spec.get('product_class_rules', {})
     need = (pc.get('admission_test') or {}).get('min_independent_lineages', 2)
-    by_class = collections.defaultdict(set)
-    for k in spec['known_clusters']:
-        cls = k['truth'].get('product_class')
-        if cls:
-            by_class[cls].add(k['organism'].split()[0])
+    by_id = {k['id']: k for k in spec['known_clusters']}
     for r in spec['rules']:
         if r.get('tier') != 'product_class':
             continue
-        cls = r['id'].split('_')[0]
-        matched = next((c for c in by_class if c.startswith('phosphono') and cls in c), None)
-        n = len(by_class.get(matched, ())) if matched else 0
-        if n < need:
+        sup = r.get('supported_by')
+        if not sup:
             problems.append(
-                f'rule "{r["id"]}" is a product-class rule but only {n} independent '
-                f'lineage(s) of {matched or cls} are recorded; {need} required. '
-                f'Three prior rules fit a single example and then inverted.')
+                f'rule "{r["id"]}" is a product-class rule and must list the '
+                f'known_clusters it rests on in "supported_by".')
+            continue
+        missing = [c for c in sup if c not in by_id]
+        if missing:
+            problems.append(f'rule "{r["id"]}" cites unknown cluster(s) {missing}')
+            continue
+        lineages = {by_id[c]['organism'].split()[0] for c in sup}
+        if len(lineages) < need:
+            problems.append(
+                f'rule "{r["id"]}" rests on {len(lineages)} independent lineage(s) '
+                f'({", ".join(sorted(lineages))}); {need} required. Three prior rules '
+                f'fit a single example and then inverted.')
 
     if regions:
         for label, reg in regions.items():

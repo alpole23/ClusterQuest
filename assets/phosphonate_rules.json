@@ -13,7 +13,7 @@
     "Every rule carries `rationale` (why it is believed), `source` (where the belief comes",
     "from) and `added`. A rule with no rationale should not be merged."
   ],
-  "version": "1.2",
+  "version": "1.3",
   "updated": "2026-09-14",
   "domain_sets": {
     "pepm": {
@@ -149,7 +149,7 @@
         "CDP-alcohol phosphatidyltransferase",
         "glycerophosphotransferase"
       ],
-      "note": "Attaches the activated phosphonate to its carrier. LicD (PF04991) does this for glycans and is what the Glycomyces phosphonoglycan uses; CDP-alcohol phosphatidyltransferase (PF01066) is the lipid equivalent. LicD has ZERO hits across 333 Erwiniaceae regions -- the glycan route appears to be an actinomycete thing."
+      "note": "Attaches the activated phosphonate to its carrier. LicD (PF04991) does this for glycans and is what the Glycomyces phosphonoglycan uses; CDP-alcohol phosphatidyltransferase (PF01066) is the lipid equivalent. LicD has ZERO hits across 333 Erwiniaceae regions -- the glycan route appears to be an actinomycete thing. NOT NECESSARY: the characterised B. fragilis PS B locus (AF285774) transfers 2-AEP onto its polysaccharide with no LicD at all. Presence of LicD indicates transfer; absence does not exclude it."
     },
     "glycan_carrier": {
       "accessions": [
@@ -169,6 +169,28 @@
         "NAD-dependent epimerase"
       ],
       "note": "Machinery that builds the polysaccharide the phosphonate is attached to. Six or more of these beside a pepM is the phosphonoglycan signature, seen independently in Glycomyces (Actinomycetota) and Bacteroides fragilis (Bacteroidota)."
+    },
+    "aep_transaminase": {
+      "accessions": [
+        "PF00266"
+      ],
+      "product_patterns": [
+        "2-aminoethylphosphonate.*aminotransferase",
+        "aepZ",
+        "PhnW"
+      ],
+      "note": "aepZ-family (class V PLP, PhnW-like) transaminase converting phosphonoacetaldehyde to 2-AEP. This is the enzyme that sets a 2-AEP headgroup. Reference: aepZ from B. fragilis NCTC 9343 PS B locus, AF285774."
+    },
+    "pnaa_reductase": {
+      "accessions": [
+        "PF00465",
+        "PF25137"
+      ],
+      "product_patterns": [
+        "phosphonoacetaldehyde reductase",
+        "iron-containing alcohol dehydrogenase"
+      ],
+      "note": "Reduces phosphonoacetaldehyde to 2-HEP. Sets a 2-HEP headgroup. Seen in Glycomyces KJ125437 and the B. fragilis 2-HEP locus."
     }
   },
   "rules": [
@@ -335,20 +357,49 @@
       "tier": "product_class",
       "verdict": "informational",
       "summary": "pepM with a LicD-family transferase and several glycosyltransferases indicates a phosphonate-decorated polysaccharide.",
-      "rationale": "Two characterised phosphonoglycan loci from DIFFERENT PHYLA show the same module: Glycomyces sp. NRRL B-16210 (Actinomycetota, KJ125437) and Bacteroides fragilis (Bacteroidota, around WP_009292447). Both run pepM -> Ppd -> a reductase to 2-HEP, then a LicD-family protein transfers the phosphonate onto a polysaccharide built by six or more glycosyltransferases. The B. fragilis version is a single 16.2 kb operon, all one strand, gaps of 1-54 bp, led by the capsule antiterminators UpeY/UpxZ. Convergent architecture across two phyla is not a shared-ancestry artefact, which is why this is written as a rule where the lipid rules were not.",
+      "rationale": "Two characterised phosphonoglycan loci from DIFFERENT PHYLA show the same module: Glycomyces sp. NRRL B-16210 (Actinomycetota, KJ125437) and Bacteroides fragilis (Bacteroidota, around WP_009292447). Both run pepM -> Ppd -> a reductase to 2-HEP, then a LicD-family protein transfers the phosphonate onto a polysaccharide built by six or more glycosyltransferases. The B. fragilis version is a single 16.2 kb operon, all one strand, gaps of 1-54 bp, led by the capsule antiterminators UpeY/UpxZ. Convergent architecture across two phyla is not a shared-ancestry artefact, which is why this is written as a rule where the lipid rules were not. REVISED 2026-09-14 on the characterised PS B locus (AF285774): that cluster carries no LicD, so the transferase is NOT required. The signature is the carrier battery itself -- flippase, polymerase and several glycosyltransferases beside a pepM, typically under capsule antiterminators (upbY/upbZ, upeY/upxZ).",
       "source": "Yu et al. J Bacteriol 2014 (KJ125437); B. fragilis locus NZ_CP098482.1; Yu et al. PNAS 2013 groups Bacteroides pepM clusters with capsular polysaccharide loci",
       "added": "2026-09-14",
       "test": {
         "all_domain_sets": [
           "pepm",
-          "phosphonate_transferase",
           "glycan_carrier"
         ]
       },
       "caveats": [
+        "LicD is sufficient but not necessary \u2014 AF285774 has none.",
         "PREDICTS NOTHING IN ERWINIACEAE. LicD (PF04991) has zero hits across all 333 regions, so this rule says there are no phosphonoglycans in that run \u2014 a falsifiable claim, not a vacuous one.",
         "Distinguishes glycan from lipid only by the carrier machinery. A cluster with the transferase but no glycosyltransferases is conjugating something else.",
         "Absence does not exclude a conjugate: the confirmed phosphonolipid carries no transferase at all and relies on host machinery."
+      ],
+      "supported_by": [
+        "glycomyces_b16210_phosphonoglycan",
+        "bacteroides_fragilis_phosphonoglycan",
+        "bfragilis_nctc9343_psb"
+      ]
+    },
+    {
+      "id": "headgroup_from_third_enzyme",
+      "tier": "product_class",
+      "verdict": "informational",
+      "summary": "The enzyme acting after Ppd sets the headgroup: an aepZ-family transaminase gives 2-AEP, a reductase gives 2-HEP.",
+      "rationale": "Three characterised loci agree. B. fragilis NCTC 9343 PS B (AF285774) encodes aepX/aepY/aepZ and its polysaccharide carries 2-AEP on O-4 of the GlcNAc residue. Glycomyces NRRL B-16210 (KJ125437) and a second B. fragilis locus encode a phosphonoacetaldehyde reductase instead, and both make 2-HEP. Same first two steps, different third enzyme, different headgroup.",
+      "source": "AF285774 (PS B, 2-AEP, structure in Baumann et al. via Coyne et al. Infect Immun 1999); KJ125437 (Glycomyces, 2-HEP by 31P NMR/MS)",
+      "added": "2026-09-14",
+      "test": {
+        "any_domain": [
+          "aep_transaminase",
+          "pnaa_reductase"
+        ]
+      },
+      "caveats": [
+        "NEITHER lab-characterised Erwiniaceae cluster has an aepZ orthologue. Measured by DIAMOND against aepZ: no hit at E<1e-3 from GCF-18's Aminotran_1_2 or from either of GCF-11's aminotransferases. GCF-18's is a class I/II aspartate transaminase (PF00155), not the class V PhnW/aepZ family.",
+        "So the confirmed phosphonolipid does NOT use the canonical 2-AEP machinery, and its headgroup should not be assumed to be 2-AEP. The Asn_synthase, Asd and SHMT inside its transposon boundary may be making something else.",
+        "For calibration on the same alignments: GCF-11's pepM is 52.8% identical to aepX and its Ppd 44.0% to aepY, while GCF-18's pepM is only 35.1% to aepX. GCF-11 sits closer to the phosphonoglycan lineage than GCF-18 does."
+      ],
+      "supported_by": [
+        "bfragilis_nctc9343_psb",
+        "glycomyces_b16210_phosphonoglycan"
       ]
     }
   ],
@@ -461,6 +512,19 @@
       "source": "Locus retrieved from RefSeq around WP_009292447 (pepM). Capsular polysaccharide phosphonate modification in B. fragilis: Coyne et al. Infect Immun 1999;67:3525; Yu et al. PNAS 2013 group these Bacteroides pepM clusters with the capsular polysaccharide loci.",
       "confidence": "medium",
       "note": "16 genes, 16.2 kb, ALL same strand, intergenic gaps 1-54 bp with several overlapping -- one tight operon led by the capsule antiterminators UpeY/UpxZ. pepM, Ppd, phosphonoacetaldehyde reductase, flippase, LicD, then six glycosyltransferases plus epimerase, deacetylase and MraY. CAVEAT: this locus encodes a phosphonoacetaldehyde reductase (2-HEP route) and no transaminase, so it is NOT the 2-AEP polysaccharide B locus described in the older literature -- B. fragilis carries several capsular loci and the 2-AEP one may be separate. Recorded as 2-HEP on the gene evidence, at medium confidence."
+    },
+    {
+      "id": "bfragilis_nctc9343_psb",
+      "region": "AF285774.2",
+      "organism": "Bacteroides fragilis NCTC 9343",
+      "truth": {
+        "is_phosphonate_bgc": true,
+        "product_class": "phosphonoglycan",
+        "headgroup": "2-AEP"
+      },
+      "source": "GenBank AF285774.2, 'PS B capsular polysaccharide biosynthesis locus, complete sequence'; structure: 2-aminoethylphosphonate on O-4 of the N-acetyl-glucopyranosyl residue of the PS B repeating unit",
+      "confidence": "high",
+      "note": "34.5 kb, 30 CDS. Phosphonate genes are explicitly named aepX (pepM), aepY (Ppd), aepZ (2-AEP pyruvate aminotransferase), preceded by wcfU (glucose-1-P-cytidylyltransferase, activation) and the upbY/upbZ capsule antiterminators, followed by wzx flippase, six glycosyltransferases and wzy polymerase. NO LicD -- which is why the phosphonoglycan rule no longer requires one."
     }
   ]
 }
