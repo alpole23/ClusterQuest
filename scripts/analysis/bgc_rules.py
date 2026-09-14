@@ -161,16 +161,27 @@ def validate(spec, regions=None):
     problems, notes = [], []
 
     known = {k['region']: k for k in spec['known_clusters']}
+    # A product-class rule must rest on examples that cannot share an explanation by
+    # descent. Three lipid rules each fit ONE cluster and inverted; the failure mode is
+    # fitting a single example, so the guard counts independent lineages, not clusters.
     pc = spec.get('product_class_rules', {})
-    if pc.get('rules'):
-        lipids = [k for k in spec['known_clusters']
-                  if k['truth'].get('product_class') == 'phosphonolipid']
-        if len(lipids) < 3:
+    need = (pc.get('admission_test') or {}).get('min_independent_lineages', 2)
+    by_class = collections.defaultdict(set)
+    for k in spec['known_clusters']:
+        cls = k['truth'].get('product_class')
+        if cls:
+            by_class[cls].add(k['organism'].split()[0])
+    for r in spec['rules']:
+        if r.get('tier') != 'product_class':
+            continue
+        cls = r['id'].split('_')[0]
+        matched = next((c for c in by_class if c.startswith('phosphono') and cls in c), None)
+        n = len(by_class.get(matched, ())) if matched else 0
+        if n < need:
             problems.append(
-                f'product_class_rules contains {len(pc["rules"])} rule(s) but only '
-                f'{len(lipids)} confirmed phosphonolipid(s) exist to test against. '
-                f'Three prior rules fit one example and then inverted. Add examples '
-                f'before adding rules.')
+                f'rule "{r["id"]}" is a product-class rule but only {n} independent '
+                f'lineage(s) of {matched or cls} are recorded; {need} required. '
+                f'Three prior rules fit a single example and then inverted.')
 
     if regions:
         for label, reg in regions.items():

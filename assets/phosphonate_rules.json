@@ -13,7 +13,7 @@
     "Every rule carries `rationale` (why it is believed), `source` (where the belief comes",
     "from) and `added`. A rule with no rationale should not be merged."
   ],
-  "version": "1.1",
+  "version": "1.2",
   "updated": "2026-09-14",
   "domain_sets": {
     "pepm": {
@@ -150,6 +150,25 @@
         "glycerophosphotransferase"
       ],
       "note": "Attaches the activated phosphonate to its carrier. LicD (PF04991) does this for glycans and is what the Glycomyces phosphonoglycan uses; CDP-alcohol phosphatidyltransferase (PF01066) is the lipid equivalent. LicD has ZERO hits across 333 Erwiniaceae regions -- the glycan route appears to be an actinomycete thing."
+    },
+    "glycan_carrier": {
+      "accessions": [
+        "PF00534",
+        "PF00535",
+        "PF13439",
+        "PF13579",
+        "PF00953",
+        "PF04101"
+      ],
+      "product_patterns": [
+        "glycosyltransferase",
+        "glycosyl transferase",
+        "nucleotide sugar dehydrogenase",
+        "polysaccharide deacetylase",
+        "oligosaccharide flippase",
+        "NAD-dependent epimerase"
+      ],
+      "note": "Machinery that builds the polysaccharide the phosphonate is attached to. Six or more of these beside a pepM is the phosphonoglycan signature, seen independently in Glycomyces (Actinomycetota) and Bacteroides fragilis (Bacteroidota)."
     }
   },
   "rules": [
@@ -310,10 +329,31 @@
       "source": "Glycomyces KJ125437 architecture vs VlpB reference; measured across 19 Erwiniaceae families",
       "added": "2026-09-14",
       "effect": "annotate_feadh_role"
+    },
+    {
+      "id": "phosphonoglycan_architecture",
+      "tier": "product_class",
+      "verdict": "informational",
+      "summary": "pepM with a LicD-family transferase and several glycosyltransferases indicates a phosphonate-decorated polysaccharide.",
+      "rationale": "Two characterised phosphonoglycan loci from DIFFERENT PHYLA show the same module: Glycomyces sp. NRRL B-16210 (Actinomycetota, KJ125437) and Bacteroides fragilis (Bacteroidota, around WP_009292447). Both run pepM -> Ppd -> a reductase to 2-HEP, then a LicD-family protein transfers the phosphonate onto a polysaccharide built by six or more glycosyltransferases. The B. fragilis version is a single 16.2 kb operon, all one strand, gaps of 1-54 bp, led by the capsule antiterminators UpeY/UpxZ. Convergent architecture across two phyla is not a shared-ancestry artefact, which is why this is written as a rule where the lipid rules were not.",
+      "source": "Yu et al. J Bacteriol 2014 (KJ125437); B. fragilis locus NZ_CP098482.1; Yu et al. PNAS 2013 groups Bacteroides pepM clusters with capsular polysaccharide loci",
+      "added": "2026-09-14",
+      "test": {
+        "all_domain_sets": [
+          "pepm",
+          "phosphonate_transferase",
+          "glycan_carrier"
+        ]
+      },
+      "caveats": [
+        "PREDICTS NOTHING IN ERWINIACEAE. LicD (PF04991) has zero hits across all 333 regions, so this rule says there are no phosphonoglycans in that run \u2014 a falsifiable claim, not a vacuous one.",
+        "Distinguishes glycan from lipid only by the carrier machinery. A cluster with the transferase but no glycosyltransferases is conjugating something else.",
+        "Absence does not exclude a conjugate: the confirmed phosphonolipid carries no transferase at all and relies on host machinery."
+      ]
     }
   ],
   "product_class_rules": {
-    "_status": "EMPTY BY DESIGN \u2014 awaiting more characterised examples.",
+    "_status": "ONE RULE ADMITTED (phosphonoglycan, on two independent phyla). Lipid rules still blocked at one confirmed example.",
     "_why": [
       "Three rules for separating phosphonolipids from small molecules have been proposed",
       "and all three inverted on the two clusters whose chemistry is known:",
@@ -335,7 +375,13 @@
       "instead of one.",
       "",
       "But the conjugation module still does not separate them: the confirmed lipid has",
-      "neither half of it, and the confirmed non-lipid has both."
+      "neither half of it, and the confirmed non-lipid has both.",
+      "",
+      "Update 2026-09-14 #2, after the B. fragilis locus: the phosphonoGLYCAN case is now",
+      "supported by two characterised loci in DIFFERENT PHYLA with convergent architecture.",
+      "That is a different evidential situation from the lipid rules, every one of which fit",
+      "a single example. The admission test below was changed to reflect it: what matters is",
+      "independent lineages, not raw count."
     ],
     "observations_pending_rules": [
       "The confirmed lipid (GCF-18) pairs Ppd with asparagine synthase and a reverse block containing aspartate-semialdehyde dehydrogenase and serine hydroxymethyltransferase, all inside the transposon boundary.",
@@ -347,7 +393,11 @@
       "Only GCF-5, GCF-10 and GCF-11 carry both an activation step and a transferase, and every member of those three families carries both -- the module travels intact.",
       "GCF-14 is the only family carrying Ppd together with Fe-ADH, making it the sole candidate 2-HEP producer in the run."
     ],
-    "rules": []
+    "rules": [],
+    "admission_test": {
+      "min_independent_lineages": 2,
+      "rationale": "Three lipid rules each fit one example and inverted. The failure mode is fitting a single cluster, so the guard asks for examples that cannot share an explanation by descent \u2014 two different phyla showing the same architecture is evidence; two strains of the same species is not."
+    }
   },
   "known_clusters": [
     {
@@ -398,6 +448,19 @@
       "source": "Yu, Price, Evans & Metcalf, J Bacteriol 2014, doi:10.1128/jb.00036-14",
       "confidence": "high",
       "note": "70.9 kb, 55 CDS. Phosphonate core (pepM, Ppd, Fe-ADH) is contiguous and forward-strand; conjugation is two LicD transferases plus a cytidylyltransferase; the carrier is built by six glycosyltransferases. NOT in the Erwiniaceae dataset -- an actinomycete, and the source of this pipeline's Ppd reference sequence."
+    },
+    {
+      "id": "bacteroides_fragilis_phosphonoglycan",
+      "region": "NZ_CP098482.1:2168000-2185000",
+      "organism": "Bacteroides fragilis 86-5443-2-2",
+      "truth": {
+        "is_phosphonate_bgc": true,
+        "product_class": "phosphonoglycan",
+        "headgroup": "2-HEP"
+      },
+      "source": "Locus retrieved from RefSeq around WP_009292447 (pepM). Capsular polysaccharide phosphonate modification in B. fragilis: Coyne et al. Infect Immun 1999;67:3525; Yu et al. PNAS 2013 group these Bacteroides pepM clusters with the capsular polysaccharide loci.",
+      "confidence": "medium",
+      "note": "16 genes, 16.2 kb, ALL same strand, intergenic gaps 1-54 bp with several overlapping -- one tight operon led by the capsule antiterminators UpeY/UpxZ. pepM, Ppd, phosphonoacetaldehyde reductase, flippase, LicD, then six glycosyltransferases plus epimerase, deacetylase and MraY. CAVEAT: this locus encodes a phosphonoacetaldehyde reductase (2-HEP route) and no transaminase, so it is NOT the 2-AEP polysaccharide B locus described in the older literature -- B. fragilis carries several capsular loci and the 2-AEP one may be separate. Recorded as 2-HEP on the gene evidence, at medium confidence."
     }
   ]
 }
