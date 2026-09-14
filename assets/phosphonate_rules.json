@@ -13,51 +13,145 @@
     "Every rule carries `rationale` (why it is believed), `source` (where the belief comes",
     "from) and `added`. A rule with no rationale should not be merged."
   ],
-
-  "version": "1.0",
-  "updated": "2026-09-13",
-
+  "version": "1.1",
+  "updated": "2026-09-14",
   "domain_sets": {
     "pepm": {
-      "accessions": ["PF13714"],
-      "smcog": ["SMCOG1231"],
-      "note": "Phosphoenolpyruvate phosphomutase — the hallmark. Present in every phosphonate BGC and in nothing else."
+      "accessions": [
+        "PF13714"
+      ],
+      "smcog": [
+        "SMCOG1231"
+      ],
+      "note": "Phosphoenolpyruvate phosphomutase \u2014 the hallmark. Present in every phosphonate BGC and in nothing else."
     },
-    "coupling_synthase":    { "accessions": ["PF00682", "PF22617"], "smcog": ["SMCOG1271"] },
-    "coupling_decarboxylase": { "accessions": ["PF02775", "PF02776"], "smcog": ["SMCOG1055"] },
-    "coupling_reductase":   { "accessions": ["PF00465", "PF25137"] },
-    "coupling_transaminase": { "accessions": ["PF00155"], "smcog": ["SMCOG1019"] },
+    "coupling_synthase": {
+      "accessions": [
+        "PF00682",
+        "PF22617"
+      ],
+      "smcog": [
+        "SMCOG1271"
+      ]
+    },
+    "coupling_decarboxylase": {
+      "accessions": [
+        "PF02775",
+        "PF02776"
+      ],
+      "smcog": [
+        "SMCOG1055"
+      ]
+    },
+    "coupling_reductase": {
+      "accessions": [
+        "PF00465",
+        "PF25137"
+      ]
+    },
+    "coupling_transaminase": {
+      "accessions": [
+        "PF00155"
+      ],
+      "smcog": [
+        "SMCOG1019"
+      ]
+    },
     "mobile_element": {
-      "accessions": ["PF13683", "PF00665", "PF01527", "PF00589", "PF22022",
-                     "PF13356", "PF04754", "PF00717", "PF08775"],
+      "accessions": [
+        "PF13683",
+        "PF00665",
+        "PF01527",
+        "PF00589",
+        "PF22022",
+        "PF13356",
+        "PF04754",
+        "PF00717",
+        "PF08775"
+      ],
       "product_patterns": [
-        "transposase", "integrase", "recombinase", "insertion sequence",
-        "IS[0-9]+ family", "phage", "prophage", "lysogen", "conjugal", "relaxase",
+        "transposase",
+        "integrase",
+        "recombinase",
+        "insertion sequence",
+        "IS[0-9]+ family",
+        "phage",
+        "prophage",
+        "lysogen",
+        "conjugal",
+        "relaxase",
         "mobile element"
       ],
       "note": "Product patterns are REQUIRED, not belt-and-braces. The IS630 transposase that bounds the P. ananatis LMG 5342 phosphonolipid cluster carries no detectable Pfam domain at all; on domains alone the boundary is missed and three housekeeping genes are pulled inside."
     },
     "essential_housekeeping": {
-      "accessions": ["PF01195", "PF01926", "PF06071", "PF00772", "PF03796",
-                     "PF00849", "PF00162", "PF00180"],
+      "accessions": [
+        "PF01195",
+        "PF01926",
+        "PF06071",
+        "PF00772",
+        "PF03796",
+        "PF00849",
+        "PF00162",
+        "PF00180"
+      ],
       "product_patterns": [
-        "peptidyl-tRNA hydrolase", "ribosomal protein", "elongation factor",
-        "DNA polymerase III", "DNA gyrase", "RNA polymerase", "GTP-dependent nucleic acid"
+        "peptidyl-tRNA hydrolase",
+        "ribosomal protein",
+        "elongation factor",
+        "DNA polymerase III",
+        "DNA gyrase",
+        "RNA polymerase",
+        "GTP-dependent nucleic acid"
       ],
       "note": "Genes that are essential everywhere and cannot be pathway-specific. Used as a boundary marker only when no mobile element is available."
     },
     "phosphonate_catabolism": {
-      "accessions": ["PF02597", "PF12697"],
+      "accessions": [
+        "PF02597",
+        "PF12697"
+      ],
       "product_patterns": [
-        "C-P lyase", "phosphonate.*lyase", "phn[GHIJKLM]\\b",
-        "phosphonoacetaldehyde hydrolase", "phosphonatase", "PhnX\\b",
-        "2-aminoethylphosphonate.*transaminase", "PhnW\\b",
-        "phosphonopyruvate hydrolase", "PalA\\b"
+        "C-P lyase",
+        "phosphonate.*lyase",
+        "phn[GHIJKLM]\\b",
+        "phosphonoacetaldehyde hydrolase",
+        "phosphonatase",
+        "PhnX\\b",
+        "2-aminoethylphosphonate.*transaminase",
+        "PhnW\\b",
+        "phosphonopyruvate hydrolase",
+        "PalA\\b"
       ],
       "note": "Degradation and resistance, not biosynthesis. C-P lyase clusters do not carry pepM so the pre-screen already excludes them; PalA acts on the pepM product and can co-occur, which is why it is named explicitly."
+    },
+    "phosphonate_activation": {
+      "accessions": [
+        "PF12804",
+        "PF00483",
+        "PF01909"
+      ],
+      "product_patterns": [
+        "cytidylyltransferase",
+        "nucleotidyltransferase",
+        "CTP.*transferase",
+        "MobA"
+      ],
+      "note": "Activates the phosphonate as a CDP- (or other NDP-) conjugate so it can be transferred onto a carrier. In the Glycomyces phosphonoglycan locus this is a 2-C-methyl-D-erythritol 4-phosphate cytidylyltransferase sitting beside the LicD transferases."
+    },
+    "phosphonate_transferase": {
+      "accessions": [
+        "PF04991",
+        "PF01066"
+      ],
+      "product_patterns": [
+        "LicD",
+        "CDP-alcohol phosphatidyltransferase",
+        "glycerophosphotransferase"
+      ],
+      "note": "Attaches the activated phosphonate to its carrier. LicD (PF04991) does this for glycans and is what the Glycomyces phosphonoglycan uses; CDP-alcohol phosphatidyltransferase (PF01066) is the lipid equivalent. LicD has ZERO hits across 333 Erwiniaceae regions -- the glycan route appears to be an actinomycete thing."
     }
   },
-
   "rules": [
     {
       "id": "pepm_present",
@@ -67,7 +161,9 @@
       "rationale": "PEP mutase catalyses the C-P bond-forming step and is the committed entry point to all phosphonate biosynthesis. No pepM, no phosphonate pathway. It is also specific: across 2,771 Erwiniaceae genomes the pepM screen recovered 298/298 known-positive regions with 8 false positives.",
       "source": "Metcalf & van der Donk 2009 Annu Rev Biochem; validated in-pipeline 2026-09-09",
       "added": "2026-09-13",
-      "test": { "any_domain": "pepm" }
+      "test": {
+        "any_domain": "pepm"
+      }
     },
     {
       "id": "coupling_enzyme_present",
@@ -77,10 +173,15 @@
       "rationale": "Phosphonopyruvate is unstable and reverts to PEP unless it is committed by a downstream enzyme. The coupling enzyme is the branch point that decides which product class the pathway makes, so a cluster with pepM and no coupling enzyme is either truncated or not a producing pathway.",
       "source": "Pipeline coupling-enzyme classification; four classes observed across Erwiniaceae",
       "added": "2026-09-13",
-      "test": { "any_domain": ["coupling_synthase", "coupling_decarboxylase",
-                               "coupling_reductase", "coupling_transaminase"] }
+      "test": {
+        "any_domain": [
+          "coupling_synthase",
+          "coupling_decarboxylase",
+          "coupling_reductase",
+          "coupling_transaminase"
+        ]
+      }
     },
-
     {
       "id": "mobile_element_boundary",
       "tier": "boundary",
@@ -89,11 +190,14 @@
       "rationale": "Phosphonate BGCs in Enterobacterales are horizontally acquired, and the mobile elements that moved them are still present at the edges. antiSMASH's own region boundary is generous and sweeps in chromosomal neighbours, so the transposons are the better boundary. Demonstrated on P. ananatis LMG 5342 region 2, where transposon-to-transposon isolates exactly pepM, Ppd, Asn_synthase, Asd, SHMT and the transaminase, and excludes peptidyl-tRNA hydrolase, EngD and an MgtE transporter.",
       "source": "User (lab), 2026-09-13; verified against GCF-18 and GCF-6",
       "added": "2026-09-13",
-      "applies_when": { "any_domain": "mobile_element", "flanking_core": true },
+      "applies_when": {
+        "any_domain": "mobile_element",
+        "flanking_core": true
+      },
       "effect": "restrict_to_span",
       "caveats": [
         "Only about half of families carry a usable mobile element; GCF-11 and GCF-2 have none.",
-        "Detection MUST include product-name matching — the IS630 element bounding GCF-18 has no Pfam domain.",
+        "Detection MUST include product-name matching \u2014 the IS630 element bounding GCF-18 has no Pfam domain.",
         "A region truncated at a contig edge has no boundary on the truncated side (see contig_edge_guard)."
       ]
     },
@@ -105,7 +209,9 @@
       "rationale": "Fallback for the ~half of clusters with no flanking transposon. A gene that is essential in every genome cannot be pathway-specific, so the first essential gene outside the core block is the outer limit. Weaker than the mobile-element boundary because it only bounds where such a gene happens to sit.",
       "source": "Complement of mobile_element_boundary; agrees with it on GCF-18",
       "added": "2026-09-13",
-      "applies_when": { "no_domain": "mobile_element" },
+      "applies_when": {
+        "no_domain": "mobile_element"
+      },
       "effect": "exclude_beyond_essential"
     },
     {
@@ -116,9 +222,10 @@
       "rationale": "Boundary and completeness rules assume both edges of the cluster were sequenced. antiSMASH records contig_edge; where it is true, absence of a gene is uninformative and the cluster must not be called incomplete on that basis.",
       "source": "antiSMASH region feature; already tracked in region_tabulation.tsv",
       "added": "2026-09-13",
-      "test": { "contig_edge": false }
+      "test": {
+        "contig_edge": false
+      }
     },
-
     {
       "id": "not_catabolic",
       "tier": "exclusion",
@@ -127,18 +234,23 @@
       "rationale": "C-P lyase operons and phosphonatase/PhnW-PhnX systems break C-P bonds rather than making them, and phosphonopyruvate hydrolase (PalA) consumes the pepM product. A locus whose only phosphonate-related content is catabolic is not a biosynthetic BGC even if a pepM sits nearby. Note C-P lyase clusters do not themselves carry pepM, so this mainly guards against mixed loci.",
       "source": "Metcalf & Wanner 1991; McGrath et al. 2013 Nat Rev Microbiol",
       "added": "2026-09-13",
-      "test": { "not_dominated_by": "phosphonate_catabolism" }
+      "test": {
+        "not_dominated_by": "phosphonate_catabolism"
+      }
     },
-
     {
       "id": "minimum_pathway",
       "tier": "completeness",
       "verdict": "informational",
       "summary": "A producing cluster encodes pepM, a coupling enzyme, and at least one tailoring step inside the boundary.",
-      "rationale": "pepM plus a coupling enzyme reaches a simple phosphonate; without any further chemistry the locus may be a fragment, a headgroup pathway, or a relic. This is a flag rather than a requirement precisely because a phosphonolipid headgroup pathway is expected to be minimal — a low score here is a question, not a disqualification.",
+      "rationale": "pepM plus a coupling enzyme reaches a simple phosphonate; without any further chemistry the locus may be a fragment, a headgroup pathway, or a relic. This is a flag rather than a requirement precisely because a phosphonolipid headgroup pathway is expected to be minimal \u2014 a low score here is a question, not a disqualification.",
       "source": "Observed range across 19 Erwiniaceae families: 0-13 distinct tailoring domains",
       "added": "2026-09-13",
-      "test": { "min_role_count": { "tailoring": 1 } }
+      "test": {
+        "min_role_count": {
+          "tailoring": 1
+        }
+      }
     },
     {
       "id": "divergent_pair_allowance",
@@ -149,11 +261,59 @@
       "source": "User (lab) 2026-09-13; measured across 333 Erwiniaceae regions",
       "added": "2026-09-13",
       "effect": "do_not_split_on_strand"
+    },
+    {
+      "id": "conjugation_module_present",
+      "tier": "architecture",
+      "verdict": "informational",
+      "summary": "The cluster encodes its own phosphonate-conjugation module: an activation step plus a transferase.",
+      "rationale": "The Glycomyces sp. NRRL B-16210 phosphonoglycan locus (KJ125437) shows the complete architecture: pepM, Ppd and an Fe-ADH make 2-HEP, a cytidylyltransferase activates it, and two LicD transferases attach it to the glycan, alongside six glycosyltransferases building the carrier. Where both halves are present the cluster does not depend on host machinery to conjugate its product. On Erwiniaceae exactly three families carry both, and every member of those families carries both: GCF-5 (26), GCF-10 (3), GCF-11 (2).",
+      "source": "Yu, Price, Evans & Metcalf, J Bacteriol 2014, doi:10.1128/jb.00036-14 (GenBank KJ125437)",
+      "added": "2026-09-14",
+      "test": {
+        "all_domain_sets": [
+          "phosphonate_activation",
+          "phosphonate_transferase"
+        ]
+      },
+      "caveats": [
+        "This describes ARCHITECTURE, not product class. It says the cluster can conjugate its own phosphonate; it does not say whether the carrier is a lipid, a glycan or something else.",
+        "ABSENCE IS NOT EVIDENCE OF A FREE SMALL MOLECULE. The confirmed phosphonolipid (P. ananatis LMG 5342 region 2) has NEITHER half and is still a lipid \u2014 its conjugation must be done by host machinery outside the cluster.",
+        "The confirmed NON-lipid (Winslowiella iniecta B149) has the complete module. Whatever it conjugates is not a lipid."
+      ]
+    },
+    {
+      "id": "hep_reduction_route",
+      "tier": "pathway",
+      "verdict": "informational",
+      "summary": "Ppd together with an Fe-ADH indicates a 2-hydroxyethylphosphonate (2-HEP) headgroup.",
+      "rationale": "In the Glycomyces phosphonoglycan cluster pepM, Ppd and an iron-containing alcohol dehydrogenase sit contiguous and co-oriented, and the characterised headgroup is 2-HEP: Ppd decarboxylates phosphonopyruvate to phosphonoacetaldehyde and the Fe-ADH reduces that aldehyde to the alcohol. This is the same logic as FomC in fosfomycin biosynthesis.",
+      "source": "Yu et al. J Bacteriol 2014; headgroup confirmed by 31P NMR and MS",
+      "added": "2026-09-14",
+      "test": {
+        "all_domain_sets": [
+          "coupling_decarboxylase",
+          "coupling_reductase"
+        ]
+      },
+      "caveats": [
+        "Exactly one Erwiniaceae family carries both: GCF-14, a single region, which is therefore a candidate 2-HEP producer. It already ranks 4th on novelty.",
+        "Do not read Fe-ADH alone this way \u2014 see feadh_role_depends_on_ppd."
+      ]
+    },
+    {
+      "id": "feadh_role_depends_on_ppd",
+      "tier": "pathway",
+      "verdict": "informational",
+      "summary": "Fe-ADH is the coupling enzyme only when Ppd is absent; with Ppd present it acts downstream.",
+      "rationale": "Fe-ADH has two distinct roles in phosphonate biosynthesis. Without Ppd it is phosphonopyruvate reductase (VlpB-like), acting on phosphonopyruvate to give phosphonolactate \u2014 a coupling enzyme. With Ppd present, Ppd takes the phosphonopyruvate and the Fe-ADH instead reduces the resulting phosphonoacetaldehyde to 2-HEP \u2014 a tailoring step. The pipeline's classifier already checks SMCOG1055/TPP before Fe-ADH, so it calls these clusters Decarboxylase, which is the correct coupling assignment; this rule records WHY, so the priority order is not 'simplified' later.",
+      "source": "Glycomyces KJ125437 architecture vs VlpB reference; measured across 19 Erwiniaceae families",
+      "added": "2026-09-14",
+      "effect": "annotate_feadh_role"
     }
   ],
-
   "product_class_rules": {
-    "_status": "EMPTY BY DESIGN — awaiting more characterised examples.",
+    "_status": "EMPTY BY DESIGN \u2014 awaiting more characterised examples.",
     "_why": [
       "Three rules for separating phosphonolipids from small molecules have been proposed",
       "and all three inverted on the two clusters whose chemistry is known:",
@@ -165,23 +325,39 @@
       "     the confirmed NON-lipid, inside its core operon, and absent from the confirmed lipid.",
       "",
       "With one confirmed positive, any rule written here will fit and then break. Nothing goes",
-      "in this section until there are at least three characterised lipids to test against."
+      "in this section until there are at least three characterised lipids to test against.",
+      "",
+      "Update 2026-09-14, after the Glycomyces phosphonoglycan (KJ125437): the useful",
+      "distinction may not be lipid-vs-small-molecule at all. A phosphonolipid and a",
+      "phosphonoglycan are both CONJUGATES -- a simple headgroup attached to a carrier --",
+      "and differ from a free bioactive small molecule like pantaphos in pathway shape, not",
+      "just in product. Reframing the question that way is supported by three clusters",
+      "instead of one.",
+      "",
+      "But the conjugation module still does not separate them: the confirmed lipid has",
+      "neither half of it, and the confirmed non-lipid has both."
     ],
     "observations_pending_rules": [
       "The confirmed lipid (GCF-18) pairs Ppd with asparagine synthase and a reverse block containing aspartate-semialdehyde dehydrogenase and serine hydroxymethyltransferase, all inside the transposon boundary.",
       "The confirmed non-lipid (GCF-11) pairs Ppd with an NTP transferase, a sugar dehydrogenase and a CDP-alcohol phosphatidyltransferase.",
       "A typical Ppd family (GCF-6) carries asparagine synthase like the lipid, but adds an acyl carrier protein that neither characterised cluster has.",
-      "Both characterised clusters run the same route: pepM, Ppd, class-I aminotransferase. The distinguishing chemistry is downstream and is not marked by any single domain tested so far."
+      "Both characterised clusters run the same route: pepM, Ppd, class-I aminotransferase. The distinguishing chemistry is downstream and is not marked by any single domain tested so far.",
+      "Glycomyces phosphonoglycan (KJ125437): pepM + Ppd + Fe-ADH make 2-HEP; a cytidylyltransferase activates it; two LicD proteins transfer it; six glycosyltransferases build the carrier. A fully self-contained conjugation pathway.",
+      "LicD (PF04991) has zero hits across 333 Erwiniaceae regions, so the glycan-transfer route seen in actinomycetes does not occur in this dataset.",
+      "Only GCF-5, GCF-10 and GCF-11 carry both an activation step and a transferase, and every member of those three families carries both -- the module travels intact.",
+      "GCF-14 is the only family carrying Ppd together with Fe-ADH, making it the sole candidate 2-HEP producer in the run."
     ],
     "rules": []
   },
-
   "known_clusters": [
     {
       "id": "pantoea_lmg5342_r2",
       "region": "HE617160.1.region002",
       "organism": "Pantoea ananatis LMG 5342",
-      "truth": { "is_phosphonate_bgc": true, "product_class": "phosphonolipid" },
+      "truth": {
+        "is_phosphonate_bgc": true,
+        "product_class": "phosphonolipid"
+      },
       "source": "lab characterisation, unpublished",
       "confidence": "high",
       "note": "Second phosphonate BGC in the same genome as pantaphos. Transposon-bounded, 6 genes."
@@ -190,7 +366,10 @@
       "id": "winslowiella_b149",
       "region": "JRXF01000012.1.region001",
       "organism": "Winslowiella iniecta B149",
-      "truth": { "is_phosphonate_bgc": true, "product_class": "not_phosphonolipid" },
+      "truth": {
+        "is_phosphonate_bgc": true,
+        "product_class": "not_phosphonolipid"
+      },
       "source": "lab characterisation, chemistry known, unpublished",
       "confidence": "high",
       "note": "Same pepM/Ppd/aminotransferase route as the lipid above. Carries PF01066, which is why that domain cannot mark a lipid."
@@ -199,10 +378,26 @@
       "id": "pantoea_lmg5342_r1_pantaphos",
       "region": "HE617160.1.region001",
       "organism": "Pantoea ananatis LMG 5342",
-      "truth": { "is_phosphonate_bgc": true, "product_class": "small_molecule" },
-      "source": "published — pantaphos, herbicidal phosphonate",
+      "truth": {
+        "is_phosphonate_bgc": true,
+        "product_class": "small_molecule"
+      },
+      "source": "published \u2014 pantaphos, herbicidal phosphonate",
       "confidence": "high",
       "note": "Synthase route. The reference HvrC comes from this cluster, which is why every Synthase family scores ~100% identity to it."
+    },
+    {
+      "id": "glycomyces_b16210_phosphonoglycan",
+      "region": "KJ125437",
+      "organism": "Glycomyces sp. NRRL B-16210",
+      "truth": {
+        "is_phosphonate_bgc": true,
+        "product_class": "phosphonoglycan",
+        "headgroup": "2-HEP"
+      },
+      "source": "Yu, Price, Evans & Metcalf, J Bacteriol 2014, doi:10.1128/jb.00036-14",
+      "confidence": "high",
+      "note": "70.9 kb, 55 CDS. Phosphonate core (pepM, Ppd, Fe-ADH) is contiguous and forward-strand; conjugation is two LicD transferases plus a cytidylyltransferase; the carrier is built by six glycosyltransferases. NOT in the Erwiniaceae dataset -- an actinomycete, and the source of this pipeline's Ppd reference sequence."
     }
   ]
 }

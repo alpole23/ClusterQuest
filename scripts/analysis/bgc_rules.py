@@ -101,6 +101,9 @@ def evaluate(region, spec, sets):
             verdict = any(gene_matches(g, sets, t['any_domain']) for g in genes)
         elif 'no_domain' in t:
             verdict = not any(gene_matches(g, sets, t['no_domain']) for g in genes)
+        elif 'all_domain_sets' in t:
+            verdict = all(any(gene_matches(g, sets, n) for g in genes)
+                          for n in t['all_domain_sets'])
         elif 'min_role_count' in t:
             counts = collections.Counter(g['role'] for g in region.get('inside', genes))
             verdict = all(counts.get(k, 0) >= v for k, v in t['min_role_count'].items())
