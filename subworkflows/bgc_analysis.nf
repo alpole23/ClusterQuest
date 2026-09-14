@@ -5,6 +5,7 @@ include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
 include { NOVELTY_SCORE } from '../modules/analysis/novelty_score'
 include { GCF_ANNOTATION_TRANSFER } from '../modules/analysis/gcf_annotation_transfer'
+include { HEADGROUP_PREDICTION } from '../modules/analysis/headgroup_prediction'
 include { PEPM_ALL_BY_ALL } from '../modules/analysis/pepm_all_by_all'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
 
@@ -72,6 +73,7 @@ workflow BGC_ANALYSIS {
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
             novelty_ch              = placeholder('NO_NOVELTY')
+            headgroup_ch            = placeholder('NO_HEADGROUP')
             consensus_ch            = placeholder('NO_CONSENSUS')
             transfer_summary_ch     = placeholder('NO_TRANSFER_SUMMARY')
             pepm_svg_ch             = placeholder('NO_PEPM_SVG')
@@ -104,6 +106,19 @@ workflow BGC_ANALYSIS {
                     transfer_summary_ch = GCF_ANNOTATION_TRANSFER.out.summary
                         .ifEmpty(file('NO_TRANSFER_SUMMARY'))
                 }
+
+                // Headgroup prediction: 2-AEP vs 2-HEP, from the enzyme acting
+                // after Ppd. Needs family membership, so it runs after CLUSTERING.
+                HEADGROUP_PREDICTION(
+                    taxon,
+                    CLUSTERING.out.bigscape_db,
+                    antismash_results,
+                    file("${projectDir}/assets/reference_sequences/reference_headgroup_enzymes.faa"),
+                    Utils.scriptsHash(projectDir,
+                        ['analysis/headgroup_prediction.py', 'utils'])
+                )
+                headgroup_ch = HEADGROUP_PREDICTION.out.prediction
+                    .ifEmpty(file('NO_HEADGROUP'))
 
                 // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
                 // data and reports whether pepM identity could partition
