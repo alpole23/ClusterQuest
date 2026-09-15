@@ -25,7 +25,8 @@ workflow ANTISMASH_ANALYSIS {
         // pepM pre-screen. A genome with no PEP mutase cannot carry a phosphonate
         // BGC, and finding out costs ~0.9 CPU-s against antiSMASH's 41.4. Measured
         // on Erwiniaceae: keeps 11.0% of genomes, loses none of the 298 BGC-positive.
-        // Off by default because it *removes* genomes from the analysis.
+        // On by default since 2026-09-09; set --pepm_prescreen false to send every
+        // genome to antiSMASH.
         prescreen_report_ch = Channel.empty()
         if (params.pepm_prescreen) {
             PEPM_MAKEDB(file("${projectDir}/assets/reference_sequences/reference_pepM.faa"))
