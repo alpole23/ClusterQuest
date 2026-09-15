@@ -125,6 +125,29 @@ check "nested file copied" \
     "$([ -f "$SCRATCH/out/antismash_results/Test_taxon/Genome_A/nested/deep.txt" ] && echo yes || echo no)" "yes"
 
 
+# --- batch composition is independent of arrival order ---------------------
+echo ""
+echo "=== Deterministic batching ==="
+if command -v nextflow >/dev/null 2>&1; then
+    DET=$(cd "$PROJECT_DIR" && nextflow run tests/test_batch_determinism.nf \
+        -profile local 2>&1 || true)
+    FWD=$(echo "$DET" | grep -oE "FWD<[^>]*>" | sed 's/FWD//' | sort | md5sum)
+    REV=$(echo "$DET" | grep -oE "REV<[^>]*>" | sed 's/REV//' | sort | md5sum)
+    TFWD=$(echo "$DET" | grep -oE "TFWD<[^>]*>" | sort | sed 's/TFWD//' | md5sum)
+    TREV=$(echo "$DET" | grep -oE "TREV<[^>]*>" | sort | sed 's/TREV//' | md5sum)
+    RAW=$(echo "$DET" | grep -oE "RAW<[^>]*>" | sed 's/RAW//' | sort | md5sum)
+    [ -n "$(echo "$DET" | grep -oE 'FWD<')" ] && pass "batching ran" || fail "batching ran"
+    [ "$FWD" = "$REV" ] && pass "file batches order-independent" \
+                        || fail "file batches order-independent"
+    [ "$TFWD" = "$TREV" ] && pass "tuple batches order-independent" \
+                          || fail "tuple batches order-independent"
+    # the guard is only meaningful if unsorted collate really does differ
+    [ "$FWD" != "$RAW" ] && pass "unsorted collate does differ (guard is live)" \
+                         || fail "unsorted collate does differ (guard is live)"
+else
+    skip "deterministic batching" "nextflow not available"
+fi
+
 # --- GFF3 pairing keeps dotted genome names --------------------------------
 echo ""
 echo "=== Recovered-ORF GFF3 pairing ==="

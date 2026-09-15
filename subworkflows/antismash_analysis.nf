@@ -3,7 +3,7 @@ include { GET_ANTISMASH_VERSION; ANTISMASH } from '../modules/analysis/antismash
 include { CHECK_ANTISMASH_REUSE; COPY_ANTISMASH_RESULT } from '../modules/analysis/check_antismash_reuse'
 include { PEPM_MAKEDB; PEPM_PRESCREEN } from '../modules/analysis/pepm_prescreen'
 include { BUILD_PROTEIN_POOL; RECOVER_ORFS } from '../modules/genome/recover_orfs'
-include { batchSize; antismashBatchSize; pepmBatchSize; placeholder } from './helpers'
+include { batchSize; antismashBatchSize; pepmBatchSize; placeholder; sortedBatches; sortedTupleBatches } from './helpers'
 
 /*
  * Subworkflow: Run antiSMASH on genomes (with optional result reuse)
@@ -33,7 +33,7 @@ workflow ANTISMASH_ANALYSIS {
             PEPM_MAKEDB(file("${projectDir}/assets/reference_sequences/reference_pepM.faa"))
             PEPM_PRESCREEN(
                 taxon,
-                renamed_genomes.collate(pepmBatchSize()),
+                sortedBatches(renamed_genomes, pepmBatchSize()),
                 PEPM_MAKEDB.out.db,
                 Utils.scriptsHash(projectDir, ['analysis/pepm_prescreen.py'])
             )
@@ -69,7 +69,7 @@ workflow ANTISMASH_ANALYSIS {
             )
             RECOVER_ORFS(
                 taxon,
-                renamed_genomes.collate(pepmBatchSize()),
+                sortedBatches(renamed_genomes, pepmBatchSize()),
                 BUILD_PROTEIN_POOL.out.pool,
                 Utils.scriptsHash(projectDir, ['genome/recover_orfs.py'])
             )
@@ -110,7 +110,7 @@ workflow ANTISMASH_ANALYSIS {
             // Run antiSMASH on genomes that need it
             run_batches = genomes_to_run.map { g -> tuple(g.baseName, g) }
                 .join(paired_ch.map { n, g, f -> tuple(n, f) })
-                .collate(antismashBatchSize())
+            run_batches = sortedTupleBatches(run_batches, antismashBatchSize())
             ANTISMASH(taxon,
                       run_batches.map { rows -> rows.collect { it[1] } },
                       run_batches.map { rows -> rows.collect { it[2] } },
@@ -118,7 +118,7 @@ workflow ANTISMASH_ANALYSIS {
 
             // Copy reused results in batches (each copy is ~1 s — one job per genome
             // is almost entirely scheduler overhead)
-            COPY_ANTISMASH_RESULT(taxon, genomes_to_reuse.collate(batchSize()))
+            COPY_ANTISMASH_RESULT(taxon, sortedTupleBatches(genomes_to_reuse, batchSize()))
 
             // Combine all results
             antismash_results = ANTISMASH.out.result_dir.flatten()
@@ -126,7 +126,7 @@ workflow ANTISMASH_ANALYSIS {
                 .collect()
         } else {
             // === NORMAL MODE ===
-            batches = paired_ch.collate(antismashBatchSize())
+            batches = sortedTupleBatches(paired_ch, antismashBatchSize())
             ANTISMASH(taxon,
                       batches.map { rows -> rows.collect { it[1] } },
                       batches.map { rows -> rows.collect { it[2] } },
