@@ -218,6 +218,23 @@ def main():
     records = {r.id: r for r in SeqIO.parse(str(a.genome), 'genbank')}
     if not records:
         sys.exit(f'no records in {a.genome}')
+
+    # A genome with NO annotation at all needs nothing from us: that is precisely the
+    # case antiSMASH handles itself, since it runs its own gene finder on records with
+    # zero CDS features. Recovering them here duplicates that work at 20-130x the cost,
+    # because the whole genome counts as a gap and the homology pass then scans ~4.9 Mb
+    # against the full protein pool.
+    #
+    # Measured on the Erwiniaceae screened set: annotated genomes take 8-11 s each,
+    # zero-CDS genomes 194-1,320 s. They are 154 of 307 genomes (50%) and would have
+    # taken the stage from ~26 min to ~14.5 h.
+    n_cds = sum(1 for r in records.values() for f in r.features if f.type == 'CDS')
+    if n_cds == 0:
+        a.out.write_text('##gff-version 3\n')
+        print(f'{a.genome.name}: no existing annotation, leaving it to antiSMASH '
+              f'(which runs its own gene finder on zero-CDS records)')
+        return
+
     a.workdir.mkdir(parents=True, exist_ok=True)
 
     fasta = a.workdir / 'genome.fna'
