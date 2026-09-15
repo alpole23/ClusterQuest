@@ -91,10 +91,17 @@ TAILORING = {
 # ─── Lipid handling ──────────────────────────────────────────────────────────
 # Kept as its own category rather than folded into tailoring, because whether a
 # phosphonate BGC makes a lipid or a small molecule is an open question here and
-# these are the domains that would bear on it. NOTE the confirmed phosphonolipid
-# cluster (P. ananatis LMG 5342 region 2) carries NONE of these: the headgroup is
-# made by the BGC and conjugated by the cell's general lipid machinery. Presence is
-# informative; absence is not evidence against a lipid product.
+# these are the domains that would bear on it.
+#
+# CORRECTED 2026-09-15. This note used to say the confirmed phosphonolipid
+# (P. ananatis LMG 5342 region 2) carried NONE of these, and reasoned from that to
+# "the BGC makes the headgroup and the cell conjugates it". Both were wrong. The
+# cluster carries TWO copies of PF01066 — they were among the nine genes its 2012
+# GenBank deposit never called, invisible until RECOVER_ORFS rebuilt them.
+#
+# The corrected picture is less convenient: the confirmed NON-lipid carries PF01066
+# too, so presence marks a cluster that conjugates its product to something, not a
+# lipid specifically. See assets/phosphonate_rules.json.
 # NOTE only PF01066 is exercised by the Erwiniaceae data (42 hits). The other three
 # have ZERO hits there — they are forward-looking entries for datasets that carry
 # them, and nothing about this category has been tested beyond the one domain.

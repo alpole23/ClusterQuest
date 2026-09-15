@@ -11,10 +11,26 @@
     "known cluster now fails loudly instead of quietly shipping.",
     "",
     "Every rule carries `rationale` (why it is believed), `source` (where the belief comes",
-    "from) and `added`. A rule with no rationale should not be merged."
+    "from) and `added`. A rule with no rationale should not be merged.",
+    "",
+    "=== 2026-09-15: THREE RULES WERE WRONG FOR ONE REASON ===",
+    "Every inverted phosphonolipid rule in this file's history was fitted to",
+    "P. ananatis LMG 5342 region 2 as its 2012 GenBank deposit described it -- 6 of the",
+    "cluster's 15 genes. antiSMASH runs its own gene finder only on records with ZERO CDS,",
+    "so the missing 9 were invisible to every metric built on top of them.",
+    "",
+    "RECOVER_ORFS now rebuilds them before antiSMASH. The cluster reads completely",
+    "differently, and the caveats below that said it lacked a conjugation module, lacked",
+    "an aepZ-family transaminase, or carried no lipid domains were ALL artefacts of the",
+    "gap. It carries a class-V transaminase, a cytidylyltransferase and TWO CDP-alcohol",
+    "phosphatidyltransferases.",
+    "",
+    "The lesson is not 'be more careful fitting rules'. It is that a rule fitted to a",
+    "single example tests the annotation as much as the biology, and this file's",
+    "admission guard (two independent lineages) exists for that reason."
   ],
-  "version": "1.3",
-  "updated": "2026-09-14",
+  "version": "2.0",
+  "updated": "2026-09-15",
   "domain_sets": {
     "pepm": {
       "accessions": [
@@ -149,7 +165,7 @@
         "CDP-alcohol phosphatidyltransferase",
         "glycerophosphotransferase"
       ],
-      "note": "Attaches the activated phosphonate to its carrier. LicD (PF04991) does this for glycans and is what the Glycomyces phosphonoglycan uses; CDP-alcohol phosphatidyltransferase (PF01066) is the lipid equivalent. LicD has ZERO hits across 333 Erwiniaceae regions -- the glycan route appears to be an actinomycete thing. NOT NECESSARY: the characterised B. fragilis PS B locus (AF285774) transfers 2-AEP onto its polysaccharide with no LicD at all. Presence of LicD indicates transfer; absence does not exclude it."
+      "note": "Attaches the activated phosphonate to its carrier. LicD (PF04991) does this for glycans and is what the Glycomyces phosphonoglycan uses; CDP-alcohol phosphatidyltransferase (PF01066) is the lipid equivalent. NOT NECESSARY: the characterised B. fragilis PS B locus transfers 2-AEP with no LicD at all. CORRECTED 2026-09-15: an earlier note here claimed the confirmed phosphonolipid carried none of these. It carries two copies of PF01066 -- they were among the nine genes its submitted annotation omitted."
     },
     "glycan_carrier": {
       "accessions": [
@@ -319,8 +335,9 @@
       },
       "caveats": [
         "This describes ARCHITECTURE, not product class. It says the cluster can conjugate its own phosphonate; it does not say whether the carrier is a lipid, a glycan or something else.",
-        "ABSENCE IS NOT EVIDENCE OF A FREE SMALL MOLECULE. The confirmed phosphonolipid (P. ananatis LMG 5342 region 2) has NEITHER half and is still a lipid \u2014 its conjugation must be done by host machinery outside the cluster.",
-        "The confirmed NON-lipid (Winslowiella iniecta B149) has the complete module. Whatever it conjugates is not a lipid."
+        "CORRECTED 2026-09-15. This rule previously carried the opposite caveat -- that the confirmed phosphonolipid had NEITHER half and was still a lipid. That was an annotation artefact. With its genes recovered it has both halves, which makes the rule better supported than when it was written.",
+        "IT STILL DOES NOT SEPARATE LIPID FROM NON-LIPID. Both lab-characterised Erwiniaceae clusters carry the complete module: LMG 5342 region 2 (a lipid) has 1 cytidylyltransferase and 2 CDP-alcohol phosphatidyltransferases, and Winslowiella iniecta B149 (not a lipid) has 1 of each. The only differences are copy number and one extra NTP_transferase, and with one example of each class those are not signal.",
+        "So the honest reading is: the module marks a cluster that conjugates its product to SOMETHING. What that something is remains unresolved."
       ]
     },
     {
@@ -393,9 +410,9 @@
         ]
       },
       "caveats": [
-        "NEITHER lab-characterised Erwiniaceae cluster has an aepZ orthologue. Measured by DIAMOND against aepZ: no hit at E<1e-3 from GCF-18's Aminotran_1_2 or from either of GCF-11's aminotransferases. GCF-18's is a class I/II aspartate transaminase (PF00155), not the class V PhnW/aepZ family.",
-        "So the confirmed phosphonolipid does NOT use the canonical 2-AEP machinery, and its headgroup should not be assumed to be 2-AEP. The Asn_synthase, Asd and SHMT inside its transposon boundary may be making something else.",
-        "For calibration on the same alignments: GCF-11's pepM is 52.8% identical to aepX and its Ppd 44.0% to aepY, while GCF-18's pepM is only 35.1% to aepX. GCF-11 sits closer to the phosphonoglycan lineage than GCF-18 does."
+        "CORRECTED 2026-09-15. This previously recorded that NEITHER characterised Erwiniaceae cluster carried an aepZ-family transaminase, and drew the conclusion that the confirmed phosphonolipid did not use canonical 2-AEP machinery. Both statements were artefacts of LMG 5342's missing annotation. It carries a class-V (PF00266) transaminase; it was one of the nine unannotated genes.",
+        "Both confirmed clusters now call 2-AEP. LMG 5342's family on domain evidence (class V transaminase, no usable aepZ sequence hit); Winslowiella's by weak sequence homology to aepZ. So the headgroup axis does not separate them either -- which is consistent, since a 2-AEP headgroup can go onto a lipid, onto a glycan, or stay free.",
+        "aepZ from B. fragilis remains the ONLY characterised 2-AEP transaminase available, so distant orthologues sit below any usable identity floor and domain evidence has to carry the call."
       ],
       "supported_by": [
         "bfragilis_nctc9343_psb",
@@ -404,7 +421,7 @@
     }
   ],
   "product_class_rules": {
-    "_status": "ONE RULE ADMITTED (phosphonoglycan, on two independent phyla). Lipid rules still blocked at one confirmed example.",
+    "_status": "ONE RULE ADMITTED (phosphonoglycan, two independent phyla). NO LIPID RULE, and the reason has changed: it is no longer that the evidence was corrupted, but that the corrected evidence shows the two characterised clusters are nearly identical in domain content.",
     "_why": [
       "Three rules for separating phosphonolipids from small molecules have been proposed",
       "and all three inverted on the two clusters whose chemistry is known:",
@@ -432,17 +449,31 @@
       "supported by two characterised loci in DIFFERENT PHYLA with convergent architecture.",
       "That is a different evidential situation from the lipid rules, every one of which fit",
       "a single example. The admission test below was changed to reflect it: what matters is",
-      "independent lineages, not raw count."
+      "independent lineages, not raw count.",
+      "",
+      "Update 2026-09-15, after ORF recovery. With LMG 5342's nine missing genes restored,",
+      "the confirmed lipid and the confirmed non-lipid carry the SAME module: 2-AEP route,",
+      "cytidylyltransferase, CDP-alcohol phosphatidyltransferase. They differ only in copy",
+      "number (2 vs 1 transferase) and one extra NTP_transferase.",
+      "",
+      "That is a more interesting negative than the earlier ones. The previous failures were",
+      "measurement artefacts; this one is a real statement about the biology -- whatever",
+      "decides lipid vs not-lipid here is NOT visible in Pfam domain content. Candidates",
+      "worth pursuing: the acceptor specificity of the CDP-alcohol phosphatidyltransferase",
+      "(which alcohol it transfers onto), substrate availability, or regulation.",
+      "",
+      "The user's original hypothesis -- NTP_transf plus CDP-alcohol phosphatidyltransferase",
+      "indicates a phosphonolipid -- is now supported by the confirmed lipid, which carries",
+      "both. It is simply not DISCRIMINATING, because the confirmed non-lipid carries them",
+      "too. It was rejected three times on evidence that could not see them at all."
     ],
     "observations_pending_rules": [
-      "The confirmed lipid (GCF-18) pairs Ppd with asparagine synthase and a reverse block containing aspartate-semialdehyde dehydrogenase and serine hydroxymethyltransferase, all inside the transposon boundary.",
-      "The confirmed non-lipid (GCF-11) pairs Ppd with an NTP transferase, a sugar dehydrogenase and a CDP-alcohol phosphatidyltransferase.",
-      "A typical Ppd family (GCF-6) carries asparagine synthase like the lipid, but adds an acyl carrier protein that neither characterised cluster has.",
-      "Both characterised clusters run the same route: pepM, Ppd, class-I aminotransferase. The distinguishing chemistry is downstream and is not marked by any single domain tested so far.",
-      "Glycomyces phosphonoglycan (KJ125437): pepM + Ppd + Fe-ADH make 2-HEP; a cytidylyltransferase activates it; two LicD proteins transfer it; six glycosyltransferases build the carrier. A fully self-contained conjugation pathway.",
-      "LicD (PF04991) has zero hits across 333 Erwiniaceae regions, so the glycan-transfer route seen in actinomycetes does not occur in this dataset.",
-      "Only GCF-5, GCF-10 and GCF-11 carry both an activation step and a transferase, and every member of those three families carries both -- the module travels intact.",
-      "GCF-14 is the only family carrying Ppd together with Fe-ADH, making it the sole candidate 2-HEP producer in the run."
+      "Both characterised Erwiniaceae clusters carry a complete conjugation module after ORF recovery; domain content does not separate them.",
+      "LMG 5342 region 2 carries TWO CDP-alcohol phosphatidyltransferases where Winslowiella B149 carries one. Copy number is the only domain-level difference and is not evidence at n=1 per class.",
+      "LMG 5342's cluster merged into a 27-member family once its genes were recovered; it had been a singleton created by the annotation gap.",
+      "Glycomyces phosphonoglycan (KJ125437) and B. fragilis PS B (AF285774) remain the only conjugate cases where the carrier is identified by cluster content, via LicD or a glycosyltransferase battery.",
+      "LicD (PF04991) has zero hits across 334 Erwiniaceae regions, so no phosphonoglycans are predicted there.",
+      "Next testable idea: the acceptor specificity of PF01066 rather than its presence. That needs characterised CDP-alcohol phosphatidyltransferases of known acceptor, which this project does not yet have."
     ],
     "rules": [],
     "admission_test": {

@@ -1104,11 +1104,34 @@ amount of added sequence evidence could have separated them.
 `LEGACY_CLASS_NAMES` in `utils/constants.py` still maps the old `TPP+NTP` and `Ppd-CDP`
 spellings, now onto `Decarboxylase`, so annotation files from those runs still load.
 
-**Predicting phosphonolipid vs. small molecule is unsolved.** Four signals were tried —
-coupling class, `NTP_transf_3` copy number, CDP-alcohol phosphatidyltransferase
-proximity, and TIGRFAM assignments — and none separates the two characterised examples.
-This matters for prioritisation (a phosphonolipid is a less interesting lab target than
-a small molecule), so it is worth revisiting, but not with the markers tried so far.
+**Predicting phosphonolipid vs. small molecule: the failures were measurement, the
+open question is real.** Four signals were tried — coupling class, `NTP_transf_3` copy
+number, CDP-alcohol phosphatidyltransferase proximity, and TIGRFAM — and none separated
+the two characterised examples. **All four were measured on a cluster the pipeline could
+not see.** *P. ananatis* LMG 5342's 2012 deposit annotates 6 of its 15 genes, and
+antiSMASH runs gene finding only on records with ZERO CDS, so the other 9 — including
+the class-V transaminase and both CDP-alcohol phosphatidyltransferases — were invisible
+to every metric built on top. See `RECOVER_ORFS`.
+
+With the genes restored the question is still open, but for a better reason. The two
+clusters are now **nearly identical in domain content**:
+
+| | LMG 5342 r2 (**lipid**) | *Winslowiella* B149 (**not** lipid) |
+|---|---:|---:|
+| aepZ-family transaminase (PF00266) | 1 | 2 |
+| NTP_transf_3 (PF12804) | 1 | 1 |
+| CDP-alcohol phosphatidyltransferase (PF01066) | **2** | 1 |
+| pepM / Ppd | 1 / 1 | 1 / 1 |
+
+Copy number is the only domain-level difference, and at one example per class that is
+not signal. So whatever distinguishes them is **not visible in Pfam content** — the
+acceptor specificity of the CDP-alcohol phosphatidyltransferase, substrate availability
+and regulation are the places left to look.
+
+Note what this means for the original hypothesis that NTP_transf plus a CDP-alcohol
+phosphatidyltransferase marks a phosphonolipid: it is **supported** by the confirmed
+lipid, which carries both. It is simply not discriminating. It was rejected three times
+on evidence that could not see those genes at all.
 
 **PalB detection was corrected on 2026-08-25.** It previously used SMCOG1013
 (Aminotran_3, fold type IV PLP), which is a different aminotransferase class from
