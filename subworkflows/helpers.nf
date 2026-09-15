@@ -71,3 +71,33 @@ def gtdbtkShardSize() {
 def pepmBatchSize() {
     params.pepm_prescreen_batch_size.toString().toInteger()
 }
+
+/*
+ * Deterministic batching.
+ *
+ * `collate()` slices a channel in arrival order, and arrival order is not stable
+ * between runs: upstream tasks finish in whatever order the scheduler gives them. The
+ * batches therefore differ run to run, every batched task gets a different hash, and
+ * `-resume` cannot match any of them.
+ *
+ * Measured on Erwiniaceae: PEPM_PRESCREEN re-ran in full on three consecutive resumes,
+ * and because its output gates everything downstream that also re-ran BUILD_PROTEIN_POOL,
+ * RECOVER_ORFS and antiSMASH -- about 2.5 hours per resume, for work already done.
+ * Nearly every prescreen work directory across those runs holds a different set of
+ * genomes; only one pair of the ~24 shared a batch composition.
+ *
+ * Sorting first makes composition a function of the inputs alone. Sort on the BASENAME,
+ * never the path: staged files live under `work/<hash>/`, so the path itself changes
+ * every run and sorting by it would be just as unstable.
+ */
+
+/** Batches of files, ordered by basename so composition is reproducible. */
+def sortedBatches(ch, n) {
+    ch.toSortedList { a, b -> a.name <=> b.name }.flatMap { it }.collate(n)
+}
+
+/** Batches of tuples keyed on the first element (a genome name), same guarantee.
+ *  flatMap rather than flatten: flatten() would tear the tuples apart as well. */
+def sortedTupleBatches(ch, n) {
+    ch.toSortedList { a, b -> a[0] <=> b[0] }.flatMap { it }.collate(n)
+}

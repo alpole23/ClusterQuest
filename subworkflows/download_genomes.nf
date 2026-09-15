@@ -3,7 +3,7 @@ include { CREATE_NAME_MAP } from '../modules/genome/create_name_map'
 include { RENAME_GENOMES } from '../modules/genome/rename_genomes_parallel'
 include { DOWNLOAD_TAXONKIT_DB } from '../modules/databases/download_taxonkit_db'
 include { EXTRACT_TAXONOMY } from '../modules/analysis/extract_taxonomy'
-include { batchSize } from './helpers'
+include { batchSize; sortedTupleBatches } from './helpers'
 
 /*
  * Subworkflow: Download and prepare genomes from NCBI
@@ -20,10 +20,10 @@ workflow DOWNLOAD_GENOMES {
 
         // Prepare genome pairs (assembly_id, genome_file), batched — renaming is a
         // ~0.2 s copy, so one task per genome is pure scheduler overhead
-        genome_batches = NCBI_DATASETS_DOWNLOAD.out.genomes
+        genome_pairs = NCBI_DATASETS_DOWNLOAD.out.genomes
             .flatten()
             .map { gbff -> tuple(gbff.parent.name, gbff) }
-            .collate(batchSize())
+        genome_batches = sortedTupleBatches(genome_pairs, batchSize())
             .map { batch -> tuple(batch.collect { it[0] }, batch.collect { it[1] }) }
 
         RENAME_GENOMES(taxon, genome_batches, CREATE_NAME_MAP.out.name_map,

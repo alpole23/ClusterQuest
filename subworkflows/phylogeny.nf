@@ -3,7 +3,7 @@ include { DOWNLOAD_GTDBTK_DB } from '../modules/databases/download_gtdbtk_db'
 include { GTDBTK_CLASSIFY } from '../modules/phylogeny/gtdbtk'
 include { MERGE_GTDBTK } from '../modules/phylogeny/merge_gtdbtk'
 include { CHECK_GTDBTK_REUSE; FILTER_GTDBTK_RESULTS } from '../modules/phylogeny/check_gtdbtk_reuse'
-include { batchSize; gtdbtkShardSize; placeholder } from './helpers'
+include { batchSize; gtdbtkShardSize; placeholder; sortedBatches } from './helpers'
 
 /*
  * Subworkflow: GTDB-Tk phylogenetic classification (with optional result reuse)
@@ -38,7 +38,7 @@ workflow PHYLOGENY {
             }
 
             // Convert GenBank to FASTA (batched — ~1.5 s per genome)
-            GENBANK_TO_FASTA(genomes_for_gtdbtk.collate(batchSize()),
+            GENBANK_TO_FASTA(sortedBatches(genomes_for_gtdbtk, batchSize()),
                              Utils.scriptsHash(projectDir,
                                  ['genome/genbank_to_fasta.py']))
             fasta_ch = GENBANK_TO_FASTA.out.fasta.flatten()
@@ -74,6 +74,8 @@ workflow PHYLOGENY {
                     .combine(fasta_files)
                     .map { status, summary, files -> files }
                     .flatten()
+                    .toSortedList { a, b -> a.name <=> b.name }
+                    .flatMap { it }
                     .collate(gtdbtkShardSize())
                     .map { shard -> tuple(shard.hashCode().abs(), shard) }
                 GTDBTK_CLASSIFY(taxon, fasta_for_fresh_run, DOWNLOAD_GTDBTK_DB.out.db_dir)
@@ -87,8 +89,7 @@ workflow PHYLOGENY {
                 DOWNLOAD_GTDBTK_DB()
                 gtdbtk_db_ch = DOWNLOAD_GTDBTK_DB.out.db_dir
                 // One shard below gtdbtkShardSize(), so small runs are unchanged.
-                gtdbtk_shards = fasta_ch
-                    .collate(gtdbtkShardSize())
+                gtdbtk_shards = sortedBatches(fasta_ch, gtdbtkShardSize())
                     .map { shard -> tuple(shard.hashCode().abs(), shard) }
                 GTDBTK_CLASSIFY(taxon, gtdbtk_shards, DOWNLOAD_GTDBTK_DB.out.db_dir)
                 MERGE_GTDBTK(taxon, GTDBTK_CLASSIFY.out.bacterial_summary.collect())

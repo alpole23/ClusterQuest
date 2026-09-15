@@ -6,6 +6,8 @@ pure string building; build_coupling_table_rows additionally reads the BiG-SCAPE
 the coupling table reflects the current run rather than hardcoded family IDs.
 """
 
+import html as _html
+import json as _json
 import sqlite3
 
 from utils.constants import load_coupling_classes, COUPLING_COLORS
@@ -805,7 +807,7 @@ _MISSING = ('<div style="color: #999; padding: 20px; background: #f8f9fa; '
 
 
 def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_section_html,
-                           priority_html=''):
+                           priority_html='', consensus_html=''):
     """Clustering statistics, the coupling-enzyme class table and the pepM figure.
 
     The trees themselves are in the GCF Trees tab; the class table stays here
@@ -819,6 +821,7 @@ def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_sect
     th = ('text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;')
     return f'''
             {priority_html}
+            {consensus_html}
 
             <h3>GCF Biosynthetic Phylogeny</h3>
             <p style="color: #666; margin-bottom: 20px;">
@@ -1096,3 +1099,160 @@ def build_novelty_tab(priority_html, all_regions_html, n_regions=0):
             </p>
             {priority_html}
             {listing}'''
+
+
+# ─── Consensus gene content ──────────────────────────────────────────────────
+
+_ROLE_STYLE = {
+    'core':       ('#0e5c6b', '#d9eef2', 'phosphonate pathway'),
+    'tailoring':  ('#7a4b12', '#fbeedd', 'modifies the product'),
+    'lipid':      ('#6a1b63', '#f7e4f6', 'lipid handling'),
+    'transport':  ('#1a4f8a', '#e2ecf9', 'moves the product'),
+    'regulation': ('#4a4a10', '#f3f2dd', 'controls expression'),
+    'mobile':     ('#7a1f1f', '#fbe4e4', 'how the cluster arrived'),
+    'primary metabolism': ('#666666', '#eeeeee',
+                           'central metabolism — a chromosomal neighbour, not part of the cluster'),
+    'other':      ('#888888', '#f4f4f4', 'not classified'),
+}
+
+
+def build_consensus_clusters_section(consensus_path, transfer_summary_path=None):
+    """One consensus cluster per family, assembled from every member.
+
+    A single representative BGC shows one genome's annotation, and on this data that
+    is usually a bad draw: only 40.2% of CDS carry an informative product and 170 of
+    333 regions carry none at all. Pooling orthologues across a family and taking the
+    majority name lifts that to 80.2% — the consensus pantaphos cluster recovers a
+    GNAT acetyltransferase and an ATP-grasp protein that LMG 5342's own annotation
+    calls "hypothetical".
+
+    Prevalence is what makes this more than a longer gene list: a gene at 1.00 is in
+    every member and is part of what defines the family; one at 0.24 is accessory and
+    may be a neighbouring gene the region boundary caught. Roles come from Pfam
+    accessions, not product text, so they are computed identically whether or not
+    NCBI annotated the assembly.
+    """
+    import csv as _csv
+    from pathlib import Path as _Path
+    if not consensus_path or not _Path(consensus_path).exists():
+        return ''
+    rows = list(_csv.DictReader(_Path(consensus_path).open(), delimiter='\t'))
+    if not rows:
+        return ''
+
+    summary = {}
+    if transfer_summary_path and _Path(transfer_summary_path).exists():
+        try:
+            summary = _json.loads(_Path(transfer_summary_path).read_text()).get('per_family', {})
+        except Exception:
+            summary = {}
+
+    by_fam = {}
+    for r in rows:
+        by_fam.setdefault(r['family'], []).append(r)
+
+    def order(fam):
+        return -int(summary.get(fam, {}).get('members', 0) or 0), int(fam)
+
+    blocks = []
+    for fam in sorted(by_fam, key=order):
+        genes = sorted(by_fam[fam], key=lambda r: -float(r['prevalence'] or 0))
+        s = summary.get(fam, {})
+        n_mem = s.get('members', '')
+        head = f'GCF-{fam}'
+        if n_mem:
+            head += f' — {n_mem} member{"s" if n_mem != 1 else ""}'
+        if s.get('pct_after') is not None and s.get('pct_before') is not None:
+            head += (f' · annotation {s["pct_before"]}% → '
+                     f'<strong>{s["pct_after"]}%</strong>')
+
+        body = []
+        for g in genes:
+            prev = float(g['prevalence'] or 0)
+            role = g.get('role') or 'other'
+            fg, bg, _ = _ROLE_STYLE.get(role, _ROLE_STYLE['other'])
+            # Provenance: a name backed by one genome is one genome's opinion.
+            ns = (g.get('n_sources') or '').strip()
+            prov = ''
+            if ns and ns.isdigit():
+                n = int(ns)
+                if n == 1:
+                    prov = ('<span title="named from a single genome — treat as one '
+                            'opinion, not consensus" style="color:#9a6b0f;">1 source</span>')
+                elif n > 1:
+                    dis = (g.get('n_disagree') or '0').strip() or '0'
+                    extra = f', {dis} disagreed' if dis not in ('0', '') else ''
+                    prov = f'<span style="color:#777;">{n} sources{extra}</span>'
+            unnamed = g['consensus_product'] == '(unnamed)'
+            name_html = (f'<em style="color:#999;">unnamed</em>' if unnamed
+                         else _html.escape(g['consensus_product']))
+            body.append(
+                f'<tr>'
+                f'<td style="padding:5px 9px;">{name_html}</td>'
+                f'<td style="padding:5px 9px;white-space:nowrap;">'
+                f'<span style="background:{bg};color:{fg};padding:1px 7px;'
+                f'border-radius:9px;font-size:.82em;">{role}</span></td>'
+                f'<td style="padding:5px 9px;font-size:.85em;color:#555;">'
+                f'{_html.escape(g.get("domains") or "—")}</td>'
+                f'<td style="padding:5px 9px;">'
+                f'<div style="display:flex;align-items:center;gap:.4rem;">'
+                f'<div style="flex:0 0 40px;height:5px;background:#e9ecef;'
+                f'border-radius:3px;overflow:hidden;"><div style="width:{prev*100:.0f}%;'
+                f'height:100%;background:#0e5c6b;"></div></div>'
+                f'<span style="font-variant-numeric:tabular-nums;font-size:.85em;">'
+                f'{prev:.2f}</span></div></td>'
+                f'<td style="padding:5px 9px;font-size:.85em;">{prov}</td>'
+                f'</tr>')
+
+        blocks.append(f'''
+        <details style="margin:0 0 10px;border:1px solid #e3e6e8;border-radius:5px;">
+            <summary style="padding:9px 13px;cursor:pointer;background:#f7f8f9;
+                            border-radius:5px;">{head}
+                <span style="color:#888;font-size:.9em;"> · {len(genes)} genes</span>
+            </summary>
+            <div class="table-container" style="padding:4px 10px 10px;">
+            <table style="width:100%;border-collapse:collapse;font-size:.9em;">
+                <thead><tr style="background:#eef1f2;">
+                    <th style="text-align:left;padding:5px 9px;">Gene</th>
+                    <th style="text-align:left;padding:5px 9px;">Role</th>
+                    <th style="text-align:left;padding:5px 9px;">Domains</th>
+                    <th style="text-align:left;padding:5px 9px;">Prevalence</th>
+                    <th style="text-align:left;padding:5px 9px;">Naming</th>
+                </tr></thead>
+                <tbody>{"".join(body)}</tbody>
+            </table>
+            </div>
+        </details>''')
+
+    legend = ' '.join(
+        f'<span style="background:{bg};color:{fg};padding:1px 7px;border-radius:9px;'
+        f'font-size:.82em;margin-right:6px;" title="{tip}">{role}</span>'
+        for role, (fg, bg, tip) in _ROLE_STYLE.items() if role != 'other')
+
+    return f'''
+    <div class="section">
+        <h3>Consensus Gene Content</h3>
+        <p style="color:#555;max-width:72ch;">
+            One consensus cluster per family, assembled from <strong>every member</strong>
+            rather than a single representative. Only 40.2% of CDS in this run carry an
+            informative product and 170 of 333 regions carry none at all, so any one
+            representative is usually a bad draw. Pooling orthologues across the family and
+            taking the majority name lifts that to 80.2%.
+        </p>
+        <p style="color:#555;max-width:72ch;font-size:.92em;">
+            <strong>Prevalence is the column to read.</strong> A gene present in every
+            member (1.00) is part of what defines the family; one at 0.24 is accessory, and
+            may simply be a neighbour the region boundary caught. <strong>Roles come from
+            Pfam accessions, not product text</strong>, so they are computed identically
+            whether or not NCBI annotated the assembly — which is why
+            <em>serine hydroxymethyltransferase</em> lands in <code>primary metabolism</code>
+            rather than being counted as a tailoring methyltransferase.
+        </p>
+        <p style="color:#555;max-width:72ch;font-size:.92em;">
+            A transferred name is an <strong>inference from a homologue, not an
+            observation</strong>. The Naming column says how many independent genomes
+            supported it; a single source is one genome's opinion.
+        </p>
+        <p style="margin:12px 0 14px;">{legend}</p>
+        {"".join(blocks)}
+    </div>'''
