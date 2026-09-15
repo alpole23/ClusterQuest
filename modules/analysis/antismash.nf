@@ -45,6 +45,10 @@ process ANTISMASH {
     input:
     val taxon
     path genomes
+    // Recovered gene calls, one <genome>.gff3 per genome, staged flat alongside the
+    // genomes and paired by basename inside the loop. May be a placeholder when
+    // recovery is disabled.
+    path recovered_gff
     path antismash_db
     val antismash_version
     val antismash_params_hash
@@ -127,12 +131,26 @@ process ANTISMASH {
         else
             GENEFINDING="prodigal"
         fi
+
+        # Genes the submitter never called, recovered by RECOVER_ORFS. antiSMASH runs
+        # its own gene finder ONLY on records with zero CDS features, so a partially
+        # annotated genome would otherwise keep only the genes it shipped with. GFF3
+        # features are merged before that check, which is why this works at all.
+        # A header-only GFF3 (no recovered genes) is skipped: antiSMASH rejects a
+        # GFF3 containing no CDS.
+        GFF_FLAG=""
+        if [ -s "\${BASE}.gff3" ] && grep -qv '^#' "\${BASE}.gff3"; then
+            GFF_FLAG="--genefinding-gff3 \${BASE}.gff3"
+            RECOVERED=\$(grep -vc '^#' "\${BASE}.gff3" || echo 0)
+            echo "  +\$RECOVERED recovered genes"
+        fi
         echo "  \$LOCUS_COUNT LOCUS, \$CDS_COUNT CDS, genefinding=\$GENEFINDING"
 
         if antismash \\
             --taxon bacteria \\
             --output-dir "as_out/\$BASE" \\
             --genefinding-tool \$GENEFINDING \\
+            \$GFF_FLAG \\
             --databases \$ANTISMASH_DB_PATH \\
             --cpus ${task.cpus} \\
             --allow-long-headers \\

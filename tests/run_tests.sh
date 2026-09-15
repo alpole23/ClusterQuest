@@ -19,6 +19,7 @@ FAIL=0
 
 pass() { echo "  PASS  $1"; PASS=$((PASS + 1)); }
 fail() { echo "  FAIL  $1"; FAIL=$((FAIL + 1)); }
+skip() { echo "  SKIP  $1 ($2)"; }
 check() { if [ "$2" = "$3" ]; then pass "$1 ($2)"; else fail "$1 (got '$2', expected '$3')"; fi; }
 
 echo "Project:  $PROJECT_DIR"
@@ -122,6 +123,23 @@ check "hidden file copied" \
     "$([ -f "$SCRATCH/out/antismash_results/Test_taxon/Genome_A/.antismash_meta" ] && echo yes || echo no)" "yes"
 check "nested file copied" \
     "$([ -f "$SCRATCH/out/antismash_results/Test_taxon/Genome_A/nested/deep.txt" ] && echo yes || echo no)" "yes"
+
+
+# --- GFF3 pairing keeps dotted genome names --------------------------------
+echo ""
+echo "=== Recovered-ORF GFF3 pairing ==="
+if command -v nextflow >/dev/null 2>&1; then
+    PAIR_OUT=$(cd "$PROJECT_DIR" && nextflow run tests/test_pairing.nf -profile local 2>&1 || true)
+    for NAME in "Pantoea_GCA_963520565.1" "Simple_name" "A.b.c" "Buchnera_B.tra"; do
+        if echo "$PAIR_OUT" | grep -qF "PAIRED<${NAME}>"; then
+            pass "paired ${NAME}"
+        else
+            fail "paired ${NAME}"
+        fi
+    done
+else
+    skip "GFF3 pairing" "nextflow not available"
+fi
 
 echo
 echo "=== Python import / syntax check ($("$SYS_PY" --version 2>&1)) ==="
