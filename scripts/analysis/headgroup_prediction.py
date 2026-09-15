@@ -61,6 +61,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils.domain_functions import category  # noqa: E402
+from utils.antismash_parser import genome_dir_map  # noqa: E402
 
 # Identity floors. Deliberately low: these are the only characterised references for
 # either route and they come from two phyla, so a genuine orthologue in a third
@@ -94,7 +95,8 @@ def run_diamond(binary, refs, query, threads, workdir):
     return best
 
 
-def load_regions(antismash_dir, db_path, cutoff):
+def load_regions(antismash_paths, db_path, cutoff):
+    dirs = genome_dir_map(antismash_paths)
     from Bio import SeqIO
     db = sqlite3.connect(db_path)
     members = collections.defaultdict(list)
@@ -108,8 +110,9 @@ def load_regions(antismash_dir, db_path, cutoff):
     for fid, ms in members.items():
         regions = []
         for genome, fname in ms:
-            fp = Path(antismash_dir) / genome / fname
-            if not fp.exists():
+            base = dirs.get(genome)
+            fp = (base / fname) if base else None
+            if not fp or not fp.exists():
                 continue
             label, doms, genes = fname[:-4], collections.defaultdict(list), []
             for rec in SeqIO.parse(str(fp), 'genbank'):
@@ -163,7 +166,9 @@ def carrier_class(region):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--antismash', type=Path, required=True)
+    ap.add_argument('--antismash', type=Path, required=True, nargs='+',
+                    help='antiSMASH results: either the taxon directory or the '
+                         'genome directories themselves, as Nextflow stages them')
     ap.add_argument('--db', type=Path, required=True)
     ap.add_argument('--references', type=Path,
                     default=Path(__file__).resolve().parents[2] /

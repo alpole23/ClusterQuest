@@ -483,3 +483,32 @@ def cds_in_segments(feat, segments):
     return any(not (ce < rs or cs > re_)
                for cs, ce in cds
                for rs, re_ in segments)
+
+
+def genome_dir_map(paths):
+    """{genome_name: directory} from whatever shape the caller was handed.
+
+    A script run by hand gets one parent directory (`results/antismash_results/Taxon`)
+    and finds genome subdirectories inside it. The same script run by Nextflow gets the
+    genome directories themselves, staged flat into the task's working directory --
+    there is no parent, because Nextflow does not stage one.
+
+    Passing the collected channel straight through as a single `--antismash` argument
+    is what broke HEADGROUP_PREDICTION on the first full run: argparse took the first
+    of 307 paths as the value and choked on the other 306. Accepting both shapes here
+    means neither caller has to know which one it is.
+    """
+    from pathlib import Path as _Path
+    paths = [_Path(p) for p in ([paths] if isinstance(paths, (str, _Path)) else paths)]
+    out = {}
+    for p in paths:
+        if not p.is_dir():
+            continue
+        # A parent directory holds genome directories; a genome directory holds files.
+        subdirs = [d for d in p.iterdir() if d.is_dir()]
+        if len(paths) == 1 and subdirs and not any(p.glob('*.region*.gbk')):
+            for d in subdirs:
+                out[d.name] = d
+        else:
+            out[p.name] = p
+    return out

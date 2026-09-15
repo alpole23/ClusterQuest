@@ -40,6 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils import domain_functions
+from utils.antismash_parser import genome_dir_map
 
 # A product that names a function. BiG-SCAPE stores no products at all, so these
 # come from the region GenBanks antiSMASH wrote, where an unannotated assembly
@@ -170,8 +171,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--db', type=Path, required=True, help='BiG-SCAPE sqlite database')
-    ap.add_argument('--antismash', type=Path, required=True,
-                    help='antiSMASH results dir holding <genome>/<region>.gbk')
+    ap.add_argument('--antismash', type=Path, required=True, nargs='+',
+                    help='antiSMASH results: either the taxon directory or the '
+                         'genome directories themselves, as Nextflow stages them')
     ap.add_argument('--outdir', type=Path, default=Path('.'))
     ap.add_argument('--cutoff', type=float, default=0.3)
     ap.add_argument('--min_identity', type=float, default=50.0,
@@ -183,6 +185,7 @@ def main():
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
 
+    _dirs = genome_dir_map(args.antismash)
     fams = family_members(args.db, args.cutoff)
     if not fams:
         sys.exit(f'no families at cutoff {args.cutoff} in {args.db}')
@@ -195,7 +198,8 @@ def main():
         members = fams[fam_id]
         cds = []                      # (region_label, genome, tag, product, seq)
         for genome, region_file in members:
-            path = args.antismash / genome / region_file
+            base = _dirs.get(genome)
+            path = (base / region_file) if base else Path('/nonexistent')
             if not path.exists():
                 print(f'  warn: missing {path}', file=sys.stderr)
                 continue
