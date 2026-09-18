@@ -30,6 +30,19 @@ from pathlib import Path
 
 TOOL = 'make_reference_bgc.py'
 
+RULE = 'curated reference; no antiSMASH detection rule applies'
+
+EDGE_NOTE = (
+    'contig_edge is set True deliberately, and is NOT a claim that this record runs '
+    'off a contig: it is a curated cluster, complete by construction. It is set so '
+    'BiG-SCAPE\'s auto alignment mode compares this reference against antiSMASH '
+    'query regions by their shared part (LCS + extension) rather than end to end. '
+    'antiSMASH regions are a rule core plus a fixed neighbourhood, so they carry '
+    'flanking DNA the cluster does not and can stop before the cluster ends; '
+    'compared end to end, a curated reference scores far from its own genome\'s '
+    'region -- measured at 0.364 for pantaphos against LMG 5342 itself, which falls '
+    'to 0.000 with this set. Unrelated clusters are unaffected (0.946 either way).')
+
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
@@ -40,6 +53,10 @@ def main():
                     help='product label BiG-SCAPE records for the region')
     ap.add_argument('--note', default='',
                     help='provenance note written into the region feature')
+    ap.add_argument('--no-contig-edge', dest='contig_edge', action='store_false',
+                    help='compare end to end instead of by the shared part; see the '
+                         'note written into the region feature')
+    ap.set_defaults(contig_edge=True)
     a = ap.parse_args()
 
     from Bio import SeqIO
@@ -65,21 +82,20 @@ def main():
     lo = min(int(f.location.start) for f in cds)
     hi = max(int(f.location.end) for f in cds)
 
-    RULE = 'curated reference; no antiSMASH detection rule applies'
     quals = {
         'region_number': ['1'],
         # BiG-SCAPE's AS5 reader requires this even though it carries no information
         # for a single-region record; without it the file is rejected outright.
         'candidate_cluster_numbers': ['1'],
-        # False is a claim about the DNA, and it holds: a curated deposit is the whole
-        # cluster by construction, not a fragment running off a contig.
-        'contig_edge': ['False'],
+        'contig_edge': [str(a.contig_edge)],
         'product': [a.product],
         'tool': [TOOL],
         'rules': [RULE],
+        'note': [EDGE_NOTE if a.contig_edge else
+                 'contig_edge False: compared end to end against query regions.'],
     }
     if a.note:
-        quals['note'] = [a.note]
+        quals['note'].append(a.note)
     # antiSMASH writes a four-level hierarchy and BiG-SCAPE's AS5 reader walks all of
     # it: region -> cand_cluster -> protocluster -> proto_core. Supplying only the
     # region fails, then only the cand_cluster fails, each with its own error — so the
@@ -89,7 +105,7 @@ def main():
         SeqFeature(loc, type='region', qualifiers=quals),
         SeqFeature(loc, type='cand_cluster', qualifiers={
             'candidate_cluster_number': ['1'],
-            'contig_edge': ['False'],
+            'contig_edge': [str(a.contig_edge)],
             'product': [a.product],
             'kind': ['single'],
             'protoclusters': ['1'],
@@ -98,7 +114,7 @@ def main():
         }),
         SeqFeature(loc, type='protocluster', qualifiers={
             'protocluster_number': ['1'],
-            'contig_edge': ['False'],
+            'contig_edge': [str(a.contig_edge)],
             'product': [a.product],
             'aStool': ['rule-based-clusters'],
             'category': ['other'],
