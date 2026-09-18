@@ -53,6 +53,10 @@ process ANTISMASH {
     val antismash_version
     val antismash_params_hash
 
+    // Digest of the Python this process runs. A val input, not an interpolation:
+    // Nextflow hashes the unevaluated script source plus the input values. See CLAUDE.md.
+    val scripts_version
+
     output:
     path "as_out/*", emit: result_dir, optional: true
 
@@ -91,7 +95,19 @@ process ANTISMASH {
     def clusterhmmer_flag = params.antismash_minimal ? '' : '--clusterhmmer'
     def tigrfam_flag = params.antismash_minimal ? '' : '--tigrfam'
 
+    // antiSMASH sizes a region as the rule core plus a fixed neighbourhood, and the
+    // strict phosphonate rule's 5 kb stops 4.2 kb short of the HiVir cluster. There is
+    // no CLI option for it, so the installed rule file is edited in place first; the
+    // value is part of antismashParamsHash, so results are never reused across it.
+    def neighbourhood_patch = params.antismash_phosphonate_neighbourhood
+        ? "python ${projectDir}/scripts/genome/patch_antismash_neighbourhood.py " +
+          "--rule phosphonate --neighbourhood ${params.antismash_phosphonate_neighbourhood}"
+        : "echo 'phosphonate neighbourhood: antiSMASH default'"
+
     """
+    # Region size: see scripts/genome/patch_antismash_neighbourhood.py
+    ${neighbourhood_patch}
+
     # Set antiSMASH database location
     export ANTISMASH_DB_PATH=\$(readlink -f ${antismash_db})
 

@@ -114,7 +114,8 @@ workflow ANTISMASH_ANALYSIS {
             ANTISMASH(taxon,
                       run_batches.map { rows -> rows.collect { it[1] } },
                       run_batches.map { rows -> rows.collect { it[2] } },
-                      DOWNLOAD_ANTISMASH_DBS.out.db_dir, antismash_version, antismash_params_hash)
+                      DOWNLOAD_ANTISMASH_DBS.out.db_dir, antismash_version, antismash_params_hash,
+                      Utils.scriptsHash(projectDir, ['genome/patch_antismash_neighbourhood.py']))
 
             // Copy reused results in batches (each copy is ~1 s — one job per genome
             // is almost entirely scheduler overhead)
@@ -130,7 +131,8 @@ workflow ANTISMASH_ANALYSIS {
             ANTISMASH(taxon,
                       batches.map { rows -> rows.collect { it[1] } },
                       batches.map { rows -> rows.collect { it[2] } },
-                      DOWNLOAD_ANTISMASH_DBS.out.db_dir, antismash_version, antismash_params_hash)
+                      DOWNLOAD_ANTISMASH_DBS.out.db_dir, antismash_version, antismash_params_hash,
+                      Utils.scriptsHash(projectDir, ['genome/patch_antismash_neighbourhood.py']))
             antismash_results = ANTISMASH.out.result_dir.flatten().collect()
         }
 
