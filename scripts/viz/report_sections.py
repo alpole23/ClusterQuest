@@ -14,7 +14,7 @@ from utils.constants import load_coupling_classes, COUPLING_COLORS
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
 
 
-def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None):
+def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_hrefs=None):
     """Compute KCB tab contents.
 
     Returns dict with keys: kcb_mapping_section, novel_bgcs_tab_content,
@@ -66,10 +66,15 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None):
                         cls = (gcf_classes or {}).get(fid)
                         badge_bg = COUPLING_COLORS.get(cls, '#3498db')
                         badge_title = f' title="Coupling class: {cls}"' if cls else ''
-                        gcf_cell = (f'<td style="text-align: center;">'
-                                    f'<span{badge_title} style="background: {badge_bg}; color: white; '
-                                    f'padding: 2px 8px; border-radius: 4px; font-size: 0.85em; '
-                                    f'display: inline-block; white-space: nowrap;">GCF-{fid}</span>'
+                        # The badge links to the family's own page, which carries the
+                        # representative cluster and the consensus gene content.
+                        href = (gcf_hrefs or {}).get(str(fid), '')
+                        badge = (f'<span{badge_title} style="background: {badge_bg}; color: white; '
+                                 f'padding: 2px 8px; border-radius: 4px; font-size: 0.85em; '
+                                 f'display: inline-block; white-space: nowrap;">GCF-{fid}</span>')
+                        if href:
+                            badge = f'<a href="{href}" style="text-decoration: none;">{badge}</a>'
+                        gcf_cell = (f'<td style="text-align: center;">{badge}'
                                     f'</td><td style="text-align: center;">{mc}</td>')
                     else:
                         gcf_cell = '<td style="text-align: center; color: #999;">-</td><td style="text-align: center; color: #999;">-</td>'
@@ -86,11 +91,13 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None):
             gcf_header = '<th>GCF Family</th><th>Members</th>' if has_gcf_data else ''
             gcf_description = ' When BiG-SCAPE clustering is enabled, the GCF (Gene Cluster Family) assignment shows how these novel BGCs group together.' if has_gcf_data else ''
             novel_bgcs_tab_content = f'''
-            <h2>Potentially Novel BGCs</h2>
+            <h2>Detected BGC regions</h2>
             <p style="color: #666; margin-bottom: 15px;">
-                <em>These BGC regions did not return any hits from KnownClusterBlast (KCB) analysis against the MIBiG database,
-                suggesting they may encode novel or uncharacterized biosynthetic pathways. Regions marked as "edge" are on contig
-                boundaries and may be incomplete.{gcf_description}</em>
+                <em>Every region with no KnownClusterBlast match against MIBiG — which for phosphonate
+                chemistry is most of them, since MIBiG holds few characterised pathways, so a miss is
+                weak evidence of novelty. Regions that did match are listed under <strong>Known-cluster
+                matches</strong>. "edge" marks a region on a contig boundary, which may be
+                incomplete.{gcf_description} Follow a GCF badge to that family's page.</em>
             </p>
             <div class="search-box">
                 <input type="text" id="novelSearch" placeholder="Search by genome, strain, region or GCF (e.g. 5342)" onkeyup="filterNovelBGCs()">
@@ -1116,6 +1123,106 @@ _ROLE_STYLE = {
 }
 
 
+def _consensus_block(fam, fam_rows, s):
+    """One family's consensus gene table, collapsed behind a summary line.
+
+    Split out of build_consensus_clusters_section so the per-GCF detail pages
+    render the identical table rather than a second implementation of it.
+    """
+    genes = sorted(fam_rows, key=lambda r: -float(r['prevalence'] or 0))
+    n_mem = s.get('members', '')
+    head = f'GCF-{fam}'
+    if n_mem:
+        head += f' — {n_mem} member{"s" if n_mem != 1 else ""}'
+    if s.get('pct_after') is not None and s.get('pct_before') is not None:
+        head += (f' · annotation {s["pct_before"]}% → '
+                 f'<strong>{s["pct_after"]}%</strong>')
+
+    body = []
+    for g in genes:
+        prev = float(g['prevalence'] or 0)
+        role = g.get('role') or 'other'
+        fg, bg, _ = _ROLE_STYLE.get(role, _ROLE_STYLE['other'])
+        # Provenance: a name backed by one genome is one genome's opinion.
+        ns = (g.get('n_sources') or '').strip()
+        prov = ''
+        if ns and ns.isdigit():
+            n = int(ns)
+            if n == 1:
+                prov = ('<span title="named from a single genome — treat as one '
+                        'opinion, not consensus" style="color:#9a6b0f;">1 source</span>')
+            elif n > 1:
+                dis = (g.get('n_disagree') or '0').strip() or '0'
+                extra = f', {dis} disagreed' if dis not in ('0', '') else ''
+                prov = f'<span style="color:#777;">{n} sources{extra}</span>'
+        unnamed = g['consensus_product'] == '(unnamed)'
+        name_html = (f'<em style="color:#999;">unnamed</em>' if unnamed
+                     else _html.escape(g['consensus_product']))
+        body.append(
+            f'<tr>'
+            f'<td style="padding:5px 9px;">{name_html}</td>'
+            f'<td style="padding:5px 9px;white-space:nowrap;">'
+            f'<span style="background:{bg};color:{fg};padding:1px 7px;'
+            f'border-radius:9px;font-size:.82em;">{role}</span></td>'
+            f'<td style="padding:5px 9px;font-size:.85em;color:#555;">'
+            f'{_html.escape(g.get("domains") or "—")}</td>'
+            f'<td style="padding:5px 9px;">'
+            f'<div style="display:flex;align-items:center;gap:.4rem;">'
+            f'<div style="flex:0 0 40px;height:5px;background:#e9ecef;'
+            f'border-radius:3px;overflow:hidden;"><div style="width:{prev*100:.0f}%;'
+            f'height:100%;background:#0e5c6b;"></div></div>'
+            f'<span style="font-variant-numeric:tabular-nums;font-size:.85em;">'
+            f'{prev:.2f}</span></div></td>'
+            f'<td style="padding:5px 9px;font-size:.85em;">{prov}</td>'
+            f'</tr>')
+
+    return (f'''
+    <details style="margin:0 0 10px;border:1px solid #e3e6e8;border-radius:5px;">
+        <summary style="padding:9px 13px;cursor:pointer;background:#f7f8f9;
+                        border-radius:5px;">{head}
+            <span style="color:#888;font-size:.9em;"> · {len(genes)} genes</span>
+        </summary>
+        <div class="table-container" style="padding:4px 10px 10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:.9em;">
+            <thead><tr style="background:#eef1f2;">
+                <th style="text-align:left;padding:5px 9px;">Gene</th>
+                <th style="text-align:left;padding:5px 9px;">Role</th>
+                <th style="text-align:left;padding:5px 9px;">Domains</th>
+                <th style="text-align:left;padding:5px 9px;">Prevalence</th>
+                <th style="text-align:left;padding:5px 9px;">Naming</th>
+            </tr></thead>
+            <tbody>{"".join(body)}</tbody>
+        </table>
+        </div>
+    </details>''')
+
+
+def consensus_blocks_by_family(consensus_path, transfer_summary_path=None):
+    """{family_id: consensus-table HTML}, for the per-GCF detail pages.
+
+    Same renderer the report section uses, keyed by family instead of concatenated,
+    so a family's consensus table is identical wherever it is read.
+    """
+    import csv as _csv
+    from pathlib import Path as _Path
+    if not consensus_path or not _Path(consensus_path).exists():
+        return {}
+    rows = list(_csv.DictReader(_Path(consensus_path).open(), delimiter='\t'))
+    if not rows:
+        return {}
+    summary = {}
+    if transfer_summary_path and _Path(transfer_summary_path).exists():
+        try:
+            summary = _json.loads(_Path(transfer_summary_path).read_text()).get('per_family', {})
+        except Exception:
+            summary = {}
+    by_fam = {}
+    for r in rows:
+        by_fam.setdefault(r['family'], []).append(r)
+    return {fam: _consensus_block(fam, fam_rows, summary.get(fam, {}))
+            for fam, fam_rows in by_fam.items()}
+
+
 def build_consensus_clusters_section(consensus_path, transfer_summary_path=None):
     """One consensus cluster per family, assembled from every member.
 
@@ -1156,73 +1263,7 @@ def build_consensus_clusters_section(consensus_path, transfer_summary_path=None)
 
     blocks = []
     for fam in sorted(by_fam, key=order):
-        genes = sorted(by_fam[fam], key=lambda r: -float(r['prevalence'] or 0))
-        s = summary.get(fam, {})
-        n_mem = s.get('members', '')
-        head = f'GCF-{fam}'
-        if n_mem:
-            head += f' — {n_mem} member{"s" if n_mem != 1 else ""}'
-        if s.get('pct_after') is not None and s.get('pct_before') is not None:
-            head += (f' · annotation {s["pct_before"]}% → '
-                     f'<strong>{s["pct_after"]}%</strong>')
-
-        body = []
-        for g in genes:
-            prev = float(g['prevalence'] or 0)
-            role = g.get('role') or 'other'
-            fg, bg, _ = _ROLE_STYLE.get(role, _ROLE_STYLE['other'])
-            # Provenance: a name backed by one genome is one genome's opinion.
-            ns = (g.get('n_sources') or '').strip()
-            prov = ''
-            if ns and ns.isdigit():
-                n = int(ns)
-                if n == 1:
-                    prov = ('<span title="named from a single genome — treat as one '
-                            'opinion, not consensus" style="color:#9a6b0f;">1 source</span>')
-                elif n > 1:
-                    dis = (g.get('n_disagree') or '0').strip() or '0'
-                    extra = f', {dis} disagreed' if dis not in ('0', '') else ''
-                    prov = f'<span style="color:#777;">{n} sources{extra}</span>'
-            unnamed = g['consensus_product'] == '(unnamed)'
-            name_html = (f'<em style="color:#999;">unnamed</em>' if unnamed
-                         else _html.escape(g['consensus_product']))
-            body.append(
-                f'<tr>'
-                f'<td style="padding:5px 9px;">{name_html}</td>'
-                f'<td style="padding:5px 9px;white-space:nowrap;">'
-                f'<span style="background:{bg};color:{fg};padding:1px 7px;'
-                f'border-radius:9px;font-size:.82em;">{role}</span></td>'
-                f'<td style="padding:5px 9px;font-size:.85em;color:#555;">'
-                f'{_html.escape(g.get("domains") or "—")}</td>'
-                f'<td style="padding:5px 9px;">'
-                f'<div style="display:flex;align-items:center;gap:.4rem;">'
-                f'<div style="flex:0 0 40px;height:5px;background:#e9ecef;'
-                f'border-radius:3px;overflow:hidden;"><div style="width:{prev*100:.0f}%;'
-                f'height:100%;background:#0e5c6b;"></div></div>'
-                f'<span style="font-variant-numeric:tabular-nums;font-size:.85em;">'
-                f'{prev:.2f}</span></div></td>'
-                f'<td style="padding:5px 9px;font-size:.85em;">{prov}</td>'
-                f'</tr>')
-
-        blocks.append(f'''
-        <details style="margin:0 0 10px;border:1px solid #e3e6e8;border-radius:5px;">
-            <summary style="padding:9px 13px;cursor:pointer;background:#f7f8f9;
-                            border-radius:5px;">{head}
-                <span style="color:#888;font-size:.9em;"> · {len(genes)} genes</span>
-            </summary>
-            <div class="table-container" style="padding:4px 10px 10px;">
-            <table style="width:100%;border-collapse:collapse;font-size:.9em;">
-                <thead><tr style="background:#eef1f2;">
-                    <th style="text-align:left;padding:5px 9px;">Gene</th>
-                    <th style="text-align:left;padding:5px 9px;">Role</th>
-                    <th style="text-align:left;padding:5px 9px;">Domains</th>
-                    <th style="text-align:left;padding:5px 9px;">Prevalence</th>
-                    <th style="text-align:left;padding:5px 9px;">Naming</th>
-                </tr></thead>
-                <tbody>{"".join(body)}</tbody>
-            </table>
-            </div>
-        </details>''')
+        blocks.append(_consensus_block(fam, by_fam[fam], summary.get(fam, {})))
 
     legend = ' '.join(
         f'<span style="background:{bg};color:{fg};padding:1px 7px;border-radius:9px;'

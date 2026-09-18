@@ -111,19 +111,25 @@ def generate_bigscape_stats_html(bigscape_stats_file, mibig_included=False):
     '''
 
 
-def generate_gcf_visualization_html(gcf_data_file, taxon):
-    '''Generate HTML for GCF representative visualization in Clustering tab'''
+def generate_gcf_visualization_html(gcf_data_file, taxon, hrefs=None):
+    '''Master table of gene cluster families, plus each family's detail HTML.
+
+    Returns (master_table_html, {family_id: detail_html}). The caller writes the
+    detail HTML to one page per family and passes their hrefs back in, so the report
+    carries a row per family rather than a collapsed gene table per family.
+    '''
+    hrefs = hrefs or {}
     import os
 
     if not os.path.exists(gcf_data_file):
-        return ''
+        return '', {}
 
     try:
         with open(gcf_data_file, 'r') as f:
             data = json.load(f)
     except Exception as e:
         print(f"Warning: Could not read GCF data: {e}")
-        return ''
+        return '', {}
 
     if 'error' in data:
         return f'''
@@ -133,7 +139,7 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
             <p><strong>Note:</strong> {data['error']}</p>
         </div>
     </div>
-    '''
+    ''', {}
 
     gcfs = data.get('gcfs', [])
     summary = data.get('summary', {})
@@ -144,14 +150,17 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
         <h4>Gene Cluster Family Representatives</h4>
         <p style="color: #666;">No gene cluster families found.</p>
     </div>
-    '''
+    ''', {}
 
     total = summary.get('total', len(gcfs))
     singletons = summary.get('singletons', 0)
     clusters = summary.get('clusters', 0)
 
-    # Build GCF cards HTML
-    gcf_cards = ''
+    # Per-family detail HTML, keyed by family id. These used to be concatenated into
+    # the report: 18 families x an 8-column gene table was 575 KB, a quarter of the
+    # file, all of it collapsed behind a click. They are now written to one page per
+    # family and reached from the master table below.
+    cards = {}
     for gcf in gcfs:
         family_id = gcf.get('family_id', '?')
         member_count = gcf.get('member_count', 0)
@@ -327,7 +336,7 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
         # AntiSMASH link
         antismash_link_html = f'<a href="{antismash_link}" target="_blank" style="color: #2c5aa0;">View in antiSMASH</a>' if antismash_link else ''
 
-        gcf_cards += f'''
+        cards[str(family_id)] = f'''
         <div class="gcf-card" id="gcf_{family_id}" data-type="{badge_class}" data-size="{member_count}" data-product="{product}" data-novelty="{'novel' if not kcb_hit else 'known'}">
             <div class="gcf-header" onclick="toggleGCF('gcf_{family_id}')">
                 <span class="gcf-title">GCF-{family_id}: {product}</span>
@@ -374,12 +383,43 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
         </div>
         '''
 
+    # One row per family, linking to its page. Columns are the ones that identify a
+    # family; everything else lives on the page the row links to.
+    rows = []
+    for gcf in sorted(gcfs, key=lambda g: -int(g.get('member_count', 0) or 0)):
+        fid = str(gcf.get('family_id', '?'))
+        n = int(gcf.get('member_count', 0) or 0)
+        single = gcf.get('is_singleton', False)
+        kcb = gcf.get('kcb_hit') or ''
+        if isinstance(kcb, float):
+            kcb = ''
+        kcb = str(kcb)
+        acc = gcf.get('kcb_acc') or ''
+        if isinstance(acc, float):
+            acc = ''
+        known = (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
+                 f'target="_blank">{kcb[:28]}</a>' if kcb else
+                 '<span class="tag-novel">none — possibly novel</span>')
+        href = hrefs.get(fid, '')
+        link = (f'<a class="gcf-more" href="{href}">detail →</a>' if href else '')
+        rows.append(
+            f'<tr id="gcfrow_{fid}" data-family="{fid}" '
+            f'data-type="{"singleton" if single else "cluster"}" data-size="{n}" '
+            f'data-product="{gcf.get("product", "")}" '
+            f'data-novelty="{"novel" if not kcb else "known"}">'
+            f'<td><strong>GCF-{fid}</strong></td>'
+            f'<td>{gcf.get("product", "unknown")}</td>'
+            f'<td class="n">{"singleton" if single else n}</td>'
+            f'<td class="org">{gcf.get("organism", "unknown")}</td>'
+            f'<td>{known}</td><td>{link}</td></tr>')
+    master_rows = ''.join(rows)
+
     # Build complete GCF visualization HTML
     gcf_html = f'''
     <div class="gcf-section" style="margin-top: 30px;">
         <h4>Gene Cluster Family Representatives</h4>
         <p style="color: #666; margin-bottom: 15px;">
-            Representative BGCs for each Gene Cluster Family identified by BiG-SCAPE. Click on a family to expand and view the gene diagram and annotations.
+            One row per Gene Cluster Family from BiG-SCAPE. Follow a family to its own page for the representative cluster&rsquo;s gene diagram and table, and the consensus gene content across all members.
         </p>
 
         <div class="gcf-summary" style="display: flex; gap: 15px; margin-bottom: 20px;">
@@ -414,15 +454,34 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
                 <option value="size">By Size (largest first)</option>
                 <option value="product">By Product Type</option>
             </select>
-            <button onclick="toggleAllGCFs()" style="margin-left: 15px; padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa; cursor: pointer;">Expand/Collapse All</button>
         </div>
 
-        <div class="gcf-container" id="gcfContainer">
-            {gcf_cards}
+        <div class="table-container">
+            <table class="gcf-master" id="gcfTable">
+                <thead>
+                    <tr>
+                        <th>GCF</th><th>Product</th><th class="n">BGCs</th>
+                        <th>Representative organism</th><th>Known cluster</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>{master_rows}</tbody>
+            </table>
         </div>
     </div>
 
     <style>
+        .gcf-master {{ width: 100%; border-collapse: collapse; font-size: .9em; }}
+        .gcf-master thead th {{ text-align: left; padding: 7px 10px; background: #eef1f2;
+            border-bottom: 2px solid #dde2e4; font-size: .82em; letter-spacing: .04em;
+            text-transform: uppercase; color: #5a6570; white-space: nowrap; }}
+        .gcf-master td {{ padding: 6px 10px; border-bottom: 1px solid #eef0f1; vertical-align: top; }}
+        .gcf-master tr:hover td {{ background: #f7fafb; }}
+        .gcf-master td.n {{ text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }}
+        .gcf-master th.n {{ text-align: right; }}
+        .gcf-master td.org {{ font-style: italic; color: #555; }}
+        .gcf-master .tag-novel {{ color: #6c3f99; font-size: .88em; }}
+        .gcf-master .gcf-more {{ color: #2c5aa0; text-decoration: none; white-space: nowrap; }}
+        .gcf-master .gcf-more:hover {{ text-decoration: underline; }}
         .gcf-card {{
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -489,54 +548,34 @@ def generate_gcf_visualization_html(gcf_data_file, taxon):
     </style>
 
     <script>
-        function toggleGCF(gcfId) {{
-            const content = document.getElementById(gcfId + '_content');
-            const toggle = document.getElementById(gcfId + '_toggle');
-            if (content.style.display === 'none') {{
-                content.style.display = 'block';
-                toggle.textContent = '-';
-            }} else {{
-                content.style.display = 'none';
-                toggle.textContent = '+';
-            }}
+        // The family detail lives on its own page now, so these drive the master
+        // table's rows rather than expanding cards in place.
+        function gcfRows() {{
+            const tb = document.querySelector('#gcfTable tbody');
+            return tb ? Array.from(tb.querySelectorAll('tr')) : [];
         }}
 
         function filterGCFs() {{
-            const typeFilter = document.getElementById('gcfFilter').value;
-            const noveltyFilter = document.getElementById('gcfNoveltyFilter').value;
-            const cards = document.querySelectorAll('.gcf-card');
-            cards.forEach(card => {{
-                const matchesType = typeFilter === 'all' || card.dataset.type === typeFilter;
-                const matchesNovelty = noveltyFilter === 'all' || card.dataset.novelty === noveltyFilter;
-                card.style.display = (matchesType && matchesNovelty) ? 'block' : 'none';
+            const type = document.getElementById('gcfFilter').value;
+            const novelty = document.getElementById('gcfNoveltyFilter').value;
+            gcfRows().forEach(row => {{
+                const okType = type === 'all' || row.dataset.type === type;
+                const okNov  = novelty === 'all' || row.dataset.novelty === novelty;
+                row.hidden = !(okType && okNov);
             }});
         }}
 
         function sortGCFs(by) {{
-            const container = document.getElementById('gcfContainer');
-            const cards = Array.from(container.querySelectorAll('.gcf-card'));
-            cards.sort((a, b) => {{
-                if (by === 'size') {{
-                    return parseInt(b.dataset.size) - parseInt(a.dataset.size);
-                }}
-                return a.dataset.product.localeCompare(b.dataset.product);
-            }});
-            cards.forEach(card => container.appendChild(card));
-        }}
-
-        function toggleAllGCFs() {{
-            const contents = document.querySelectorAll('.gcf-content');
-            const anyHidden = Array.from(contents).some(c => c.style.display === 'none');
-            contents.forEach(content => {{
-                content.style.display = anyHidden ? 'block' : 'none';
-                const id = content.id.replace('_content', '_toggle');
-                const toggle = document.getElementById(id);
-                if (toggle) toggle.textContent = anyHidden ? '-' : '+';
-            }});
+            const tb = document.querySelector('#gcfTable tbody');
+            if (!tb) return;
+            gcfRows().sort((a, b) => by === 'size'
+                ? parseInt(b.dataset.size) - parseInt(a.dataset.size)
+                : a.dataset.product.localeCompare(b.dataset.product)
+            ).forEach(row => tb.appendChild(row));
         }}
     </script>
     '''
 
-    return gcf_html
+    return gcf_html, cards
 
 
