@@ -47,6 +47,7 @@ process BIGSCAPE_CENTERS {
     fi
 
     export PFAM_PATH=\$(readlink -f ${pfam_db})/Pfam-A.hmm
+    export PYTHONHASHSEED=0  # see BIGSCAPE: load order decides pair orientation
     bigscape cluster \\
         -i center_input -o center_out \\
         --pfam-path \$PFAM_PATH \\

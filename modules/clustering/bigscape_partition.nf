@@ -24,6 +24,7 @@ process BIGSCAPE_PARTITION {
     script:
     """
     export PFAM_PATH=\$(readlink -f ${pfam_db})/Pfam-A.hmm
+    export PYTHONHASHSEED=0  # see BIGSCAPE: load order decides pair orientation
 
     # Rebuild <genome>/<region>.gbk from the manifest's genome column.
     mkdir -p part_input

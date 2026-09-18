@@ -5,6 +5,7 @@ include { PARTITION_BGCS } from '../modules/clustering/partition_bgcs'
 include { BIGSCAPE_PARTITION } from '../modules/clustering/bigscape_partition'
 include { MERGE_BIGSCAPE } from '../modules/clustering/merge_bigscape'
 include { BIGSCAPE_CENTERS } from '../modules/clustering/bigscape_centers'
+include { BIGSCAPE_REFERENCES } from '../modules/clustering/bigscape_references'
 include { EXTRACT_GCF_REPRESENTATIVES } from '../modules/clustering/extract_gcf_representatives'
 include { clusteringEnabled; placeholder } from './helpers'
 
@@ -26,6 +27,8 @@ workflow CLUSTERING {
         gcf_data_ch = placeholder('NO_GCF_DATA')
         pfam_db_ch = placeholder('NO_PFAM_DB')
         centers_db_ch = placeholder('NO_CENTERS_DB')
+        reference_distances_ch = placeholder('NO_REFERENCE_DISTANCES')
+        reference_summary_ch = placeholder('NO_REFERENCE_SUMMARY')
 
         if (clusteringEnabled("bigscape")) {
             DOWNLOAD_PFAM()
@@ -61,6 +64,27 @@ workflow CLUSTERING {
                 bigscape_dir_ch = BIGSCAPE.out.bigscape_dir
             }
 
+            // Distance to the characterised reference clusters, measured on a copy of
+            // the database so the published clustering stays dataset-only. Skipped on
+            // the partitioned path: a merged database holds only within-partition
+            // distances, so this pass would compute every cross-partition pair that
+            // partitioning exists to avoid.
+            def reference_dir = params.bigscape_reference_dir
+            if (reference_dir && file(reference_dir).exists()) {
+                if (params.bigscape_partition) {
+                    log.warn "Reference distances are not measured on the partitioned path; " +
+                             "unset --bigscape_partition to measure them."
+                } else {
+                    BIGSCAPE_REFERENCES(taxon, bigscape_db_ch, antismash_results, pfam_db_ch,
+                                        file(reference_dir),
+                                        Utils.dirHash(reference_dir),
+                                        Utils.scriptsHash(projectDir,
+                                            ['clustering/reference_distances.py']))
+                    reference_distances_ch = BIGSCAPE_REFERENCES.out.distances
+                    reference_summary_ch   = BIGSCAPE_REFERENCES.out.summary
+                }
+            }
+
             // Only partitioned runs have an incomplete distance table, so only
             // they need centre distances measured separately.
             if (params.bigscape_partition) {
@@ -94,4 +118,6 @@ workflow CLUSTERING {
         gcf_data       = gcf_data_ch
         pfam_db        = pfam_db_ch
         centers_db     = centers_db_ch
+        reference_distances = reference_distances_ch
+        reference_summary   = reference_summary_ch
 }

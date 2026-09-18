@@ -33,7 +33,13 @@ class Utils {
             "cb_knownclusters=true",
             "smcog_trees=${params.antismash_smcog_trees ?: false}",
             "hmmdetection_rules=phosphonate"
-        ].sort().join(";")
+        ]
+        // Only when set: leaving it out keeps the hash of every result produced before
+        // this option existed, so stock runs stay reusable.
+        if (params.antismash_phosphonate_neighbourhood) {
+            relevantParams << "phosphonate_neighbourhood=${params.antismash_phosphonate_neighbourhood}"
+        }
+        relevantParams = relevantParams.sort().join(";")
 
         // Return MD5 hash of the parameter string
         return md5(relevantParams)
@@ -160,5 +166,34 @@ class Utils {
      */
     static String optArg(String flag, input) {
         isValidInput(input) ? "${flag} ${getFirstFile(input)}" : ""
+    }
+
+    /**
+     * Digest of the data files in a directory, so editing the directory's contents
+     * invalidates the tasks that read it.
+     *
+     * Nextflow hashes a directory input by its own metadata, not by the files inside
+     * it, and a path interpolated into a script block is not hashed at all. Adding a
+     * reference BGC therefore left `-resume` reusing a run that never saw it — the
+     * same class of silent staleness `scriptsHash` exists to prevent, so the fix is
+     * the same: pass this digest as a `val` input from the call site.
+     *
+     * @param dirPath Directory to digest
+     * @param suffix  Only files with this extension count (default: .gbk)
+     * @return 12-character hex digest, or 'none' when the directory is absent
+     */
+    static String dirHash(dirPath, String suffix = '.gbk') {
+        if (!dirPath) return 'none'
+        def dir = new File(dirPath.toString())
+        if (!dir.isDirectory()) return 'none'
+        def files = dir.listFiles()?.findAll { it.isFile() && it.name.endsWith(suffix) } ?: []
+        def digest = MessageDigest.getInstance("MD5")
+        // sorted by name so the digest does not depend on filesystem order; the name is
+        // hashed alongside the bytes so renames and deletions register too
+        files.sort { it.name }.each { f ->
+            digest.update(f.name.getBytes("UTF-8"))
+            digest.update(f.bytes)
+        }
+        return digest.digest().encodeHex().toString().take(12)
     }
 }
