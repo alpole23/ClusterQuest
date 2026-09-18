@@ -1,0 +1,35 @@
+{
+  "question": "Is GTDB-Tk cost fixed per run or linear in the genomes it processes?",
+  "why_it_mattered": "The two models differed by 94x at a million genomes (48 vs 4,500 CPU-h) and the cost projection assumed the favourable one. Our two pipeline runs differed by only 4.6% in the genomes GTDB-Tk actually sees, which cannot separate the models.",
+  "method": "gtdbtk classify_wf with the pipeline module flags (--cpus 8, --pplacer_cpus 1, --min_perc_aa 10, --skip_ani_screen, --scratch_dir), single shard, on 8 and then 64 Erwiniaceae genomes drawn in a fixed order from the BGC-positive set. 2026-09-18.",
+  "measured": {
+    "N8": {
+      "wall_min": 31.5,
+      "cpu_min": 28.2,
+      "peak_rss_gb": 55.7
+    },
+    "N64": {
+      "wall_min": 53.7,
+      "cpu_min": 63.5,
+      "peak_rss_gb": 56.3
+    }
+  },
+  "fit": {
+    "slope_cpu_min_per_genome": 0.63,
+    "intercept_cpu_min": 23.2,
+    "verdict": "LINEAR. The fixed cost is real (23.2 CPU-min) but per-genome cost dominates above roughly 40 genomes."
+  },
+  "projection_cpu_hours": {
+    "1000_genomes": 11,
+    "121000_bgc_positive_genomes": 1271,
+    "note": "GTDB-Tk sees only BGC-positive genomes (gtdbtk_bgc_genomes_only). A million genomes yields ~121,000 of them, so 1,271 CPU-h is the figure that belongs in the cost model - not the 10,504 CPU-h a million genomes would cost if all were placed."
+  },
+  "consequences": [
+    "The cost model assumed 48 CPU-h for GTDB-Tk. The measured figure is ~1,271 CPU-h, so total compute for a million genomes rises from 22,868 to roughly 24,100 CPU-h (+5%).",
+    "Sharding is cheap insurance after all: each shard re-pays only the 23.2 CPU-min intercept, so 20 shards add ~7.7 CPU-h to ~1,271 - about 0.6%.",
+    "Peak memory was 55.7 and 56.3 GB at N=8 and N=64, i.e. set by the reference data rather than by genome count - and close enough to this box's 56 GB that the measurement may be memory-bound."
+  ],
+  "caveats": [
+    "Two points, both far below the 5,000-genome default shard size; the slope is assumed constant between them and is not verified at shard scale."
+  ]
+}

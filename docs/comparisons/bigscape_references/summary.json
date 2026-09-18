@@ -1,0 +1,60 @@
+{
+  "question": "Do the references belong in the main clustering, and what does the pass cost?",
+  "leak_measured_on": "14-genome Erwiniaceae subset, one reference (pantaphos) inside the cutoff",
+  "leak": {
+    "total_bgcs_reported": {
+      "references_absent": 18,
+      "references_in_clustering": 19
+    },
+    "pantaphos_family_members": {
+      "references_absent": 10,
+      "references_in_clustering": 11
+    },
+    "genomes_in_gcf_mapping": {
+      "references_absent": 14,
+      "references_in_clustering": 15,
+      "phantom_genome": "phosphonate_reference_bgcs"
+    },
+    "query_family_membership_identical": true
+  },
+  "timing_8_cores": {
+    "334_bgcs": {
+      "main_clustering_s": 56.7,
+      "pass_s": 11.9,
+      "pass_db_only_output_s": 9.4
+    },
+    "2000_bgcs": {
+      "main_clustering_s": 388.9,
+      "pass_s": 78.4,
+      "pass_db_only_output_s": 40.3
+    },
+    "4000_bgcs": {
+      "main_clustering_s": 1049.7,
+      "pass_s": 296.9,
+      "pass_db_only_output_s": 134.4
+    },
+    "db_copy_s": {
+      "15MB": 0.01,
+      "244MB": 0.21,
+      "856MB": 0.82
+    },
+    "db_only_output_changes_distances": false
+  },
+  "a1_contig_edge_true": {
+    "input": "20 BGCs from 15 Erwiniaceae genomes incl. LMG 5342",
+    "bgcs_within_0.30_of_pantaphos": {
+      "contig_edge_false": 3,
+      "contig_edge_true": 11
+    },
+    "lmg5342_own_region": {
+      "contig_edge_false": 0.364,
+      "contig_edge_true": 0.0
+    },
+    "unrelated_clusters_unchanged": [
+      0.946,
+      0.953
+    ],
+    "per_bgc": "a1_contig_edge_per_bgc.tsv"
+  },
+  "boundary_cause": "antiSMASH strict phosphonate rule NEIGHBOURHOOD 5; see ../antismash_neighbourhood"
+}

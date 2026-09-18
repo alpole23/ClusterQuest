@@ -1,0 +1,2 @@
+N=8 wall_s=1889.94 user_s=862.76 sys_s=829.45 maxrss_kb=55701940 exit=0
+N=64 wall_s=3219.16 user_s=2155.38 sys_s=1654.45 maxrss_kb=56333412 exit=0

@@ -1,0 +1,31 @@
+{
+  "before": "Erwiniaceae_pre_recovery",
+  "after": "Erwiniaceae",
+  "cutoff": 0.3,
+  "genomes_with_antismash_results": {
+    "before": 2771,
+    "after": 307
+  },
+  "bgcs": {
+    "before": 333,
+    "after": 334
+  },
+  "bgcs_only_in_before": [],
+  "bgcs_only_in_after": [
+    "Pantoea_ananatis_CSUP3/CM194831.1.region001.gbk"
+  ],
+  "families": {
+    "before": 19,
+    "after": 18
+  },
+  "gcf_membership_ari": 0.9990427801139229,
+  "bgcs_compared": 333,
+  "genes": {
+    "bgcs_that_gained_genes": 117,
+    "total_genes_gained": 268,
+    "largest_gain": 14,
+    "cds_total_before": 5186,
+    "cds_total_after": 5463
+  },
+  "product_changes": []
+}
