@@ -9,6 +9,36 @@ import java.security.MessageDigest
  */
 class Utils {
     /**
+     * Params whose value must be a real boolean.
+     *
+     * A command-line `--run_gtdbtk false` arrives as the STRING "false", and every
+     * non-empty string is true in Groovy — so the pipeline reads it as ENABLED and does
+     * the opposite of what the command said, with no warning, because nothing is wrong
+     * from Nextflow's point of view. Measured on Nextflow 26.04.3:
+     *
+     *     --run_gtdbtk false     -> String  "false"  -> if(param) takes the TRUE branch
+     *     -params-file {false}   -> Boolean false    -> the FALSE branch
+     *
+     * Every gate in this pipeline is `if (params.x)`, so the failure is expensive and
+     * invisible: `--pepm_prescreen false` runs the screen anyway, which silently turns a
+     * screen-on/screen-off comparison into two identical runs, and `--run_gtdbtk false`
+     * spends 373 CPU-min and 93 GB of RAM you asked it to skip. Both happened here.
+     *
+     * main.nf rejects rather than coerces, because `--pepm_prescreen maybe` should stop
+     * the run rather than have the pipeline guess which way it was meant.
+     *
+     * tests/check_boolean_params.py checks this list against nextflow.config, so a
+     * boolean param added to the config without being listed here fails the suite.
+     */
+    static final List<String> BOOLEAN_PARAMS = [
+        'check_db_updates', 'pepm_prescreen', 'antismash_minimal', 'antismash_cb_general',
+        'antismash_cc_mibig', 'antismash_smcog_trees', 'antismash_summary_gbk',
+        'run_analysis', 'count_per_contig', 'split_hybrids', 'skip_tree',
+        'bigscape_include_singletons', 'bigscape_mix', 'bigscape_partition',
+        'recover_orfs', 'annotation_transfer', 'run_gtdbtk', 'gtdbtk_bgc_genomes_only',
+    ]
+
+    /**
      * Sanitize taxon name for use in file paths and directory names.
      * Replaces special characters with underscores for filesystem safety.
      */

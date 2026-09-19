@@ -12,6 +12,22 @@ nextflow.enable.dsl=2
 def validateParams() {
     def errors = []
 
+    // Boolean params must be real booleans — see Utils.BOOLEAN_PARAMS for why.
+    Utils.BOOLEAN_PARAMS.each { name ->
+        if (params.containsKey(name)) {
+            def value = params[name]
+            if (!(value instanceof Boolean)) {
+                def kind = value == null ? 'null' : value.getClass().getSimpleName()
+                errors << ("params.${name} must be true or false, but is '${value}' (${kind}). " +
+                           "A command-line `--${name} ${value}` arrives as a string, and every " +
+                           "non-empty string is true — so it would ENABLE ${name} rather than " +
+                           "set it. Pass booleans in a params file " +
+                           "(-params-file params.json, \"${name}\": false), or omit the flag " +
+                           "to keep the configured default.")
+            }
+        }
+    }
+
     // Validate workflow
     def validWorkflows = ['download', 'bgc_analysis', 'full']
     if (!(params.workflow in validWorkflows)) {

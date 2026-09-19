@@ -187,6 +187,35 @@ else
     fail "script dependency declarations stale:"; echo "$DEPS" | sed 's/^/      /'
 fi
 
+if BOOLCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_boolean_params.py" 2>&1)"; then
+    pass "boolean param list current"
+else
+    fail "boolean param list stale:"; echo "$BOOLCHK" | sed 's/^/      /'
+fi
+
+# The behaviour behind that list: `--run_gtdbtk false` arrives as the STRING "false",
+# which is truthy, so without validation the flag enables what it appears to disable.
+# Checked by running the real pipeline, because the trap is in how Nextflow parses the
+# command line — nothing smaller reproduces it.
+if command -v nextflow >/dev/null 2>&1; then
+    BOOL_OUT="$(cd "$PROJECT_DIR" && nextflow run main.nf -preview -profile local \
+        -c "$SCRATCH/no_reports.config" --taxon Erwiniaceae --run_gtdbtk false 2>&1)"
+    if echo "$BOOL_OUT" | grep -q "must be true or false"; then
+        pass "--run_gtdbtk false is rejected"
+    else
+        fail "--run_gtdbtk false was NOT rejected — the truthiness trap is open again"
+    fi
+    BOOL_OK="$(cd "$PROJECT_DIR" && nextflow run main.nf -preview -profile local \
+        -c "$SCRATCH/no_reports.config" --taxon Erwiniaceae 2>&1)"
+    if echo "$BOOL_OK" | grep -q "must be true or false"; then
+        fail "defaults were rejected by the boolean check"
+    else
+        pass "configured defaults pass the boolean check"
+    fi
+else
+    skip "boolean param rejection" "nextflow not available"
+fi
+
 # The report's JavaScript lives in Python string constants, so check_undefined.py
 # cannot see it — that gap shipped a search box wired to an undefined function.
 if JSCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_report_js.py" 2>&1)"; then

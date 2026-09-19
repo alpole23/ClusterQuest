@@ -1332,6 +1332,38 @@ modules would look for `tests/scripts/...`. GenBank→FASTA needs biopython; the
 borrows an interpreter that has it (system python or a cached conda env) and skips those
 two assertions if none is available.
 
+### Boolean params must come from a params file, not the command line
+
+`--run_gtdbtk false` arrives as the **string** `"false"`, and every non-empty string is
+true in Groovy. Measured on Nextflow 26.04.3:
+
+| form | value | class | `if (params.x)` |
+|---|---|---|---|
+| `--run_gtdbtk false` | `false` | **String** | **TRUE branch** |
+| `--run_gtdbtk FALSE` | `FALSE` | String | TRUE branch |
+| `-params-file {"run_gtdbtk": false}` | `false` | Boolean | FALSE branch |
+
+Every gate in this pipeline is `if (params.x)`, so the flag **enables what it appears to
+disable**, silently — nothing is wrong from Nextflow's point of view, you asked for a
+non-empty string. It cost two real mistakes here: a first actinomycete run that started
+GTDB-Tk (373 CPU-min, 93 GB) after being told not to, and an A/B that would have run the
+pepM screen in both arms and reported the two as a comparison.
+
+`main.nf` now **rejects** a boolean param that is not a real boolean, listing the fix in
+the message. Rejecting rather than coercing, because `--pepm_prescreen maybe` should stop
+the run rather than have the pipeline guess. The protected names live in
+`Utils.BOOLEAN_PARAMS`; `tests/check_boolean_params.py` compares that list against
+`nextflow.config`, so a boolean added to the config without being listed fails the suite
+rather than being quietly unprotected. `tests/run_tests.sh` also runs the pipeline with
+`--run_gtdbtk false` and asserts it aborts.
+
+To disable something, use a params file:
+
+```bash
+echo '{ "run_gtdbtk": false, "pepm_prescreen": false }' > off.json
+nextflow run main.nf -params-file off.json --taxon "Pantoea ananatis"
+```
+
 ### Task Batching
 
 Steps whose per-genome work is under a couple of seconds are batched — one job per
