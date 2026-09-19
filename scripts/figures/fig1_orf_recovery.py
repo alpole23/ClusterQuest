@@ -39,6 +39,7 @@ CATEGORY_COLOR = {
     'regulation': '#c98a1b',
     'mobile': '#8a939f',
     'primary': '#cfd5dd',
+    'transferred': '#8c6d4f',
     'other': '#e4e8ed',
 }
 CATEGORY_LABEL = {
@@ -49,6 +50,7 @@ CATEGORY_LABEL = {
     'regulation': 'regulation',
     'mobile': 'mobile element',
     'primary': 'primary metabolism',
+    'transferred': 'named by GCF annotation transfer \u2020',
     'other': 'unclassified',
 }
 
@@ -108,19 +110,58 @@ def label_for(feat):
     return None
 
 
-def read_region(path):
+def load_transferred(path):
+    """{locus_tag: transferred_product} from GCF_ANNOTATION_TRANSFER, if present.
+
+    A recovered ORF usually reaches the region GenBank as "hypothetical" --
+    prodigal finds the reading frame, it does not name the protein. The name
+    arrives later, from annotated relatives in the same GCF. Reading only the
+    GenBank therefore draws the most interesting recovered genes as
+    unclassified: LMG 5342's recovered_HE617160.1_0066 is a GNAT family
+    N-acetyltransferase on five source genomes, and the first version of this
+    figure showed it as a grey unknown.
+    """
+    import csv as _csv
+    out = {}
+    if not path or not Path(path).exists():
+        return out
+    with open(path) as fh:
+        for row in _csv.DictReader(fh, delimiter='\t'):
+            prod = (row.get('transferred_product') or '').strip()
+            if prod and row.get('origin') == 'transferred':
+                out[row['locus_tag']] = prod
+    return out
+
+
+TRANSFER_TSV = (ROOT / 'results/main_analysis_results/Erwiniaceae/'
+                'annotation_transfer/gcf_annotation_transfer.tsv')
+
+
+def read_region(path, transferred=None):
+    transferred = transferred if transferred is not None else {}
     rec = next(SeqIO.parse(str(path), 'genbank'))
     genes = []
     for f in rec.features:
         if f.type != 'CDS':
             continue
+        tag = f.qualifiers.get('locus_tag', [''])[0]
+        name = transferred.get(tag)
+        label = label_for(f)
+        cat = gene_category(f)
+        if name:
+            # A transferred name is an inference from homologues, not an
+            # observation, so it is marked on the figure rather than passed off
+            # as antiSMASH's own call.
+            label = f'{name[:34]}  †'
+            if cat == 'other':
+                cat = 'transferred'
         genes.append({
             'start': int(f.location.start),
             'end': int(f.location.end),
             'strand': 1 if f.location.strand in (None, 1) else -1,
             'recovered': is_recovered(f),
-            'category': gene_category(f),
-            'label': label_for(f),
+            'category': cat,
+            'label': label,
         })
     return len(rec.seq), sorted(genes, key=lambda g: g['start'])
 
@@ -166,9 +207,9 @@ def annotate_labels(ax, genes, y, span, above=True):
                                     color=ACCENT if g['recovered'] else '#c9ced6'))
 
 
-def draw_clade(ax, title, before_path, after_path):
-    span_b, before = read_region(before_path)
-    span_a, after = read_region(after_path)
+def draw_clade(ax, title, before_path, after_path, transferred=None):
+    span_b, before = read_region(before_path, transferred)
+    span_a, after = read_region(after_path, transferred)
     span = max(span_b, span_a)
 
     draw_track(ax, before, span_b, y=1.0)
@@ -337,6 +378,8 @@ def main():
     ROW_NAME = {'Winslowiella': 'Erwiniaceae', 'Pantoea': 'Erwiniaceae',
                 'pantaphos': 'Erwiniaceae'}
 
+    transferred = load_transferred(TRANSFER_TSV)
+    print(f'{len(transferred)} transferred gene names available')
     clades, rows, cache = [], {}, {}
     for short, title, bdir, adir, key in CLADES:
         if not (bdir.exists() and adir.exists()):
@@ -365,9 +408,9 @@ def main():
                                           ([1.7] if not args.no_distribution else [])})
     used = []
     for ax, (name, before, after) in zip(axes[:, 0], clades):
-        nb, na = draw_clade(ax, name, before, after)
+        nb, na = draw_clade(ax, name, before, after, transferred)
         print(f'{name}: {nb} -> {na} genes')
-        for g in read_region(after)[1]:
+        for g in read_region(after, transferred)[1]:
             if g['category'] not in used:
                 used.append(g['category'])
     order = [c for c in CATEGORY_COLOR if c in used]
