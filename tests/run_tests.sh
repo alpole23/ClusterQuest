@@ -187,33 +187,43 @@ else
     fail "script dependency declarations stale:"; echo "$DEPS" | sed 's/^/      /'
 fi
 
-if BOOLCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_boolean_params.py" 2>&1)"; then
-    pass "boolean param list current"
+if command -v nextflow >/dev/null 2>&1; then
+    if SCHEMACHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_schema.py" 2>&1)"; then
+        pass "parameter schema current"
+    else
+        fail "parameter schema stale:"; echo "$SCHEMACHK" | sed 's/^/      /'
+    fi
 else
-    fail "boolean param list stale:"; echo "$BOOLCHK" | sed 's/^/      /'
+    skip "parameter schema" "nextflow not available"
 fi
 
-# The behaviour behind that list: `--run_gtdbtk false` arrives as the STRING "false",
-# which is truthy, so without validation the flag enables what it appears to disable.
-# Checked by running the real pipeline, because the trap is in how Nextflow parses the
-# command line — nothing smaller reproduces it.
+# The behaviour the schema buys: an unknown param and a wrongly typed one both stop the
+# run. Checked against the real pipeline, because both traps live in how Nextflow parses
+# a command line — nothing smaller reproduces them.
 if command -v nextflow >/dev/null 2>&1; then
     BOOL_OUT="$(cd "$PROJECT_DIR" && nextflow run main.nf -preview -profile local \
         -c "$SCRATCH/no_reports.config" --taxon Erwiniaceae --run_gtdbtk false 2>&1)"
-    if echo "$BOOL_OUT" | grep -q "must be true or false"; then
+    if echo "$BOOL_OUT" | grep -q "should be \[boolean\]"; then
         pass "--run_gtdbtk false is rejected"
     else
         fail "--run_gtdbtk false was NOT rejected — the truthiness trap is open again"
     fi
+    TYPO_OUT="$(cd "$PROJECT_DIR" && nextflow run main.nf -preview -profile local \
+        -c "$SCRATCH/no_reports.config" --taxn Pantoea 2>&1)"
+    if echo "$TYPO_OUT" | grep -q -- "--taxn"; then
+        pass "unknown param --taxn is rejected"
+    else
+        fail "unknown param --taxn was NOT rejected — it would run the default taxon"
+    fi
     BOOL_OK="$(cd "$PROJECT_DIR" && nextflow run main.nf -preview -profile local \
         -c "$SCRATCH/no_reports.config" --taxon Erwiniaceae 2>&1)"
-    if echo "$BOOL_OK" | grep -q "must be true or false"; then
-        fail "defaults were rejected by the boolean check"
+    if echo "$BOOL_OK" | grep -qiE "invalid input values"; then
+        fail "configured defaults were rejected by the schema"
     else
-        pass "configured defaults pass the boolean check"
+        pass "configured defaults pass validation"
     fi
 else
-    skip "boolean param rejection" "nextflow not available"
+    skip "parameter validation" "nextflow not available"
 fi
 
 # The report's JavaScript lives in Python string constants, so check_undefined.py

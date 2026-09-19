@@ -2,6 +2,8 @@
 
 nextflow.enable.dsl=2
 
+include { validateParameters; paramsHelp; paramsSummaryLog } from 'plugin/nf-schema'
+
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
@@ -10,24 +12,16 @@ nextflow.enable.dsl=2
  * Validate pipeline parameters.
  */
 def validateParams() {
+    // Declared params, declared types, and no unknown names — nf-schema, nf-core style.
+    // This is what stops `--taxn Pantoea` running the default taxon in silence, and
+    // `--run_gtdbtk false` enabling what it appears to disable.
+    validateParameters()
+
     def errors = []
 
-    // Boolean params must be real booleans — see Utils.BOOLEAN_PARAMS for why.
-    Utils.BOOLEAN_PARAMS.each { name ->
-        if (params.containsKey(name)) {
-            def value = params[name]
-            if (!(value instanceof Boolean)) {
-                def kind = value == null ? 'null' : value.getClass().getSimpleName()
-                errors << ("params.${name} must be true or false, but is '${value}' (${kind}). " +
-                           "A command-line `--${name} ${value}` arrives as a string, and every " +
-                           "non-empty string is true — so it would ENABLE ${name} rather than " +
-                           "set it. Pass booleans in a params file " +
-                           "(-params-file params.json, \"${name}\": false), or omit the flag " +
-                           "to keep the configured default.")
-            }
-        }
-    }
-
+    // Types and unknown names are the schema's job (nextflow_schema.json, checked by
+    // validateParameters() below); what follows are the cross-param rules a schema
+    // cannot express.
     // Validate workflow
     def validWorkflows = ['download', 'bgc_analysis', 'full']
     if (!(params.workflow in validWorkflows)) {

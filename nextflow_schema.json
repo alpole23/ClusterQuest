@@ -1,0 +1,329 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/alpole23/ClusterQuest/main/nextflow_schema.json",
+    "title": "ClusterQuest pipeline parameters",
+    "description": "Phosphonate BGC discovery and characterisation. Generated from nextflow.config by tests/check_schema.py --write; regenerate rather than hand-edit.",
+    "type": "object",
+    "properties": {
+        "annotation_transfer": {
+            "type": "boolean",
+            "description": "Half the CDS in a typical run carry no functional annotation, because many",
+            "default": true,
+            "x-group": "Within-GCF annotation transfer"
+        },
+        "antismash_batch_size": {
+            "type": "integer",
+            "description": "see antismashBatchSize() in subworkflows/helpers.nf",
+            "default": 50,
+            "x-group": "Reference database versions"
+        },
+        "antismash_cb_general": {
+            "type": "boolean",
+            "description": "only when antismash_minimal = false; ClusterBlast: Compare vs antiSMASH DB",
+            "default": false,
+            "x-group": "antiSMASH Analysis Options"
+        },
+        "antismash_cc_mibig": {
+            "type": "boolean",
+            "description": "only when antismash_minimal = false; ClusterCompare: Advanced MIBiG scoring",
+            "default": false,
+            "x-group": "antiSMASH Analysis Options"
+        },
+        "antismash_minimal": {
+            "type": "boolean",
+            "description": "antiSMASH minimal mode (faster, skips domain analysis)",
+            "default": false,
+            "x-group": "antiSMASH Analysis Options"
+        },
+        "antismash_smcog_trees": {
+            "type": "boolean",
+            "description": "only when antismash_minimal = false; Phylogenetic trees for BGC genes",
+            "default": false,
+            "x-group": "antiSMASH Analysis Options"
+        },
+        "antismash_summary_gbk": {
+            "type": "boolean",
+            "description": "Write {genome}.gbk, the whole annotated genome (~11 MB each).",
+            "default": false,
+            "x-group": "antiSMASH Analysis Options"
+        },
+        "assembly_level": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Restrict the NCBI download by assembly level, e.g. 'complete' or",
+            "x-group": "Download Genome Options"
+        },
+        "bigscape_alignment_mode": {
+            "type": "string",
+            "description": "\"auto\", \"global\", or \"glocal\"",
+            "default": "auto",
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
+        "bigscape_classify": {
+            "type": "string",
+            "description": "\"\", \"category\", \"class\", or \"legacy\"",
+            "default": "category",
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
+        "bigscape_cutoffs": {
+            "type": "string",
+            "description": "GCF distance threshold(s), comma-separated",
+            "default": "0.30",
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
+        "bigscape_include_singletons": {
+            "type": "boolean",
+            "description": "Include unclustered BGCs",
+            "default": true,
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
+        "bigscape_mibig_version": {
+            "type": "string",
+            "description": "MIBiG version (e.g. \"4.0\") or \"\" to exclude.",
+            "default": "",
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
+        "bigscape_mix": {
+            "type": "boolean",
+            "description": "Allow mixing BGC classes in same GCF",
+            "default": false,
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
+        "bigscape_partition": {
+            "type": "boolean",
+            "description": "BiG-SCAPE compares every BGC against every other and its peak memory is",
+            "default": false,
+            "x-group": "BiG-SCAPE partitioning"
+        },
+        "bigscape_partition_identity": {
+            "type": "number",
+            "description": "0.60-0.80 is the verified safe window. Every same-GCF pair measured had",
+            "default": 0.6,
+            "x-group": "BiG-SCAPE partitioning"
+        },
+        "bigscape_partition_max_size": {
+            "type": "integer",
+            "description": "Largest partition allowed, as a BGC count. Leave at 0 to derive it from the",
+            "default": 0,
+            "x-group": "BiG-SCAPE partitioning"
+        },
+        "bigscape_partition_memory_margin": {
+            "type": "number",
+            "description": "Fraction of the allocation to budget when deriving the cap. Deliberately",
+            "default": 0.85,
+            "x-group": "BiG-SCAPE partitioning"
+        },
+        "bigscape_partition_threshold": {
+            "type": "integer",
+            "description": "Total BGCs in the run (not base pairs, and not a per-partition size) at",
+            "default": 10000,
+            "x-group": "BiG-SCAPE partitioning"
+        },
+        "bigscape_reference_dir": {
+            "type": "string",
+            "description": "Characterised phosphonate clusters MIBiG does NOT carry, measured against every",
+            "default": "/home/alexp/pipeline/assets/phosphonate_reference_bgcs",
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
+        "check_db_updates": {
+            "type": "boolean",
+            "description": "Warn (never fail) when a pinned database is behind what upstream offers.",
+            "default": true,
+            "x-group": "Reference database versions"
+        },
+        "clustering": {
+            "type": "string",
+            "description": "\"none\" or \"bigscape\"",
+            "default": "bigscape",
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
+        "count_per_contig": {
+            "type": "boolean",
+            "description": "Count per contig (true) or per genome (false)",
+            "default": false,
+            "x-group": "Region Analysis Options"
+        },
+        "gtdb_release": {
+            "type": "string",
+            "description": "GTDB-Tk refuses data older than its own",
+            "default": "226",
+            "x-group": "Reference database versions"
+        },
+        "gtdbtk_bgc_genomes_only": {
+            "type": "boolean",
+            "description": "Only analyze genomes with detected BGCs",
+            "default": true,
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "gtdbtk_cpus": {
+            "type": "integer",
+            "description": "CPUs for identify/align steps",
+            "default": 8,
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "gtdbtk_min_perc_aa": {
+            "type": "integer",
+            "description": "Minimum % amino acids in MSA",
+            "default": 10,
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "gtdbtk_outgroup": {
+            "type": "string",
+            "description": "Outgroup pattern for tree rooting (e.g., \"g__Escherichia\")",
+            "default": "g__Escherichia",
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "gtdbtk_pplacer_cpus": {
+            "type": "integer",
+            "description": "CPUs for pplacer (keep low, memory-bound)",
+            "default": 1,
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "gtdbtk_shard_size": {
+            "type": "integer",
+            "description": "see gtdbtkShardSize() in subworkflows/helpers.nf",
+            "default": 5000,
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "input_genomes": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "only for --workflow bgc_analysis; Path to pre-downloaded genomes directory",
+            "x-group": "antiSMASH Analysis Options"
+        },
+        "outdir": {
+            "type": "string",
+            "description": "Output directory for all results",
+            "default": "results",
+            "x-group": "Global Pipeline Options"
+        },
+        "pepm_prescreen": {
+            "type": "boolean",
+            "description": "pepM pre-screen: skip antiSMASH on genomes with no PEP mutase, which cannot",
+            "default": true,
+            "x-group": "Reference database versions"
+        },
+        "pepm_prescreen_batch_size": {
+            "type": "integer",
+            "description": "see pepmBatchSize() in subworkflows/helpers.nf",
+            "default": 200,
+            "x-group": "Reference database versions"
+        },
+        "pepm_prescreen_bitscore": {
+            "type": "integer",
+            "description": "298/298 sensitivity; TPs score 154-552, background <= 51",
+            "default": 100,
+            "x-group": "Reference database versions"
+        },
+        "pepm_prescreen_min_density": {
+            "type": "integer",
+            "description": "proteins/Mb below which a genome is screened by DNA",
+            "default": 500,
+            "x-group": "Reference database versions"
+        },
+        "pfam_release": {
+            "type": "string",
+            "description": "current as of 2026-08",
+            "default": "38.2",
+            "x-group": "Reference database versions"
+        },
+        "pipeline_info_dir": {
+            "type": "string",
+            "description": "",
+            "default": "results/pipeline_info/Erwiniaceae"
+        },
+        "publish_mode": {
+            "type": "string",
+            "description": "How publishDir moves task output into outdir. 'link' makes hard links, so a",
+            "default": "link",
+            "x-group": "Global Pipeline Options"
+        },
+        "recover_orfs": {
+            "type": "boolean",
+            "description": "Genomes are often only partly annotated, and antiSMASH runs its own gene",
+            "default": true,
+            "x-group": "Missing-gene recovery"
+        },
+        "reuse_antismash_from": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Taxon name to reuse antiSMASH results from, e.g. \"Pantoea\"",
+            "x-group": "antiSMASH Analysis Options"
+        },
+        "reuse_gtdbtk_from": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Taxon name to reuse GTDB-Tk results from",
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "run_analysis": {
+            "type": "boolean",
+            "description": "Enable region analysis and visualization",
+            "default": true,
+            "x-group": "Region Analysis Options"
+        },
+        "run_gtdbtk": {
+            "type": "boolean",
+            "description": "Enable phylogenetic analysis",
+            "default": true,
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "skip_tree": {
+            "type": "boolean",
+            "description": "Skip phylogenetic tree in HTML report visualization",
+            "default": false,
+            "x-group": "Region Analysis Options"
+        },
+        "split_hybrids": {
+            "type": "boolean",
+            "description": "Split hybrid types (T1PKS-NRPS \u2192 T1PKS + NRPS)",
+            "default": false,
+            "x-group": "Region Analysis Options"
+        },
+        "task_batch_size": {
+            "type": "integer",
+            "description": "Genomes per task for the short per-genome steps (rename, GenBank\u2192FASTA,",
+            "default": 100,
+            "x-group": "Reference database versions"
+        },
+        "taxdump_date": {
+            "type": "string",
+            "description": "NCBI monthly archive; the live file changes daily",
+            "default": "2026-08-01",
+            "x-group": "Reference database versions"
+        },
+        "taxon": {
+            "type": "string",
+            "description": "NCBI taxon (species, genus, family, order, etc.)",
+            "default": "Erwiniaceae",
+            "x-group": "Download Genome Options"
+        },
+        "transfer_min_coverage": {
+            "type": "number",
+            "description": "mutual alignment coverage, both directions",
+            "default": 0.7,
+            "x-group": "Within-GCF annotation transfer"
+        },
+        "transfer_min_identity": {
+            "type": "number",
+            "description": "percent identity floor",
+            "default": 50.0,
+            "x-group": "Within-GCF annotation transfer"
+        },
+        "workflow": {
+            "type": "string",
+            "description": "Pipeline mode: \"download\", \"bgc_analysis\", or \"full\"",
+            "default": "full",
+            "x-group": "Global Pipeline Options"
+        }
+    },
+    "additionalProperties": false
+}

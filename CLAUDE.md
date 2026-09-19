@@ -1332,32 +1332,39 @@ modules would look for `tests/scripts/...`. GenBank→FASTA needs biopython; the
 borrows an interpreter that has it (system python or a cached conda env) and skips those
 two assertions if none is available.
 
-### Boolean params must come from a params file, not the command line
+### Parameter validation: the schema is the contract
 
-`--run_gtdbtk false` arrives as the **string** `"false"`, and every non-empty string is
-true in Groovy. Measured on Nextflow 26.04.3:
+`nextflow_schema.json` declares every parameter, and `main.nf` calls nf-schema's
+`validateParameters()` before anything else. Two silent failures become errors:
 
-| form | value | class | `if (params.x)` |
-|---|---|---|---|
-| `--run_gtdbtk false` | `false` | **String** | **TRUE branch** |
-| `--run_gtdbtk FALSE` | `FALSE` | String | TRUE branch |
-| `-params-file {"run_gtdbtk": false}` | `false` | Boolean | FALSE branch |
+| you type | before | now |
+|---|---|---|
+| `--taxn Pantoea` | runs *Erwiniaceae*, reports success | `* --taxn (Pantoea): False schema always fails` |
+| `--run_gtdbtk false` | **enables** GTDB-Tk | `Value is [string] but should be [boolean]` |
 
-Every gate in this pipeline is `if (params.x)`, so the flag **enables what it appears to
-disable**, silently — nothing is wrong from Nextflow's point of view, you asked for a
-non-empty string. It cost two real mistakes here: a first actinomycete run that started
-GTDB-Tk (373 CPU-min, 93 GB) after being told not to, and an A/B that would have run the
-pepM screen in both arms and reported the two as a comparison.
+The second is the nastier one. A command-line param arrives as a **string**, and every
+non-empty string is true in Groovy, so `--run_gtdbtk false` reads as enabled. Measured on
+Nextflow 26.04.3: `--run_gtdbtk false` gives `String "false"` and takes the TRUE branch,
+while `-params-file {"run_gtdbtk": false}` gives `Boolean false`. Every gate here is
+`if (params.x)`, so it cost two real mistakes — a run that spent 373 CPU-min and 93 GB on
+GTDB-Tk after being told not to, and an A/B that would have screened both arms while
+reporting them as screen-on against screen-off. Nextflow does not catch either on its own,
+and `NXF_ENABLE_STRICT=true` does not change that.
 
-`main.nf` now **rejects** a boolean param that is not a real boolean, listing the fix in
-the message. Rejecting rather than coercing, because `--pepm_prescreen maybe` should stop
-the run rather than have the pipeline guess. The protected names live in
-`Utils.BOOLEAN_PARAMS`; `tests/check_boolean_params.py` compares that list against
-`nextflow.config`, so a boolean added to the config without being listed fails the suite
-rather than being quietly unprotected. `tests/run_tests.sh` also runs the pipeline with
-`--run_gtdbtk false` and asserts it aborts.
+**Adding a param means adding it to the schema**, or the pipeline rejects it at runtime
+for everyone. `tests/check_schema.py` compares the schema against `nextflow config -flat`
+and fails on drift in either direction; `--write` regenerates it. The generator reads the
+param list from Nextflow rather than by parsing the config text — a regex missed one
+param, and because the same regex checked its own output the gap stayed invisible until
+a run failed.
 
-To disable something, use a params file:
+Two things worth knowing about the schema's shape. All 52 properties sit at the **root**,
+not in `$defs` groups: `additionalProperties` only sees properties declared in the same
+schema object, so an `allOf`/`$defs` layout rejects every grouped param instead of only
+unknown ones. And `"False schema always fails"` is what an unknown parameter looks like —
+the message comes from the JSON-schema library, and it names the offending flag.
+
+Disabling something on the command line is no longer possible; use a params file:
 
 ```bash
 echo '{ "run_gtdbtk": false, "pepm_prescreen": false }' > off.json
