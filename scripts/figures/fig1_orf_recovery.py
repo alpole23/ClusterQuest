@@ -63,6 +63,12 @@ LABEL_HINTS = [
     ('phosphocholine', 'phosphocholine CT'),
     ('mfs', 'MFS transporter'),
     ('ntp', 'NTP transferase'),
+    ('leud', 'LeuD  (small subunit)'),
+    ('isopropylmalate dehydratase', 'LeuC  (large subunit)'),
+    ('phytanoyl', 'phytanoyl-CoA dioxygenase'),
+    ('aspartate aminotransferase', 'Asp aminotransferase'),
+    ('homoaconitate', 'homoaconitate synthase'),
+    ('monooxygenase', 'monooxygenase'),
 ]
 
 
@@ -216,9 +222,15 @@ def gain_distribution(before_dir, after_dir):
 
 
 def panel_distribution(ax, clade_gains, highlights):
-    """Stacked strip of per-region gains, one row per clade, examples marked."""
+    """Per-region gains, one row per SOURCE RUN, with every example marked.
+
+    Rows are keyed on the run, not on the panel: three of the panels above come
+    from the same Erwiniaceae before/after pair, and giving each its own row
+    drew one distribution three times over and printed "117/333 gained" thrice
+    as though they were independent measurements.
+    """
     ytick, ylab = [], []
-    for row, (clade, gains) in enumerate(clade_gains):
+    for row, (clade, gains, marks) in enumerate(clade_gains):
         vals = sorted(gains.values())
         y = len(clade_gains) - row - 1
         ytick.append(y)
@@ -237,12 +249,15 @@ def panel_distribution(ax, clade_gains, highlights):
             ys.append(y + offset)
         ax.scatter(vals, ys, s=11, color='#c3ccd6', edgecolor='none',
                    zorder=2, alpha=0.85)
-        key = highlights.get(clade)
-        if key and key in gains:
-            ax.scatter([gains[key]], [y], s=90, color=ACCENT, zorder=5,
+        # Several panels can share one run, so a row carries several markers.
+        for i, (letter, key) in enumerate(marks):
+            if key not in gains:
+                continue
+            ax.scatter([gains[key]], [y], s=95, color=ACCENT, zorder=5,
                        edgecolor='white', lw=1.2)
-            ax.annotate(f'+{gains[key]}  shown above', xy=(gains[key], y),
-                        xytext=(gains[key], y + 0.34), ha='center', fontsize=7.4,
+            ax.annotate(f'{letter}  +{gains[key]}', xy=(gains[key], y),
+                        xytext=(gains[key], y + (0.30 if i % 2 == 0 else -0.42)),
+                        ha='center', fontsize=7.6,
                         color=ACCENT, fontweight='bold')
     ax.set_yticks(ytick)
     ax.set_yticklabels(ylab, fontsize=8)
@@ -274,12 +289,33 @@ def main():
 
     base = ROOT / 'results' / 'antismash_results'
     # (short clade name, panel title, before dir, after dir, region key)
+    #
+    # Ordered as a gradient in how much the deposit left out, because that is
+    # the argument: recovery is targeted, not indiscriminate.
     CLADES = [
+        ('Winslowiella',
+         'Winslowiella iniecta B149  —  recovery restores CORE and '
+         'TAILORING enzymes; GCF 11 → 9',
+         base / 'Erwiniaceae_pre_recovery', base / 'Erwiniaceae',
+         'Winslowiella_iniecta_B149/JRXF01000012.1.region001.gbk'),
         ('Pantoea',
-         'Pantoea ananatis LMG 5342  ·  region 2  —  confirmed '
+         'Pantoea ananatis LMG 5342 region 2  —  confirmed '
          'phosphonolipid; most affected BGC of 334',
          base / 'Erwiniaceae_pre_recovery', base / 'Erwiniaceae',
          'Pantoea_ananatis_LMG_5342/HE617160.1.region002.gbk'),
+        # Same genome, same deposit, same year as the panel above. One region
+        # gains 14 genes and this one gains 4, so the difference is which genes
+        # NCBI's pipeline happened to call rather than anything about the
+        # assembly -- an internal control no separate strain can provide.
+        # NOT a tailoring example: its monooxygenase, homoaconitate synthase,
+        # isopropylmalate dehydratase, methyltransferase and SanS are all
+        # DEPOSITED. All four recovered genes are unclassified by antiSMASH.
+        ('pantaphos',
+         'Pantoea ananatis LMG 5342 region 1  ·  pantaphos / HiVir  '
+         '—  same genome, already well annotated; recovery completes '
+         'the LeuC/LeuD dehydratase',
+         base / 'Erwiniaceae_pre_recovery', base / 'Erwiniaceae',
+         'Pantoea_ananatis_LMG_5342/HE617160.1.region001.gbk'),
         # S. griseus, not S. hygroscopicus: the bialaphos lineage yields only 2
         # phosphonate regions across 39 genomes (reproducing its count of 2 in
         # the actinomycete comparison), too few to choose an example from.
@@ -296,27 +332,36 @@ def main():
          'Bacteroides_fragilis_BFG-525/CP103089.1.region001.gbk'),
     ]
 
-    clades, clade_gains, highlights = [], [], {}
+    # Rows of the distribution panel are keyed on the SOURCE RUN, and several
+    # panels may share one; the Erwiniaceae pair supplies three of them.
+    ROW_NAME = {'Winslowiella': 'Erwiniaceae', 'Pantoea': 'Erwiniaceae',
+                'pantaphos': 'Erwiniaceae'}
+
+    clades, rows, cache = [], {}, {}
     for short, title, bdir, adir, key in CLADES:
         if not (bdir.exists() and adir.exists()):
             print(f'skipping {short}: {bdir if not bdir.exists() else adir} missing')
             continue
-        gains = gain_distribution(bdir, adir)
+        run = (str(bdir), str(adir))
+        if run not in cache:
+            cache[run] = gain_distribution(bdir, adir)
+        gains = cache[run]
         if not gains:
             print(f'skipping {short}: no paired regions')
             continue
-        clade_gains.append((short, gains))
         if key is None:                       # pick the clade's best example
             key = max(gains, key=lambda k: gains[k])
             title = f'{title}  —  best of {len(gains)} regions'
-        highlights[short] = key
+        letter = 'ABCDEF'[len(clades)]
+        rows.setdefault(ROW_NAME.get(short, short), (gains, []))[1].append((letter, key))
         clades.append((title, bdir / key, adir / key))
+    clade_gains = [(name, gains, marks) for name, (gains, marks) in rows.items()]
 
     nrows = len(clades) + (0 if args.no_distribution else 1)
-    fig, axes = plt.subplots(nrows, 1, figsize=(11.6, 2.5 * len(clades) + 2.6),
+    fig, axes = plt.subplots(nrows, 1, figsize=(11.6, 2.15 * len(clades) + 2.6),
                              squeeze=False,
                              gridspec_kw={'height_ratios':
-                                          [2.5] * len(clades) +
+                                          [2.15] * len(clades) +
                                           ([1.7] if not args.no_distribution else [])})
     used = []
     for ax, (name, before, after) in zip(axes[:, 0], clades):
@@ -328,7 +373,7 @@ def main():
     order = [c for c in CATEGORY_COLOR if c in used]
 
     if not args.no_distribution:
-        panel_distribution(axes[len(clades), 0], clade_gains, highlights)
+        panel_distribution(axes[len(clades), 0], clade_gains, {})
 
     for ax, letter in zip(axes[:, 0], 'ABCDEF'):
         panel_label(ax, letter, dx=-0.175, dy=1.22)
