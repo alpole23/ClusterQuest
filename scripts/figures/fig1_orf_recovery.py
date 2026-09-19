@@ -71,6 +71,9 @@ LABEL_HINTS = [
     ('aspartate aminotransferase', 'Asp aminotransferase'),
     ('homoaconitate', 'homoaconitate synthase'),
     ('monooxygenase', 'monooxygenase'),
+    ('atp-grasp', 'ATP-grasp'),
+    ('fad/nad', 'FAD/NAD(P)-binding'),
+    ('carbamoyl-phosphate synthase', 'carbamoyl-P synthase (ATP-grasp)'),
 ]
 
 
@@ -361,7 +364,8 @@ def main():
         # phosphonate regions across 39 genomes (reproducing its count of 2 in
         # the actinomycete comparison), too few to choose an example from.
         ('Streptomyces',
-         'Streptomyces griseus',
+         'Streptomyces griseus NRRL B-2929  \u2014  recovery restores two '
+         'ATP-grasp tailoring enzymes',
          ROOT / 'results_fig1_gris_norecover/antismash_results/Streptomyces_griseus',
          ROOT / 'results_fig1_gris_recover/antismash_results/Streptomyces_griseus',
          None),
