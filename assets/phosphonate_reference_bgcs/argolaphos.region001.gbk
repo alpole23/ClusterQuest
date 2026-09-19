@@ -33,15 +33,28 @@ FEATURES             Location/Qualifiers
      region          1..12939
                      /region_number="1"
                      /candidate_cluster_numbers="1"
-                     /contig_edge="False"
+                     /contig_edge="True"
                      /product="phosphonate"
                      /tool="make_reference_bgc.py"
                      /rules="curated reference; no antiSMASH detection rule
                      applies"
+                     /note="contig_edge is set True deliberately, and is NOT a
+                     claim that this record runs off a contig: it is a curated
+                     cluster, complete by construction. It is set so BiG-SCAPE's
+                     auto alignment mode compares this reference against
+                     antiSMASH query regions by their shared part (LCS +
+                     extension) rather than end to end. antiSMASH regions are a
+                     rule core plus a fixed neighbourhood, so they carry
+                     flanking DNA the cluster does not and can stop before the
+                     cluster ends; compared end to end, a curated reference
+                     scores far from its own genome's region -- measured at
+                     0.364 for pantaphos against LMG 5342 itself, which falls to
+                     0.000 with this set. Unrelated clusters are unaffected
+                     (0.946 either way)."
                      /note="curated deposit"
      cand_cluster    1..12939
                      /candidate_cluster_number="1"
-                     /contig_edge="False"
+                     /contig_edge="True"
                      /product="phosphonate"
                      /kind="single"
                      /protoclusters="1"
@@ -50,7 +63,7 @@ FEATURES             Location/Qualifiers
                      /tool="make_reference_bgc.py"
      protocluster    1..12939
                      /protocluster_number="1"
-                     /contig_edge="False"
+                     /contig_edge="True"
                      /product="phosphonate"
                      /aStool="rule-based-clusters"
                      /category="other"

@@ -1,0 +1,37 @@
+{
+  "question": "Does the 5 kb -> 10 kb flank behave the same outside Enterobacterales?",
+  "date": "2026-09-18",
+  "dataset": "323 actinomycete genomes, screen on in both arms, same code.",
+  "detection_unchanged": {
+    "bgcs": {
+      "n5": 32,
+      "n10": 32
+    },
+    "families": {
+      "n5": 20,
+      "n10": 20
+    },
+    "product_changes": []
+  },
+  "regions": {
+    "cds_in_regions": {
+      "n5": 593,
+      "n10": 860
+    },
+    "bgcs_that_gained_genes": 32,
+    "genes_gained": 267,
+    "largest_gain": 11
+  },
+  "clustering": {
+    "membership_ari": 0.9524,
+    "groupings_that_differ": 6,
+    "detail": "two Glycomyces clusters merge at 10 kb (G. paridis CPCC 204357 and Glycomyces sp. NRRL B-16210); two S. griseus clusters split (NPDC020758, NPDC042341)."
+  },
+  "reading": "This is where the actinomycete set earned its place. On P. ananatis the flank change left GCF membership identical (ARI 1.0000); here it does not (ARI 0.9524). Four of 32 BGCs change assignment. The claim \"widening the flank does not move GCF structure\" was a single-clade result and does not generalise. The shift is small and arguably an improvement - more of the cluster, less of an arbitrary boundary - but it is a change in the output, not a no-op, and downstream family-level numbers move with it.",
+  "cost": {
+    "antismash_cpu_min": {
+      "n5": 125,
+      "n10": 129
+    }
+  }
+}

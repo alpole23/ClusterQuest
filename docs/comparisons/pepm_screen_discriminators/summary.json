@@ -1,0 +1,36 @@
+{
+  "question": "Can the pepM pre-screen be made more specific \u2014 by more references, or by a profile HMM?",
+  "why": "On 323 actinomycete genomes the screen had 23 false positives against 31 true positives, and they were full-length homologues at 31.9-37.7% identity: the isocitrate lyase / PEP mutase superfamily. Two candidate fixes were tested rather than argued.",
+  "date": "2026-09-18",
+  "answer": "NO on both. The current screen is the most specific discriminator tested.",
+  "tested_on": "279 annotated genomes of the 323 (16 of the 31 BGC-positive ones; the other 15 are unannotated and take the blastx path, which a protein-level HMM cannot cover without six-frame translation).",
+  "results": {
+    "blast_7_references_cut_100_current": {
+      "sensitivity": "16/16",
+      "false_positives": 21
+    },
+    "antismash_phosphonates_profile_cut_150": {
+      "sensitivity": "16/16",
+      "false_positives": 24
+    },
+    "pfam_PF13714_gathering_threshold": {
+      "sensitivity": "16/16",
+      "false_positives": 254,
+      "note": "hits 275 of 279 genomes \u2014 useless as a screen"
+    },
+    "phosphonates_minus_hydrolase_and_MeICL": {
+      "sensitivity": "9/16",
+      "false_positives": 0,
+      "note": "a per-protein reading of antiSMASH's exclusion clause, which antiSMASH applies at cluster level; too aggressive, discards 7 true positives. A property of this rule, not of antiSMASH."
+    }
+  },
+  "adding_references": {
+    "what": "the four characterised actinomycete pepMs from the reference BGCs (argolaphos, bialaphos, phosphinothricin, phosphonothrixin), taking the reference set from 7 to 11",
+    "weakest_true_positive": "137 -> 147, still below the top negative at 157",
+    "false_positives": "23 -> 24",
+    "best_cut_keeping_all_true_positives": "134 with 12 false positives, unchanged",
+    "visible_gains_were_self_matches": "Saccharothrix sp. ST-888 rose 381 -> 535 because the phosphonothrixin reference BGC is that strain"
+  },
+  "why_hmms_are_worse_here": "The false positives are genuine members of the PEP mutase superfamily, so a family-level profile admits them by design \u2014 PF13714 at its gathering threshold fires in 275 of 279 actinomycete genomes. Pairwise similarity to seven specific sequences is the narrower test, which is why it is more specific here.",
+  "what_is_left": "The threshold, which is a stated trade rather than a defect: cut 100 gives 31/31 with 23 false positives; cut 160 gives 30/31 with none. Whether the 23 are misfires at all is a separate question \u2014 a genome can carry a real pepM with no assembled cluster around it, and antiSMASH then correctly reports nothing."
+}

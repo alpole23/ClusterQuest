@@ -1,0 +1,52 @@
+{
+  "question": "Does a wider neighbourhood capture the whole HiVir cluster, and at what cost in flank?",
+  "genome": "Pantoea ananatis LMG 5342 (HE617160), pipeline antiSMASH flags, genefinding none + recovered GFF3",
+  "curated_cluster": {
+    "start": 801910,
+    "end": 814435,
+    "bp": 12526
+  },
+  "settings": {
+    "strict_neighbourhood_5": {
+      "region": "796909-810246",
+      "bp": 13338,
+      "cluster_bp_covered": 8337,
+      "flank_upstream_bp": 5001,
+      "flank_downstream_bp": 0,
+      "hivir_genes_present": 7
+    },
+    "relaxed_neighbourhood_5": {
+      "region": "796909-810246",
+      "bp": 13338,
+      "cluster_bp_covered": 8337,
+      "flank_upstream_bp": 5001,
+      "flank_downstream_bp": 0,
+      "hivir_genes_present": 7,
+      "note": "byte-identical to strict; phosphonate-like never fires"
+    },
+    "patched_neighbourhood_10": {
+      "region": "791909-815246",
+      "bp": 23338,
+      "cluster_bp_covered": 12526,
+      "flank_upstream_bp": 10001,
+      "flank_downstream_bp": 811,
+      "hivir_genes_present": 11
+    },
+    "patched_neighbourhood_20": {
+      "region": "781909-825246",
+      "bp": 43338,
+      "cluster_bp_covered": 12526,
+      "flank_upstream_bp": 20001,
+      "flank_downstream_bp": 10811,
+      "hivir_genes_present": 11
+    }
+  },
+  "genes_outside_the_5kb_region": [
+    "PANA5342_RS26500 MFS transporter",
+    "PANA5342_RS26505 hypothetical",
+    "PANA5342_RS45545 FMN reductase",
+    "PANA5342_RS26510 ATP-grasp"
+  ],
+  "missing_in_all_settings": "PANA5342_RS26465 monooxygenase: an annotation-start difference, not a boundary one (deposit 376 aa vs corrected 437 aa; 181 of 192 complete family members carry the longer form)",
+  "family_wide": "those four genes are absent from all 215 regions of the pantaphos family; every complete region is 13,338 bp"
+}

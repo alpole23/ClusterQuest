@@ -18,16 +18,17 @@ process BIGSCAPE {
     def cutoffs = params.bigscape_cutoffs ?: "0.30"
     def alignment_mode = params.bigscape_alignment_mode ?: "auto"
     def mibig_version = params.bigscape_mibig_version ? "--mibig-version ${params.bigscape_mibig_version}" : ""
-    // Characterised phosphonate clusters MIBiG lacks. BiG-SCAPE requires these to be
-    // antiSMASH-processed; a raw GenBank deposit has no region record and is ignored.
-    def reference_dir = (params.bigscape_reference_dir && file(params.bigscape_reference_dir).exists())
-        ? "--reference-dir ${params.bigscape_reference_dir}" : ""
     def classify = params.bigscape_classify ? "--classify ${params.bigscape_classify}" : ""
     def include_singletons = params.bigscape_include_singletons ? "--include-singletons" : ""
     def mix = params.bigscape_mix ? "--mix" : ""
     """
     # BiG-SCAPE 2 requires path to Pfam-A.hmm file
     export PFAM_PATH=\$(readlink -f ${pfam_db})/Pfam-A.hmm
+    # BiG-SCAPE loads GBKs in the iteration order of a set keyed on a hash STRING, so
+    # without this the load order — and with it each pair's A/B orientation, which its
+    # extended comparisons are not symmetric under — changes run to run. Measured:
+    # 8-14% of distances differed between identical runs, and family centres moved.
+    export PYTHONHASHSEED=0
     
     echo "Running BiG-SCAPE on ${taxon}"
     echo "Using Pfam database: \$PFAM_PATH"
@@ -65,7 +66,6 @@ process BIGSCAPE {
         ${include_singletons} \
         ${mix} \
         ${mibig_version} \
-        ${reference_dir} \
         --cores ${task.cpus} \
         ${classify}
 

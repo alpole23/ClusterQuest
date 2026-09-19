@@ -53,11 +53,21 @@ def parse_json(path):
                 "product": " / ".join(region["qualifiers"]["product"]),
                 "record_desc": record["description"],
             }
-            kcb_dict = {"KCB_hit": "", "KCB_acc": "", "KCB_sim": ""}
+            # KCB_hit/acc/sim carry only hits ABOVE the floor, because downstream
+            # "known vs novel" logic keys on them. KCB_top_* carry the best hit
+            # whatever its similarity: on phosphonate data every hit falls at or
+            # below the floor -- 248 of 334 Erwiniaceae regions returned a ranking,
+            # none above 15% -- so filtering on the floor alone threw away every hit
+            # and left the report unable to tell "no hit" from "a weak hit".
+            kcb_dict = {"KCB_hit": "", "KCB_acc": "", "KCB_sim": "",
+                        "KCB_top_hit": "", "KCB_top_acc": "", "KCB_top_sim": ""}
             if knownblast:
                 hits = knownblast[i]["ranking"]
                 if hits:
                     sim = hits[0][1]["similarity"]
+                    kcb_dict["KCB_top_hit"] = hits[0][0]["description"]
+                    kcb_dict["KCB_top_acc"] = hits[0][0]["accession"]
+                    kcb_dict["KCB_top_sim"] = sim
                     if sim > KCB_THRESHOLDS['low']:
                         if sim > KCB_THRESHOLDS['high']:
                             sim_level = "high"
@@ -65,11 +75,11 @@ def parse_json(path):
                             sim_level = "medium"
                         else:
                             sim_level = "low"
-                        kcb_dict = {
+                        kcb_dict.update({
                             "KCB_hit": hits[0][0]["description"],
                             "KCB_acc": hits[0][0]["accession"],
                             "KCB_sim": sim_level,
-                        }
+                        })
             region_dict.update(kcb_dict)
             result_list.append(region_dict)
     return result_list
@@ -95,6 +105,9 @@ def main(asdir, outpath):
         "KCB_hit",
         "KCB_acc",
         "KCB_sim",
+        "KCB_top_hit",
+        "KCB_top_acc",
+        "KCB_top_sim",
         "record_desc",
     ]
     with Path.open(outpath, "w") as outf:

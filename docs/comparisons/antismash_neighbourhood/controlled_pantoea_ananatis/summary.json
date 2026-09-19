@@ -1,0 +1,46 @@
+{
+  "question": "Controlled: what does widening the phosphonate neighbourhood from 5 kb to 10 kb change?",
+  "method": "Same 344 Pantoea ananatis genomes, same code, screen on in both, differing only in antismash_phosphonate_neighbourhood. BiG-SCAPE was then run on each set of regions with the pipeline flags and PYTHONHASHSEED=0.",
+  "date": "2026-09-17",
+  "detection_unchanged": {
+    "bgcs": {
+      "n5": 226,
+      "n10": 226
+    },
+    "identical_region_set": true,
+    "product_changes": []
+  },
+  "regions": {
+    "median_bp": {
+      "n5": 16679,
+      "n10": 29173
+    },
+    "cds_in_regions": {
+      "n5": 3223,
+      "n10": 5253
+    },
+    "bgcs_that_gained_genes": 223,
+    "genes_gained": 2030,
+    "largest_gain": 13
+  },
+  "clustering": {
+    "families": {
+      "n5": 5,
+      "n10": 5
+    },
+    "membership_ari": 1.0,
+    "largest_family": {
+      "n5": 180,
+      "n10": 180
+    },
+    "singletons": {
+      "n5": 1,
+      "n10": 1
+    },
+    "families_split": 0,
+    "families_merged": 0
+  },
+  "reading": "Widening the flank does not move this taxon's GCF structure at all - the same five families with the same membership - while putting 63% more genes inside the regions every gene-content metric reads. The cost is 9% more antiSMASH CPU (311.3 -> 339.5 CPU-min). It remains symmetric: the 2,030 genes gained include upstream flank the cluster does not contain, so this buys completeness at the price of context.",
+  "caveat": "One taxon, and one dominated by a single 180-member family. A taxon with families separated by narrow margins could behave differently.",
+  "per_bgc": "per_bgc.tsv"
+}

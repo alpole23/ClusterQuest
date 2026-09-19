@@ -30,6 +30,7 @@ from utils.parsers import parse_trace_file
 from utils.report_lint import check_report
 from utils.trace import aggregate_trace_by_process, generate_resource_usage_html
 from viz.clustering import generate_bigscape_stats_html, generate_gcf_visualization_html
+from viz.gcf_pages import create_gcf_pages, family_meta
 from viz.tables import (calculate_summary_statistics, create_bgc_distribution_table,
                         generate_genome_table_html)
 from viz.taxonomy import generate_taxonomy_tree_html
@@ -45,6 +46,7 @@ from viz.report_sections import (_build_bigscape_section_html,
                                  _build_versions_html, build_coupling_table_rows,
                                  build_gcf_analysis_tab, build_gcf_trees_tab,
                                  build_consensus_clusters_section,
+                                 consensus_blocks_by_family,
                                  build_priority_section, build_novelty_tab,
                                  build_pipeline_tab)
 
@@ -73,7 +75,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          consensus_clusters=None, transfer_summary=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
-                         pepm_b64=None, pepm_summary=None):
+                         pepm_b64=None, pepm_summary=None, gcf_hrefs=None):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -81,7 +83,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     taxon_clean = re.sub(r'_+', '_', taxon_clean).strip('_')
 
     kcb_stats = stats.get('kcb_stats', {})
-    kcb = _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes)
+    kcb = _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes, gcf_hrefs)
     kcb_mapping_section    = kcb['kcb_mapping_section']
     novel_bgcs_tab_content = kcb['novel_bgcs_tab_content']
     kcb_hits_tab_content   = kcb['kcb_hits_tab_content']
@@ -169,31 +171,19 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     <div class="tabs">
         <input type="radio" id="tab1" name="tabs" checked>
-        <label for="tab1">Overview Stats</label>
+        <label for="tab1">Overview</label>
 
         <input type="radio" id="tab2" name="tabs">
-        <label for="tab2">BGC Novelty</label>
+        <label for="tab2">BGCs</label>
 
-        <div class="nav-group">Gene Cluster Families</div>
         <input type="radio" id="tab3" name="tabs">
-        <label for="tab3" class="sub">Analysis</label>
+        <label for="tab3">Gene Cluster Families</label>
 
         <input type="radio" id="tab4" name="tabs">
-        <label for="tab4" class="sub">Trees</label>
+        <label for="tab4">Phylogeny</label>
 
-        <div class="nav-group">Context</div>
         <input type="radio" id="tab5" name="tabs">
-        <label for="tab5" class="sub">Phylogeny</label>
-
-        <input type="radio" id="tab6" name="tabs">
-        <label for="tab6" class="sub">Genomes Search</label>
-
-        <div class="nav-group">Reference</div>
-        <input type="radio" id="tab7" name="tabs">
-        <label for="tab7" class="sub">KnownClusterBlast Hits</label>
-
-        <input type="radio" id="tab8" name="tabs">
-        <label for="tab8" class="sub">Pipeline Info</label>
+        <label for="tab5">Genomes</label>
 
         <!-- 1. Overview Stats -->
         <div class="tab-content" id="content1">
@@ -208,22 +198,32 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             {kcb_mapping_section}
             {rarefaction_section}
 
+            <details class="pipeline-info">
+                <summary>Pipeline, resources and software versions</summary>
+                <div>{pipeline_tab}</div>
+            </details>
         </div>
 
-        <!-- 2. BGC Novelty -->
+        <!-- 2. BGCs: what to work on, the full region list, and known-cluster matches -->
         <div class="tab-content" id="content2">{novelty_tab}
+            <details style="margin-top:22px;border:1px solid #dee2e6;border-radius:8px;">
+                <summary style="cursor:pointer;padding:13px 18px;font-weight:600;
+                                background:#f8f9fa;border-radius:8px;">
+                    Known-cluster matches (KnownClusterBlast)
+                </summary>
+                <div style="padding:4px 18px 18px;">{kcb_hits_tab_content}</div>
+            </details>
         </div>
 
-        <!-- 3. GCF Analysis -->
+        <!-- 3. Gene Cluster Families: analysis, then the family-centre tree -->
         <div class="tab-content" id="content3">{gcf_analysis_tab}
+
+            <hr class="tab-section-divider">
+            {gcf_trees_tab}
         </div>
 
-        <!-- 4. GCF Trees -->
-        <div class="tab-content" id="content4">{gcf_trees_tab}
-        </div>
-
-        <!-- 5. Phylogeny -->
-        <div class="tab-content" id="content5">
+        <!-- 4. Phylogeny -->
+        <div class="tab-content" id="content4">
             <h3>Taxonomic Distribution of BGCs</h3>
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Expandable NCBI taxonomy tree showing BGC statistics at each taxonomic level. Click on nodes to expand/collapse.
@@ -244,8 +244,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             {tree_section}
         </div>
 
-        <!-- 6. Genomes Search -->
-        <div class="tab-content" id="content6">
+        <!-- 5. Genomes -->
+        <div class="tab-content" id="content5">
             <h2>All Genomes</h2>
             <p style="color: #666; margin-bottom: 15px;">
                 <em>Searchable table of all analyzed genomes. Click genome names for detailed metadata pages.</em>
@@ -277,15 +277,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                 </table>
             </div>
             <script id="genomeData" type="application/json">{genome_data_json}</script>
-        </div>
-
-        <!-- 7. KnownClusterBlast Hits -->
-        <div class="tab-content" id="content7">
-            {kcb_hits_tab_content}
-        </div>
-
-        <!-- 8. Pipeline Info -->
-        <div class="tab-content" id="content8">{pipeline_tab}
         </div>
 
     </div>
@@ -433,12 +424,24 @@ def main():
         else:
             print("Warning: BiG-SCAPE database not found, skipping rarefaction curve generation")
 
-    # Generate GCF visualization HTML and load GCF data for overview
+    # Generate GCF visualization HTML and load GCF data for overview.
+    # Each family's detail goes to its own page under gcf/ and the report carries a
+    # master table of families linking to them; inlining all of it cost ~1 MB.
     gcf_visualization_html = ''
     gcf_data_dict = None
+    gcf_hrefs = {}
     if args.gcf_data and args.gcf_data.exists():
         print(f"Generating GCF visualization...")
-        gcf_visualization_html = generate_gcf_visualization_html(str(args.gcf_data), args.taxon)
+        _, gcf_cards = generate_gcf_visualization_html(str(args.gcf_data), args.taxon)
+        gcf_hrefs = create_gcf_pages(
+            args.outdir, args.taxon, gcf_cards,
+            consensus_blocks=consensus_blocks_by_family(args.consensus_clusters,
+                                                        args.transfer_summary),
+            meta=family_meta(gcf_data_file=args.gcf_data,
+                             novelty_path=args.novelty_ranking))
+        print(f"  {len(gcf_hrefs)} per-family pages written to gcf/")
+        gcf_visualization_html, _ = generate_gcf_visualization_html(
+            str(args.gcf_data), args.taxon, hrefs=gcf_hrefs)
         # Also load as dict for overview sections
         try:
             with open(args.gcf_data, 'r') as f:
@@ -534,7 +537,8 @@ def main():
                             transfer_summary=args.transfer_summary,
                             coupling_table_rows=coupling_table_rows,
                             gcf_classes=gcf_classes,
-                            gcf_support_rows=gcf_support_rows)
+                            gcf_support_rows=gcf_support_rows,
+                            gcf_hrefs=gcf_hrefs)
         print(f"Visualizations complete! Open {args.outdir}/bgc_report.html in a browser.")
 
 if __name__ == '__main__':

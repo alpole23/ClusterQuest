@@ -1,0 +1,21 @@
+A_main wall=56.72 user=310.50 sys=12.65 maxrss_kb=1931428 exit=0
+B1_copy wall=0.01
+B1_pass wall=12.41 user=19.67 sys=8.08 maxrss_kb=1922772 exit=0
+B2_copy wall=0.01
+B2_pass wall=11.23 user=20.17 sys=7.69 maxrss_kb=1922208 exit=0
+B3_copy wall=0.01
+B3_pass wall=12.17 user=20.05 sys=7.14 maxrss_kb=1922080 exit=0
+C_oneshot wall=54.02 user=326.19 sys=9.34 maxrss_kb=1935272 exit=0
+dbonly_334 wall=9.39 user=14.68 sys=6.69 maxrss_kb=1903444
+main wall=388.88 user=2438.09 sys=20.94 maxrss_kb=2905648 exit=0
+copy wall=0.21
+pass wall=78.44 user=80.44 sys=13.76 maxrss_kb=2594500 exit=0
+-rw-r--r-- 1 alexp alexp 243703808 Sep 16 21:57 scale_2000/main.db
+-rw-r--r-- 1 alexp alexp 244920320 Sep 16 21:58 scale_2000/pass.db
+dbonly_2000 wall=40.31 user=41.81 sys=12.28 maxrss_kb=2594016 exit=0
+main wall=1049.68 user=6203.56 sys=45.28 maxrss_kb=3782228 exit=0
+copy wall=0.82
+pass wall=296.93 user=281.83 sys=33.76 maxrss_kb=4520488 exit=0
+-rw-r--r-- 1 alexp alexp 856702976 Sep 16 22:16 scale_4000/main.db
+-rw-r--r-- 1 alexp alexp 859328512 Sep 16 22:21 scale_4000/pass.db
+dbonly_4000 wall=134.36 user=122.29 sys=27.87 maxrss_kb=4520400 exit=0

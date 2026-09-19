@@ -70,10 +70,7 @@ REPORT_CSS = """\
         #tab2:checked ~ #content2,
         #tab3:checked ~ #content3,
         #tab4:checked ~ #content4,
-        #tab5:checked ~ #content5,
-        #tab6:checked ~ #content6,
-        #tab7:checked ~ #content7,
-        #tab8:checked ~ #content8 {
+        #tab5:checked ~ #content5 {
             display: block;
         }
         /* Below this width a 224px rail costs more than it gives, so the nav
@@ -205,10 +202,15 @@ REPORT_CSS = """\
             background: white;
             font-size: 0.9em;
         }
+        /* Density: these tables are read as lists, hundreds of rows at a time, so
+           rows are tight and separated by a single horizontal rule rather than boxed
+           in a full grid. Digits align so counts can be compared down a column. */
         th, td {
-            border: 1px solid #ddd;
-            padding: 10px 12px;
+            border: 0;
+            border-bottom: 1px solid #e8ebee;
+            padding: 5px 10px;
             text-align: left;
+            font-variant-numeric: tabular-nums;
         }
         th {
             background: #2c5aa0;
@@ -217,10 +219,10 @@ REPORT_CSS = """\
             position: sticky;
             top: 0;
         }
-        tr:nth-child(even) { background-color: #f8f9fa; }
-        tr:hover { background-color: #e3f2fd; }
+        tr:nth-child(even) { background-color: #fafbfc; }
+        tr:hover { background-color: #eef6fd; }
         .table-container {
-            max-height: 500px;
+            max-height: 560px;
             overflow-y: auto;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -292,31 +294,26 @@ REPORT_CSS = """\
 """
 
 REPORT_JS = """\
-        // Jump from the BGC Novelty priority table to a family's representative card.
+        // Jump from the priority table to the family's row in the master table.
         // Defined here, not in viz/clustering.py, because the caller and the target
         // live in different sections: clustering.py's <script> is only emitted when
-        // there are GCF cards to render, so a handler defined there is undefined
-        // whenever a run has a novelty ranking and no representatives. The report
-        // linter caught exactly that.
+        // there are families to render, so a handler defined there is undefined
+        // whenever a run has a novelty ranking and no master table.
         //
-        // The tabs are CSS radio buttons, so <a href="#gcf_7"> would scroll to an
+        // The tabs are CSS radio buttons, so <a href="#gcfrow_7"> would scroll to an
         // element that is display:none and appear to do nothing — the radio has to be
-        // checked first.
+        // checked first. The row carries the link to the family's own page.
         function showGCF(familyId) {
-            const card = document.getElementById('gcf_' + familyId);
-            if (!card) return;                      // no representatives in this run
-            const tab = document.getElementById('tab3');   // Gene Cluster Families > Analysis
+            const row = document.getElementById('gcfrow_' + familyId);
+            if (!row) return;                       // no families in this run
+            const tab = document.getElementById('tab3');   // Gene Cluster Families
             if (tab) tab.checked = true;
-            const content = document.getElementById('gcf_' + familyId + '_content');
-            const toggle = document.getElementById('gcf_' + familyId + '_toggle');
-            if (content && content.style.display === 'none') {
-                content.style.display = 'block';
-                if (toggle) toggle.textContent = '-';
-            }
-            card.scrollIntoView({behavior: 'smooth', block: 'center'});
-            card.style.transition = 'box-shadow .3s';
-            card.style.boxShadow = '0 0 0 3px #2c5aa0';
-            setTimeout(function () { card.style.boxShadow = ''; }, 1600);
+            row.hidden = false;                     // in case a filter hid it
+            row.scrollIntoView({behavior: 'smooth', block: 'center'});
+            row.style.transition = 'background .3s';
+            const cells = row.querySelectorAll('td');
+            cells.forEach(c => { c.style.background = '#fff3cd'; });
+            setTimeout(function () { cells.forEach(c => { c.style.background = ''; }); }, 1600);
         }
 
             const input = document.getElementById('genomeSearch');
