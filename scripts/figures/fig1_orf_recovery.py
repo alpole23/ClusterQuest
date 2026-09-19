@@ -344,13 +344,18 @@ def main():
     # the argument: recovery is targeted, not indiscriminate.
     CLADES = [
         ('Winslowiella',
+         # No GCF claim here. "GCF 11 -> 9" held in the 5 kb Erwiniaceae run;
+         # at 10 kb B149 stays in the same family. And family.id is an
+         # autoincrement recording write order, so comparing ids across two
+         # separate BiG-SCAPE databases is meaningless without comparing
+         # membership -- LMG 5342 r2 reads 3 -> 2 and that is not evidence.
          'Winslowiella iniecta B149  —  recovery restores CORE and '
-         'TAILORING enzymes; GCF 11 → 9',
+         'TAILORING enzymes  —  joint-most affected of 228 regions',
          base, base_a,
          'Winslowiella_iniecta_B149/JRXF01000012.1.region001.gbk'),
         ('Pantoea',
          'Pantoea ananatis LMG 5342 region 2  —  confirmed '
-         'phosphonolipid; most affected BGC of 334',
+         'phosphonolipid  —  joint-most affected of 228 regions',
          base, base_a,
          'Pantoea_ananatis_LMG_5342/HE617160.1.region002.gbk'),
         # Same genome, same deposit, same year as the panel above. One region
@@ -362,8 +367,8 @@ def main():
         # DEPOSITED. All four recovered genes are unclassified by antiSMASH.
         ('pantaphos',
          'Pantoea ananatis LMG 5342 region 1  ·  pantaphos / HiVir  '
-         '—  same genome, already well annotated; recovery completes '
-         'the LeuC/LeuD dehydratase',
+         '—  same genome, already well annotated; rank 7 of 228; '
+         'recovery completes the LeuC/LeuD dehydratase',
          base, base_a,
          'Pantoea_ananatis_LMG_5342/HE617160.1.region001.gbk'),
         # S. griseus, not S. hygroscopicus: the bialaphos lineage yields only 2

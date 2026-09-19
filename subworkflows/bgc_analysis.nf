@@ -43,13 +43,10 @@ workflow BGC_ANALYSIS {
             // Needs the taxonomy map, which a bgc_analysis run pointed at
             // another run's genomes does not have. Skipping loses the report's
             // taxonomy tree and nothing else; failing lost the whole run.
-            taxonomy_map
-                .map { m -> Utils.isValidInput(m) }
-                .branch { ok -> have: ok; lack: !ok }
-                .set { tax_avail }
-            tax_avail.lack.subscribe { log.warn
-                'AGGREGATE_TAXONOMY skipped: no taxonomy map for this run.' }
-
+            // main.nf warns when it substitutes the placeholder -- do not warn
+            // again from inside a channel closure, where `log` is out of scope
+            // and -preview cannot catch the NoSuchVariable because it never
+            // executes operators.
             AGGREGATE_TAXONOMY(taxon,
                                taxonomy_map.filter { m -> Utils.isValidInput(m) },
                                COUNT_REGIONS.out.counts, name_map,
