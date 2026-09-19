@@ -25,6 +25,7 @@ stamps a run date into every region GenBank and no two runs agree byte for byte.
 | KCB vs BiG-SCAPE | can KnownClusterBlast measure distance to known clusters? | `kcb_vs_bigscape/` | measured |
 | reference clusters | do they belong in the clustering, what does the pass cost, does `contig_edge` fix the boundary artefact? | `bigscape_references/` | measured |
 | antiSMASH neighbourhood | does a wider flank capture the whole cluster, at what cost? | `antismash_neighbourhood/` | one genome for boundaries, family scale in **two clades** — which disagree |
+| pepM screen discriminators | can more references or a profile HMM make the screen more specific? | `pepm_screen_discriminators/` | **no** — tested three alternatives, all worse |
 | BiG-SCAPE determinism | are distances reproducible run to run? | `bigscape_determinism/` | measured |
 
 ### pepM pre-screen — `pepm_prescreen/`
