@@ -10,7 +10,7 @@ import html as _html
 import json as _json
 import sqlite3
 
-from utils.constants import load_coupling_classes, COUPLING_COLORS
+from utils.constants import load_coupling_classes, COUPLING_COLORS, KCB_THRESHOLDS
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
 
 
@@ -52,6 +52,25 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                 record_index = bgc.get('record_index', 1)
                 product = bgc.get('product', 'Unknown')
                 contig_edge = bgc.get('contig_edge', '')
+                # The best KnownClusterBlast hit, whatever its similarity. On this
+                # chemistry every hit falls at or below the floor, so showing only
+                # above-floor hits made a weak hit indistinguishable from none at all.
+                top_hit = str(bgc.get('top_hit') or '')
+                top_sim = bgc.get('top_sim')
+                if top_hit:
+                    try:
+                        sim_txt = f'{float(top_sim):.0f}%'
+                    except (TypeError, ValueError):
+                        sim_txt = '?'
+                    acc = str(bgc.get('top_acc') or '')
+                    name = top_hit[:28] + ('…' if len(top_hit) > 28 else '')
+                    link = (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
+                            f'target="_blank" style="color:#6c757d;">{name}</a>' if acc else name)
+                    kcb_cell = (f'{link} <span style="color:#999;" title="below the '
+                                f'{KCB_THRESHOLDS["low"]}% floor — too weak to call this cluster '
+                                f'known">{sim_txt}</span>')
+                else:
+                    kcb_cell = '<span style="color:#ccc;">no hit</span>'
                 edge_badge = '<span style="background: #e74c3c; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75em;">edge</span>' if str(contig_edge).lower() == 'true' else ''
                 antismash_link = f'../../antismash_results/{taxon_clean}/{genome}/index.html#r{record_index}c{region}'
                 gcf_cell = ''
@@ -85,19 +104,24 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                     <td>{product}</td>
                     <td style="text-align: center;">{edge_badge}</td>
                     {gcf_cell}
+                    <td style="font-size: .85em;">{kcb_cell}</td>
                 </tr>'''
 
             kcb_mapping_section = ''''''
             gcf_header = '<th>GCF Family</th><th>Members</th>' if has_gcf_data else ''
             gcf_description = ' When BiG-SCAPE clustering is enabled, the GCF (Gene Cluster Family) assignment shows how these novel BGCs group together.' if has_gcf_data else ''
+            kcb_floor = KCB_THRESHOLDS['low']
             novel_bgcs_tab_content = f'''
             <h2>Detected BGC regions</h2>
             <p style="color: #666; margin-bottom: 15px;">
-                <em>Every region with no KnownClusterBlast match against MIBiG — which for phosphonate
-                chemistry is most of them, since MIBiG holds few characterised pathways, so a miss is
-                weak evidence of novelty. Regions that did match are listed under <strong>Known-cluster
-                matches</strong>. "edge" marks a region on a contig boundary, which may be
-                incomplete.{gcf_description} Follow a GCF badge to that family's page.</em>
+                <em>Every region whose best KnownClusterBlast hit falls below the
+                {kcb_floor}% similarity floor — which for phosphonate chemistry is most of them, since
+                MIBiG holds few characterised pathways, so a miss is weak evidence of novelty. The
+                <strong>Best KCB hit</strong> column shows what was returned anyway, greyed because it is
+                too weak to call the cluster known; a region with no ranking at all says "no hit". Regions
+                that cleared the floor are listed under <strong>Known-cluster matches</strong>. "edge"
+                marks a region on a contig boundary, which may be incomplete.{gcf_description} Follow a
+                GCF badge to that family's page.</em>
             </p>
             <div class="search-box">
                 <input type="text" id="novelSearch" placeholder="Search by genome, strain, region or GCF (e.g. 5342)" onkeyup="filterNovelBGCs()">
@@ -111,6 +135,7 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                             <th>Product Type</th>
                             <th>Contig Edge</th>
                             {gcf_header}
+                            <th>Best KCB hit</th>
                         </tr>
                     </thead>
                     <tbody id="novelTableBody">
