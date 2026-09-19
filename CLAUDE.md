@@ -1467,6 +1467,44 @@ A `--min_density` guard (500 proteins/Mb) routes partially-annotated genomes to
 blastx, closing the one failure mode the two modes do not share. Observed density
 was 576-1,015 with nothing below 500, so it costs nothing today.
 
+**A pseudogene-flagged pepM was invisible to the screen, and is no longer.** NCBI
+withholds `/translation` from any CDS it flags `/pseudo`, and `parse_genome` collected
+only CDS that had one — so a genome whose pepM is annotated `phosphoenolpyruvate mutase`
+*and* `/pseudo` reached diamond with no pepM in its protein set and scored **0.0**. Found
+on the held-out clade (below), where it cost 2 of 98 true positives; `--min_density` does
+not catch it, because both genomes run 726-763 CDS/Mb and density is a whole-genome proxy
+for a single-gene problem. Such a CDS is now translated from its own coordinates, internal
+stops kept as `X` rather than truncating, since a pseudogene spreads its signal across the
+frameshift. Erwiniaceae is unchanged in every field.
+
+### Held-out clade: *Bacteroides fragilis* (2026-09-19)
+
+Every earlier validation was on a clade the reference set draws from — Erwiniaceae
+supplies HvrA (1 of 7), the actinomycete set supplies the other 6 and contains the source
+strain of one, which self-matched at 828. **Bacteroidota supplies none**, and is held out
+in BGC space too: all 5 reference clusters sit 0.82-0.93 from their nearest *B. fragilis*
+BGC, none inside the 0.30 cutoff.
+
+136 genomes, ground truth from an unscreened arm: **98 BGC-positive (72%), 143 regions,
+19 GCFs**. After the pseudogene fix:
+
+| | |
+|---|---:|
+| sensitivity | **98 / 98** |
+| false positives | 2 of 38 |
+| true-positive bitscore | 342-567 |
+| top negative | 330 |
+
+**The classes separate completely** — any cut in (330, 342] gives 98/98 with zero false
+positives, where the actinomycete set had no such cut. The caveat is diversity rather
+than count: one species, true positives clustered at a modal 514, so 98 positives is not
+98 independent tests.
+
+At 72% BGC-positive the screen saves only 11% here (277.4 -> 247.3 CPU-min for a screen
+costing 3.6), against 6.5x on Erwiniaceae and 7.3x on the actinomycetes. **The saving is
+proportional to how dilute the taxon is**, and this clade was chosen to test sensitivity,
+not savings. Data: `docs/comparisons/pepm_prescreen/heldout_bacteroides/`.
+
 **Expanding the reference set made it worse.** Mining MIBiG by HMM added eight
 unique pepMs (15 total); sensitivity stayed at 298/298 while false positives rose
 from 8 to 67. Those extras are pepMs from fosfomycin and dehydrophos clusters,

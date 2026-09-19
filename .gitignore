@@ -16,4 +16,5 @@
 Thumbs.db
 __pycache__/
 results/
+results_*/
 work/

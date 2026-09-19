@@ -372,8 +372,22 @@ def main():
     print(f'pepM sequences: {len(seqs)} of {n_regions} regions '
           f'({100 * len(seqs) / n_regions:.1f}%)')
     if len(seqs) < 3:
-        print('too few pepM sequences to compare', file=sys.stderr)
-        return 1
+        # Not an error: a taxon can legitimately carry one or two phosphonate
+        # BGCs (S. hygroscopicus yields 2 across 39 genomes), and a correlation
+        # over fewer than three points is undefined rather than wrong. Failing
+        # here took down an otherwise complete run AFTER all detection and
+        # clustering had finished, which is the worst possible moment.
+        print(f'only {len(seqs)} pepM sequences; a pairwise correlation needs '
+              f'at least 3. Skipping this analysis, the run is unaffected.',
+              file=sys.stderr)
+        args.outdir.mkdir(parents=True, exist_ok=True)
+        (args.outdir / 'pepm_all_by_all.json').write_text(json.dumps({
+            'skipped': True,
+            'reason': f'only {len(seqs)} pepM sequences of {n_regions} regions',
+            'n_pepm': len(seqs),
+            'n_regions': n_regions,
+        }, indent=2) + '\n')
+        return 0
 
     profile = extract_profile(args.pfam, args.accession,
                               args.outdir / f'{args.accession}.hmm', args.hmmfetch)

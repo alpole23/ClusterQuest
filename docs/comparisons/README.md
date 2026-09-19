@@ -20,7 +20,7 @@ stamps a run date into every region GenBank and no two runs agree byte for byte.
 
 | change | question | data | status |
 |---|---|---|---|
-| pepM pre-screen | what does it cost, what does it save, and does it generalise? | `pepm_prescreen/` | **controlled** (P. ananatis), **held-out clade** (actinomycetes), + an older confounded pair |
+| pepM pre-screen | what does it cost, what does it save, and does it generalise? | `pepm_prescreen/` | **controlled** (P. ananatis), **second clade** (actinomycetes), **genuinely held-out clade** (*B. fragilis*), + an older confounded pair |
 | ORF recovery ("gene refactor") | what does it change about BGC gene content and classification? | `orf_recovery/` | measured, same taxon both sides |
 | KCB vs BiG-SCAPE | can KnownClusterBlast measure distance to known clusters? | `kcb_vs_bigscape/` | measured |
 | reference clusters | do they belong in the clustering, what does the pass cost, does `contig_edge` fix the boundary artefact? | `bigscape_references/` | measured |
@@ -92,6 +92,48 @@ lyase / PEP mutase superfamily, which actinomycetes carry in quantity. Adding fo
 characterised actinomycete pepMs does **not** help: the weak true positive rises to 147,
 still below 157, and one false positive is added. Neither identity nor coverage separates
 the classes, so the discriminator is wrong rather than the reference set.
+
+### Genuinely held-out clade — `pepm_prescreen/heldout_bacteroides/`
+
+136 *Bacteroides fragilis* genomes. Phylum **Bacteroidota contributes none of the seven
+pepM references**, and the clade is held out in BGC space too: all 5 characterised
+reference clusters sit 0.82-0.93 from their nearest *B. fragilis* BGC, none inside the
+0.30 GCF cutoff. Ground truth from an unscreened arm: **98 of 136 genomes BGC-positive,
+143 regions, 19 GCFs** — 72% positive, against 11% for Erwiniaceae and 9.6% for the
+actinomycete set, so this is a **sensitivity** test rather than a savings test.
+
+**It found a real bug.** The screen missed 2 of 98. Both scored exactly **0.0** — no hit
+at all — while antiSMASH called a phosphonate region in each. Both loci are annotated
+`phosphoenolpyruvate mutase` *and* flagged `/pseudo`, and **NCBI withholds `/translation`
+from a `/pseudo` CDS**, so the pepM protein never reached diamond. The screen was not
+failing to recognise a pepM; it was never shown one. `--min_density` cannot catch this —
+both genomes run 763 and 726 CDS/Mb against the 500 guard, because density is a
+whole-genome proxy for a single-gene problem.
+
+`parse_genome` now translates from the CDS's own coordinates when the translation is
+absent, keeping internal stops as `X` rather than truncating.
+
+| | before fix | after fix |
+|---|---:|---:|
+| sensitivity | 96/98 | **98/98** |
+| true-positive bitscores | 0.0-567 | **342-567** |
+| top negative | 255 | 330 |
+| highest lossless cut | 0.0 (38 FPs) | **342, with zero FPs** |
+| false positives | 1 of 38 | 2 of 38 |
+
+So on this clade the classes separate **completely** — any cut in (330, 342] gives 98/98
+with no false positives — where the actinomycete set had no such cut at all.
+**Erwiniaceae is unchanged in every field** (299/299, 307 passed, 8 FPs of 2,485, true
+positives 154-552), so the fix is strictly an improvement.
+
+**The honest caveat is diversity, not count.** *B. fragilis* is one species and its true
+positives cluster tightly (modal bitscore 514), so 98 positives is not 98 independent
+tests. What the run establishes beyond doubt is the pseudogene blind spot, which both
+earlier validations were blind to because neither clade contains a pseudogenised pepM.
+
+Cost, for completeness: 277.4 -> 247.3 CPU-min, an **11%** saving for a screen costing
+3.6 — against 6.5x on Erwiniaceae and 7.3x on the actinomycetes. The saving tracks how
+dilute the taxon is, and at 72% positive there is almost nothing to remove.
 
 ### antiSMASH neighbourhood — `antismash_neighbourhood/`
 

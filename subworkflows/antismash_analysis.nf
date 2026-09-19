@@ -113,7 +113,11 @@ workflow ANTISMASH_ANALYSIS {
             run_batches = sortedTupleBatches(run_batches, antismashBatchSize())
             ANTISMASH(taxon,
                       run_batches.map { rows -> rows.collect { it[1] } },
-                      run_batches.map { rows -> rows.collect { it[2] } },
+                      // unique(): with recovery ON every GFF3 is a distinct file and this
+                      // changes nothing. With recovery OFF every genome carries the SAME
+                      // placeholder, and staging it once per genome is a filename collision
+                      // that fails the task outright.
+                      run_batches.map { rows -> rows.collect { it[2] }.unique() },
                       DOWNLOAD_ANTISMASH_DBS.out.db_dir, antismash_version, antismash_params_hash,
                       Utils.scriptsHash(projectDir, ['genome/patch_antismash_neighbourhood.py']))
 
@@ -130,7 +134,8 @@ workflow ANTISMASH_ANALYSIS {
             batches = sortedTupleBatches(paired_ch, antismashBatchSize())
             ANTISMASH(taxon,
                       batches.map { rows -> rows.collect { it[1] } },
-                      batches.map { rows -> rows.collect { it[2] } },
+                      // See the note on unique() in the reuse branch above.
+                      batches.map { rows -> rows.collect { it[2] }.unique() },
                       DOWNLOAD_ANTISMASH_DBS.out.db_dir, antismash_version, antismash_params_hash,
                       Utils.scriptsHash(projectDir, ['genome/patch_antismash_neighbourhood.py']))
             antismash_results = ANTISMASH.out.result_dir.flatten().collect()

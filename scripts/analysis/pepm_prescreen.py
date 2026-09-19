@@ -35,17 +35,56 @@ from pathlib import Path
 
 
 def parse_genome(path):
-    """(proteins, contigs, bp) for one GenBank file, in a single pass."""
+    """(proteins, contigs, bp) for one GenBank file, in a single pass.
+
+    A CDS with no `/translation` is translated from its own coordinates rather
+    than skipped. NCBI withholds the translation from any CDS it flags
+    `/pseudo`, and a pseudogene-flagged pepM is invisible to blastp while
+    antiSMASH still calls the region around it -- the two *Bacteroides
+    fragilis* genomes the screen missed were exactly that case, and translating
+    the CDS recovers them at bitscore 310 and 389 against a cut of 100.
+
+    `--min_density` does not catch this: both genomes are densely annotated
+    overall (726 and 763 CDS/Mb), because density is a whole-genome proxy for
+    what is a single-gene problem.
+    """
     from Bio import SeqIO
     proteins, contigs, bp = [], [], 0
     for rec in SeqIO.parse(str(path), 'genbank'):
         contigs.append((rec.id, str(rec.seq)))
         bp += len(rec.seq)
         for feat in rec.features:
-            if feat.type == 'CDS' and 'translation' in feat.qualifiers:
-                tag = feat.qualifiers.get('locus_tag', ['?'])[0]
+            if feat.type != 'CDS':
+                continue
+            tag = feat.qualifiers.get('locus_tag', ['?'])[0]
+            if 'translation' in feat.qualifiers:
                 proteins.append((tag, feat.qualifiers['translation'][0]))
+                continue
+            aa = translate_feature(feat, rec)
+            if aa:
+                proteins.append((tag, aa))
     return proteins, contigs, bp
+
+
+def translate_feature(feat, rec):
+    """Amino acids for a CDS that carries no `/translation`, or '' if unusable.
+
+    A pseudogene often has a frameshift or an internal stop, so the result is
+    not a real protein -- but diamond aligns it well enough to recognise the
+    family, which is all the screen needs to decide. Internal stops are kept as
+    residues rather than truncating the sequence: cutting at the first one would
+    discard the part of the alignment that carries the signal.
+    """
+    try:
+        nt = feat.extract(rec.seq)
+        if len(nt) < 60:
+            return ''
+        table = int(feat.qualifiers.get('transl_table', ['11'])[0])
+        # Trim to a whole number of codons; a partial codon is a warning, not information.
+        aa = str(nt[: len(nt) - len(nt) % 3].translate(table=table))
+        return aa.rstrip('*').replace('*', 'X')
+    except Exception:
+        return ''
 
 
 def run_diamond(binary, mode, db, query, threads):
