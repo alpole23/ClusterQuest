@@ -26,6 +26,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / 'nextflow_schema.json'
 
+# Params that accept null as well as their declared type. A default cannot express this:
+# antismash_phosphonate_neighbourhood defaults to 10, and null is the documented way to
+# ask for antiSMASH's own value, so a schema inferred from the default alone would reject
+# the very setting the config tells you to use.
+NULLABLE = {'antismash_phosphonate_neighbourhood'}
+
 
 def resolved_params():
     """{name: value-as-written} straight from Nextflow's own config resolution."""
@@ -81,7 +87,8 @@ def descriptions():
         m = re.match(r'\s*([a-z_][a-zA-Z0-9_]*)\s*=\s*(.+?)\s*$', line)
         if m:
             inline = m.group(2).split('//', 1)[1].strip() if '//' in m.group(2) else ''
-            docs[m.group(1)] = (inline or (pending[0] if pending else ''))[:200]
+            block_doc = ' '.join(x for x in pending if x).strip()
+            docs[m.group(1)] = (inline or block_doc)[:240]
             groups[m.group(1)] = group
         if not line.strip():
             pending = []
@@ -94,6 +101,8 @@ def build():
     props = {}
     for name in sorted(params):
         typ, default = infer(params[name])
+        if name in NULLABLE:
+            typ = [typ, 'null'] if isinstance(typ, str) else typ
         spec = {'type': typ, 'description': docs.get(name, '')}
         if default is not None:
             spec['default'] = default

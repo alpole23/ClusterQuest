@@ -1371,11 +1371,16 @@ param list from Nextflow rather than by parsing the config text — a regex miss
 param, and because the same regex checked its own output the gap stayed invisible until
 a run failed.
 
-Two things worth knowing about the schema's shape. All 52 properties sit at the **root**,
+Three things worth knowing about the schema's shape. All 53 properties sit at the **root**,
 not in `$defs` groups: `additionalProperties` only sees properties declared in the same
 schema object, so an `allOf`/`$defs` layout rejects every grouped param instead of only
 unknown ones. And `"False schema always fails"` is what an unknown parameter looks like —
-the message comes from the JSON-schema library, and it names the offending flag.
+the message comes from the JSON-schema library, and it names the offending flag. And a param
+whose documented "off" value is `null` needs `["integer","null"]` rather than the type its
+default implies — the generator cannot infer that from a default of `10`, so
+`antismash_phosphonate_neighbourhood` is listed in `NULLABLE` in `tests/check_schema.py`
+and `--write` preserves it. Without that, the one setting `nextflow.config` tells you to
+use would be rejected.
 
 Disabling something on the command line is no longer possible; use a params file:
 

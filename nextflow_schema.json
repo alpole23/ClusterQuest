@@ -7,7 +7,7 @@
     "properties": {
         "annotation_transfer": {
             "type": "boolean",
-            "description": "Half the CDS in a typical run carry no functional annotation, because many",
+            "description": "Half the CDS in a typical run carry no functional annotation, because many NCBI assemblies are GenBank-only. GCF members are homologous and annotation quality across them is very uneven \u2014 the typical family has a median member at 0% and a b",
             "default": true,
             "x-group": "Within-GCF annotation transfer"
         },
@@ -35,6 +35,15 @@
             "default": false,
             "x-group": "antiSMASH Analysis Options"
         },
+        "antismash_phosphonate_neighbourhood": {
+            "type": [
+                "integer",
+                "null"
+            ],
+            "description": "Size of the flank antiSMASH keeps around a phosphonate rule core, in kb. Its own rule file says 5, which is too small for this chemistry: on LMG 5342 the region stops 4.2 kb short of the HiVir cluster, so its last four genes are missing fro",
+            "default": 10,
+            "x-group": "antiSMASH Analysis Options"
+        },
         "antismash_smcog_trees": {
             "type": "boolean",
             "description": "only when antismash_minimal = false; Phylogenetic trees for BGC genes",
@@ -52,7 +61,7 @@
                 "string",
                 "null"
             ],
-            "description": "Restrict the NCBI download by assembly level, e.g. 'complete' or",
+            "description": "Restrict the NCBI download by assembly level, e.g. 'complete' or 'chromosome,complete'. Null takes everything. Useful when taxonomic breadth matters more than exhaustive coverage: Streptomyces has 16,030 GenBank genomes but 1,573 complete o",
             "x-group": "Download Genome Options"
         },
         "bigscape_alignment_mode": {
@@ -93,43 +102,43 @@
         },
         "bigscape_partition": {
             "type": "boolean",
-            "description": "BiG-SCAPE compares every BGC against every other and its peak memory is",
+            "description": "BiG-SCAPE compares every BGC against every other and its peak memory is quadratic above ~4,000 BGCs (GB = 1.14 + 1.29e-7*n^2), reaching ~1.9 TB at the 121,000 BGCs a million genomes would yield. Splitting the input by pepM sequence identity",
             "default": false,
             "x-group": "BiG-SCAPE partitioning"
         },
         "bigscape_partition_identity": {
             "type": "number",
-            "description": "0.60-0.80 is the verified safe window. Every same-GCF pair measured had",
+            "description": "0.60-0.80 is the verified safe window. Every same-GCF pair measured had pepM identity >= 0.901, so 0.60 leaves wide margin; 0.90 demonstrably splits real families (23 pairs, ARI 0.974). Failure is silent \u2014 a split family looks like two fami",
             "default": 0.6,
             "x-group": "BiG-SCAPE partitioning"
         },
         "bigscape_partition_max_size": {
             "type": "integer",
-            "description": "Largest partition allowed, as a BGC count. Leave at 0 to derive it from the",
+            "description": "Largest partition allowed, as a BGC count. Leave at 0 to derive it from the memory BIGSCAPE_PARTITION is allocated \u2014 the cap exists to avoid an OOM kill, so it should follow the allocation rather than be guessed. This is a safety valve, NOT",
             "default": 0,
             "x-group": "BiG-SCAPE partitioning"
         },
         "bigscape_partition_memory_margin": {
             "type": "number",
-            "description": "Fraction of the allocation to budget when deriving the cap. Deliberately",
+            "description": "Fraction of the allocation to budget when deriving the cap. Deliberately under 1.0 because of that extrapolation: costs ~8% of the cap, buys ~19 GB of headroom at 128 GB, against an OOM that discards hours of clustering.",
             "default": 0.85,
             "x-group": "BiG-SCAPE partitioning"
         },
         "bigscape_partition_threshold": {
             "type": "integer",
-            "description": "Total BGCs in the run (not base pairs, and not a per-partition size) at",
+            "description": "Total BGCs in the run (not base pairs, and not a per-partition size) at which partitioning starts paying. Below it everything goes in one partition and the run behaves as if partitioning were off. Partitioning is a net LOSS at small scale: ",
             "default": 10000,
             "x-group": "BiG-SCAPE partitioning"
         },
         "bigscape_reference_dir": {
             "type": "string",
-            "description": "Characterised phosphonate clusters MIBiG does NOT carry, measured against every",
+            "description": "Characterised phosphonate clusters MIBiG does NOT carry, measured against every run so \"distance to a known phosphonate BGC\" becomes a real column. antiSMASH's KnownClusterBlast cannot supply this: across 334 Erwiniaceae regions its best-hi",
             "default": "/home/alexp/pipeline/assets/phosphonate_reference_bgcs",
             "x-group": "BiG-SCAPE Clustering Options"
         },
         "check_db_updates": {
             "type": "boolean",
-            "description": "Warn (never fail) when a pinned database is behind what upstream offers.",
+            "description": "Warn (never fail) when a pinned database is behind what upstream offers. One HEAD request per database at startup; set false for offline runs.",
             "default": true,
             "x-group": "Reference database versions"
         },
@@ -203,7 +212,7 @@
         },
         "pepm_prescreen": {
             "type": "boolean",
-            "description": "pepM pre-screen: skip antiSMASH on genomes with no PEP mutase, which cannot",
+            "description": "pepM pre-screen: skip antiSMASH on genomes with no PEP mutase, which cannot carry a phosphonate BGC. On by default: validated at 298/298 sensitivity over 2,771 genomes, and it is what makes order-scale runs tractable. Every verdict is publi",
             "default": true,
             "x-group": "Reference database versions"
         },
@@ -238,13 +247,13 @@
         },
         "publish_mode": {
             "type": "string",
-            "description": "How publishDir moves task output into outdir. 'link' makes hard links, so a",
+            "description": "How publishDir moves task output into outdir. 'link' makes hard links, so a published file and its work/ counterpart share one inode: results/ costs no extra disk, and the published copy survives `nextflow clean -f` (verified \u2014 the inode's ",
             "default": "link",
             "x-group": "Global Pipeline Options"
         },
         "recover_orfs": {
             "type": "boolean",
-            "description": "Genomes are often only partly annotated, and antiSMASH runs its own gene",
+            "description": "Genomes are often only partly annotated, and antiSMASH runs its own gene finder ONLY on records with zero CDS features -- so a genome that shipped with some genes keeps only those. Measured on Erwiniaceae: 327 of 333 BGC regions contain a 3",
             "default": true,
             "x-group": "Missing-gene recovery"
         },
@@ -290,7 +299,7 @@
         },
         "task_batch_size": {
             "type": "integer",
-            "description": "Genomes per task for the short per-genome steps (rename, GenBank\u2192FASTA,",
+            "description": "Genomes per task for the short per-genome steps (rename, GenBank\u2192FASTA, antiSMASH result copy). These take 0.2\u20131.5 s each, so one task per genome is dominated by scheduler overhead; batching cuts job count by this factor.",
             "default": 100,
             "x-group": "Reference database versions"
         },
