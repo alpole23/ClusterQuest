@@ -124,12 +124,36 @@ workflow {
         def base_dir = "${params.outdir}/ncbi_genomes/${taxon_dir}"
         def results_dir = "${params.outdir}/main_analysis_results/${taxon_dir}"
 
+        // These three come from a prior DOWNLOAD_GENOMES run under the SAME
+        // outdir and taxon. Pointing --input_genomes at another run's genomes
+        // is the normal way to set up an A/B comparison, and then they are
+        // simply absent -- which used to kill the run in AGGREGATE_TAXONOMY
+        // with FileNotFoundError, after every antiSMASH task had completed.
+        // They are metadata: detection and clustering do not need them, so a
+        // missing one becomes a placeholder and the steps that need it skip.
+        def tax_path = "${results_dir}/taxonomy_map.json"
+        def name_path = "${base_dir}/name_map.json"
+        def info_path = "${base_dir}/ncbi_dataset/data/assembly_info_table.txt"
+
+        def taxonomy_map_ch = Channel.value(
+            file(tax_path).exists() ? file(tax_path) : file('NO_TAXONOMY_MAP'))
+        def name_map_ch = Channel.value(
+            file(name_path).exists() ? file(name_path) : file('NO_NAME_MAP'))
+        def assembly_info_ch = Channel.value(
+            file(info_path).exists() ? file(info_path) : file('NO_ASSEMBLY_INFO'))
+
+        if (!file(tax_path).exists()) {
+            log.warn "No taxonomy_map.json under ${results_dir} — taxonomy " +
+                     "aggregation will be skipped. This is expected when " +
+                     "--input_genomes points at another run's genomes."
+        }
+
         BGC_ANALYSIS(
             params.taxon,
             Channel.fromPath("${params.input_genomes}/*.gbff"),
-            Channel.fromPath("${base_dir}/ncbi_dataset/data/assembly_info_table.txt"),
-            Channel.fromPath("${base_dir}/name_map.json"),
-            Channel.fromPath("${results_dir}/taxonomy_map.json")
+            assembly_info_ch,
+            name_map_ch,
+            taxonomy_map_ch
         )
 
     } else if (params.workflow == "full") {

@@ -40,10 +40,23 @@ workflow BGC_ANALYSIS {
                           Utils.scriptsHash(projectDir, ['analysis/count_regions.py']))
             counts_ch = COUNT_REGIONS.out.counts
 
-            AGGREGATE_TAXONOMY(taxon, taxonomy_map, COUNT_REGIONS.out.counts, name_map,
+            // Needs the taxonomy map, which a bgc_analysis run pointed at
+            // another run's genomes does not have. Skipping loses the report's
+            // taxonomy tree and nothing else; failing lost the whole run.
+            taxonomy_map
+                .map { m -> Utils.isValidInput(m) }
+                .branch { ok -> have: ok; lack: !ok }
+                .set { tax_avail }
+            tax_avail.lack.subscribe { log.warn
+                'AGGREGATE_TAXONOMY skipped: no taxonomy map for this run.' }
+
+            AGGREGATE_TAXONOMY(taxon,
+                               taxonomy_map.filter { m -> Utils.isValidInput(m) },
+                               COUNT_REGIONS.out.counts, name_map,
                                Utils.scriptsHash(projectDir,
                                    ['taxonomy/aggregate_taxonomy.py']))
             taxonomy_tree_ch = AGGREGATE_TAXONOMY.out.taxonomy_tree
+                .ifEmpty(file('NO_TAXONOMY_TREE'))
 
             TABULATE_REGIONS(taxon, antismash_results,
                              Utils.scriptsHash(projectDir,

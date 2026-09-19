@@ -136,8 +136,8 @@ def load_transferred(path):
     return out
 
 
-TRANSFER_TSV = (ROOT / 'results/main_analysis_results/Erwiniaceae/'
-                'annotation_transfer/gcf_annotation_transfer.tsv')
+TRANSFER_TSV = (ROOT / 'results_fig1_pan10_rec/main_analysis_results/'
+                'Pantoea_10kb/annotation_transfer/gcf_annotation_transfer.tsv')
 
 
 def read_region(path, transferred=None):
@@ -331,7 +331,13 @@ def main():
                     help='omit the panel placing each example within its clade')
     args = ap.parse_args()
 
-    base = ROOT / 'results' / 'antismash_results'
+    # The committed Erwiniaceae run predates the 10 kb neighbourhood and its
+    # regions are 13,337 bp where the current default gives 23,337 -- mixing it
+    # with the Bacteroides and Streptomyces panels would put two different
+    # antiSMASH configurations in one figure. These 352 Pantoea + Winslowiella
+    # genomes were re-run at 10 kb, both arms, so every panel matches.
+    base = ROOT / 'results_fig1_pan10_norec/antismash_results/Pantoea_10kb'
+    base_a = ROOT / 'results_fig1_pan10_rec/antismash_results/Pantoea_10kb'
     # (short clade name, panel title, before dir, after dir, region key)
     #
     # Ordered as a gradient in how much the deposit left out, because that is
@@ -340,12 +346,12 @@ def main():
         ('Winslowiella',
          'Winslowiella iniecta B149  —  recovery restores CORE and '
          'TAILORING enzymes; GCF 11 → 9',
-         base / 'Erwiniaceae_pre_recovery', base / 'Erwiniaceae',
+         base, base_a,
          'Winslowiella_iniecta_B149/JRXF01000012.1.region001.gbk'),
         ('Pantoea',
          'Pantoea ananatis LMG 5342 region 2  —  confirmed '
          'phosphonolipid; most affected BGC of 334',
-         base / 'Erwiniaceae_pre_recovery', base / 'Erwiniaceae',
+         base, base_a,
          'Pantoea_ananatis_LMG_5342/HE617160.1.region002.gbk'),
         # Same genome, same deposit, same year as the panel above. One region
         # gains 14 genes and this one gains 4, so the difference is which genes
@@ -358,7 +364,7 @@ def main():
          'Pantoea ananatis LMG 5342 region 1  ·  pantaphos / HiVir  '
          '—  same genome, already well annotated; recovery completes '
          'the LeuC/LeuD dehydratase',
-         base / 'Erwiniaceae_pre_recovery', base / 'Erwiniaceae',
+         base, base_a,
          'Pantoea_ananatis_LMG_5342/HE617160.1.region001.gbk'),
         # S. griseus, not S. hygroscopicus: the bialaphos lineage yields only 2
         # phosphonate regions across 39 genomes (reproducing its count of 2 in
@@ -380,7 +386,7 @@ def main():
     # Rows of the distribution panel are keyed on the SOURCE RUN, and several
     # panels may share one; the Erwiniaceae pair supplies three of them.
     ROW_NAME = {'Winslowiella': 'Erwiniaceae', 'Pantoea': 'Erwiniaceae',
-                'pantaphos': 'Erwiniaceae'}
+                'pantaphos': 'Pantoea + Winslowiella\n(10 kb)'}
 
     transferred = load_transferred(TRANSFER_TSV)
     print(f'{len(transferred)} transferred gene names available')
