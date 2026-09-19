@@ -280,10 +280,13 @@ def main():
          'phosphonolipid; most affected BGC of 334',
          base / 'Erwiniaceae_pre_recovery', base / 'Erwiniaceae',
          'Pantoea_ananatis_LMG_5342/HE617160.1.region002.gbk'),
+        # S. griseus, not S. hygroscopicus: the bialaphos lineage yields only 2
+        # phosphonate regions across 39 genomes (reproducing its count of 2 in
+        # the actinomycete comparison), too few to choose an example from.
         ('Streptomyces',
-         'Streptomyces hygroscopicus  ·  bialaphos lineage',
-         ROOT / 'results_fig1_strep_norecover/antismash_results/Streptomyces_hygroscopicus',
-         ROOT / 'results_fig1_strep_recover/antismash_results/Streptomyces_hygroscopicus',
+         'Streptomyces griseus',
+         ROOT / 'results_fig1_gris_norecover/antismash_results/Streptomyces_griseus',
+         ROOT / 'results_fig1_gris_recover/antismash_results/Streptomyces_griseus',
          None),
         ('Bacteroides',
          'Bacteroides fragilis BFG-525  ·  region 1  —  deposit '

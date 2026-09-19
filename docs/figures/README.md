@@ -16,25 +16,50 @@ python scripts/figures/fig3_partitioning.py --outdir docs/figures
 
 antiSMASH runs gene finding only on records with **zero** CDS features, so a
 GenBank deposit that annotates *some* of its genes is trusted for all of them.
-On *P. ananatis* LMG 5342 region 2 — the confirmed phosphonolipid cluster — that
-left **14 of 28 genes invisible**, among them the AEP transaminase and both
-CDP-alcohol phosphatidyltransferases. Those are the genes that say what the
-cluster makes, so every gene-content metric built on top was measuring NCBI
-annotation quality rather than biology.
+
+**Panels A–C are three clades, and they do not agree — which is the point.**
+
+| panel | clade | gain | what was recovered |
+|---|---|---|---|
+| A | *P. ananatis* LMG 5342 | 14 → 28 | the AEP transaminase, **both** CDP-alcohol phosphatidyltransferases, phosphocholine CT, an MFS transporter — the genes that say what the cluster makes |
+| B | *S. griseus* | best of its regions | see the rendered panel |
+| C | *B. fragilis* BFG-525 | 27 → 32 | five hypotheticals; the core cluster was already annotated |
+
+Across all 143 *B. fragilis* regions, **82 of 99 recovered genes are
+"hypothetical" and only 3 get any antiSMASH functional call**. So the claim is
+not "recovery adds genes" but the sharper one: **recovery is targeted rather
+than indiscriminate.** It transforms a 2012 deposit annotating 6 of 15 genes,
+and is near-silent on modern complete assemblies.
+
+**Panel D exists because panel A is an outlier.** LMG 5342 gained 14 genes and
+is **rank 1 of 334**; the median gain among regions that gained anything is
+**+2**, and 65% gained nothing. Showing +14 alone would invite the reader to
+take it as typical. Ranks 2 and 3 are *W. iniecta* B149 and B120 at +11 — the
+clusters the lab characterised were among the worst annotated in the run.
+
+*Streptomyces* is **S. griseus, not S. hygroscopicus.** The bialaphos lineage
+yields only 2 phosphonate regions across 39 genomes — which independently
+reproduces its count of 2 in the actinomycete comparison — too few to choose an
+example from. Finding that also surfaced a bug: `PEPM_ALL_BY_ALL` exited 1 below
+three pepM sequences, killing a run after detection and clustering had finished.
 
 Genes are coloured by antiSMASH's own `gene_kind`, not by product keyword. The
 keyword version was tried first and inverted on the two lab-confirmed clusters,
 because `serine hydroxymethyltransferase` matches `methyltransferase`. Region
 GenBanks carry no Pfam accessions (checked: 0 of 28 CDS), so
-`utils/domain_functions` has nothing to read at this level.
+`utils/domain_functions` has nothing to read at this level, and `unclassified`
+covering 15 of 28 genes is part of the point — the CDP-alcohol
+phosphatidyltransferases that decide the product are among the genes antiSMASH
+does not classify.
 
 Note `+13 recovered` against `14 → 28`: recovered genes lengthen the cluster, so
 the region boundary moves and swept in one gene that was always annotated. The
 figure reports both rather than letting one stand for the other.
 
-`unclassified` covers 15 of 28 genes and that is part of the point — the
-CDP-alcohol phosphatidyltransferases that decide the product are among the genes
-antiSMASH does not classify.
+Generating the "before" arm also surfaced a second bug: with
+`recover_orfs = false` every genome in an antiSMASH batch was handed the same
+`NO_RECOVERED_GFF` placeholder, and Nextflow refuses a batch whose input files
+collide on name — so the ORF-recovery ablation could not be re-run at all.
 
 ## Figure 2 — pepM pre-screen
 
