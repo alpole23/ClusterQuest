@@ -1,0 +1,43 @@
+{
+  "question": "Does the pepM pre-screen hold up on a clade its reference set was not curated for?",
+  "why": "All seven curated pepM references are Enterobacterales-adjacent and one is a Pantoea pepM, so the 298/298 sensitivity measured on Erwiniaceae was measured on the screen's own development clade. This is the held-out test.",
+  "date": "2026-09-18",
+  "dataset": "323 actinomycete genomes spanning three documented phosphonate lineages: Saccharothrix 62 (phosphonothrixin), Glycomyces 55 (phosphonoglycans), S. hygroscopicus 39 (bialaphos), S. griseus 167.",
+  "method": "Ground truth from an unscreened arm - every genome through antiSMASH - against the screen's per-genome verdicts from the screened arm. Same code, same genomes, params in JSON files.",
+  "ground_truth": {
+    "bgc_positive_genomes": 31,
+    "regions": 32,
+    "of_genomes": 323,
+    "by_lineage": {
+      "Streptomyces griseus": 13,
+      "Saccharothrix": 9,
+      "Glycomyces": 7,
+      "Streptomyces hygroscopicus": 2
+    }
+  },
+  "result": {
+    "sensitivity": "31/31",
+    "missed": [],
+    "passed_the_screen": 54,
+    "false_positives": 23,
+    "negatives": 292,
+    "false_positive_rate_pct": 7.9,
+    "true_positive_bitscore_range": [
+      137,
+      828
+    ],
+    "negative_bitscore_max": 157,
+    "cutoff": 100
+  },
+  "reading": "Sensitivity generalises: a reference set curated on Enterobacterales missed nothing in actinomycetes, with 37 points of headroom between the cut at 100 and the weakest true positive at 137. Two things do NOT generalise. False positives are 25x more common than on Erwiniaceae (7.9% against 0.32%), and the score no longer separates the classes - negatives reach 157 while the weakest true positive is 137, so there is no clean gap here as there was on Erwiniaceae. The screen remains safe because the cut sits below both, not because the classes are separable by score in this clade.",
+  "cost": {
+    "screen_off_cpu_h": 26.98,
+    "screen_on_cpu_h": 2.99,
+    "antismash_cpu_min": {
+      "off": 944,
+      "on": 129
+    },
+    "screen_cpu_min": 12.7,
+    "note": "antiSMASH fell 7.3x here at 9.6% BGC-positive, against 1.7x on P. ananatis at 56%."
+  }
+}

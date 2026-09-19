@@ -20,11 +20,11 @@ stamps a run date into every region GenBank and no two runs agree byte for byte.
 
 | change | question | data | status |
 |---|---|---|---|
-| pepM pre-screen | what does it cost, what does it save? | `pepm_prescreen/` | **controlled** (P. ananatis) + an older confounded pair |
+| pepM pre-screen | what does it cost, what does it save, and does it generalise? | `pepm_prescreen/` | **controlled** (P. ananatis), **held-out clade** (actinomycetes), + an older confounded pair |
 | ORF recovery ("gene refactor") | what does it change about BGC gene content and classification? | `orf_recovery/` | measured, same taxon both sides |
 | KCB vs BiG-SCAPE | can KnownClusterBlast measure distance to known clusters? | `kcb_vs_bigscape/` | measured |
 | reference clusters | do they belong in the clustering, what does the pass cost, does `contig_edge` fix the boundary artefact? | `bigscape_references/` | measured |
-| antiSMASH neighbourhood | does a wider flank capture the whole cluster, at what cost? | `antismash_neighbourhood/` | one genome for boundaries, **controlled at family scale** (P. ananatis) |
+| antiSMASH neighbourhood | does a wider flank capture the whole cluster, at what cost? | `antismash_neighbourhood/` | one genome for boundaries, family scale in **two clades** — which disagree |
 | BiG-SCAPE determinism | are distances reproducible run to run? | `bigscape_determinism/` | measured |
 
 ### pepM pre-screen — `pepm_prescreen/`
@@ -66,12 +66,32 @@ is what the claim now rests on.
 The validation matrix in `CLAUDE.md` records 333 BGCs and ARI 1.0000 with the screen on or
 off; that matrix's own per-pair data was never stored.
 
+### Held-out validation of the pre-screen — `pepm_prescreen/controlled_actinomycetes/`
+
+323 actinomycete genomes across three documented phosphonate lineages, a clade the seven
+curated pepM references were **not** drawn from. Ground truth from an unscreened arm:
+31 BGC-positive genomes, 32 regions.
+
+**Sensitivity 31/31 — nothing missed**, with 37 points of headroom between the cut at 100
+and the weakest true positive at 137. antiSMASH fell 7.3x (944 → 129 CPU-min) for a screen
+costing 12.7, because only 9.6% of this clade is BGC-positive against 56% of *P. ananatis*.
+
+Two things do not generalise. False positives are **25x more common** than on Erwiniaceae
+(23 of 292 negatives, 7.9%, against 0.32%), and the score no longer separates the classes:
+negatives reach 157 while the weakest true positive is 137. The screen stays safe because
+the cut sits below both — not because score separates them here.
+
 ### antiSMASH neighbourhood — `antismash_neighbourhood/`
 
 On one genome, 5 kb truncates the HiVir cluster and 10 kb captures it (see `summary.json`).
-At family scale — `controlled_pantoea_ananatis/`, same 344 genomes, screen on in both — the
-same 226 BGCs are detected and **GCF structure does not move at all**: 5 families either way,
-membership ARI **1.0000**, largest family 180 both times, nothing split or merged. What
+At family scale the two clades disagree, which is the reason to have tested a second one.
+On *P. ananatis* (`controlled_pantoea_ananatis/`, 344 genomes) the same 226 BGCs give 5
+families either way with membership ARI **1.0000** — nothing split or merged. On the
+actinomycete set (`controlled_actinomycetes/`, 323 genomes) the same 32 BGCs give 20
+families either way but membership ARI **0.9524**: two *Glycomyces* clusters merge at 10 kb
+and two *S. griseus* clusters split, four of 32 BGCs in all. So "the flank does not move GCF
+structure" holds in Enterobacterales and **not** in actinomycetes; it is a small change, and
+arguably a better one, but it is a change. What
 changes is what the regions contain: median 16.7 → 29.2 kb, **3,223 → 5,253 CDS** (+63%),
 223 of 226 BGCs gaining genes, for 9% more antiSMASH CPU. The flank is symmetric, so some of
 those genes are upstream context the cluster does not contain.
@@ -95,6 +115,7 @@ carries each run's novelty ranking.
 Changes with no stored before/after data. Listed so the absence is visible rather than
 assumed:
 
+- **a comparison against alternative tools** (BiG-SLiCE, plain antiSMASH + BiG-SCAPE)
 - **NOVELTY_SCORE**, and the later switch to within-run isolation
 - **GCF_ANNOTATION_TRANSFER** — the current run publishes its output, but no "before"
 - **Pfam gene categories and the consensus cluster**
