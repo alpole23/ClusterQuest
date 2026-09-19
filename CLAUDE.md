@@ -1345,6 +1345,50 @@ modules would look for `tests/scripts/...`. GenBank→FASTA needs biopython; the
 borrows an interpreter that has it (system python or a cached conda env) and skips those
 two assertions if none is available.
 
+### Parameter validation: the schema is the contract
+
+`nextflow_schema.json` declares every parameter, and `main.nf` calls nf-schema's
+`validateParameters()` before anything else. Two silent failures become errors:
+
+| you type | before | now |
+|---|---|---|
+| `--taxn Pantoea` | runs *Erwiniaceae*, reports success | `* --taxn (Pantoea): False schema always fails` |
+| `--run_gtdbtk false` | **enables** GTDB-Tk | `Value is [string] but should be [boolean]` |
+
+The second is the nastier one. A command-line param arrives as a **string**, and every
+non-empty string is true in Groovy, so `--run_gtdbtk false` reads as enabled. Measured on
+Nextflow 26.04.3: `--run_gtdbtk false` gives `String "false"` and takes the TRUE branch,
+while `-params-file {"run_gtdbtk": false}` gives `Boolean false`. Every gate here is
+`if (params.x)`, so it cost two real mistakes — a run that spent 373 CPU-min and 93 GB on
+GTDB-Tk after being told not to, and an A/B that would have screened both arms while
+reporting them as screen-on against screen-off. Nextflow does not catch either on its own,
+and `NXF_ENABLE_STRICT=true` does not change that.
+
+**Adding a param means adding it to the schema**, or the pipeline rejects it at runtime
+for everyone. `tests/check_schema.py` compares the schema against `nextflow config -flat`
+and fails on drift in either direction; `--write` regenerates it. The generator reads the
+param list from Nextflow rather than by parsing the config text — a regex missed one
+param, and because the same regex checked its own output the gap stayed invisible until
+a run failed.
+
+Three things worth knowing about the schema's shape. All 53 properties sit at the **root**,
+not in `$defs` groups: `additionalProperties` only sees properties declared in the same
+schema object, so an `allOf`/`$defs` layout rejects every grouped param instead of only
+unknown ones. And `"False schema always fails"` is what an unknown parameter looks like —
+the message comes from the JSON-schema library, and it names the offending flag. And a param
+whose documented "off" value is `null` needs `["integer","null"]` rather than the type its
+default implies — the generator cannot infer that from a default of `10`, so
+`antismash_phosphonate_neighbourhood` is listed in `NULLABLE` in `tests/check_schema.py`
+and `--write` preserves it. Without that, the one setting `nextflow.config` tells you to
+use would be rejected.
+
+Disabling something on the command line is no longer possible; use a params file:
+
+```bash
+echo '{ "run_gtdbtk": false, "pepm_prescreen": false }' > off.json
+nextflow run main.nf -params-file off.json --taxon "Pantoea ananatis"
+```
+
 ### Task Batching
 
 Steps whose per-genome work is under a couple of seconds are batched — one job per
