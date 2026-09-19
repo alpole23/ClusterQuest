@@ -66,20 +66,31 @@ is what the claim now rests on.
 The validation matrix in `CLAUDE.md` records 333 BGCs and ARI 1.0000 with the screen on or
 off; that matrix's own per-pair data was never stored.
 
-### Held-out validation of the pre-screen — `pepm_prescreen/controlled_actinomycetes/`
+### Second clade for the pre-screen — `pepm_prescreen/controlled_actinomycetes/`
 
-323 actinomycete genomes across three documented phosphonate lineages, a clade the seven
-curated pepM references were **not** drawn from. Ground truth from an unscreened arm:
-31 BGC-positive genomes, 32 regions.
+323 actinomycete genomes across three documented phosphonate lineages. Ground truth from
+an unscreened arm: 31 BGC-positive genomes, 32 regions.
+
+**This is not a held-out clade, and an earlier version of this file said it was.** Six of
+the seven curated pepM references are actinomycete; only HvrA is *Pantoea*. One reference
+comes from *Glycomyces* sp. NRRL B-16210, which is **in this test set** and scores 828 on
+its own sequence. Sensitivity excluding that self-match is 30/30. *Erwiniaceae*, with one
+reference of seven, was the cross-clade test.
 
 **Sensitivity 31/31 — nothing missed**, with 37 points of headroom between the cut at 100
 and the weakest true positive at 137. antiSMASH fell 7.3x (944 → 129 CPU-min) for a screen
 costing 12.7, because only 9.6% of this clade is BGC-positive against 56% of *P. ananatis*.
 
-Two things do not generalise. False positives are **25x more common** than on Erwiniaceae
-(23 of 292 negatives, 7.9%, against 0.32%), and the score no longer separates the classes:
-negatives reach 157 while the weakest true positive is 137. The screen stays safe because
-the cut sits below both — not because score separates them here.
+False positives are **25x more common** than on Erwiniaceae (23 of 292 negatives, 7.9%,
+against 0.32%), and one true positive falls inside the negative range: 30 of 31 sit above
+the top negative of 157, but the weakest sits at 137. A cut at 160 would give 30/31 with
+zero false positives.
+
+The false positives are full-length homologues at 31.9-37.7% identity — the isocitrate
+lyase / PEP mutase superfamily, which actinomycetes carry in quantity. Adding four more
+characterised actinomycete pepMs does **not** help: the weak true positive rises to 147,
+still below 157, and one false positive is added. Neither identity nor coverage separates
+the classes, so the discriminator is wrong rather than the reference set.
 
 ### antiSMASH neighbourhood — `antismash_neighbourhood/`
 
