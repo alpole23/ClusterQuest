@@ -194,6 +194,67 @@ def draw_clade(ax, title, before_path, after_path):
     return len(before), len(after)
 
 
+def gain_distribution(before_dir, after_dir):
+    """Per-region gene gain across a whole clade, so one example can be placed.
+
+    Without this the figure invites the reader to take the illustrated cluster
+    as typical. LMG 5342 gained 14 genes and is rank 1 of 334; the median gain
+    among regions that gained anything at all is 2, and 65% gained nothing.
+    """
+    before_dir, after_dir = Path(before_dir), Path(after_dir)
+    gains = {}
+    for bg in before_dir.glob('*/*region*.gbk'):
+        ag = after_dir / bg.parent.name / bg.name
+        if not ag.exists():
+            continue
+        nb = sum(1 for f in next(SeqIO.parse(str(bg), 'genbank')).features
+                 if f.type == 'CDS')
+        na = sum(1 for f in next(SeqIO.parse(str(ag), 'genbank')).features
+                 if f.type == 'CDS')
+        gains[f'{bg.parent.name}/{bg.name}'] = na - nb
+    return gains
+
+
+def panel_distribution(ax, clade_gains, highlights):
+    """Stacked strip of per-region gains, one row per clade, examples marked."""
+    ytick, ylab = [], []
+    for row, (clade, gains) in enumerate(clade_gains):
+        vals = sorted(gains.values())
+        y = len(clade_gains) - row - 1
+        ytick.append(y)
+        n_gained = sum(1 for v in vals if v > 0)
+        ylab.append(f'{clade}\n{n_gained}/{len(vals)} gained')
+        # Deterministic beeswarm: spread each tied group about its own row, so
+        # the height of a column reads as its count. Cycling i % 5 instead
+        # stacked every value into the same five rows and looked like dashes.
+        from collections import Counter
+        seen, counts = Counter(), Counter(vals)
+        ys = []
+        for v in vals:
+            k, n = seen[v], counts[v]
+            seen[v] += 1
+            offset = 0.0 if n == 1 else (k / (n - 1) - 0.5) * min(0.62, 0.05 * n)
+            ys.append(y + offset)
+        ax.scatter(vals, ys, s=11, color='#c3ccd6', edgecolor='none',
+                   zorder=2, alpha=0.85)
+        key = highlights.get(clade)
+        if key and key in gains:
+            ax.scatter([gains[key]], [y], s=90, color=ACCENT, zorder=5,
+                       edgecolor='white', lw=1.2)
+            ax.annotate(f'+{gains[key]}  shown above', xy=(gains[key], y),
+                        xytext=(gains[key], y + 0.34), ha='center', fontsize=7.4,
+                        color=ACCENT, fontweight='bold')
+    ax.set_yticks(ytick)
+    ax.set_yticklabels(ylab, fontsize=8)
+    ax.set_xlabel('genes gained by ORF recovery, per BGC region')
+    ax.set_ylim(-0.55, len(clade_gains) - 0.25)
+    ax.axvline(0, color='#c9ced6', lw=0.9, zorder=1)
+    ax.set_title('Where each example sits in its clade', loc='left',
+                 fontsize=9.5, pad=6)
+    for side in ('left', 'top', 'right'):
+        ax.spines[side].set_visible(False)
+
+
 def legend_handles(used):
     import matplotlib.patches as mpatches
     h = [mpatches.Patch(facecolor=CATEGORY_COLOR[c], edgecolor='white',
@@ -207,27 +268,53 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--outdir', default='docs/figures')
-    ap.add_argument('--clade', action='append', default=[], metavar='NAME:BEFORE:AFTER',
-                    help='repeatable; defaults to the P. ananatis example alone')
+    ap.add_argument('--no-distribution', action='store_true',
+                    help='omit the panel placing each example within its clade')
     args = ap.parse_args()
 
-    clades = []
-    if args.clade:
-        for spec in args.clade:
-            name, before, after = spec.split(':', 2)
-            clades.append((name, Path(before), Path(after)))
-    else:
-        base = ROOT / 'results' / 'antismash_results'
-        clades = [(
-            'Pantoea ananatis LMG 5342  ·  HE617160.1 region 2  '
-            '(confirmed phosphonolipid)',
-            base / 'Erwiniaceae_pre_recovery/Pantoea_ananatis_LMG_5342/HE617160.1.region002.gbk',
-            base / 'Erwiniaceae/Pantoea_ananatis_LMG_5342/HE617160.1.region002.gbk',
-        )]
+    base = ROOT / 'results' / 'antismash_results'
+    # (short clade name, panel title, before dir, after dir, region key)
+    CLADES = [
+        ('Pantoea',
+         'Pantoea ananatis LMG 5342  ·  region 2  —  confirmed '
+         'phosphonolipid; most affected BGC of 334',
+         base / 'Erwiniaceae_pre_recovery', base / 'Erwiniaceae',
+         'Pantoea_ananatis_LMG_5342/HE617160.1.region002.gbk'),
+        ('Streptomyces',
+         'Streptomyces hygroscopicus  ·  bialaphos lineage',
+         ROOT / 'results_fig1_strep_norecover/antismash_results/Streptomyces_hygroscopicus',
+         ROOT / 'results_fig1_strep_recover/antismash_results/Streptomyces_hygroscopicus',
+         None),
+        ('Bacteroides',
+         'Bacteroides fragilis BFG-525  ·  region 1  —  deposit '
+         'already complete; recovery adds hypotheticals only',
+         ROOT / 'results_fig1_bact_norecover/antismash_results/Bacteroides_fragilis',
+         ROOT / 'results_heldout_off/antismash_results/Bacteroides_fragilis',
+         'Bacteroides_fragilis_BFG-525/CP103089.1.region001.gbk'),
+    ]
 
-    fig, axes = plt.subplots(len(clades), 1,
-                             figsize=(11.6, 2.5 * len(clades) + 1.2),
-                             squeeze=False)
+    clades, clade_gains, highlights = [], [], {}
+    for short, title, bdir, adir, key in CLADES:
+        if not (bdir.exists() and adir.exists()):
+            print(f'skipping {short}: {bdir if not bdir.exists() else adir} missing')
+            continue
+        gains = gain_distribution(bdir, adir)
+        if not gains:
+            print(f'skipping {short}: no paired regions')
+            continue
+        clade_gains.append((short, gains))
+        if key is None:                       # pick the clade's best example
+            key = max(gains, key=lambda k: gains[k])
+            title = f'{title}  —  best of {len(gains)} regions'
+        highlights[short] = key
+        clades.append((title, bdir / key, adir / key))
+
+    nrows = len(clades) + (0 if args.no_distribution else 1)
+    fig, axes = plt.subplots(nrows, 1, figsize=(11.6, 2.5 * len(clades) + 2.6),
+                             squeeze=False,
+                             gridspec_kw={'height_ratios':
+                                          [2.5] * len(clades) +
+                                          ([1.7] if not args.no_distribution else [])})
     used = []
     for ax, (name, before, after) in zip(axes[:, 0], clades):
         nb, na = draw_clade(ax, name, before, after)
@@ -237,14 +324,18 @@ def main():
                 used.append(g['category'])
     order = [c for c in CATEGORY_COLOR if c in used]
 
-    for ax, letter in zip(axes[:, 0], 'ABC'):
+    if not args.no_distribution:
+        panel_distribution(axes[len(clades), 0], clade_gains, highlights)
+
+    for ax, letter in zip(axes[:, 0], 'ABCDEF'):
         panel_label(ax, letter, dx=-0.175, dy=1.22)
 
     axes[-1, 0].legend(handles=legend_handles(order), loc='upper center',
-                       bbox_to_anchor=(0.5, -0.22), ncol=4, fontsize=8)
-    fig.suptitle('Gene calling recovers the genes that say what a cluster makes',
-                 fontsize=11.5, fontweight='bold', y=0.99)
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+                       bbox_to_anchor=(0.5, -0.38), ncol=4, fontsize=8)
+    fig.suptitle('Gene calling recovers the genes that say what a cluster makes '
+                 '— where the deposit left them out',
+                 fontsize=11.5, fontweight='bold', y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
     save(fig, args.outdir, 'fig1_orf_recovery')
 
 
