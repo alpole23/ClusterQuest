@@ -1,0 +1,27 @@
+{
+  "question": "Are BiG-SCAPE distances reproducible run to run?",
+  "tool": "BiG-SCAPE 2.0.1",
+  "input": "Erwiniaceae subsets, 18-23 BGCs",
+  "unpinned": {
+    "pairs_differing_between_identical_runs_pct": [
+      7.9,
+      13.2,
+      14.2
+    ],
+    "max_distance_change": 0.18,
+    "max_reference_pair_change": 0.27,
+    "family_centres_changed": "2 of 5 between identical runs"
+  },
+  "pinned_PYTHONHASHSEED_0": {
+    "pairs_differing": 0,
+    "of_pairs": 190,
+    "family_centres_changed": 0
+  },
+  "mechanism": "load order comes from a Python set keyed on the sha256 string; it sets record ids, which set each pair's A/B orientation, and extended comparisons are asymmetric. All 226 differing comparisons had a flipped orientation; none differed without one.",
+  "reach": {
+    "differences_seen_only_at_distance_ge": 0.66,
+    "pair_comparisons_below_0.5_that_changed": 0,
+    "of_pair_comparisons": 6319,
+    "gcf_membership_at_0.30_identical": true
+  }
+}

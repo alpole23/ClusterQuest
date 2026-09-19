@@ -46,7 +46,7 @@ composition can shift. That is why the default is off rather than on.
 
 | file | product | organism | source |
 |---|---|---|---|
-| `pantaphos_LMG5342.region001.gbk` | pantaphos | *Pantoea ananatis* LMG 5342 | this pipeline's own antiSMASH output, HE617160 region 1 |
+| `pantaphos_LMG5342.region001.gbk` | pantaphos | *Pantoea ananatis* LMG 5342 | curated HiVir cluster, Sanger-corrected (this work); see below |
 | `argolaphos.region001.gbk` | argolaphos | *Streptomyces monomycini* NRRL B-24309 | MZ612424.1 |
 | `bialaphos.region001.gbk` | bialaphos | *Streptomyces hygroscopicus* ATCC 21705 | KP026916.1 |
 | `phosphinothricin_PTT.region001.gbk` | phosphinothricin tripeptide | *Streptomyces viridochromogenes* Tü494 | X65195.2 |
@@ -63,6 +63,67 @@ Pantaphos matters most of the three gaps: it is a characterised bioactive small 
 from an organism in the Erwiniaceae dataset, and GCF-1's 215 members *are* this cluster.
 Its nearest MIBiG relative is BGC0000383 at 75.2% on the synthase alone — a different
 cluster.
+
+### Pantaphos: the curated HiVir cluster, Sanger-corrected
+
+The file is no longer antiSMASH's region from the 2012 deposit. It is the curated HiVir
+cluster — 12,531 bp, 12 CDS — generated from the corrected record by
+`scripts/genome/make_reference_bgc.py`. **Re-run that script if the curated record
+changes**; a raw export has no region feature and BiG-SCAPE ignores it silently.
+
+Aligned against HE617160, the corrected sequence is the deposit's 801,910-814,435 plus
+**five single-base insertions and nothing else**, each one lengthening a 7-base
+homopolymer (the classic assembly error of that era). They are marked in the file as
+`misc_difference`, confirmed via Sanger sequencing.
+
+Two of those insertions repair genes RefSeq calls pseudo: `RS26500` (MFS transporter)
+and `RS26505` (hypothetical) now translate as intact ORFs, and the MFS contributes
+PF07690 to the reference's domain content.
+
+Two edits were made to the curated record before that script ran. The first: Geneious
+exports leave the record-level `SOURCE`/`ORGANISM` empty, and BiG-SCAPE stores that
+verbatim — the reference arrived as organism `.`, taxonomy `Unknown`, where the other
+four carry proper names. Both were filled from the record's own `source` feature and the
+deposit's lineage.
+
+The second, `RS26480` (2-phosphonomethylmaleate dehydratase small subunit), needed its
+**end moved from 5086 to 5109**, and this is not cosmetic: the insertion at 5066-5073 falls inside
+the gene, so the deposit's end leaves a 529 bp CDS. That is not a multiple of 3, has no
+fuzzy start or end to trim against, and **BiG-SCAPE therefore discards the CDS with only
+a log warning** — the reference would silently lose a gene and its PF00694. Reading on
+from the annotated TTG gives 183 aa; 195 of the 212 homologues across the family share
+the resulting C-terminus, so the read-through is right. 191 of them are 177 aa, i.e.
+from the ATG at 4576, which is the shorter start model if one is preferred.
+
+**The old file was a duplicate.** It was byte-identical to this pipeline's own antiSMASH
+output for LMG 5342, and BiG-SCAPE deduplicates input on the sha256 of file bytes — so in
+every run that included LMG 5342 it was dropped ("Skipping duplicate", INFO level) and
+contributed nothing. The corrected sequence is not a duplicate of anything.
+
+**Delimitation is now the limiting factor, not sequence.** This reference is the cluster
+proper; antiSMASH's query regions are a fixed 13,338 bp window (rule core ± neighbourhood)
+that carries ~5 kb of upstream flank and stops before the cluster's last four genes — the
+MFS transporter, the hypothetical, the FMN reductase and the second ATP-grasp are absent
+from all 215 regions of the family. Measured consequences, on the Erwiniaceae run:
+
+| comparison | distance |
+|---|---:|
+| reference vs LMG 5342's own antiSMASH region | **0.364** (jaccard 0.62) |
+| reference vs the 23 contig-edge members (`auto` → glocal, trims to the shared part) | 0.000-0.199, all ≤ 0.30 |
+| reference vs the 192 complete members (compared end to end) | median 0.364, **none** ≤ 0.30 |
+
+That is why every reference here carries **`contig_edge=True`** — set by
+`make_reference_bgc.py`, with a `note` qualifier in each file saying it is not a claim
+about the DNA. Under `auto`, BiG-SCAPE compares a pair by its shared part whenever either
+record is on a contig edge, which is the right question for a curated cluster against a
+window: *is this cluster's content present here*. The edge parameter is stored per run, so
+the flag recomputes nothing. Measured on a 20-BGC set: BGCs within 0.30 of pantaphos went
+from 3 to 11, LMG 5342's own region from 0.364 to 0.000, while genuinely different
+clusters stayed put (0.946 and 0.953 either way).
+
+The region boundaries themselves are a separate fix: see
+`antismash_phosphonate_neighbourhood` in `nextflow.config`, which widens the flank
+antiSMASH keeps from 5 kb to 10 kb so the whole cluster lands inside the region.
 
 Already covered by `--bigscape_mibig_version`: dehydrofosmidomycin (BGC0002036),
 rhizocticin A (BGC0000926), fosfomycin, FR-900098, dehydrophos, the two phosphonoglycans

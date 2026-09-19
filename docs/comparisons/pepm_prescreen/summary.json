@@ -1,0 +1,245 @@
+{
+  "question": "What does the pepM pre-screen cost, and what does it save?",
+  "screen_off": {
+    "run": "Erwiniaceae, 2026-08-29 benchmark run (trace in docs/benchmark_data/trace_Erwiniaceae_clean.tsv)",
+    "genomes_to_antismash": 2758,
+    "antismash_tasks": 2760,
+    "antismash_cpu_min": 3680.1,
+    "prescreen_cpu_min": 0,
+    "total_cpu_min": 4508.2,
+    "by_process": {
+      "ANTISMASH_ANALYSIS:ANTISMASH": {
+        "tasks": 2760,
+        "wall_min": 1840.0,
+        "cpu_min": 3680.1
+      },
+      "PHYLOGENY:GTDBTK_CLASSIFY": {
+        "tasks": 1,
+        "wall_min": 92.7,
+        "cpu_min": 741.5
+      },
+      "DOWNLOAD_GENOMES:NCBI_DATASETS_DOWNLOAD": {
+        "tasks": 1,
+        "wall_min": 10.7,
+        "cpu_min": 42.9
+      },
+      "DOWNLOAD_GENOMES:RENAME_GENOMES": {
+        "tasks": 28,
+        "wall_min": 18.3,
+        "cpu_min": 18.3
+      },
+      "CLUSTERING:BIGSCAPE": {
+        "tasks": 1,
+        "wall_min": 1.1,
+        "cpu_min": 9.1
+      },
+      "GCF_BIOSYNTHETIC_TREE": {
+        "tasks": 1,
+        "wall_min": 1.8,
+        "cpu_min": 7.1
+      },
+      "CLUSTERING:EXTRACT_GCF_REPRESENTATIVES": {
+        "tasks": 1,
+        "wall_min": 3.4,
+        "cpu_min": 3.4
+      },
+      "COUNT_REGIONS": {
+        "tasks": 1,
+        "wall_min": 2.3,
+        "cpu_min": 2.3
+      },
+      "TABULATE_REGIONS": {
+        "tasks": 1,
+        "wall_min": 1.6,
+        "cpu_min": 1.6
+      },
+      "PHYLOGENY:GENBANK_TO_FASTA": {
+        "tasks": 3,
+        "wall_min": 1.0,
+        "cpu_min": 1.0
+      },
+      "DOWNLOAD_GENOMES:EXTRACT_TAXONOMY": {
+        "tasks": 1,
+        "wall_min": 0.4,
+        "cpu_min": 0.4
+      },
+      "VISUALIZE_RESULTS": {
+        "tasks": 1,
+        "wall_min": 0.1,
+        "cpu_min": 0.3
+      },
+      "COLLECT_VERSIONS": {
+        "tasks": 1,
+        "wall_min": 0.2,
+        "cpu_min": 0.2
+      },
+      "ANTISMASH_ANALYSIS:GET_ANTISMASH_VERSION": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "AGGREGATE_TAXONOMY": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "DOWNLOAD_GENOMES:CREATE_NAME_MAP": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "CLUSTERING:EXTRACT_CLUSTERING_STATS": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      }
+    }
+  },
+  "screen_on": {
+    "run": "Erwiniaceae, 2026-09-15 run disturbed_golick (trace rebuilt from the Nextflow cache)",
+    "genomes_to_antismash": 307,
+    "antismash_tasks": 7,
+    "antismash_cpu_min": 568.9,
+    "prescreen_cpu_min": 91.3,
+    "total_cpu_min": 1496.5,
+    "by_process": {
+      "PHYLOGENY:GTDBTK_CLASSIFY": {
+        "tasks": 1,
+        "wall_min": 81.9,
+        "cpu_min": 655.3
+      },
+      "ANTISMASH_ANALYSIS:ANTISMASH": {
+        "tasks": 7,
+        "wall_min": 284.5,
+        "cpu_min": 568.9
+      },
+      "ANTISMASH_ANALYSIS:PEPM_PRESCREEN": {
+        "tasks": 14,
+        "wall_min": 22.8,
+        "cpu_min": 91.3
+      },
+      "ANTISMASH_ANALYSIS:RECOVER_ORFS": {
+        "tasks": 2,
+        "wall_min": 22.5,
+        "cpu_min": 90.1
+      },
+      "DOWNLOAD_GENOMES:NCBI_DATASETS_DOWNLOAD": {
+        "tasks": 1,
+        "wall_min": 15.3,
+        "cpu_min": 61.3
+      },
+      "DOWNLOAD_GENOMES:RENAME_GENOMES": {
+        "tasks": 28,
+        "wall_min": 9.4,
+        "cpu_min": 9.4
+      },
+      "CLUSTERING:BIGSCAPE": {
+        "tasks": 1,
+        "wall_min": 1.1,
+        "cpu_min": 8.8
+      },
+      "GCF_BIOSYNTHETIC_TREE": {
+        "tasks": 1,
+        "wall_min": 1.2,
+        "cpu_min": 5.0
+      },
+      "PEPM_ALL_BY_ALL": {
+        "tasks": 1,
+        "wall_min": 0.5,
+        "cpu_min": 2.2
+      },
+      "PHYLOGENY:GENBANK_TO_FASTA": {
+        "tasks": 3,
+        "wall_min": 1.2,
+        "cpu_min": 1.2
+      },
+      "ANTISMASH_ANALYSIS:BUILD_PROTEIN_POOL": {
+        "tasks": 1,
+        "wall_min": 1.0,
+        "cpu_min": 1.0
+      },
+      "GCF_ANNOTATION_TRANSFER": {
+        "tasks": 1,
+        "wall_min": 0.2,
+        "cpu_min": 0.8
+      },
+      "CLUSTERING:EXTRACT_GCF_REPRESENTATIVES": {
+        "tasks": 1,
+        "wall_min": 0.3,
+        "cpu_min": 0.3
+      },
+      "DOWNLOAD_GENOMES:EXTRACT_TAXONOMY": {
+        "tasks": 1,
+        "wall_min": 0.2,
+        "cpu_min": 0.2
+      },
+      "COUNT_REGIONS": {
+        "tasks": 1,
+        "wall_min": 0.2,
+        "cpu_min": 0.2
+      },
+      "TABULATE_REGIONS": {
+        "tasks": 1,
+        "wall_min": 0.2,
+        "cpu_min": 0.2
+      },
+      "COLLECT_VERSIONS": {
+        "tasks": 1,
+        "wall_min": 0.1,
+        "cpu_min": 0.1
+      },
+      "HEADGROUP_PREDICTION": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.1
+      },
+      "VISUALIZE_RESULTS": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.1
+      },
+      "ANTISMASH_ANALYSIS:GET_ANTISMASH_VERSION": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "NOVELTY_SCORE": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "AGGREGATE_TAXONOMY": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "DOWNLOAD_GENOMES:CREATE_NAME_MAP": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "CLUSTERING:CLUSTERING_STATS": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "ANTISMASH_ANALYSIS:PEPM_MAKEDB": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      },
+      "PHYLOGENY:MERGE_GTDBTK": {
+        "tasks": 1,
+        "wall_min": 0.0,
+        "cpu_min": 0.0
+      }
+    }
+  },
+  "caveats": [
+    "The two runs are not the same code: the screen-on run also batches antiSMASH (7 tasks for 307 genomes vs one task per genome) and adds RECOVER_ORFS, which the screen-off run did not have. antiSMASH CPU-minutes are comparable; task counts are not.",
+    "BGC yield is unaffected: the validation matrix (CLAUDE.md) shows 333 BGCs and ARI 1.0000 with the screen on or off, so this is cost, not sensitivity.",
+    "A controlled A/B on one taxon with one code version has not been run."
+  ],
+  "antismash_cpu_reduction": "6.5x",
+  "net_cpu_min_saved": 3011.7
+}

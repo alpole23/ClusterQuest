@@ -10,6 +10,8 @@ import pandas as pd
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from utils.constants import KCB_THRESHOLDS
+
 
 def get_genome_count(counts_file):
     """Get the number of genomes in the counts file."""
@@ -152,7 +154,10 @@ def calculate_summary_statistics(counts_file, tabulation_file=None):
         'unique_known_clusters': 0,
         'similarity_breakdown': {},
         'contig_edge_count': 0,
-        'top_known_clusters': []
+        'top_known_clusters': [],
+        'regions_with_any_hit': 0,
+        'best_similarity': None,
+        'floor': None,
     }
 
     if tabulation_file and Path(tabulation_file).exists():
@@ -161,9 +166,25 @@ def calculate_summary_statistics(counts_file, tabulation_file=None):
             kcb_stats['total_regions'] = len(tab_df)
 
             # Fill NaN values with empty strings for consistent filtering
-            for col in ['KCB_hit', 'KCB_acc', 'KCB_sim']:
+            for col in ['KCB_hit', 'KCB_acc', 'KCB_sim', 'KCB_top_hit', 'KCB_top_acc']:
                 if col in tab_df.columns:
                     tab_df[col] = tab_df[col].fillna('')
+
+            # What KnownClusterBlast actually returned, floor or no floor. Without this
+            # a run where every hit is weak looks identical to one where there were no
+            # hits at all, which is the difference between "novel" and "not comparable".
+            if 'KCB_top_hit' in tab_df.columns:
+                any_hit = tab_df[tab_df['KCB_top_hit'] != '']
+                kcb_stats['regions_with_any_hit'] = int(len(any_hit))
+                kcb_stats['floor'] = KCB_THRESHOLDS['low']
+                if 'KCB_top_sim' in tab_df.columns and len(any_hit) > 0:
+                    sims = pd.to_numeric(any_hit['KCB_top_sim'], errors='coerce').dropna()
+                    if len(sims):
+                        kcb_stats['best_similarity'] = float(sims.max())
+                        kcb_stats['median_similarity'] = float(sims.median())
+                    top = any_hit['KCB_top_hit'].value_counts().head(3)
+                    kcb_stats['most_common_top_hits'] = [
+                        {'name': k, 'regions': int(v)} for k, v in top.items()]
 
             # Count regions with KnownClusterBlast hits
             if 'KCB_sim' in tab_df.columns:
@@ -228,7 +249,10 @@ def calculate_summary_statistics(counts_file, tabulation_file=None):
                             'record_index': row.get('record_index', 1),
                             'product': row.get('product', ''),
                             'record_id': row.get('record_id', ''),
-                            'contig_edge': row.get('contig_edge', '')
+                            'contig_edge': row.get('contig_edge', ''),
+                            'top_hit': row.get('KCB_top_hit', ''),
+                            'top_acc': row.get('KCB_top_acc', ''),
+                            'top_sim': row.get('KCB_top_sim', ''),
                         })
                 kcb_stats['novel_bgcs'] = novel_bgcs
                 kcb_stats['novel_bgc_count'] = len(novel_bgcs)

@@ -1,0 +1,32 @@
+{
+  "question": "Can antiSMASH's KnownClusterBlast measure distance to known phosphonate clusters?",
+  "run": "Erwiniaceae 2026-09-15",
+  "regions_examined": 334,
+  "regions_with_a_significant_hit": 248,
+  "best_hit_similarity_pct": "not parsed from these files",
+  "above_pipeline_floor_sim_gt_15": null,
+  "most_common_best_hit": [
+    [
+      "luminmycin A/glidobactin A/cepafungin",
+      236
+    ],
+    [
+      "polysaccharide B",
+      4
+    ],
+    [
+      "pheganomycin",
+      2
+    ],
+    [
+      "N-myristoyl-D-asparagine/cis-7-tetradecenoyl-D-asparagine/(R)-N1-((S)-5-oxohexan-2-yl)-2-tetradecanamidosuccinamide/colibactin/precolibactin 1489",
+      2
+    ],
+    [
+      "dehydrophos",
+      1
+    ]
+  ],
+  "note": "region_tabulation.tsv carries EMPTY KCB_hit/KCB_acc/KCB_sim columns for all 334 regions in this run and in the pre-recovery run, although antiSMASH did write knownclusterblast output \u2014 so the report's KCB fields are blank. Flagged, not investigated.",
+  "conclusion": "Distance to characterised clusters is measured with BiG-SCAPE instead; see ../bigscape_references."
+}

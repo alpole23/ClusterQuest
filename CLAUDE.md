@@ -93,6 +93,7 @@ BGC detection using antiSMASH.
 | `antismash_cb_general` | false | ClusterBlast: Compare vs antiSMASH DB |
 | `antismash_cc_mibig` | false | ClusterCompare: Advanced MIBiG scoring |
 | `antismash_smcog_trees` | false | Phylogenetic trees for BGC genes |
+| `antismash_phosphonate_neighbourhood` | 10 | kb of flank kept around the rule core (antiSMASH's own value is 5); `null` restores it |
 
 **Note:** Detection is hardcoded to phosphonate rule only (`--hmmdetection-limit-to-rule-names phosphonate`). `--cb-knownclusters`, `--clusterhmmer`, and `--tigrfam` are always enabled. `--no-zip-output` is also always passed: the `{genome}.zip` antiSMASH writes by default is an archive of its own output directory (~6 MB/genome) that nothing downstream reads. The whole-genome summary GenBank is off by default too and gated behind `--antismash_summary_gbk` (~11 MB/genome, also unread by any step) — worth enabling on small sets, not on a genus. Neither flag is in `Utils.antismashParamsHash`: they change packaging, not results, so toggling them does not invalidate `--reuse_antismash_from`.
 
@@ -124,6 +125,7 @@ Gene Cluster Family (GCF) clustering.
 | `bigscape_classify` | "category" | `""`, `category`, `class`, or `legacy` |
 | `bigscape_include_singletons` | true | Include unclustered BGCs |
 | `bigscape_mix` | false | Allow mixing BGC classes in same GCF |
+| `bigscape_reference_dir` | `assets/phosphonate_reference_bgcs` | Characterised clusters measured by `BIGSCAPE_REFERENCES`; `""` disables |
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -154,7 +156,9 @@ results/
 ├── antismash_results/${taxon}/  # Per-genome antiSMASH results
 ├── bigscape_results/${taxon}/   # BiG-SCAPE clustering output
 │   ├── ${taxon}.db              # SQLite database with clustering results
-│   └── gcf_representatives.json # GCF data with KCB hits and gene diagrams
+│   ├── gcf_representatives.json # GCF data with KCB hits and gene diagrams
+│   ├── reference_distances.tsv  # every BGC's distance to each characterised cluster
+│   └── reference_summary.json   # per-GCF nearest reference, per-reference nearest GCF
 ├── gtdbtk_results/${taxon}/     # GTDB-Tk phylogenetic placement
 ├── pipeline_info/
 │   ├── pipeline_trace.tsv       # Per-task timing and resource data
@@ -306,23 +310,32 @@ write-up with the cost model: `docs/benchmark_2026-08-29.html`.
 
 **antiSMASH is O(n) and dominant today.** BiG-SCAPE was measured separately (below).
 
-**GTDB-Tk's scaling is NOT established, and an earlier version of this file said it was.**
-The claim was "59% more genomes cost 3% more, therefore O(1)" — but that compares *total*
-genomes (1,736 → 2,758), while `gtdbtk_bgc_genomes_only` means GTDB-Tk only ever saw the
-BGC-positive ones: **285 → 298, 4.6% apart**, for 2.8% more cost. Two points that close
-cannot separate fixed cost from linear cost. At a million genomes the two models differ by
-94x:
+**GTDB-Tk's scaling is linear, measured 2026-09-18.** An earlier version of this file
+claimed it was fixed-dominated ("59% more genomes cost 3% more, therefore O(1)"), which
+compared *total* genomes (1,736 → 2,758) while `gtdbtk_bgc_genomes_only` means GTDB-Tk
+only ever saw the BGC-positive ones: 285 → 298, **4.6% apart**. Two points that close
+cannot separate fixed cost from linear cost, and the two models differed by 94x at a
+million genomes.
 
-| model | 1M genomes |
-|---|---:|
-| fixed-dominated (11.5 CPU-h + 1.2 CPU-s/genome) | 48 CPU-h, ~0.2 days |
-| linear in genomes processed | 4,500 CPU-h, ~23 days |
+Measured directly instead, single shard, module flags, 8 vs 64 genomes:
 
-`GTDBTK_CLASSIFY` is sharded (`gtdbtk_shard_size`, default 5,000) as insurance against the
-linear case. If cost really is fixed-dominated, sharding multiplies a ~11.5 CPU-h overhead
-by the shard count — a few dollars — which is the cheaper mistake. **Resolve it by
-measuring one run with a deliberately small shard size** and comparing per-shard cost
-against the single-task figure.
+| N | wall | CPU | peak RSS |
+|---:|---:|---:|---:|
+| 8 | 31.5 min | 28.2 min | 55.7 GB |
+| 64 | 53.7 min | 63.5 min | 56.3 GB |
+
+**slope 0.630 CPU-min/genome, intercept 23.2 CPU-min.** The fixed cost is real but small;
+per-genome cost dominates above ~40 genomes. At the ~121,000 BGC-positive genomes a
+million-genome run yields, that is **~1,271 CPU-h**, against the 48 CPU-h the cost model
+had assumed — so the million-genome total moves from 22,868 to roughly 24,100 CPU-h, ~5%.
+
+Peak memory is set by the reference data, not by genome count (55.7 vs 56.3 GB), and sits
+close enough to this box's 56 GB that the figures may be memory-bound.
+
+`GTDBTK_CLASSIFY` is sharded (`gtdbtk_shard_size`, default 5,000). Each shard re-pays only
+the 23.2 CPU-min intercept, so 20 shards cost ~7.7 CPU-h on ~1,271 — **0.6%**, which makes
+the sharding cheap insurance rather than a gamble. Data:
+`docs/comparisons/gtdbtk_scaling/`.
 
 ### Measured: BiG-SCAPE scaling (2026-08-30)
 
@@ -1775,6 +1788,124 @@ Verified earlier: the merge preserves clustering exactly (0 split, 0 merged co-m
 against the reference on the 181 regions compared), BiG-SCAPE runs on a single-BGC
 partition, and the DAG resolves. **Not yet verified: a full pipeline run on the
 partitioned path**, which is the remaining gap before trusting it.
+
+### Region size: `antismash_phosphonate_neighbourhood`
+
+antiSMASH sizes a region as the rule core plus a fixed neighbourhood. The strict
+`phosphonate` rule declares `NEIGHBOURHOOD 5`, and that is too small for this chemistry:
+on *P. ananatis* LMG 5342 the region ends at 810,246 while the HiVir cluster runs to
+814,435, so **the MFS transporter, the hypothetical, the FMN reductase and the second
+ATP-grasp are missing from all 215 regions of that family** — every gene-content metric
+in the report sees 8 of 12 genes. Measured on that genome:
+
+| NEIGHBOURHOOD | region | size | of the 12,526 bp cluster | flank added |
+|---:|---|---:|---|---|
+| 5 (antiSMASH's own) | 796,909-810,246 | 13,338 bp | 8,337 bp | 5.0 kb up, 0 down |
+| **10 (default here)** | 791,909-815,246 | 23,338 bp | **all of it** | 10.0 kb up, 0.8 kb down |
+| 20 | 781,909-825,246 | 43,338 bp | all of it | 20.0 kb up, 10.8 kb down |
+
+**`--hmmdetection-strictness relaxed` is not an alternative.** `phosphonate-like`, the
+relaxed rule carrying `NEIGHBOURHOOD 20`, never fires on this cluster — verified on the
+same genome, with no trace of it anywhere in the output. Relaxed produced a byte-identical
+region to strict. The strict rule matches, so its neighbourhood is what applies.
+
+antiSMASH exposes no option for a bacterial neighbourhood (only fungal multipliers) and
+none for pointing at a different rule file, so `scripts/genome/patch_antismash_neighbourhood.py`
+edits the installed `strict.txt` before each antiSMASH invocation. It is **idempotent**
+(a file already at the value is untouched) and **atomic** (temp file plus `os.replace`),
+because the conda environment is shared by every concurrent ANTISMASH task and is
+recreated whenever the spec changes or the cache is cleared — which is why it runs per
+task rather than once.
+
+**Caveats worth holding onto.** The neighbourhood is symmetric, so 10 also pulls in 10 kb
+upstream that the cluster does not contain; 10 is tuned to HiVir, not a general truth.
+The value is part of `Utils.antismashParamsHash` **only when set**, so a `null` run
+reproduces the hash results were already produced under (verified: `55968d66...`, which
+matches the `.antismash_meta` of the Erwiniaceae run) and keeps them reusable, while any
+other value invalidates them by design — the regions genuinely differ. Changing it also
+moves every BiG-SCAPE distance, since complete regions are compared end to end.
+
+### `BIGSCAPE_REFERENCES` — distance to the characterised clusters
+
+Runs BiG-SCAPE a second time over a **copy** of the finished clustering database, with
+`--reference-dir` pointing at `assets/phosphonate_reference_bgcs`. BiG-SCAPE recognises
+the work already in the database and computes only the pairs involving a reference; the
+published clustering is never touched.
+
+**Why not simply pass `--reference-dir` to the main run**, which is what the code did
+until this process existed: a reference inside the GCF cutoff *joins a family*, and the
+~15 downstream scripts read the database with no way to tell a reference from the
+dataset. Measured on a 14-genome subset with one reference loaded:
+
+| | without | with |
+|---|---:|---:|
+| `total_bgcs` reported by `stats_from_db.py` | 18 | **19** |
+| members in the pantaphos family | 10 | **11** |
+| genomes in `genome_gcf_mapping` | 14 | **15** — the extra one named `phosphonate_reference_bgcs` |
+
+Query family membership itself was identical in every comparison, so the damage is to
+the counts and labels rather than to the clustering.
+
+**Cost** (8 cores, same flags as the main run):
+
+| BGCs | main clustering | reference pass | share |
+|---:|---:|---:|---:|
+| 334 (Erwiniaceae) | 56.7 s | **9.4 s** | 17% |
+| 2,000 (replicated) | 388.9 s | 40.3 s | 10% |
+| 4,000 (replicated) | 1,049.7 s | 134.4 s | 13% |
+
+`--db-only-output` is what makes it cheap: without it the pass spends 42 s of 78 s at
+2,000 BGCs regenerating HTML and trees nothing here reads. Verified to leave all 10,010
+and 20,010 reference distances identical. Copying the database costs 0.82 s at 856 MB.
+
+**Not wired on the partitioned path.** A merged partition database holds only
+within-partition distances, so this pass would compute every cross-partition pair that
+partitioning exists to avoid. The subworkflow warns and skips; measuring references there
+means running the pass per partition.
+
+**References are matched by content hash, not path.** BiG-SCAPE deduplicates input on the
+sha256 of the file — read as *text*, so a CRLF file does not hash as its raw bytes — and
+when a reference is byte-identical to a query BGC it drops the reference and keeps the
+query, logged at INFO. `reference_distances.py` hashes the same way, so that case is
+reported as an exact match instead of vanishing. It also warns when a reference never
+loaded at all, which is this directory's characteristic failure: a file without an
+antiSMASH region feature is ignored silently.
+
+**References carry `contig_edge=True`, deliberately.** A curated reference is the cluster;
+an antiSMASH query region is a rule core plus a neighbourhood, so the two are delimited
+differently and comparing them end to end scores the difference in *boundaries* as a
+difference in biology. The curated pantaphos sat 0.364 from LMG 5342's **own** region for
+exactly that reason. Under `auto`, BiG-SCAPE compares a pair by its shared part whenever
+either record is on a contig edge, and the edge parameter is stored per run — so setting
+the flag on the reference costs nothing and recomputes nothing. Measured on a 20-BGC set:
+BGCs within 0.30 of pantaphos went from 3 to 11, LMG 5342's own region from 0.364 to
+0.000, and genuinely different clusters did not move (0.946 and 0.953 either way). The
+flag is not a claim that the record runs off a contig, and the `note` qualifier
+`make_reference_bgc.py` writes into every reference says so. See
+`assets/phosphonate_reference_bgcs/README.md`.
+
+### BiG-SCAPE distances are not reproducible without `PYTHONHASHSEED=0`
+
+BiG-SCAPE 2.0.1 returns different distances for identical input. Measured 2026-09-16 on
+Erwiniaceae subsets: **8-14% of pairs differed between repeat runs**, by up to 0.18 (0.27
+for a reference pair).
+
+`file_input/load_files.py` dedupes GBKs through a Python `set` keyed on the sha256
+*string*, so load order follows the per-process hash salt. That order sets record ids,
+which set which record is A in each pair, and `comparison/workflow.py` extends pairs
+asymmetrically. In all 226 differing comparisons the A/B orientation had flipped; no
+distance ever differed without a flip.
+
+`export PYTHONHASHSEED=0` — now set in `BIGSCAPE`, `BIGSCAPE_PARTITION`,
+`BIGSCAPE_CENTERS` and `BIGSCAPE_REFERENCES` — made two runs identical across all 190
+pairs and all family centres.
+
+What it does and does not reach: differences appeared only at distances >= 0.66, and
+across 6,319 pair comparisons nothing below 0.5 ever moved, so **GCF membership at the
+0.30 cutoff was identical every time**. Family *centres* did move, 2 of 5 between
+identical runs, so GCF representatives were unstable before this. Even pinned, changing
+the genome set permutes load order again — like GCF ids, far distances are comparable
+only within one run.
 
 ### `NOVELTY_SCORE` — ranking families for laboratory follow-up
 

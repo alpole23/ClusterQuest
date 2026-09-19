@@ -1,0 +1,40 @@
+{
+  "question": "Controlled: what does the pepM pre-screen cost and change, one taxon, one code version?",
+  "method": "344 Pantoea ananatis genomes taken from the Erwiniaceae download, run through --workflow bgc_analysis twice on branch reference-distances, identical except pepm_prescreen. GTDB-Tk off. Params passed in a JSON file, never on the CLI: `--pepm_prescreen false` arrives as the string \"false\", which is truthy, and would have silently left the screen on. Timings are per-task realtime x cpus from the Nextflow cache (tasks_*.tsv); the runs failed at AGGREGATE_TAXONOMY, which is after all detection work and does not affect these numbers.",
+  "date": "2026-09-17",
+  "genomes": 344,
+  "genomes_reaching_antismash": {
+    "screen_off": 344,
+    "screen_on": 193
+  },
+  "cpu_minutes": {
+    "screen_off": {
+      "ANTISMASH": 528.7,
+      "RECOVER_ORFS": 73.1,
+      "PEPM_PRESCREEN": 0.0,
+      "BUILD_PROTEIN_POOL": 0.9,
+      "total": 603.0
+    },
+    "screen_on": {
+      "ANTISMASH": 311.3,
+      "RECOVER_ORFS": 23.7,
+      "PEPM_PRESCREEN": 10.5,
+      "BUILD_PROTEIN_POOL": 0.4,
+      "total": 346.0
+    }
+  },
+  "net_cpu_minutes_saved": 257.0,
+  "return_on_the_screens_cost": "24x (257 saved for 10.5 spent)",
+  "sensitivity": {
+    "bgcs": {
+      "screen_off": 226,
+      "screen_on": 226
+    },
+    "identical_region_set": true,
+    "regions_with_identical_nucleotide_sequence": "226 of 226"
+  },
+  "not_perfectly_neutral": "4 of 226 BGCs each lost one RECOVERED gene with the screen on (3,227 -> 3,223 CDS). BUILD_PROTEIN_POOL draws its homology evidence from the screened genomes only - 193 instead of 344, 16,535 instead of 45,358 recovered genes overall - so recovery is slightly weaker. The BGC sequences are identical; the annotation on four of them is not. Affected: Pantoea_ananatis 117T1, PANS_02-01, PNA_98-11, SK-1.",
+  "why_the_saving_is_smaller_than_on_erwiniaceae": "This taxon is phosphonate-rich: 193 of 344 genomes (56%) carry a pepM, against 307 of 2,771 (11%) for Erwiniaceae. The screen pays off in proportion to how dilute the taxon is, so 1.7x here and 6.5x there are both real.",
+  "per_bgc": "per_bgc.tsv",
+  "task_times": "tasks_*.tsv"
+}
