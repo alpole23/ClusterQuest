@@ -122,3 +122,26 @@ Panel B draws the memory fit **solid over its measured range and dashed where it
 is extrapolated**. The quadratic was fitted on 1,500–4,000 BGCs; below ~4,000
 peak RSS looks flat and the fit does not describe it, and 121,000 is a 12×
 reach. The figure must not read as 12× more measurement than exists.
+
+## Figure formats
+
+Every render writes both `.svg` and `.png`. The SVG is the one to submit — it is
+true vector at any scale, and output is byte-reproducible.
+
+**Text is outlined by default**, so a figure renders identically on a machine
+without the font, but labels are not selectable or editable in Illustrator or
+Inkscape. Journals usually want live text. Set `CQ_SVG_EDITABLE_TEXT=1` to emit
+`<text>` elements instead:
+
+```bash
+CQ_SVG_EDITABLE_TEXT=1 python scripts/figures/fig2_prescreen.py --outdir docs/figures/editable
+```
+
+Both are genuine vector output; this changes only whether glyphs are paths or
+characters. Editable-text files are roughly 40-60% smaller and live in
+`docs/figures/editable/`.
+
+`save()` also strips matplotlib's SVG 1.1 DOCTYPE. It is legacy boilerplate no
+browser validates against, and an XML parser configured against external
+entities rejects the whole document rather than ignoring it — which is exactly
+what happened when these were first published.

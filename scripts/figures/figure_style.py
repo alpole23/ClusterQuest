@@ -2,7 +2,15 @@
 
 Every figure script imports this before matplotlib.pyplot, so the salt pinning
 in utils/plotting.py is in force and two runs produce byte-identical SVGs.
+
+SVG text is written as outlines by default, which is what makes a figure render
+identically on a machine that does not have the font. Set
+``CQ_SVG_EDITABLE_TEXT=1`` to emit live <text> elements instead: labels then
+stay selectable and editable in Illustrator or Inkscape, which is what a journal
+usually wants, at the cost of depending on the font being present. Both are real
+vector output -- this only changes whether the glyphs are paths or characters.
 """
+import os
 import sys
 from pathlib import Path
 
@@ -20,6 +28,12 @@ ACCENT = '#8d3a2c'
 GOOD = '#2f7d5d'
 INK = '#15181d'
 FAINT = '#6d7683'
+
+if os.environ.get('CQ_SVG_EDITABLE_TEXT') not in (None, '', '0'):
+    # 'none' leaves glyphs as characters and names the font in the SVG; the
+    # default 'path' outlines them. Helvetica/Arial are substituted for DejaVu
+    # so a designer opening the file gets a face they actually have.
+    plt.rcParams['svg.fonttype'] = 'none'
 
 plt.rcParams.update({
     'font.family': 'DejaVu Sans',
@@ -41,6 +55,25 @@ plt.rcParams.update({
 })
 
 
+def strip_doctype(path):
+    """Drop matplotlib's SVG 1.1 DOCTYPE.
+
+    It is legacy boilerplate no browser validates against, and it makes the file
+    unusable wherever DTD machinery is refused -- an XML parser configured
+    against external entities rejects the document outright rather than ignoring
+    the declaration. Removing it changes nothing about how the figure renders.
+    """
+    path = Path(path)
+    text = path.read_text(encoding='utf-8')
+    start = text.find('<!DOCTYPE')
+    if start == -1:
+        return
+    end = text.find('>', start)
+    if end == -1:
+        return
+    path.write_text(text[:start] + text[end + 1:].lstrip('\n'), encoding='utf-8')
+
+
 def save(fig, outdir, stem):
     """Write <stem>.svg and <stem>.png, both timestamp-free and reproducible."""
     outdir = Path(outdir)
@@ -48,6 +81,7 @@ def save(fig, outdir, stem):
     svg, png = outdir / f'{stem}.svg', outdir / f'{stem}.png'
     fig.savefig(svg, format='svg', bbox_inches='tight', metadata=SVG_METADATA)
     canonicalise_svg(svg)
+    strip_doctype(svg)
     fig.savefig(png, format='png', bbox_inches='tight', dpi=300)
     print(f'wrote {svg}\nwrote {png}')
     return svg, png
