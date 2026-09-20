@@ -12,7 +12,35 @@ python scripts/figures/fig2_prescreen.py    --outdir docs/figures
 python scripts/figures/fig3_partitioning.py --outdir docs/figures
 ```
 
-## Figure 1 — ORF recovery
+## Figure 1 — window x recovery (`fig1_window_x_recovery.py`)
+
+*P. ananatis* LMG 5342's two phosphonate clusters, each at all four combinations
+of neighbourhood (5 / 10 kb) and ORF recovery (off / on), drawn on genome
+coordinates so the four captured intervals can be overlaid.
+
+| | region 1 (pantaphos) | region 2 (phosphonolipid) |
+|---|---:|---:|
+| 5 kb, deposited only | 10 | 14 |
+| 5 kb, + recovery | 14 | 28 |
+| 10 kb, deposited only | 19 | 22 |
+| **10 kb, + recovery** | **25** | **37** |
+
+**A 2x2 rather than a sequence, because the two are not independent.** Recovered
+genes can match the detection rule, which extends the rule core, which moves the
+flank: region 2's 3' boundary shifts **1,566 bp from recovery alone**, at *both*
+neighbourhood settings. Presenting one change as happening "before" the other
+would assert an independence the data does not have.
+
+**The two clusters in one genome need opposite fixes**, which is the argument
+for making both changes. Pantaphos gains more from the window (+9) than from
+recovery (+4) — 4.2 kb of the HiVir cluster lies outside the 5 kb flank
+entirely. The phosphonolipid gains more from recovery (+14) than from the
+window (+8). Neither change alone would have been enough for both.
+
+Coordinates come from each run's `region_tabulation.tsv`; the region GenBanks
+are individually re-based to 0 and cannot be overlaid without them.
+
+## Figure 2 — ORF recovery across clades (`fig1_orf_recovery.py`)
 
 antiSMASH runs gene finding only on records with **zero** CDS features, so a
 GenBank deposit that annotates *some* of its genes is trusted for all of them.
