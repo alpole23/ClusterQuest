@@ -1,0 +1,59 @@
+{
+  "question": "Can gene content predict whether a phosphonate pathway proceeds via 2-AEP or 2-HEP?",
+  "why": "Both branch from phosphonoacetaldehyde, so the split is a real fork in phosphonate biosynthesis and one the report does not currently express. The coupling-enzyme class already names the fate of phosphonoPYRUVATE; this names the fate of its product.",
+  "date": "2026-09-20",
+  "references_added": {
+    "file": "assets/reference_sequences/reference_branch_enzymes.faa",
+    "PhnW": {
+      "accession": "P96060",
+      "length_aa": 367,
+      "organism": "Salmonella enterica serovar Typhimurium LT2",
+      "note": "Swiss-Prot reviewed. Catabolic direction (AEP -> phosphonoacetaldehyde); the biosynthetic AepZ is the same enzyme family, and the Ppd gate plus antiSMASH region membership keep degradation operons out of scope."
+    },
+    "PhpC": {
+      "accession": "D9XF45 (GenBank AAU00078)",
+      "length_aa": 395,
+      "organism": "Streptomyces viridochromogenes Tu494",
+      "note": "Swiss-Prot reviewed, from the phosphinothricin tripeptide cluster."
+    }
+  },
+  "decision_rule": {
+    "gate": "Ppd (ThDP decarboxylase) must be present -- without it there is no phosphonoacetaldehyde",
+    "rules": {
+      "Ppd absent": "not via PnAA (synthase / direct transaminase / direct reductase route)",
+      "Ppd + PhnW-like only": "2-AEP",
+      "Ppd + PhpC-like only": "2-HEP",
+      "Ppd + both": "ambiguous",
+      "Ppd + neither": "undetermined"
+    },
+    "why_the_gate_is_load_bearing": "19 of 228 Pantoea/Winslowiella regions carry an Aminotran_5 with NO Ppd. Those are not AEP clusters, and a bare presence/absence rule would mis-call every one."
+  },
+  "marker_prevalence": {
+    "Pantoea_Winslowiella_228_regions": {
+      "Ppd": 44,
+      "Aminotran_5": 45,
+      "Fe-ADH": 0,
+      "HMGL_synthase": 180
+    },
+    "Bacteroides_fragilis_143_regions": {
+      "Ppd": 143,
+      "Aminotran_5": 81,
+      "Fe-ADH": 57,
+      "HMGL_synthase": 0
+    }
+  },
+  "headline_finding": {
+    "what": "B. fragilis splits 81 regions AEP / 57 regions HEP with ZERO co-occurrence of the two branch markers across all 143 regions, every one of which is Ppd-positive.",
+    "why_it_is_not_an_artefact": "A promiscuous marker would co-occur. None does. The split is bimodal within a single species."
+  },
+  "validation": {
+    "VlpB_vs_PhpC_discrimination": "The 12 Fe-ADH proteins sampled from B. fragilis phosphonate regions hit PhpC at 32.3% identity / 55% coverage / bit 102, and hit VlpB NOT AT ALL, even at e-value 10. So these are phosphonoacetaldehyde reductases, not phosphonopyruvate reductases -- the 2-HEP call is discriminating rather than picking the nearer of two similar references.",
+    "AEP_branch_hits": "B. fragilis, B149 and the LMG 5342 phosphonolipid all hit PhnW at 35-42% identity and 96% coverage, bitscore 184-192.",
+    "negative_control": "LMG 5342 region 1 (pantaphos, synthase route) hits NEITHER reference. A classifier that labelled everything AEP or HEP would be useless; this one correctly declines.",
+    "coverage_caveat": "The PhpC hits are 55% coverage against 96% for PhnW, so the HEP call rests on a partial-length match. Worth a profile HMM if it is to carry weight."
+  },
+  "open": {
+    "no_confirmed_2HEP_positive_control": "The two S. hygroscopicus regions available carry PhnW-like transaminases, not PhpC. The bialaphos producer is a specific strain, not the species, so these are not PTT clusters and cannot serve as the 2-HEP positive control. B. fragilis supplies the only PhpC-like proteins measured so far.",
+    "not_yet_wired": "The classifier and report columns are designed but not implemented."
+  }
+}
