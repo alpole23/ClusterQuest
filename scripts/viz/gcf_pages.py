@@ -52,7 +52,7 @@ def create_gcf_pages(outdir, taxon, cards, consensus_blocks=None, meta=None):
     cards             {family_id: representative-cluster HTML} from viz.clustering
     consensus_blocks  {family_id: consensus-table HTML} from viz.report_sections
     meta              {family_id: {members, genomes, product, organism, coupling_class,
-                                   headgroup, priority_rank, kcb_hit, ...}}
+                                   branch_point, priority_rank, kcb_hit, ...}}
     """
     consensus_blocks = consensus_blocks or {}
     meta = meta or {}
@@ -67,7 +67,7 @@ def create_gcf_pages(outdir, taxon, cards, consensus_blocks=None, meta=None):
         m = meta.get(fam, {})
         facts = []
         for key, label in (('members', 'BGCs'), ('genomes', 'Genomes'), ('genera', 'Genera'),
-                           ('coupling_class', 'Coupling class'), ('headgroup', 'Headgroup'),
+                           ('coupling_class', 'Coupling class'), ('branch_point', 'Secondary branch point'),
                            ('priority_rank', 'Priority rank'), ('isolation', 'Isolation')):
             v = m.get(key)
             if v not in (None, '', '-'):
@@ -111,7 +111,7 @@ def create_gcf_pages(outdir, taxon, cards, consensus_blocks=None, meta=None):
 
 
 def family_meta(gcf_data_file=None, novelty_path=None, transfer_summary=None,
-                headgroup_path=None):
+                branch_point_path=None):
     """Per-family facts for the page headers, from whatever files the run produced."""
     meta = {}
 
@@ -134,7 +134,7 @@ def family_meta(gcf_data_file=None, novelty_path=None, transfer_summary=None,
     for path, cols in ((novelty_path, {'gcf': 'gcf', 'rank': 'priority_rank',
                                        'isolation': 'isolation', 'genomes': 'genomes',
                                        'genera': 'genera', 'coupling_class': 'coupling_class'}),
-                       (headgroup_path, {'gcf': 'gcf', 'headgroup': 'headgroup'})):
+                       (branch_point_path, {'gcf': 'gcf', 'branch_point': 'branch_point'})):
         if not path or not Path(path).exists():
             continue
         try:

@@ -44,9 +44,9 @@ It is reported as "unknown (Ppd + class I/II transaminase, not aepZ family)" rat
 than a bare "unknown", because a bare unknown invites the reader to assume 2-AEP --
 which is the assumption the evidence actually rules out.
 
-Carrier class is reported separately and only when a headgroup is called, because
-headgroup and carrier are independent: 2-AEP and 2-HEP both appear on glycans, and
-the same headgroup can go onto a lipid instead by host machinery the cluster does
+Carrier class is reported separately and only when a branch point is called, because
+the intermediate and its carrier are independent: 2-AEP and 2-HEP both appear on glycans, and
+the same intermediate can go onto a lipid instead by host machinery the cluster does
 not encode.
 """
 import argparse
@@ -67,31 +67,96 @@ from utils.antismash_parser import genome_dir_map  # noqa: E402
 # either route and they come from two phyla, so a genuine orthologue in a third
 # lineage can sit well under 40%. A hit between the floors is reported as `possible`
 # rather than promoted, and the identity is always published beside the call.
-STRONG_PCT, POSSIBLE_PCT = 40.0, 25.0
-MIN_COV = 0.60
+# Profile bitscores, not percent identities. Calls were identical at 30, 50, 80
+# and 150 across 367 regions -- the lowest true hit scored 77.4 against medians
+# of 194-720 -- so these are floors, not tuned values. STRONG is where a hit is
+# unambiguous; POSSIBLE admits a distant orthologue and is reported as such.
+STRONG_BITS, POSSIBLE_BITS = 120.0, 50.0
 
 
-def run_diamond(binary, refs, query, threads, workdir):
-    db = workdir / 'headgroup'
-    subprocess.run([binary, 'makedb', '--in', str(refs), '-d', str(db), '--quiet'],
-                   check=True, capture_output=True)
-    proc = subprocess.run(
-        [binary, 'blastp', '-d', str(db), '-q', str(query), '--quiet',
-         '--threads', str(threads), '--max-target-seqs', '10', '--evalue', '1e-5',
-         '--outfmt', '6', 'qseqid', 'sseqid', 'pident', 'length', 'qlen', 'slen', 'evalue'],
-        capture_output=True, text=True)
-    if proc.returncode != 0:
-        sys.exit(f'diamond blastp failed:\n{proc.stderr[:2000]}')
-    best = collections.defaultdict(dict)
-    for line in proc.stdout.splitlines():
-        q, s, pid, ln, ql, sl, ev = line.split('\t')
-        pid, ln, ql, sl = float(pid), int(ln), int(ql), int(sl)
-        if ln / min(ql, sl) < MIN_COV:
+def build_profiles(refs, workdir, hmmbuild, hmmalign):
+    """One profile HMM per reference class, built at run time from the FASTA.
+
+    Profiles rather than pairwise identity, and the difference is not cosmetic.
+    The DIAMOND version this replaced called 18 of 19 families "none", and its
+    own note blamed a reference set too thin for a distant orthologue to clear
+    any usable floor. That diagnosis was half right: the set was thin, but the
+    method was the larger problem. Measured on the same references over 367
+    regions, pairwise identity found 2 of 26 Enterobacterial AEP clusters and a
+    profile found all 26. A profile scores what the family conserves; identity
+    scores only how close you are to one sequence.
+
+    Built by seed-and-refine, which is why this repository needs no
+    multiple-alignment tool: hmmbuild from the longest single member (a lone
+    sequence is a trivial alignment), hmmalign the rest of the class to that
+    model, hmmbuild again from the resulting alignment.
+    """
+    by_class = collections.defaultdict(list)
+    for header, seq in read_fasta(refs):
+        by_class[header.split('|')[0]].append((header.split('|')[1], seq))
+
+    hmms = []
+    for cls, members in sorted(by_class.items()):
+        faa = workdir / f'{cls}.faa'
+        faa.write_text(''.join(f'>{n}\n{s}\n' for n, s in members))
+        seed_name, seed_seq = max(members, key=lambda m: len(m[1]))
+        seed_faa = workdir / f'{cls}_seed.faa'
+        seed_faa.write_text(f'>{seed_name}\n{seed_seq}\n')
+        seed_hmm = workdir / f'{cls}_seed.hmm'
+        _run([hmmbuild, '--amino', '-n', f'{cls}_seed', str(seed_hmm), str(seed_faa)])
+        if len(members) == 1:
+            hmms.append((cls, seed_hmm))
             continue
-        cls = s.split('|')[0]
-        cur = best[q].get(cls)
-        if cur is None or pid > cur[0]:
-            best[q][cls] = (pid, s, float(ev))
+        sto = workdir / f'{cls}.sto'
+        with sto.open('w') as fh:
+            _run([hmmalign, '--amino', '--trim', str(seed_hmm), str(faa)], stdout=fh)
+        hmm = workdir / f'{cls}.hmm'
+        _run([hmmbuild, '--amino', '-n', cls, str(hmm), str(sto)])
+        hmms.append((cls, hmm))
+    return hmms
+
+
+def read_fasta(path):
+    """Line-based on purpose: splitting on '>' breaks a header containing '->'."""
+    recs, cur = [], None
+    for line in Path(path).read_text().splitlines():
+        if line.startswith('>'):
+            cur = [line[1:], []]
+            recs.append(cur)
+        elif cur is not None:
+            cur[1].append(line.strip())
+    return [(h, ''.join(b)) for h, b in recs]
+
+
+def _run(cmd, stdout=None):
+    proc = subprocess.run(cmd, stdout=stdout or subprocess.PIPE,
+                          stderr=subprocess.PIPE, text=True)
+    if proc.returncode != 0:
+        sys.exit(f'{Path(cmd[0]).name} failed:\n{proc.stderr[:2000]}')
+
+
+def run_hmmsearch(refs, query, threads, workdir, hmmbuild, hmmalign, hmmsearch):
+    """{query name: {class: (bitscore, class, evalue)}} -- one search per class.
+
+    The return shape matches what the DIAMOND version produced so the call logic
+    below is untouched, except that the score is now a profile bitscore rather
+    than a percent identity.
+    """
+    best = collections.defaultdict(dict)
+    for cls, hmm in build_profiles(refs, workdir, hmmbuild, hmmalign):
+        tbl = workdir / f'{cls}.tbl'
+        _run([hmmsearch, '--cpu', str(threads), '--tblout', str(tbl),
+              str(hmm), str(query)])
+        for line in tbl.read_text().splitlines():
+            if line.startswith('#'):
+                continue
+            cols = line.split()
+            if len(cols) < 6:
+                continue
+            name, evalue, score = cols[0], float(cols[4]), float(cols[5])
+            cur = best[name].get(cls)
+            if cur is None or score > cur[0]:
+                best[name][cls] = (score, cls, evalue)
     return best
 
 
@@ -172,15 +237,17 @@ def main():
     ap.add_argument('--db', type=Path, required=True)
     ap.add_argument('--references', type=Path,
                     default=Path(__file__).resolve().parents[2] /
-                    'assets' / 'reference_sequences' / 'reference_headgroup_enzymes.faa')
+                    'assets' / 'reference_sequences' / 'reference_branch_point_enzymes.faa')
     ap.add_argument('--cutoff', type=float, default=0.3)
     ap.add_argument('--out', type=Path, required=True)
-    ap.add_argument('--diamond', default='diamond')
+    ap.add_argument('--hmmbuild', default='hmmbuild')
+    ap.add_argument('--hmmalign', default='hmmalign')
+    ap.add_argument('--hmmsearch', default='hmmsearch')
     ap.add_argument('--threads', type=int, default=4)
     a = ap.parse_args()
 
     fams = load_regions(a.antismash, a.db, a.cutoff)
-    work = a.out.parent / '_headgroup'
+    work = a.out.parent / '_branch_point'
     work.mkdir(parents=True, exist_ok=True)
     q = work / 'query.faa'
     index = {}
@@ -191,7 +258,8 @@ def main():
                     key = f'{fid}::{r["label"]}::{g["tag"]}'
                     index[key] = (fid, r['label'], g)
                     fh.write(f'>{key}\n{g["seq"]}\n')
-    best = run_diamond(a.diamond, a.references, q, a.threads, work)
+    best = run_hmmsearch(a.references, q, a.threads, work,
+                         a.hmmbuild, a.hmmalign, a.hmmsearch)
 
     rows = []
     for fid, regions in sorted(fams.items()):
@@ -216,21 +284,34 @@ def main():
             if has_ppd:
                 cand = ([(p, 'AEP', rf) for p, _, rf in hits.get('AEP', [])] +
                         [(p, 'HEP', rf) for p, _, rf in hits.get('HEP', [])])
-                cand = [c for c in cand if c[0] >= POSSIBLE_PCT]
+                cand = [c for c in cand if c[0] >= POSSIBLE_BITS]
                 if cand:
                     p, cls, rf = max(cand)
-                    tier = 'homologue' if p >= STRONG_PCT else 'weak homologue'
+                    tier = 'homologue' if p >= STRONG_BITS else 'weak homologue'
                     call = f'2-{cls} ({tier})'
-                    pct, ref = p, rf.split('|')[1]
+                    # A profile has no single best-matching sequence -- the model
+                    # is the whole class -- so the reference column names the
+                    # profile, not a member. Reading it as one reference would
+                    # overstate what a profile hit tells you.
+                    pct, ref = p, f'{cls} profile'
                 elif accs & AEP_TRANSAMINASE:
-                    call = '2-AEP (class V transaminase, no aepZ homologue)'
+                    call = '2-AEP (class V transaminase, no profile hit)'
                 elif accs & HEP_REDUCTASE:
-                    call = '2-HEP (Fe-ADH with Ppd, no reductase homologue)'
+                    call = '2-HEP (Fe-ADH with Ppd, no profile hit)'
                 elif accs & OTHER_TRANSAMINASE:
-                    # GCF-18's case. Explicitly NOT the aepZ family, so the headgroup
-                    # is not 2-AEP by any evidence we have -- worth saying out loud,
-                    # because a bare "unknown" invites the assumption it is 2-AEP.
-                    call = 'unknown (Ppd + class I/II transaminase, not aepZ family)'
+                    # This branch used to fire on LMG 5342 region 2 and call it
+                    # "not aepZ family". That was wrong, and instructively so: the
+                    # region carries TWO transaminases, a deposited class I/II
+                    # aspartate transaminase AND a recovered aepZ-family
+                    # 2-aminoethylphosphonate--pyruvate transaminase. Reading the
+                    # deposited annotation alone saw only the first, so the
+                    # conclusion was an artefact of the very annotation gap
+                    # RECOVER_ORFS exists to close. Laboratory work confirms that
+                    # cluster runs the 2-AEP pathway. The branch is kept for a
+                    # region that genuinely has only a class I/II transaminase,
+                    # but it no longer asserts the aepZ family is absent -- it
+                    # cannot know that from what it can see.
+                    call = 'unknown (Ppd + class I/II transaminase only)'
                 else:
                     call = 'unknown (Ppd, no third enzyme found)'
             calls.append(call)
@@ -239,15 +320,15 @@ def main():
         pcts = [p for p, _ in evid if p is not None]
         refs = collections.Counter(r for _, r in evid if r)
         rows.append(dict(
-            gcf=fid, members=len(regions), headgroup=top,
+            gcf=fid, members=len(regions), branch_point=top,
             support=f'{n}/{len(regions)}',
-            best_pct_id=round(max(pcts), 1) if pcts else '',
+            best_bitscore=round(max(pcts), 1) if pcts else '',
             reference=refs.most_common(1)[0][0] if refs else '',
             carrier_genes=round(sum(carrier_class(r) for r in regions) / len(regions), 1),
             carrier_class=('glycan' if sum(carrier_class(r) for r in regions) / len(regions) >= 4
                            else 'none in cluster')))
 
-    cols = ['gcf', 'members', 'headgroup', 'support', 'best_pct_id', 'reference',
+    cols = ['gcf', 'members', 'branch_point', 'support', 'best_bitscore', 'reference',
             'carrier_genes', 'carrier_class']
     with a.out.open('w', newline='') as fh:
         w = csv.DictWriter(fh, fieldnames=cols, delimiter='\t')
@@ -260,8 +341,8 @@ def main():
     except OSError:
         pass
     print(f'wrote {a.out}')
-    c = collections.Counter(r['headgroup'] for r in rows)
-    print('headgroup calls: ' + ', '.join(f'{k} {v}' for k, v in c.most_common()))
+    c = collections.Counter(r['branch_point'] for r in rows)
+    print('branch point calls: ' + ', '.join(f'{k} {v}' for k, v in c.most_common()))
 
 
 if __name__ == '__main__':
