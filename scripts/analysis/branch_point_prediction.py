@@ -72,6 +72,9 @@ from utils.antismash_parser import genome_dir_map  # noqa: E402
 # of 194-720 -- so these are floors, not tuned values. STRONG is where a hit is
 # unambiguous; POSSIBLE admits a distant orthologue and is reported as such.
 STRONG_BITS, POSSIBLE_BITS = 120.0, 50.0
+# When both profiles clear POSSIBLE_BITS the call goes to the higher one, but only
+# if it leads by this much. Below it, "ambiguous" is the honest answer.
+MIN_MARGIN_BITS = 50.0
 
 
 def build_profiles(refs, workdir, hmmbuild, hmmalign):
@@ -286,8 +289,27 @@ def main():
                         [(p, 'HEP', rf) for p, _, rf in hits.get('HEP', [])])
                 cand = [c for c in cand if c[0] >= POSSIBLE_BITS]
                 if cand:
+                    # Compare the two profiles against EACH OTHER, not against an
+                    # absolute cut. Dehydrophos is why: it is a known 2-HEP
+                    # cluster, and its DhpH -- a class V aminotransferase doing
+                    # downstream peptide chemistry, not AEP formation -- scores
+                    # 121.9 on the AEP profile, just over the 120 floor. On
+                    # absolute thresholds both fire and the cluster reads
+                    # "ambiguous". On the margin it is clear: HEP 223.8 beats
+                    # AEP 121.9 by 102 bits. Only a genuinely close pair is
+                    # ambiguous, which is what that word should mean.
                     p, cls, rf = max(cand)
+                    runner = max((c[0] for c in cand if c[1] != cls), default=0.0)
+                    margin = p - runner
+                    if runner >= POSSIBLE_BITS and margin < MIN_MARGIN_BITS:
+                        call = (f'ambiguous (AEP and HEP within {margin:.0f} bits)')
+                        pct, ref = p, 'both profiles'
+                        calls.append(call)
+                        evid.append((pct, ref))
+                        continue
                     tier = 'homologue' if p >= STRONG_BITS else 'weak homologue'
+                    if runner >= POSSIBLE_BITS:
+                        tier += f', {margin:.0f} bits over the other route'
                     call = f'2-{cls} ({tier})'
                     # A profile has no single best-matching sequence -- the model
                     # is the whole class -- so the reference column names the

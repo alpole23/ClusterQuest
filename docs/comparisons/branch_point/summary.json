@@ -1,7 +1,7 @@
 {
   "question": "Can gene content predict whether a phosphonate pathway proceeds via 2-AEP or 2-HEP?",
   "why": "Both branch from phosphonoacetaldehyde, so the split is a real fork in phosphonate biosynthesis and one the report does not currently express. The coupling-enzyme class already names the fate of phosphonoPYRUVATE; this names the fate of its product.",
-  "date": "2026-09-21",
+  "date": "2026-09-22",
   "references_added": {
     "file": "assets/reference_sequences/reference_branch_enzymes.faa",
     "count": 7,
@@ -66,8 +66,8 @@
   "open": {
     "not_yet_wired": "The classifier and report columns are designed but not implemented.",
     "coverage_caveat": "HEP hits align over ~57% of the reference against ~96-99% for the AEP hits. The HEP call rests on a partial-length match and wants a profile HMM before it carries weight in a figure.",
-    "positive_control_still_outside_the_data": "The reference set now holds four characterised HEP-branch enzymes, but no cluster of independently known 2-HEP chemistry has been run through the pipeline. Running a dehydrophos, fosfomycin or phosalacine producer would close this.",
-    "fasta_parsing_hazard": "Function fields say 'PnAA to 2-HEP' rather than 'PnAA -> 2-HEP'. An arrow in a header breaks any consumer that splits the file on '>', which mangled this very file once."
+    "fasta_parsing_hazard": "Function fields say 'PnAA to 2-HEP' rather than 'PnAA -> 2-HEP'. An arrow in a header breaks any consumer that splits the file on '>', which mangled this very file once.",
+    "HEPD_profile_is_too_thin_to_corroborate": "The HEPD profile is built from one sequence (PhpD) and scores argolaphos AglD -- annotated 2-hydroxyethylphosphonate dioxygenase -- at only 20.9. It does not generalise, so the downstream corroboration marker is currently decorative. It needs more HEPD references before it can carry weight."
   },
   "phpC_assignment_corrected": {
     "what": "phpC is a HEP-branch enzyme (HEP dehydrogenase), not a 2-AEP aminotransferase.",
@@ -118,5 +118,22 @@
   "validation_after_folding_in": {
     "Bacteroides fragilis": "19 families, 18 unanimous: 11 2-AEP, 7 2-HEP, 1 unknown. Matches the 81/57/5 region split found independently.",
     "Pantoea + Winslowiella": "pantaphos GCF 1 (180 members) \"not via PnAA\" -- negative control holds; GCF 2 (LMG 5342 phosphonolipid) 2-AEP; GCF 5 (B149, B120) 2-AEP."
+  },
+  "positive_controls_from_known_2HEP_clusters": {
+    "argolaphos MZ612424 (Streptomyces monomycini NRRL B-24309)": {
+      "held_out": "FULLY. No argolaphos protein is in the reference set; the closest is AglG at 46.4% identity to DhpG, nowhere near a self-match.",
+      "result": "AglG (phosphonoacetaldehyde reductase) hits the HEP profile at 273.2, AglF the Ppd gate at 155.0, AglE the pepM profile at 147.9. The AEP profile does NOT fire at all -- and AglI is a formylphosphonate aminotransferase, so the AEP profile correctly declined a transaminase that is not an AEP transaminase.",
+      "verdict": "Unambiguous 2-HEP. This is the cross-clade positive control the HEP side lacked."
+    },
+    "dehydrophos BGC0000897 (Streptomyces luridus)": {
+      "held_out": "PARTIALLY. DhpG is in the HEP reference set and DhpF in the Ppd gate, so the naive run is circular and proves only that the plumbing works.",
+      "leave_one_out": "With DhpG removed from the references, DhpG still hits the HEP profile at 223.8 (down from a self-matched 420.7), far above the 120 floor. FomC, PhpC, PhpC-Sv, PnAA-reductase and Fe-ADH-Gly detect it on their own.",
+      "it_also_found_a_false_positive": "DhpH scores 121.9 on the AEP profile, just over the 120 floor. It is a class V aminotransferase doing downstream peptide chemistry, not AEP formation. On absolute thresholds both profiles fire and this known 2-HEP cluster reads \"ambiguous\"."
+    }
+  },
+  "margin_rule": {
+    "what": "When both profiles clear POSSIBLE_BITS the call goes to the higher one, provided it leads by MIN_MARGIN_BITS (50). Below that the call is ambiguous and says by how much.",
+    "why": "Absolute thresholds cannot separate dehydrophos: AEP 121.9 against a 120 floor. The margin can: HEP 223.8 beats AEP 121.9 by 102 bits. Raising the floor instead would have been tuning to one cluster, and 121.9 sits uncomfortably close to B149's genuine AEP hit at 178.0.",
+    "no_effect_on_the_validated_sets": "B. fragilis stays 11 2-AEP / 7 2-HEP / 1 unknown and Pantoea stays 2 not-via-PnAA / 2 2-AEP / 2 unknown, because in those sets only one profile ever fires."
   }
 }
