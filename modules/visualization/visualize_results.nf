@@ -39,6 +39,11 @@ process VISUALIZE_RESULTS {
     path "*.html", emit: reports, optional: true
     path "*.nwk", emit: newick_files, optional: true
     path "genomes/*.html", emit: genome_pages, optional: true
+    // gcf/ was missing, so every per-family page the report links to was written
+    // into the task directory and thrown away -- the links in the published
+    // report have never resolved. Single-star glob deliberately: a ** glob in
+    // any output declaration makes publishDir's pattern publish nothing at all.
+    path "gcf/*.html", emit: gcf_pages, optional: true
 
     script:
 
