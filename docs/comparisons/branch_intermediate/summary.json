@@ -83,7 +83,20 @@
   "phnW_removed": {
     "what": "P96060 PhnW (Salmonella Typhimurium LT2, catabolic direction) was removed.",
     "measured_cost": "Pantoea/Winslowiella 2-AEP calls fall from 26 to 2, the other 24 moving to undetermined. PhnW was the only AEP reference close enough to Enterobacterial transaminases to detect them (40.1% identity, against 28.5% for AepZ), because Salmonella is in the same family as Pantoea.",
-    "consequence": "AEP detection is now effectively Bacteroidota (AepZ) and actinomycete (DfmM-like) only. Enterobacterial AEP clusters will read undetermined until a biosynthetic-direction Enterobacterial reference is added."
+    "consequence": "AEP detection is now effectively Bacteroidota (AepZ) and actinomycete (DfmM-like) only. Enterobacterial AEP clusters will read undetermined until a biosynthetic-direction Enterobacterial reference is added.",
+    "superseded_by_the_HMM": "The 26 -> 2 loss recorded above applies to the DIAMOND method only. With the HMM profile the same 26 calls are recovered without PhnW, so the removal has no cost under the method that should actually be used."
   },
-  "self_match_caveat": "AepZ (CAH07597) IS a Bacteroides fragilis NCTC 9343 sequence and hits B. fragilis clusters at 100.0% identity. The 81 AEP calls in that clade are therefore a reference recognising its own species, not independent evidence -- the same self-match that made the actinomycete pepM validation circular. The genuinely cross-clade result is the 57 B. fragilis 2-HEP calls at 38.7% identity via DhpG/FomC/PhpC, none of which is Bacteroidota."
+  "self_match_caveat": "AepZ (CAH07597) IS a Bacteroides fragilis NCTC 9343 sequence and hits B. fragilis clusters at 100.0% identity. The 81 AEP calls in that clade are therefore a reference recognising its own species, not independent evidence -- the same self-match that made the actinomycete pepM validation circular. The genuinely cross-clade result is the 57 B. fragilis 2-HEP calls at 38.7% identity via DhpG/FomC/PhpC, none of which is Bacteroidota.",
+  "hmm_vs_diamond_experiment": {
+    "question": "Does a profile HMM detect the branch enzymes that pairwise DIAMOND misses?",
+    "method": "Profiles built with the repo's existing seed-and-refine trick, the same one bgc_coupling_tree.py uses and the reason no MSA tool is needed: hmmbuild from the single longest reference (a lone sequence is a trivial alignment), hmmalign the rest to it, hmmbuild again from that alignment. AEP profile from 2 refs (AepZ, DfmM-like), HEP profile from 4 (DhpG, FomC, PhpC, PhpC-Sv); PhpD excluded because it does not form 2-HEP. The Ppd gate stays on DIAMOND so the comparison changes exactly one variable.",
+    "result": {
+      "DIAMOND, curated refs": "Pantoea 2 AEP / 42 undetermined; B. fragilis 81 AEP / 57 HEP / 5 undetermined",
+      "HMM, same curated refs": "Pantoea 26 AEP / 18 undetermined; B. fragilis 81 / 57 / 5",
+      "what_that_means": "The profile recovers all 26 Enterobacterial AEP clusters from the two curated references alone -- the same 26 that DIAMOND could only reach with the Salmonella PhnW included. A profile captures family-level conservation; pairwise identity to one sequence does not. Removing PhnW therefore costs nothing once the call is made by HMM."
+    },
+    "robustness": "Identical calls at bitscore cutoffs 30, 50, 80 and 150. The lowest hit scores 77.4 and medians run 259 (Pantoea AEP), 720 (B. fragilis AEP), 194 (B. fragilis HEP), so no threshold tuning is involved.",
+    "profiles": "docs/comparisons/branch_intermediate/hmm/{AEP,HEP}.hmm (LENG 373 and 305)",
+    "still_open": "The HEP profile is built from four actinomycete references and its only test set is B. fragilis. It has no positive control from a clade of independently known 2-HEP chemistry."
+  }
 }
