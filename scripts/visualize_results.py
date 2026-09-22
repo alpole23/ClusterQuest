@@ -323,6 +323,8 @@ def main():
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--novelty_ranking', type=Path, help='novelty_ranking.tsv from NOVELTY_SCORE')
+    parser.add_argument('--branch_point', type=Path,
+                        help='branch_point_prediction.tsv from BRANCH_POINT_PREDICTION: the 2-AEP / 2-HEP call per family')
     parser.add_argument('--consensus_clusters', type=Path,
                         help='gcf_consensus_clusters.tsv from GCF_ANNOTATION_TRANSFER')
     parser.add_argument('--transfer_summary', type=Path,
@@ -438,7 +440,8 @@ def main():
             consensus_blocks=consensus_blocks_by_family(args.consensus_clusters,
                                                         args.transfer_summary),
             meta=family_meta(gcf_data_file=args.gcf_data,
-                             novelty_path=args.novelty_ranking))
+                             novelty_path=args.novelty_ranking,
+                             branch_point_path=args.branch_point))
         print(f"  {len(gcf_hrefs)} per-family pages written to gcf/")
         gcf_visualization_html, _ = generate_gcf_visualization_html(
             str(args.gcf_data), args.taxon, hrefs=gcf_hrefs)

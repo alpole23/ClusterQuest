@@ -190,6 +190,7 @@ workflow BGC_ANALYSIS {
                 coupling_annotation_ch,
                 coupling_support_ch,
                 novelty_ch,
+                branch_point_ch,
                 consensus_ch,
                 transfer_summary_ch,
                 pepm_svg_ch,
