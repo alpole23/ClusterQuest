@@ -5,19 +5,20 @@
   "references_added": {
     "file": "assets/reference_sequences/reference_branch_enzymes.faa",
     "count": 8,
-    "2-AEP branch (phosphonoacetaldehyde -> 2-AEP, PLP aminotransferase)": [
-      "CAH07597 AepZ  Bacteroides fragilis NCTC 9343",
-      "WP_398362785 DfmM-like  Streptomyces lavendulae (dehydrofosmidomycin; the named dfmM has no protein accession of its own, contig JNXL01000002.1)",
-      "P96060 PhnW  Salmonella Typhimurium LT2 (Swiss-Prot reviewed)"
+    "note": "Curated by the project owner. Role is carried in the FUNCTION field (\"AEP branch\" / \"HEP branch\" / \"HEP branch downstream\") so a parser can key on it without a sixth pipe field, which would break the 5-field convention of reference_coupling_enzymes.faa.",
+    "AEP branch \u2014 PnAA -> 2-AEP, PLP aminotransferase": [
+      "CAH07597 AepZ  Bacteroides fragilis NCTC 9343 (LPS virulence factor)",
+      "WP_398362785 DfmM-like  Streptomyces lavendulae, dehydrofosmidomycin BGC0002036 (named dfmM has no protein accession of its own; encoding contig JNXL01000002.1)",
+      "P96060 PhnW  Salmonella Typhimurium LT2 \u2014 Swiss-Prot reviewed, CATABOLIC direction; added by Claude, not part of the curated set"
     ],
-    "2-HEP branch, forming (phosphonoacetaldehyde -> 2-HEP, ADH family)": [
-      "D9XF45 PhpC  Streptomyces viridochromogenes Tu494 (Swiss-Prot reviewed)",
-      "AKO69603 PhpC  Kitasatospora phosalacinea (phosalacine)",
-      "ACZ13458 DhpG  Streptomyces luridus (dehydrophos)",
-      "BAA32497 FomC  Streptomyces wedmorensis (fosfomycin)"
+    "HEP branch \u2014 PnAA -> 2-HEP, HEP dehydrogenase, CDD cd08182": [
+      "ACZ13458 DhpG  Streptomyces luridus, dehydrophos BGC0000897",
+      "BAA32497 FomC  Streptomyces wedmorensis, fosfomycin (not in MIBiG)",
+      "AKO69603 PhpC  Kitasatospora phosalacinea, phosalacine",
+      "D9XF45 PhpC  Streptomyces viridochromogenes Tu494 \u2014 Swiss-Prot reviewed orthologue of AKO69603 (62.5% id / 98.7% cov); added by Claude, not part of the curated set"
     ],
-    "2-HEP branch, consuming (acts ON 2-HEP, corroborates from downstream)": [
-      "AKO69604 PhpD  Kitasatospora phosalacinea \u2014 2-hydroxyethylphosphonate dioxygenase (HEPD)"
+    "HEP branch downstream \u2014 acts ON 2-HEP": [
+      "AKO69604 PhpD  Kitasatospora phosalacinea \u2014 forms hydroxymethylphosphonate from 2-HEP (HEPD). Corroborates the branch; does NOT form 2-HEP, so it is never a primary marker"
     ]
   },
   "decision_rule": {
@@ -55,20 +56,28 @@
     "negative_control": "LMG 5342 region 1 (pantaphos, synthase route) hits NEITHER reference. A classifier that labelled everything AEP or HEP would be useless; this one correctly declines.",
     "coverage_caveat": "The PhpC hits are 55% coverage against 96% for PhnW, so the HEP call rests on a partial-length match. Worth a profile HMM if it is to carry weight.",
     "expanded_set_improves_the_HEP_call": "B. fragilis Fe-ADH proteins: PhpC 32.3% id / bit 102 against the 2-sequence set, DhpG 38.7% id / bit 135 against the 8-sequence set. Coverage stays ~57%.",
-    "two_independent_marker_systems_agree": "Classifying 367 regions by characterised-reference similarity reproduces the Pfam/SMCOG keyword partition EXACTLY \u2014 Pantoea 180 not-via-PnAA / 26 AEP / 18 undetermined, B. fragilis 81 AEP / 57 HEP / 5 undetermined \u2014 with ZERO ambiguous calls. Two unrelated evidence types giving the same partition is the strongest check available without chemistry."
+    "two_independent_marker_systems_agree": "Classifying 367 regions by characterised-reference similarity reproduces the Pfam/SMCOG keyword partition EXACTLY \u2014 Pantoea 180 not-via-PnAA / 26 AEP / 18 undetermined, B. fragilis 81 AEP / 57 HEP / 5 undetermined \u2014 with ZERO ambiguous calls. Two unrelated evidence types giving the same partition is the strongest check available without chemistry.",
+    "three_independent_lines_agree": {
+      "deposited_annotation": "38 of the 62 Fe-ADH proteins in B. fragilis phosphonate regions are ALREADY deposited by NCBI as \"phosphonoacetaldehyde reductase\". 15 carry no product at all and 9 have generic ADH names, so the deposit alone covers ~61% \u2014 which is why reference scoring is needed to reach the rest, and is the same annotation gap as Figures 1-2.",
+      "reference_similarity": "DhpG 38.7% id / bit 135 on the same proteins.",
+      "pfam_smcog_keywords": "Classifying 367 regions by reference similarity reproduces the Pfam/SMCOG keyword partition EXACTLY, with zero ambiguous calls."
+    },
+    "phpD_demotion_changed_nothing": "Restricting the primary HEP call to the cd08182 formers (DhpG, FomC, PhpC) and using PhpD only as corroboration left every call identical \u2014 so no region had ever been called 2-HEP on PhpD alone."
   },
   "open": {
-    "no_confirmed_2HEP_positive_control": "Every PhpC/DhpG-like protein measured is from B. fragilis. The reference set now carries four characterised HEP-branch enzymes, but no cluster of independently known 2-HEP chemistry has been run through the pipeline to confirm the call.",
     "not_yet_wired": "The classifier and report columns are designed but not implemented.",
-    "coverage_caveat": "HEP hits align over ~57% of the reference against ~96-99% for the AEP hits. The HEP call rests on a partial-length match and wants a profile HMM before it carries weight in a figure."
+    "coverage_caveat": "HEP hits align over ~57% of the reference against ~96-99% for the AEP hits. The HEP call rests on a partial-length match and wants a profile HMM before it carries weight in a figure.",
+    "positive_control_still_outside_the_data": "The reference set now holds four characterised HEP-branch enzymes, but no cluster of independently known 2-HEP chemistry has been run through the pipeline. Running a dehydrophos, fosfomycin or phosalacine producer would close this."
   },
   "phpC_assignment_corrected": {
-    "what": "phpC was initially grouped with the 2-AEP aminotransferases. It is a 2-HEP-branch enzyme: phosphonoacetaldehyde reductase.",
+    "what": "phpC is a HEP-branch enzyme (HEP dehydrogenase), not a 2-AEP aminotransferase.",
     "evidence": [
-      "The source paper's own gene table: \"phpC (395) Phosphonoacetaldehyde reductase\" and \"phpD (443) Hydroxyethylphosphonate dioxygenase\".",
-      "AKO69603 (phpC, K. phosalacinea) hits D9XF45 (Swiss-Prot \"Phosphonoacetaldehyde reductase\", S. viridochromogenes) at 62.5% identity over 98.7% coverage \u2014 orthologues.",
-      "In all-vs-all, AKO69603 groups with DhpG and FomC (the other reductases) and with neither aminotransferase."
+      "The source paper gene table: \"phpC (395) Phosphonoacetaldehyde reductase\", \"phpD (443) Hydroxyethylphosphonate dioxygenase\".",
+      "AKO69603 (phpC) hits Swiss-Prot D9XF45 \"Phosphonoacetaldehyde reductase\" at 62.5% identity over 98.7% coverage \u2014 orthologues.",
+      "All-vs-all groups AKO69603 with DhpG and FomC and with neither aminotransferase.",
+      "NCBI annotates dhpG and fomC as HEP dehydrogenase, CDD cd08182, \"catalyzes the reduction of phosphonoacetaldehyde (PnAA) to hydroxyethylphosphonate\"."
     ],
-    "so_both_phpC_and_phpD_mark_2-HEP": "phpC forms it, phpD consumes it."
-  }
+    "and_phpD": "phpD is a separate family \u2014 it hit none of the other seven references at e-value 1e-3 \u2014 consistent with a cupin-fold dioxygenase rather than an ADH."
+  },
+  "finding_bacteroides_does_not_run_HEPD": "ZERO of the 57 B. fragilis 2-HEP regions carry a PhpD/HEPD homologue. So this clade forms 2-HEP and stops: it does not continue to hydroxymethylphosphonate. The HEPD route appears to be an actinomycete trait (fosfomycin, phosalacine, dehydrophos), while B. fragilis splits into AEP-decorating and HEP-decorating clusters that both terminate at the C2 intermediate."
 }
