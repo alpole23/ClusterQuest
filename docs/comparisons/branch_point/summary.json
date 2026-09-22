@@ -98,5 +98,25 @@
     "robustness": "Identical calls at bitscore cutoffs 30, 50, 80 and 150. The lowest hit scores 77.4 and medians run 259 (Pantoea AEP), 720 (B. fragilis AEP), 194 (B. fragilis HEP), so no threshold tuning is involved.",
     "profiles": "docs/comparisons/branch_intermediate/hmm/{AEP,HEP}.hmm (LENG 373 and 305)",
     "still_open": "The HEP profile is built from four actinomycete references and its only test set is B. fragilis. It has no positive control from a clade of independently known 2-HEP chemistry."
+  },
+  "folded_into_the_pipeline": {
+    "what": "NOT a new stage. The pipeline already had HEADGROUP_PREDICTION doing 2-AEP vs 2-HEP; a duplicate BRANCH_INTERMEDIATE was built by mistake and discarded before being committed. The existing stage was upgraded and renamed instead, because \"headgroup\" names the product while the call is about which enzyme acts on phosphonoacetaldehyde.",
+    "renames": {
+      "HEADGROUP_PREDICTION": "BRANCH_POINT_PREDICTION",
+      "headgroup_prediction.py": "branch_point_prediction.py",
+      "headgroup_prediction.tsv": "branch_point_prediction.tsv",
+      "reference_headgroup_enzymes.faa + reference_branch_enzymes.faa": "reference_branch_point_enzymes.faa (11 refs in one file)"
+    },
+    "method_change": "DIAMOND identity floors (40% strong / 25% possible) replaced by per-class profile HMMs built from the references at run time, at bitscore 120 / 50.",
+    "reference_change": "5 references became 11; the HEP side went from 2 to 6 and now spans four clades (Bacteroides, Glycomyces, Streptomyces, Kitasatospora)."
+  },
+  "gcf18_call_was_wrong_and_is_corrected": {
+    "what": "The DIAMOND version called LMG 5342 region 2 \"unknown (Ppd + class I/II transaminase, not aepZ family)\" and its docstring presented that as a worked negative showing the confirmed phosphonolipid does not use canonical 2-AEP machinery. Laboratory work says it DOES run the 2-AEP pathway.",
+    "root_cause": "The region carries TWO transaminases: a deposited class I/II aspartate transaminase (PANA5342_2588) and a RECOVERED aepZ-family 2-aminoethylphosphonate--pyruvate transaminase (recovered_HE617160.1_0219). Reading the deposit alone saw only the first, so the conclusion was an artefact of the annotation gap RECOVER_ORFS exists to close -- and it had been written up as a biological finding.",
+    "now": "GCF 2 is called \"2-AEP (homologue)\" at bitscore 259, unanimous 24/24."
+  },
+  "validation_after_folding_in": {
+    "Bacteroides fragilis": "19 families, 18 unanimous: 11 2-AEP, 7 2-HEP, 1 unknown. Matches the 81/57/5 region split found independently.",
+    "Pantoea + Winslowiella": "pantaphos GCF 1 (180 members) \"not via PnAA\" -- negative control holds; GCF 2 (LMG 5342 phosphonolipid) 2-AEP; GCF 5 (B149, B120) 2-AEP."
   }
 }
