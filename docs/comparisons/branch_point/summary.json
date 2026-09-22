@@ -4,7 +4,7 @@
   "date": "2026-09-22",
   "references_added": {
     "file": "assets/reference_sequences/reference_branch_enzymes.faa",
-    "count": 7,
+    "count": 15,
     "note": "Curated by the project owner. Role is carried in the FUNCTION field (\"AEP branch\" / \"HEP branch\" / \"HEP branch downstream\") so a parser can key on it without a sixth pipe field, which would break the 5-field convention of reference_coupling_enzymes.faa.",
     "AEP branch \u2014 PnAA -> 2-AEP, PLP aminotransferase": [
       "CAH07597 AepZ  Bacteroides fragilis NCTC 9343 (LPS virulence factor)",
@@ -18,7 +18,18 @@
     ],
     "HEP branch downstream \u2014 acts ON 2-HEP": [
       "AKO69604 PhpD  Kitasatospora phosalacinea \u2014 forms hydroxymethylphosphonate from 2-HEP (HEPD). Corroborates the branch; does NOT form 2-HEP, so it is never a primary marker"
-    ]
+    ],
+    "argolaphos_added_2026-09-22": {
+      "sequences": [
+        "HEP  AglG URQ58552",
+        "HEPD AglD URQ58549",
+        "PEPM AglE URQ58550",
+        "PPD  AglF URQ58551"
+      ],
+      "organism": "Streptomyces monomycini NRRL B-24309, argolaphos MZ612424",
+      "why": "Broadens every class, and fixes the one that was demonstrably too thin: HEPD had a single member (PhpD) and scored AglD at 20.9, so it could not corroborate anything.",
+      "cost": "Argolaphos is no longer a held-out positive control. Its numbers in this file were measured BEFORE it was added and remain the evidence; leave-one-out is now the only way to re-derive them."
+    }
   },
   "decision_rule": {
     "gate": "Ppd (ThDP decarboxylase) must be present -- without it there is no phosphonoacetaldehyde",
@@ -67,7 +78,7 @@
     "not_yet_wired": "The classifier and report columns are designed but not implemented.",
     "coverage_caveat": "HEP hits align over ~57% of the reference against ~96-99% for the AEP hits. The HEP call rests on a partial-length match and wants a profile HMM before it carries weight in a figure.",
     "fasta_parsing_hazard": "Function fields say 'PnAA to 2-HEP' rather than 'PnAA -> 2-HEP'. An arrow in a header breaks any consumer that splits the file on '>', which mangled this very file once.",
-    "HEPD_profile_is_too_thin_to_corroborate": "The HEPD profile is built from one sequence (PhpD) and scores argolaphos AglD -- annotated 2-hydroxyethylphosphonate dioxygenase -- at only 20.9. It does not generalise, so the downstream corroboration marker is currently decorative. It needs more HEPD references before it can carry weight."
+    "HEPD_still_needs_a_third_reference": "HEPD now has two members (PhpD, AglD) rather than one, but the two-member profile has never been tested on a HEPD outside the set. Its leave-one-out score on AglD was 20.9 with PhpD alone, so whether the pair generalises is unmeasured."
   },
   "phpC_assignment_corrected": {
     "what": "phpC is a HEP-branch enzyme (HEP dehydrogenase), not a 2-AEP aminotransferase.",
@@ -135,5 +146,16 @@
     "what": "When both profiles clear POSSIBLE_BITS the call goes to the higher one, provided it leads by MIN_MARGIN_BITS (50). Below that the call is ambiguous and says by how much.",
     "why": "Absolute thresholds cannot separate dehydrophos: AEP 121.9 against a 120 floor. The margin can: HEP 223.8 beats AEP 121.9 by 102 bits. Raising the floor instead would have been tuning to one cluster, and 121.9 sits uncomfortably close to B149's genuine AEP hit at 178.0.",
     "no_effect_on_the_validated_sets": "B. fragilis stays 11 2-AEP / 7 2-HEP / 1 unknown and Pantoea stays 2 not-via-PnAA / 2 2-AEP / 2 unknown, because in those sets only one profile ever fires."
-  }
+  },
+  "leave_one_out_preserves_the_validation": {
+    "method": "Rebuild every profile with all four argolaphos sequences removed, then re-score them.",
+    "result": {
+      "HEP  AglG": "full set 534.2 (self-match) / leave-one-out 273.2",
+      "HEPD AglD": "full set 1034.2 (self-match) / leave-one-out 20.9",
+      "PEPM AglE": "full set 513.9 (self-match) / leave-one-out 147.9",
+      "PPD  AglF": "full set 734.6 (self-match) / leave-one-out 155.0"
+    },
+    "reading": "The leave-one-out column reproduces the pre-addition run exactly, so the cross-clade validation survives the sequences being added. The other column is what a self-match looks like -- HEPD moves 20.9 to 1034.2 purely because the query is now in its own model. Any future positive control must be scored leave-one-out, or it measures nothing."
+  },
+  "regression_after_expansion": "B. fragilis stays 11 2-AEP / 7 2-HEP / 1 unknown and Pantoea stays 2 not-via-PnAA / 2 2-AEP / 2 unknown. Adding four references changed no call."
 }
