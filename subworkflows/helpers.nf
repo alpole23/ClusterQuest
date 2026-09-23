@@ -101,3 +101,45 @@ def sortedBatches(ch, n) {
 def sortedTupleBatches(ch, n) {
     ch.toSortedList { a, b -> a[0] <=> b[0] }.flatMap { it }.collate(n)
 }
+
+/*
+ * Batches of ACCESSIONS, written one file per batch, assigned by hash.
+ *
+ * `sortedBatches` above makes composition reproducible for a FIXED input set, which
+ * is what `-resume` needs within a taxon. It is not enough across taxon growth: with
+ * positional batching, one genome appearing at the front of a sorted accession list
+ * shifts every later genome into a different batch, so every download task rehashes
+ * and a 150,000-genome taxon re-downloads in full because NCBI added one assembly.
+ *
+ * Assigning by `md5(accession) % nbatches` makes membership a property of the
+ * accession alone. Adding a genome dirties exactly one batch. The trade is that
+ * changing `download_batch_size` reshuffles everything — but that is a deliberate
+ * act, where a new NCBI deposit is not.
+ *
+ * Emits a batch as a FILE of accessions rather than a value list: the batch is an
+ * input to `datasets --inputfile`, and a file also keeps the task hash keyed on
+ * content rather than on a long interpolated string.
+ */
+def accessionBatches(accessions_ch, batch_size) {
+    accessions_ch.flatMap { acc_file ->
+        def accs = acc_file.readLines().findAll { it.trim() }.collect { it.trim() }.sort()
+        // integer ceiling without a cast: Nextflow 26's strict parser rejects
+        // the C-style `(int) Math.ceil(...)` spelling outright
+        def nbatches = Math.max(1, (accs.size() + batch_size - 1).intdiv(batch_size))
+        def groups = [:].withDefault { [] }
+        accs.each { a ->
+            def digest = java.security.MessageDigest.getInstance('MD5')
+                .digest(a.getBytes('UTF-8'))
+            // top 4 bytes as an unsigned int, so the bucket does not depend on
+            // Groovy's String.hashCode(), which is stable but not portable-by-contract
+            long h = 0
+            (0..3).each { i -> h = (h << 8) | (digest[i] & 0xff) }
+            groups[(h % nbatches) as int] << a
+        }
+        groups.keySet().sort().collect { k ->
+            def f = java.nio.file.Files.createTempFile("accessions_${k}_", '.txt')
+            f.toFile().text = groups[k].join('\n') + '\n'
+            f
+        }
+    }
+}

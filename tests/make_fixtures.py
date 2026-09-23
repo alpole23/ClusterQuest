@@ -47,6 +47,18 @@ def main():
             f.write("this is not a GenBank file\n")
         name_map[assembly_id] = "Broken organism"
 
+    # Uniquely-named copies, as the pipeline's rename step would produce. NCBI
+    # names every genome `genomic.gbff`, so anything staging several of them in one
+    # task needs distinct names; GENBANK_TO_FASTA used to get these from
+    # RENAME_GENOMES, which no longer exists as a stage.
+    renamed_dir = os.path.join(args.outdir, 'renamed')
+    os.makedirs(renamed_dir, exist_ok=True)
+    for assembly_id, organism in name_map.items():
+        src = os.path.join(args.outdir, 'data', assembly_id, 'genomic.gbff')
+        with open(src) as fh, open(os.path.join(
+                renamed_dir, organism.replace(' ', '_') + '.gbff'), 'w') as out:
+            out.write(fh.read())
+
     # Fake antiSMASH results for the reuse-copy path, including a hidden metadata
     # file and a nested directory so the test can check copy fidelity.
     for genome in ('Genome_A', 'Genome_B'):

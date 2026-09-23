@@ -1,8 +1,7 @@
 /*
  * Batching regression test for the short per-genome processes.
  *
- * Checks that RENAME_GENOMES, GENBANK_TO_FASTA and COPY_ANTISMASH_RESULT still:
- *   - pair each genome with the right assembly ID across a batch (staging order)
+ * Checks that GENBANK_TO_FASTA and COPY_ANTISMASH_RESULT still:
  *   - emit one file per genome after .flatten()
  *   - tolerate a single unparseable genome without losing the rest of the batch
  *   - copy reused result directories faithfully (hidden + nested files)
@@ -12,27 +11,18 @@
 
 nextflow.enable.dsl=2
 
-include { RENAME_GENOMES }        from '../modules/genome/rename_genomes_parallel'
 include { GENBANK_TO_FASTA }      from '../modules/genome/genbank_to_fasta'
 include { COPY_ANTISMASH_RESULT } from '../modules/analysis/check_antismash_reuse'
 include { batchSize }             from '../subworkflows/helpers'
 
 workflow {
-    // Mirrors the wiring in subworkflows/download_genomes.nf
-    genome_batches = Channel.fromPath("${params.fixtures}/data/*/genomic.gbff")
-        .map { gbff -> tuple(gbff.parent.name, gbff) }
-        .collate(batchSize())
-        .map { batch -> tuple(batch.collect { it[0] }, batch.collect { it[1] }) }
-
-    // NO_PEPM_DB placeholder: the screen inside RENAME_GENOMES needs diamond and a
-    // reference database, neither of which the fixture harness has. This test is
-    // about batch pairing and per-genome failure isolation, so it exercises the
-    // unscreened path; the screen itself is covered by the held-out clade data.
-    RENAME_GENOMES(params.taxon, genome_batches, file("${params.fixtures}/name_map.json"),
-                   file('NO_PEPM_DB'),
-                   Utils.scriptsHash(projectDir,
-                       ['genome/rename_genome.py', 'analysis/pepm_prescreen.py']))
-    renamed = RENAME_GENOMES.out.renamed_genome.flatten()
+    // Renamed genomes come from the fixtures directly. They used to come from
+    // RENAME_GENOMES, which was folded into FETCH_RENAME_SCREEN when the download
+    // was batched -- that process fetches from NCBI, so it cannot run offline here.
+    // The assembly-ID pairing this once guarded is no longer order-dependent:
+    // FETCH_RENAME_SCREEN reads each accession from its own download directory
+    // name rather than from staging order.
+    renamed = Channel.fromPath("${params.fixtures}/renamed/*.gbff")
     renamed.view { "RENAMED: ${it.name}" }
 
     // Mirrors subworkflows/phylogeny.nf

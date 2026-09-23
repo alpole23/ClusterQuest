@@ -70,6 +70,12 @@
             "description": "Restrict the NCBI download by assembly level, e.g. 'complete' or 'chromosome,complete'. Null takes everything. Useful when taxonomic breadth matters more than exhaustive coverage: Streptomyces has 16,030 GenBank genomes but 1,573 complete o",
             "x-group": "Download Genome Options"
         },
+        "assembly_source": {
+            "type": "string",
+            "description": "'GenBank' (GCA_), 'RefSeq' (GCF_) or 'all'. GenBank was hardcoded until 2026-09-23 and remains the default so existing runs reproduce. **RefSeq is the one to use at order scale.** Measured 2026-09-23: Enterobacterales has 1,257,000 GenBank ",
+            "default": "GenBank",
+            "x-group": "Download Genome Options"
+        },
         "bigscape_alignment_mode": {
             "type": "string",
             "description": "\"auto\", \"global\", or \"glocal\"",
@@ -159,6 +165,18 @@
             "description": "Count per contig (true) or per genome (false)",
             "default": false,
             "x-group": "Region Analysis Options"
+        },
+        "download_batch_size": {
+            "type": "integer",
+            "description": "Accessions fetched per FETCH_RENAME_SCREEN task. Sets transient disk, which is download_batch_size x download_max_forks x ~8.7 MB \u2014 about 3.5 GB at the defaults, against the 1.3 TB a 150,000-genome taxon used to hold at once.",
+            "default": 200,
+            "x-group": "Download Genome Options"
+        },
+        "download_max_forks": {
+            "type": "integer",
+            "description": "Concurrent fetch tasks. MEASURED, not guessed: probed against NCBI on 2026-09-23 at 1/2/4/8, throughput peaked at 2 (33.5 MB/s, 159 genomes/min) and DECLINED above it, with zero failures at any level. That is a saturated link, not server th",
+            "default": 2,
+            "x-group": "Download Genome Options"
         },
         "gtdb_release": {
             "type": "string",
