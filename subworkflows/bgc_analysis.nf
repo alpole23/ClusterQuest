@@ -6,6 +6,7 @@ include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosyntheti
 include { NOVELTY_SCORE } from '../modules/analysis/novelty_score'
 include { GCF_ANNOTATION_TRANSFER } from '../modules/analysis/gcf_annotation_transfer'
 include { BRANCH_POINT_PREDICTION } from '../modules/analysis/branch_point_prediction'
+include { BIOSYNTHETIC_PROFILE } from '../modules/analysis/biosynthetic_profile'
 include { PEPM_ALL_BY_ALL } from '../modules/analysis/pepm_all_by_all'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
 
@@ -84,6 +85,7 @@ workflow BGC_ANALYSIS {
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
             novelty_ch              = placeholder('NO_NOVELTY')
             branch_point_ch            = placeholder('NO_BRANCH_POINT')
+            bioprofile_ch              = placeholder('NO_BIOPROFILE')
             consensus_ch            = placeholder('NO_CONSENSUS')
             transfer_summary_ch     = placeholder('NO_TRANSFER_SUMMARY')
             pepm_svg_ch             = placeholder('NO_PEPM_SVG')
@@ -130,6 +132,17 @@ workflow BGC_ANALYSIS {
                         ['analysis/branch_point_prediction.py', 'utils'])
                 )
                 branch_point_ch = BRANCH_POINT_PREDICTION.out.prediction
+
+                // Reads the finished clustering database, so it runs beside the
+                // branch-point call rather than after it.
+                BIOSYNTHETIC_PROFILE(
+                    taxon,
+                    CLUSTERING.out.bigscape_db,
+                    Utils.scriptsHash(projectDir,
+                        ['analysis/biosynthetic_profile.py', 'utils'])
+                )
+                bioprofile_ch = BIOSYNTHETIC_PROFILE.out.profile
+                    .ifEmpty(file('NO_BIOPROFILE'))
                     .ifEmpty(file('NO_BRANCH_POINT'))
 
                 // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
@@ -191,6 +204,7 @@ workflow BGC_ANALYSIS {
                 coupling_support_ch,
                 novelty_ch,
                 branch_point_ch,
+                bioprofile_ch,
                 consensus_ch,
                 transfer_summary_ch,
                 pepm_svg_ch,

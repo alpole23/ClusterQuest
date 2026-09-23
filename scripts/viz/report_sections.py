@@ -958,7 +958,7 @@ def _ref_cell(r):
     return f'<span style="color:{tone};">{pct}%{org_txt}</span>'
 
 
-def build_priority_section(ranking_path):
+def build_priority_section(ranking_path, bioprofile_path=None):
     """Gene cluster families ranked by how much they warrant laboratory follow-up.
 
     Distance and evidence are shown beside the priority they multiply to, deliberately.
@@ -979,6 +979,19 @@ def build_priority_section(ranking_path):
     from pathlib import Path as _Path
     if not ranking_path or not _Path(ranking_path).exists():
         return ''
+
+    # Families that are chemically indistinguishable from another, from
+    # BIOSYNTHETIC_PROFILE. Shown as an ANNOTATION, never folded into the score.
+    # Demoting on filtered-domain similarity would penalise exactly the families
+    # this list exists to surface: the domain map covers ~93% of observed hits
+    # and everything else is `other`, meaning unmapped rather than absent, so a
+    # family whose chemistry nobody has curated would look like every other
+    # empty profile. The flag tells the reader; it must not move a rank.
+    twin = {}
+    if bioprofile_path and _Path(bioprofile_path).exists():
+        for row in _csv.DictReader(_Path(bioprofile_path).open(), delimiter='\t'):
+            if row.get('verdict'):
+                twin[row['gcf']] = row['nearest_gcf']
     rows = list(_csv.DictReader(_Path(ranking_path).open(), delimiter='\t'))
     if not rows:
         return ''
@@ -1039,6 +1052,12 @@ def build_priority_section(ranking_path):
         f'<td style="padding:7px 10px;text-align:right;">{r["genera"]}</td>'
         f'<td style="padding:7px 10px;text-align:right;">{float(r["intact"]):.0%}</td>'
         f'<td style="padding:7px 10px;">{r["coupling_class"]}</td>'
+        f'<td style="padding:7px 10px;font-size:.85em;">'
+        + (f'<span style="color:#8a5a0c;" title="Same core/tailoring/lipid/transport '
+           f'domains as GCF-{twin[r["gcf"]]} — the split between them is not '
+           f'biosynthetic. Not counted against the rank.">= GCF-{twin[r["gcf"]]}</span>'
+           if r["gcf"] in twin else '<span style="color:#bbb;">—</span>')
+        + '</td>'
         f'<td style="padding:7px 10px;font-size:.9em;color:#666;white-space:nowrap;">'
         f'{_ref_cell(r)}</td>'
         f'</tr>'
@@ -1084,6 +1103,10 @@ def build_priority_section(ranking_path):
                 <th style="text-align:right;padding:6px 10px;">Genera</th>
                 <th style="text-align:right;padding:6px 10px;">Intact</th>
                 <th style="text-align:left;padding:6px 10px;">Coupling class</th>
+                <th style="text-align:left;padding:6px 10px;" title="Another family with the
+                    same core/tailoring/lipid/transport domains. A split between two such
+                    families is not biosynthetic. Annotation only — it does not affect the
+                    rank.">Same chemistry as</th>
                 <th style="text-align:left;padding:6px 10px;">Nearest reference</th>
             </tr></thead>
             <tbody>{body}</tbody>

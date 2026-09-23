@@ -24,6 +24,7 @@ process VISUALIZE_RESULTS {
     path coupling_support
     path novelty_ranking
     path branch_point
+    path biosynthetic_profile
     path consensus_clusters
     path transfer_summary
     path pepm_svg
@@ -68,13 +69,14 @@ process VISUALIZE_RESULTS {
     def coupling_support_arg    = Utils.optArg('--coupling_support',    coupling_support)
     def novelty_arg             = Utils.optArg('--novelty_ranking',     novelty_ranking)
     def branch_point_arg        = Utils.optArg('--branch_point',        branch_point)
+    def bioprofile_arg          = Utils.optArg('--biosynthetic_profile', biosynthetic_profile)
     def consensus_arg           = Utils.optArg('--consensus_clusters', consensus_clusters)
     def transfer_summary_arg    = Utils.optArg('--transfer_summary',   transfer_summary)
 
     def mibig_arg     = params.bigscape_mibig_version ? "--mibig_included" : ""
     def skip_tree_arg = params.skip_tree ? "--skip_tree" : ""
     """
-    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${branch_point_arg} \\
+    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${branch_point_arg} ${bioprofile_arg} \\
         ${consensus_arg} \\
         ${transfer_summary_arg} ${pepm_svg_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
     """
