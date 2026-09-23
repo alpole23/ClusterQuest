@@ -24,8 +24,17 @@ GNAT acetyltransferase, which is most of the tailoring chemistry anyone would
 want to compare.
 
 The actionable output is the last column. Two families whose filtered profiles
-are identical were separated by something other than their chemistry, and that
-is worth knowing before a family count is read as biological resolution.
+are **identical** were separated by something other than their chemistry, and
+that is worth knowing before a family count is read as biological resolution.
+
+Two families that are merely *close* are a different claim, and the distinction
+is the point rather than a nicety. On this run the pantaphos pair sits at Jaccard
+0.909 and differs by exactly one filtered domain — PF13535 ATP-grasp_4, an
+amide-bond ligase, in 96.8% of the 186-member family and 3.4% of the 29-member
+one. That is the single most interesting difference in the dataset, and an
+earlier version of this script printed "chemically indistinguishable — split is
+not biosynthetic" over it, because one threshold covered both cases. A near miss
+is now reported with the differing domains named, and never as indistinguishable.
 
 **`other` is not evidence of absence.** The domain map is curated and covers
 ~93% of observed hits; everything else returns `other` and is excluded here by
@@ -56,7 +65,10 @@ BIOSYNTHETIC = ('core', 'tailoring', 'lipid', 'transport')
 PREVALENCE = 0.5
 
 # Filtered profiles this similar are reported as a possible context-driven split.
-# Jaccard over domain sets, so 1.0 means chemically indistinguishable.
+# Jaccard over domain sets. Only 1.0 means chemically indistinguishable; between
+# SIMILAR and 1.0 the families differ by a domain or two and the difference is
+# named rather than dismissed. Collapsing those two cases into one verdict is a
+# mistake this script made and got caught on -- see `verdict_for`.
 SIMILAR = 0.9
 
 
@@ -104,6 +116,29 @@ def jaccard(a, b):
     return len(a & b) / len(a | b) if (a | b) else 1.0
 
 
+def verdict_for(sim, other, diff_txt, n_diff):
+    """What a nearest-neighbour similarity actually licenses saying.
+
+    Only an EMPTY symmetric difference licenses "indistinguishable". An earlier
+    version applied that sentence to everything at Jaccard >= 0.9, and on the
+    Erwiniaceae run that put it on the pantaphos pair, which differs by exactly
+    one filtered domain: PF13535 ATP-grasp_4, in 96.8% of the 186-member family
+    and 3.4% of the 29-member one. An ATP-grasp is an amide-bond ligase, so the
+    one domain the threshold waved through is the one that would separate a
+    monopeptide product from a dipeptide -- the tool argued against the most
+    interesting hypothesis in the run on a rounding margin (10/11 = 0.909).
+    """
+    if not other or sim < SIMILAR:
+        return ''
+    if not n_diff:
+        return (f'chemically indistinguishable from GCF {other} '
+                '— split is not biosynthetic')
+    return (f'differs from GCF {other} by {n_diff} biosynthetic domain'
+            f'{"s" if n_diff > 1 else ""} only ({diff_txt}) — near-identical, '
+            'but NOT indistinguishable; check the difference before calling '
+            'this split contextual')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -132,6 +167,8 @@ def main():
         p = profiles[fid]
         cats = collections.Counter(category(d) for d in p)
         sim, other = nearest[fid]
+        diff = (sets[fid] ^ sets[other]) if other != '' else set()
+        diff_txt = ';'.join(f'{d}({name(d) or "?"})' for d in sorted(diff))
         rows.append({
             'gcf': fid,
             'members': len(fams[fid]),
@@ -144,9 +181,8 @@ def main():
                                 for d in sorted(p, key=lambda x: (-p[x], x))),
             'nearest_gcf': other,
             'nearest_similarity': f'{sim:.3f}',
-            'verdict': ('chemically indistinguishable from GCF '
-                        f'{other} — split is not biosynthetic'
-                        if sim >= SIMILAR and other != '' else ''),
+            'differing_domains': diff_txt if sim >= SIMILAR else '',
+            'verdict': verdict_for(sim, other, diff_txt, len(diff)),
         })
 
     with args.out.open('w', newline='') as fh:
@@ -154,13 +190,20 @@ def main():
         w.writeheader()
         w.writerows(rows)
 
-    flagged = [r for r in rows if r['verdict']]
-    print(f'{len(rows)} families at cutoff {args.cutoff}; '
-          f'{len(flagged)} chemically indistinguishable from another '
-          f'(Jaccard >= {SIMILAR} on {"/".join(BIOSYNTHETIC)} domains)')
-    for r in flagged:
-        print(f"  GCF {r['gcf']:>3} ({r['members']:>3} members) ~ "
+    same = [r for r in rows if r['verdict'] and not r['differing_domains']]
+    near = [r for r in rows if r['verdict'] and r['differing_domains']]
+    print(f'{len(rows)} families at cutoff {args.cutoff} '
+          f'(Jaccard on {"/".join(BIOSYNTHETIC)} domains)')
+    print(f'{len(same)} chemically indistinguishable from another family:')
+    for r in same:
+        print(f"  GCF {r['gcf']:>3} ({r['members']:>3} members) == "
               f"GCF {r['nearest_gcf']:>3}  J={r['nearest_similarity']}")
+    print(f'{len(near)} near-identical but distinguishable — read the domain, '
+          f'not the number:')
+    for r in near:
+        print(f"  GCF {r['gcf']:>3} ({r['members']:>3} members) ~ "
+              f"GCF {r['nearest_gcf']:>3}  J={r['nearest_similarity']}  "
+              f"differs by {r['differing_domains']}")
     empty = [r for r in rows if r['biosynthetic_domains'] == 0]
     if empty:
         print(f'{len(empty)} families have no recognised biosynthetic domain — '

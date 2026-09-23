@@ -958,6 +958,24 @@ def _ref_cell(r):
     return f'<span style="color:{tone};">{pct}%{org_txt}</span>'
 
 
+def _twin_cell(other, differing):
+    """The "Same chemistry as" cell: `=` only when the profiles really are equal.
+
+    `differing` empty means the filtered profiles are identical and the split
+    between the two families is not biosynthetic. Anything else means they are
+    merely close, and the cell says so and names what differs -- a family that
+    differs by one amide-bond ligase is a bench question, not a duplicate.
+    """
+    if not differing:
+        return (f'<span style="color:#8a5a0c;" title="Same core/tailoring/lipid/'
+                f'transport domains as GCF-{other} — the split between them is not '
+                f'biosynthetic. Not counted against the rank.">= GCF-{other}</span>')
+    return (f'<span style="color:#1d6fa5;" title="Nearly the same chemistry as '
+            f'GCF-{other}, but NOT identical — differs by {differing}. '
+            f'Worth checking before treating either as a duplicate. '
+            f'Not counted against the rank.">~ GCF-{other}</span>')
+
+
 def build_priority_section(ranking_path, bioprofile_path=None):
     """Gene cluster families ranked by how much they warrant laboratory follow-up.
 
@@ -987,11 +1005,16 @@ def build_priority_section(ranking_path, bioprofile_path=None):
     # and everything else is `other`, meaning unmapped rather than absent, so a
     # family whose chemistry nobody has curated would look like every other
     # empty profile. The flag tells the reader; it must not move a rank.
+    # `=` (identical filtered profile) and `~` (near-identical) are kept apart.
+    # Collapsing them put "same chemistry" on the pantaphos pair, which differs
+    # by an ATP-grasp amide-bond ligase -- the one difference in this run worth
+    # a bench experiment. A near miss names the domain instead.
     twin = {}
     if bioprofile_path and _Path(bioprofile_path).exists():
         for row in _csv.DictReader(_Path(bioprofile_path).open(), delimiter='\t'):
             if row.get('verdict'):
-                twin[row['gcf']] = row['nearest_gcf']
+                twin[row['gcf']] = (row['nearest_gcf'],
+                                    row.get('differing_domains', ''))
     rows = list(_csv.DictReader(_Path(ranking_path).open(), delimiter='\t'))
     if not rows:
         return ''
@@ -1053,10 +1076,8 @@ def build_priority_section(ranking_path, bioprofile_path=None):
         f'<td style="padding:7px 10px;text-align:right;">{float(r["intact"]):.0%}</td>'
         f'<td style="padding:7px 10px;">{r["coupling_class"]}</td>'
         f'<td style="padding:7px 10px;font-size:.85em;">'
-        + (f'<span style="color:#8a5a0c;" title="Same core/tailoring/lipid/transport '
-           f'domains as GCF-{twin[r["gcf"]]} — the split between them is not '
-           f'biosynthetic. Not counted against the rank.">= GCF-{twin[r["gcf"]]}</span>'
-           if r["gcf"] in twin else '<span style="color:#bbb;">—</span>')
+        + (_twin_cell(*twin[r["gcf"]]) if r["gcf"] in twin
+           else '<span style="color:#bbb;">—</span>')
         + '</td>'
         f'<td style="padding:7px 10px;font-size:.9em;color:#666;white-space:nowrap;">'
         f'{_ref_cell(r)}</td>'
