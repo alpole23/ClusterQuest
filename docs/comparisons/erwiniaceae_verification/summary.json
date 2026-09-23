@@ -42,5 +42,15 @@
     "baseline_cpu_hours": 75.6,
     "why_lower": "The baseline ran antiSMASH over all 2,771 genomes; this run screened first and analysed 307. Not a like-for-like speedup -- it is the pre-screen doing what it is for."
   },
-  "consequences_for_the_write_ups": "CLAUDE.md, the manuscript and the novelty ranking all quote 18 or 19 Erwiniaceae families. At the 10 kb default the number is 22, with the dominant family at 186 rather than 215. This is a result of adopting the wider window, not a regression, but every figure and table quoting the old count needs revisiting."
+  "consequences_for_the_write_ups": "CLAUDE.md, the manuscript and the novelty ranking all quote 18 or 19 Erwiniaceae families. At the 10 kb default the number is 22, with the dominant family at 186 rather than 215. This is a result of adopting the wider window, not a regression, but every figure and table quoting the old count needs revisiting.",
+  "what_actually_split_the_pantaphos_family": {
+    "tool": "scripts/analysis/biosynthetic_profile.py",
+    "method": "Per-family domain profile filtered to core/tailoring/lipid/transport via utils/domain_functions, dropping primary and mobile. Deliberately not the antiSMASH proto_core, which is 3.3 kb here and would discard LeuC/LeuD, the methyltransferase, SanS and the GNAT -- most of the tailoring chemistry.",
+    "whole_region": "10 Pfam domains differ by >=50 points between GCF 1 (186) and GCF 2 (29)",
+    "rule_core_only": "0 domains differ",
+    "biosynthetic_filtered": "exactly ONE: PF13535 ATP-grasp_4, in 96.8% of GCF 1 and 3.4% of GCF 2. The other nine are purine nucleoside phosphorylase, penicillin-binding protein 2, a diguanylate cyclase, a SpoIIE phosphatase and unmapped domains -- cell wall and signalling.",
+    "reading": "The split is mostly flanking context, but it coincides with a real biosynthetic difference. An ATP-grasp is an amide-bond ligase, and one present in 186 clusters and absent from 29 with the rest of the chemistry identical is what a mono- versus dipeptide product would look like. The gene is cluster content, not flank: genome 813,280-814,435, inside the documented HiVir extent ending 814,435. Whether BiG-SCAPE split them BECAUSE of it or merely alongside it is unresolved -- the housekeeping alone would probably have sufficed.",
+    "genuinely_contextual_splits": "GCF 7 ~ GCF 21 and GCF 8 ~ GCF 19, both Jaccard 1.000 on filtered content, each pairing a real family with a singleton.",
+    "why_a_narrower_window_does_not_help": "Measured across all 215 regions, the HiVir ATP-grasp sits 9.2 kb from the core while the housekeeping sits at 5.0, 6.6, 8.5 and 9.4 kb. The wanted gene is farther out than three of the four unwanted ones, so no symmetric window separates them; 7.5 or 8 kb would drop the ATP-grasp and keep the cyclase and SpoIIE. An asymmetric window fails too: the cluster is downstream of the core in 96 regions and upstream in 85, so orientation is not consistent."
+  }
 }
