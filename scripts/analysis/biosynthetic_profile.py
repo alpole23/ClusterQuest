@@ -7,12 +7,19 @@ past the core in both directions and reliably catches chromosomal neighbours.
 Two groups of genomes with different neighbours therefore land in different
 families even when their biosynthesis is identical.
 
-That is not hypothetical. On the *Erwiniaceae* verification run the 215-member
-pantaphos family split 186/29 at 10 kb, and the two halves differ in ten Pfam
-domains across the whole region and in **zero** inside the rule core. The
-discriminating set was purine nucleoside phosphorylase, penicillin-binding
-protein 2, a diguanylate cyclase and a SpoIIE phosphatase -- cell wall and
-signalling housekeeping, not phosphonate chemistry.
+That is not hypothetical, and the *Erwiniaceae* run has a measured example:
+GCF 7 == GCF 21 and GCF 8 == GCF 19 are identical on filtered content, each
+pairing a real family with a singleton. A third case is stronger still. Within
+the 29-member half of the pantaphos family, 11 clusters (all *P. agglomerans*)
+stay separate from the other 18 even after their regions are trimmed to the same
+size and their extra genes removed -- neither group carries the ATP-grasp, so
+what divides them is the ordinary flanking content of one species versus
+another.
+
+Note the 186/29 split ITSELF is not such a case, though an earlier version of
+this docstring used it as the headline example. Ablating PF13535 and
+re-clustering merges 18 of the 29 into the large family, so that split is
+substantially biosynthetic. See `docs/comparisons/pantaphos_family_split/`.
 
 So this reports each family's domain content **filtered to the categories that
 are about making a molecule**: core, tailoring, lipid and transport.

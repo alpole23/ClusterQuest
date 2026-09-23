@@ -1,0 +1,62 @@
+{
+  "question": "The 10 kb run splits the 215-member pantaphos family 186/29. Is that split biosynthetic, and does antiSMASH's CUTOFF-chaining manufacture families elsewhere?",
+  "date": "2026-09-22",
+  "source_run": "results_erw_verify (2,771 Erwiniaceae genomes, 334 regions, 22 families, 10 kb neighbourhood). See ../erwiniaceae_verification/.",
+  "method_note": "Both experiments re-cluster with BiG-SCAPE 2.0.1 under PYTHONHASHSEED=0 and the pipeline's own flags (--alignment-mode auto --gcf-cutoffs 0.30 --include-singletons --classify category). Every arm carries a MATCHED CONTROL over the identical record set, because subsetting or re-slicing changes the clustering landscape on its own and an uncontrolled comparison would confound the intervention with the preparation.",
+
+  "experiment_1": {
+    "name": "ablate the ATP-grasp",
+    "script": "ablate_atp_grasp.py",
+    "design": "215 regions (GCF 1 + GCF 2), one arm untouched, one with every PF13535-carrying CDS removed. Targets taken from BiG-SCAPE's own cds/hsp tables by coordinate -- NOT from antiSMASH PFAM_domain features, which disagree: a first attempt stripped 40 features where BiG-SCAPE sees 206 hits, and would have ablated almost nothing.",
+    "control": "2 families, 186/29 -- reproduces the full run exactly, so the 215-region subset is a clean baseline",
+    "ablated": "2 families, 204/11",
+    "result": "18 of the 29 merge into the large family; 3,348 co-membership pairs join, 198 split. The 11 that remain are a strict subset of the 29.",
+    "reading": "The ATP-grasp causally maintains the separation for about two thirds of the small family. An earlier correlational analysis of this repo concluded the opposite -- that housekeeping context drove the split and the ATP-grasp was incidental -- by comparing each member's MEAN DISTANCE to each family. That was wrong twice over: five GCF 1 members lacking the ATP-grasp stay inside GCF 1 because they retain the housekeeping block, which shows housekeeping is SUFFICIENT for membership rather than the ATP-grasp being UNNECESSARY for exclusion; and family assignment is threshold-and-linkage, so a domain can be decisive at the boundary while barely moving any average. Seven discordant members could not have resolved this. The ablation could."
+  },
+
+  "experiment_2": {
+    "name": "trim CUTOFF-inflated region boundaries",
+    "scripts": ["measure_core_inflation.py", "trim_inflated_cores.py"],
+    "mechanism": "The antiSMASH phosphonate rule is `phosphonates AND minimum(1, [phosphonates, 2-Hacid_dh_C, Aldedh, Aminotran_1_2, Aminotran_5, AurF, CTP_transf_like, DUF4992, Fe-ADH, HMGL-like, Metallophos_2, NTP_transf_3, NTP_transf_5, PALP, PEP_mutase, TPP_enzyme_C, TPP_enzyme_N])` with CUTOFF 20. Every secondary profile anchors the protocluster core as strongly as pepM, and chains anything within 20 kb into it. antiSMASH's own rule file flags the risk: 'the remaining profiles in this or could move to related profiles, if at some point related profiles extend protocluster boundaries'.",
+    "worked_example": "Pantoea agglomerans 21NY0253, proto_core 10000-40462 (30.5 kb): Aminotran_1_2 at 10000-11203, then a 15.0 kb gap to HMGL-like at 26247, pepM at 28732, then a 9.7 kb gap to a second Aminotran_1_2 at 39250. Both aminotransferases are inside CUTOFF 20, so the core stretches over everything between them. The actual cluster is the middle 3.3 kb.",
+    "survey": {
+      "data": "core_inflation.tsv",
+      "regions_examined": 334,
+      "extended_across_a_5kb_gap": 48,
+      "percent": "14.4%",
+      "median_extension_kb": 6.4,
+      "max_extension_kb": 27.8,
+      "profile_on_the_far_side": {"Aminotran_1_2": 40, "2-Hacid_dh_C": 5, "PALP": 2, "Fe-ADH": 1, "Aminotran_5": 1},
+      "caveat": "Fe-ADH, Aminotran_5 and 2-Hacid_dh_C are genuine phosphonate enzymes, so those 7 cases may be the rule correctly reaching a real pathway gene. The concern is the 40 Aminotran_1_2 cases -- the profile CLAUDE.md already records as too promiscuous to call a coupling enzyme. A 5 kb gap threshold is conservative, so 14.4% is a floor."
+    },
+    "design": "All 334 regions, both arms. Treatment recomputes each core without its gap-crossing edge genes, puts the 10 kb neighbourhood back on, and drops every CDS outside that window -- i.e. the region antiSMASH would have produced without the chaining. Removing only the offending CDS would have been the wrong experiment: the gene is not the problem, the boundary it dragged out is, and the cargo admitted through that boundary would have stayed. The GBK keeps its region feature and sequence so BiG-SCAPE still loads it; only gene content changes, which is all its distance depends on.",
+    "control": "22 families, 186/29/24/23/21/20/... -- reproduces the source run exactly",
+    "trimmed": "23 families; 198 pairs split, ZERO merged",
+    "per_family": {
+      "GCF 5": "24 members, 2.7% of CDS lost, family UNCHANGED",
+      "GCF 3": "21 members, 34.5% lost, family UNCHANGED",
+      "GCF 9": "5 members, 37.1% lost, family UNCHANGED",
+      "GCF 2": "29 members, 27.9% lost, SPLITS into 18 + 11"
+    },
+    "result": "NEGATIVE. Boundary inflation does not manufacture families. Nothing merged anywhere, and even families that lost over a third of their genes held together.",
+    "why_it_matters_less_than_it_looks": "GCF 5's cores are extended by a median 6.3 kb, yet trimming changed only 2.7% of its gene content -- the 10 kb neighbourhood goes back on after the core shrinks and re-covers nearly everything the extension had reached. Inflation smaller than the neighbourhood is absorbed and never reaches the comparison. An earlier draft of this work called the chaining a 'third detection blind spot' alongside the too-narrow flank and the unannotated genes; that framing is retracted. It inflates reported boundaries far more than it affects clustering."
+  },
+
+  "what_actually_separates_the_pantaphos_families": {
+    "186 vs 29": "the ATP-grasp (PF13535, an amide-bond ligase) -- 180/186 vs 1/29. A real difference in biosynthetic potential, and the one that predicts a shorter product.",
+    "18 vs 11": "species-level chromosomal context. After trimming, the 11 fall from 43.1 to 21.6 CDS -- the mobile cargo is gone and they are the same size as the 18 at 22.6 -- and they STILL form their own family. Neither group has the ATP-grasp, so what remains is the ordinary flanking content of P. agglomerans versus P. allii. Exactly what BIOSYNTHETIC_PROFILE exists to flag.",
+    "why GCF 2 held together at all": "boundary inflation was MASKING the 18/11 distinction, not creating it. Two unrelated interventions -- ablating the ATP-grasp and trimming the boundaries -- find the same 18/11 line."
+  },
+
+  "the_11": {
+    "identity": "all Pantoea agglomerans; 11 distinct nucleotide sequences, so not clonal, but one species and therefore not 11 independent origins",
+    "correction": "An earlier reading of this repo called them 'a different cluster with different coupling chemistry'. That was wrong. The complete pantaphos core is present and intact -- pepM, Bac_luciferase, HMGL-like, aconitase, MeT, GNAT, MFS, Flavin_Reduct, same block, same order. The two Aminotran_1_2 copies are ADDITIONAL, not a substituted coupling enzyme, and they are the genes that chained the core out over 27 kb of integrase, transposase and ABC transporter cargo.",
+    "figure": "representatives.svg -- one representative per group on a shared kb scale, picked as the member with the highest mean Jaccard to the rest of its group"
+  },
+
+  "consequences": {
+    "for_the_bench_question": "All 29 clusters lacking the ATP-grasp are the test set, not 18. An earlier note narrowed it to 18 on the assumption the 11 were an unrelated family; they are not. That is P. allii, P. agglomerans, P. vagans and Pantoea sp. against 180 of 186 P. ananatis -- a species-level split and a larger test set.",
+    "for_the_pipeline": "None. Nothing here is wired in, and nothing should be: both experiments answer a settled question about one family on one taxon, and each costs a BiG-SCAPE re-cluster. The core-inflation measure is the only piece with any general use, and it is deliberately not promoted to a standalone tool because the result says nobody should act on it.",
+    "for_the_manuscript": "Nothing to add, beyond confidence that the 10 kb window is robust to the chaining."
+  }
+}

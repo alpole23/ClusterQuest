@@ -27,6 +27,7 @@ stamps a run date into every region GenBank and no two runs agree byte for byte.
 | antiSMASH neighbourhood | does a wider flank capture the whole cluster, at what cost? | `antismash_neighbourhood/` | one genome for boundaries, family scale in **two clades** — which disagree |
 | pepM screen discriminators | can more references or a profile HMM make the screen more specific? | `pepm_screen_discriminators/` | **no** — tested three alternatives, all worse |
 | BiG-SCAPE determinism | are distances reproducible run to run? | `bigscape_determinism/` | measured |
+| pantaphos family split | is the 186/29 split biosynthetic, and does antiSMASH's CUTOFF-chaining manufacture families? | `pantaphos_family_split/` | **yes** for the ATP-grasp (ablation merges 18 of 29); **no** for the chaining — negative result, nothing merged across 334 regions |
 
 ### pepM pre-screen — `pepm_prescreen/`
 

@@ -9,10 +9,15 @@
  *
  * This reports each family's domain content filtered to the categories that are
  * about making a molecule -- core, tailoring, lipid, transport -- and flags
- * families whose filtered profiles are indistinguishable. Measured on the
- * Erwiniaceae verification run, the 215-member pantaphos family split 186/29 and
- * differed in ten domains across the whole region, zero inside the rule core,
- * and exactly one once filtered.
+ * families whose filtered profiles are indistinguishable. On the Erwiniaceae
+ * verification run that is GCF 7 == GCF 21 and GCF 8 == GCF 19, each pairing a
+ * real family with a singleton.
+ *
+ * The 215-member pantaphos family's 186/29 split is NOT one of those, although
+ * it differs by only one filtered domain (PF13535 ATP-grasp_4). Ablating that
+ * gene and re-clustering merges 18 of the 29, so the split is substantially
+ * biosynthetic -- which is why a near miss is reported as `~` with the domain
+ * named, never as `=`. See docs/comparisons/pantaphos_family_split/.
  *
  * Cheap by construction: it reads the finished clustering database and needs no
  * external tool, so it adds seconds rather than minutes.
