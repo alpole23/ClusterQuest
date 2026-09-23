@@ -12,6 +12,9 @@ workflow ANTISMASH_ANALYSIS {
     take:
         taxon
         renamed_genomes
+        // true when DOWNLOAD_GENOMES already screened inside RENAME_GENOMES.
+        // Known at DAG-build time, so it gates the stage rather than the channel.
+        prescreened
 
     main:
         DOWNLOAD_ANTISMASH_DBS()
@@ -29,7 +32,7 @@ workflow ANTISMASH_ANALYSIS {
         // On by default since 2026-09-09; set --pepm_prescreen false to send every
         // genome to antiSMASH.
         prescreen_report_ch = Channel.empty()
-        if (params.pepm_prescreen) {
+        if (params.pepm_prescreen && !prescreened) {
             PEPM_MAKEDB(file("${projectDir}/assets/reference_sequences/reference_pepM.faa"))
             PEPM_PRESCREEN(
                 taxon,

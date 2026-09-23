@@ -153,7 +153,8 @@ workflow {
             Channel.fromPath("${params.input_genomes}/*.gbff"),
             assembly_info_ch,
             name_map_ch,
-            taxonomy_map_ch
+            taxonomy_map_ch,
+            false   // these genomes never passed through RENAME_GENOMES
         )
 
     } else if (params.workflow == "full") {
@@ -163,7 +164,8 @@ workflow {
             DOWNLOAD_GENOMES.out.renamed_genomes,
             DOWNLOAD_GENOMES.out.assembly_info,
             DOWNLOAD_GENOMES.out.name_map,
-            DOWNLOAD_GENOMES.out.taxonomy_map
+            DOWNLOAD_GENOMES.out.taxonomy_map,
+            params.pepm_prescreen   // RENAME_GENOMES already screened
         )
 
     } else {

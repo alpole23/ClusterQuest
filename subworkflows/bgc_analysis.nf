@@ -25,10 +25,12 @@ workflow BGC_ANALYSIS {
         assembly_info
         name_map
         taxonomy_map
+        // see ANTISMASH_ANALYSIS
+        prescreened
 
     main:
         // --- BGC Detection ---
-        ANTISMASH_ANALYSIS(taxon, renamed_genomes)
+        ANTISMASH_ANALYSIS(taxon, renamed_genomes, prescreened)
         antismash_results = ANTISMASH_ANALYSIS.out.results
 
         // --- Region Analysis ---

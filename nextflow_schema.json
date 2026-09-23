@@ -29,6 +29,12 @@
             "default": false,
             "x-group": "antiSMASH Analysis Options"
         },
+        "antismash_html": {
+            "type": "boolean",
+            "description": "Keep antiSMASH's per-genome HTML viewer (index.html, regions.js,",
+            "default": true,
+            "x-group": "antiSMASH Analysis Options"
+        },
         "antismash_minimal": {
             "type": "boolean",
             "description": "antiSMASH minimal mode (faster, skips domain analysis)",

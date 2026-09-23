@@ -94,6 +94,7 @@ BGC detection using antiSMASH.
 | `antismash_cc_mibig` | false | ClusterCompare: Advanced MIBiG scoring |
 | `antismash_smcog_trees` | false | Phylogenetic trees for BGC genes |
 | `antismash_phosphonate_neighbourhood` | 10 | kb of flank kept around the rule core (antiSMASH's own value is 5); `null` restores it |
+| `antismash_html` | true | Keep the per-genome HTML viewer. ~1.13 MB/genome, of which 708 kB is byte-identical boilerplate in every directory. `false` frees ~19 GB per 16,500 genomes but breaks the report's per-genome antiSMASH links |
 
 **Note:** Detection is hardcoded to phosphonate rule only (`--hmmdetection-limit-to-rule-names phosphonate`). `--cb-knownclusters`, `--clusterhmmer`, and `--tigrfam` are always enabled. `--no-zip-output` is also always passed: the `{genome}.zip` antiSMASH writes by default is an archive of its own output directory (~6 MB/genome) that nothing downstream reads. The whole-genome summary GenBank is off by default too and gated behind `--antismash_summary_gbk` (~11 MB/genome, also unread by any step) — worth enabling on small sets, not on a genus. Neither flag is in `Utils.antismashParamsHash`: they change packaging, not results, so toggling them does not invalidate `--reuse_antismash_from`.
 
@@ -1428,7 +1429,44 @@ what this pipeline looks for. Establishing that costs **~0.9 CPU-s** against
 antiSMASH's **41.4**, which is what makes an order-scale run tractable.
 
 ```
-RENAME_GENOMES -> PEPM_PRESCREEN -> ANTISMASH   (only genomes that pass)
+RENAME_GENOMES (renames AND screens) -> ANTISMASH   (only genomes that pass)
+```
+
+**The screen runs inside `RENAME_GENOMES`, not as its own stage** (moved 2026-09-23).
+It used to filter the channel downstream, which scheduled correctly but kept every
+rejected genome on disk: on the Erwiniaceae verification run **24 GB of a 27 GB
+result directory was renamed genomes, and 2,464 of 2,771 were rejected and used for
+nothing**. Deleting them afterwards does not work -- `publishDir` re-publishes from
+`work/` on `-resume`, and pruning published output races with tasks still
+publishing, which is why `prune_antismash_results.py` refuses to run during a run.
+Screening inside the renaming task means a rejected genome is deleted *before* its
+output is declared, so it never reaches `publishDir` and `-resume` cannot resurrect
+it. Both outputs are `optional`: a batch in a phosphonate-poor clade can legitimately
+have zero survivors.
+
+Genomes supplied via `--input_genomes` never pass through `RENAME_GENOMES`, so
+`ANTISMASH_ANALYSIS` keeps its own `PEPM_PRESCREEN` for that path. The
+`prescreened` flag threaded through `BGC_ANALYSIS` decides which one runs; it is a
+plain boolean because the answer is known when the DAG is built.
+
+**Two bugs this move surfaced, both worth knowing:**
+
+- `RENAME_GENOMES` inherited a python-only conda environment, so the screen could
+  not import biopython. `pepm_prescreen.py` caught that per genome, fell back to
+  "screening by DNA", found nothing, and reported **every genome as
+  pepM-negative** -- including *W. iniecta* B149, the known producer. It exited 0.
+  The script now `sys.exit`s on `ImportError`, because a missing module is a broken
+  environment rather than a bad genome and applies to the whole batch.
+- The staged inputs are themselves `*.gbff` (`genome1.gbff`, ...), so globbing
+  after renaming screened all 16 files of an 8-genome batch. Nextflow excludes
+  staged inputs from the *output* glob, which is why only the screen needed the
+  before/after diff it now uses.
+
+Verified on *Winslowiella* (8 genomes): B120 and B149 pass at bitscore 296.0, the
+other six score 54.3-54.7 against a cut of 100, and only the two survivors are
+published.
+
+```
 ```
 
 **Two modes, one decision.** NCBI GenBank annotation is inconsistent — 794 of

@@ -2,8 +2,9 @@ include { NCBI_DATASETS_DOWNLOAD } from '../modules/genome/ncbi_datasets_downloa
 include { CREATE_NAME_MAP } from '../modules/genome/create_name_map'
 include { RENAME_GENOMES } from '../modules/genome/rename_genomes_parallel'
 include { DOWNLOAD_TAXONKIT_DB } from '../modules/databases/download_taxonkit_db'
+include { PEPM_MAKEDB } from '../modules/analysis/pepm_prescreen'
 include { EXTRACT_TAXONOMY } from '../modules/analysis/extract_taxonomy'
-include { batchSize; sortedTupleBatches } from './helpers'
+include { batchSize; sortedTupleBatches; placeholder } from './helpers'
 
 /*
  * Subworkflow: Download and prepare genomes from NCBI
@@ -26,8 +27,17 @@ workflow DOWNLOAD_GENOMES {
         genome_batches = sortedTupleBatches(genome_pairs, batchSize())
             .map { batch -> tuple(batch.collect { it[0] }, batch.collect { it[1] }) }
 
-        RENAME_GENOMES(taxon, genome_batches, CREATE_NAME_MAP.out.name_map,
-                       Utils.scriptsHash(projectDir, ['genome/rename_genome.py']))
+        // The pepM screen runs INSIDE RENAME_GENOMES so rejected genomes are
+        // deleted before their output is declared -- see that module's header.
+        pepm_db_ch = placeholder('NO_PEPM_DB')
+        if (params.pepm_prescreen) {
+            PEPM_MAKEDB(file("${projectDir}/assets/reference_sequences/reference_pepM.faa"))
+            pepm_db_ch = PEPM_MAKEDB.out.db
+        }
+
+        RENAME_GENOMES(taxon, genome_batches, CREATE_NAME_MAP.out.name_map, pepm_db_ch,
+                       Utils.scriptsHash(projectDir,
+                           ['genome/rename_genome.py', 'analysis/pepm_prescreen.py']))
 
         EXTRACT_TAXONOMY(
             taxon,
@@ -40,6 +50,9 @@ workflow DOWNLOAD_GENOMES {
     emit:
         // flatten: RENAME_GENOMES emits one list per batch, consumers want one genome each
         renamed_genomes      = RENAME_GENOMES.out.renamed_genome.flatten()
+        // Non-empty only when the screen ran here; ANTISMASH_ANALYSIS reads this
+        // to know it must not screen a second time.
+        prescreen_report     = RENAME_GENOMES.out.report.collect().ifEmpty([])
         assembly_info        = NCBI_DATASETS_DOWNLOAD.out.assembly_info
         name_map             = CREATE_NAME_MAP.out.name_map
         taxonomy_map         = EXTRACT_TAXONOMY.out.taxonomy_map

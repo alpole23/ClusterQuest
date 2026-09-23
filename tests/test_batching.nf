@@ -24,8 +24,14 @@ workflow {
         .collate(batchSize())
         .map { batch -> tuple(batch.collect { it[0] }, batch.collect { it[1] }) }
 
+    // NO_PEPM_DB placeholder: the screen inside RENAME_GENOMES needs diamond and a
+    // reference database, neither of which the fixture harness has. This test is
+    // about batch pairing and per-genome failure isolation, so it exercises the
+    // unscreened path; the screen itself is covered by the held-out clade data.
     RENAME_GENOMES(params.taxon, genome_batches, file("${params.fixtures}/name_map.json"),
-                   Utils.scriptsHash(projectDir, ['genome/rename_genome.py']))
+                   file('NO_PEPM_DB'),
+                   Utils.scriptsHash(projectDir,
+                       ['genome/rename_genome.py', 'analysis/pepm_prescreen.py']))
     renamed = RENAME_GENOMES.out.renamed_genome.flatten()
     renamed.view { "RENAMED: ${it.name}" }
 
