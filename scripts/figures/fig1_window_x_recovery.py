@@ -27,9 +27,10 @@ import argparse
 from pathlib import Path
 
 from figure_style import ACCENT, FAINT, GOOD, INK, panel_label, plt, save
-from fig1_orf_recovery import (CATEGORY_COLOR, CATEGORY_LABEL, gene_category,
-                               is_recovered, label_for, legend_handles,
-                               load_transferred)
+from fig1_orf_recovery import (CATEGORY_COLOR, CATEGORY_LABEL, EXTRACT,
+                               TRANSFER_TSV, gene_category, is_recovered,
+                               label_for, legend_handles, load_transferred,
+                               src_dir)
 
 from Bio import SeqIO
 
@@ -40,14 +41,16 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # cannot be overlaid without this.
 CELLS = [
     ('5 kb  ·  deposited only', 'results/antismash_results/Erwiniaceae_pre_recovery',
+     'erw5kb', 'before',
      {'region001': (796909, 810246), 'region002': (2688754, 2712709)}),
     ('5 kb  ·  + ORF recovery', 'results/antismash_results/Erwiniaceae',
+     'erw5kb', 'after',
      {'region001': (796909, 810246), 'region002': (2688754, 2714275)}),
     ('10 kb  ·  deposited only',
-     'results_fig1_pan10_norec/antismash_results/Pantoea_10kb',
+     'results_fig1_pan10_norec/antismash_results/Pantoea_10kb', 'pantoea10kb', 'before',
      {'region001': (791909, 815246), 'region002': (2683754, 2717709)}),
     ('10 kb  ·  + ORF recovery',
-     'results_fig1_pan10_rec/antismash_results/Pantoea_10kb',
+     'results_fig1_pan10_rec/antismash_results/Pantoea_10kb', 'pantoea10kb', 'after',
      {'region001': (791909, 815246), 'region002': (2683754, 2719275)}),
 ]
 
@@ -64,8 +67,10 @@ REGIONS = [
 def read_cells(region, transferred):
     """One entry per 2x2 cell: (label, start, end, genes in genome coordinates)."""
     out = []
-    for label, base, coords in CELLS:
-        path = ROOT / base / GENOME / f'{RECORD}.{region}.gbk'
+    for label, base, ckey, side, coords in CELLS:
+        # live run directory when present, else the committed extract --
+        # see fig1_orf_recovery.src_dir
+        path = src_dir(ROOT / base, ckey, side) / GENOME / f'{RECORD}.{region}.gbk'
         start, end = coords[region]
         if not path.exists():
             print(f'  missing: {path}')
@@ -145,7 +150,7 @@ def draw_panel(ax, region, title, cluster_extent, transferred):
         ax.text((cs + ce) / 2, -0.98, 'HiVir cluster', ha='center', va='top',
                 fontsize=7.6, color=ACCENT, fontweight='bold')
         # The 5 kb window stops short of the cluster; say so where it happens.
-        five_end = CELLS[0][2][region][1]
+        five_end = CELLS[0][-1][region][1]   # coords is the last field
         if ce > five_end:
             # Above the top track, not on it: at y=3.0 this drew straight
             # through the "5 kb, deposited only" row and its count.
@@ -175,9 +180,7 @@ def main():
     ap.add_argument('--outdir', default='docs/figures')
     args = ap.parse_args()
 
-    transferred = load_transferred(
-        ROOT / 'results_fig1_pan10_rec/main_analysis_results/Pantoea_10kb/'
-        'annotation_transfer/gcf_annotation_transfer.tsv')
+    transferred = load_transferred(TRANSFER_TSV)
 
     fig, axes = plt.subplots(2, 1, figsize=(12.2, 7.4))
     used = []

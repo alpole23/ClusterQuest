@@ -136,8 +136,24 @@ def load_transferred(path):
     return out
 
 
-TRANSFER_TSV = (ROOT / 'results_fig1_pan10_rec/main_analysis_results/'
-                'Pantoea_10kb/annotation_transfer/gcf_annotation_transfer.tsv')
+# The A/B run directories this figure was measured from are gitignored and cost
+# 177 GB, so they were deleted once the figure was final. What the figure needs
+# is committed instead, under docs/comparisons/figure_inputs/: the GenBanks of
+# the regions it DRAWS, and the per-region gene gains of the clades it
+# summarises. A live run directory is still preferred when one is present, so
+# re-running the pipeline and regenerating from it stays possible.
+EXTRACT = ROOT / 'docs/comparisons/figure_inputs'
+
+TRANSFER_TSV = next(
+    (p for p in (ROOT / 'results_fig1_pan10_rec/main_analysis_results/Pantoea_10kb/'
+                        'annotation_transfer/gcf_annotation_transfer.tsv',
+                 EXTRACT / 'gcf_annotation_transfer.tsv') if p.exists()),
+    EXTRACT / 'gcf_annotation_transfer.tsv')
+
+
+def src_dir(live, clade, side):
+    """The live run directory if it is still here, else the committed extract."""
+    return live if live.exists() else EXTRACT / f'{clade}_{side}'
 
 
 def read_region(path, transferred=None):
@@ -244,25 +260,54 @@ def draw_clade(ax, title, before_path, after_path, transferred=None):
     return len(before), len(after)
 
 
-def gain_distribution(before_dir, after_dir):
+def gain_distribution(clade):
     """Per-region gene gain across a whole clade, so one example can be placed.
 
     Without this the figure invites the reader to take the illustrated cluster
     as typical. LMG 5342 gained 14 genes and is rank 1 of 334; the median gain
     among regions that gained anything at all is 2, and 65% gained nothing.
+
+    Read from the committed `gene_gains.tsv` rather than recomputed from the run
+    directories, which is deliberate and not merely a convenience. Only a
+    handful of region GenBanks are committed -- the ones the panels draw -- so a
+    glob over the extract would return a PARTIAL distribution and silently draw
+    a wrong panel. One source of truth avoids that. `--rebuild-gains`
+    regenerates the file from live run directories.
     """
-    before_dir, after_dir = Path(before_dir), Path(after_dir)
-    gains = {}
-    for bg in before_dir.glob('*/*region*.gbk'):
-        ag = after_dir / bg.parent.name / bg.name
-        if not ag.exists():
+    import csv as _csv
+    path = EXTRACT / 'gene_gains.tsv'
+    with path.open() as fh:
+        return {r['region']: int(r['gain'])
+                for r in _csv.DictReader(fh, delimiter='\t')
+                if r['clade'] == clade}
+
+
+def rebuild_gains(pairs):
+    """Recompute gene_gains.tsv from live run directories."""
+    import csv as _csv
+    rows = []
+    for clade, (bdir, adir) in pairs.items():
+        if not (Path(bdir).exists() and Path(adir).exists()):
+            print(f'  {clade}: run directories absent, keeping existing rows')
+            rows += [r for r in _csv.DictReader(
+                (EXTRACT / 'gene_gains.tsv').open(), delimiter='\t')
+                if r['clade'] == clade]
             continue
-        nb = sum(1 for f in next(SeqIO.parse(str(bg), 'genbank')).features
-                 if f.type == 'CDS')
-        na = sum(1 for f in next(SeqIO.parse(str(ag), 'genbank')).features
-                 if f.type == 'CDS')
-        gains[f'{bg.parent.name}/{bg.name}'] = na - nb
-    return gains
+        n = 0
+        for bg in sorted(Path(bdir).glob('*/*region*.gbk')):
+            ag = Path(adir) / bg.parent.name / bg.name
+            if not ag.exists():
+                continue
+            cds = lambda p: sum(1 for f in next(SeqIO.parse(str(p), 'genbank')).features
+                                if f.type == 'CDS')
+            rows.append({'clade': clade, 'region': f'{bg.parent.name}/{bg.name}',
+                         'gain': cds(ag) - cds(bg)})
+            n += 1
+        print(f'  {clade}: {n} regions')
+    with (EXTRACT / 'gene_gains.tsv').open('w', newline='') as fh:
+        w = _csv.DictWriter(fh, fieldnames=['clade', 'region', 'gain'], delimiter='\t')
+        w.writeheader()
+        w.writerows(rows)
 
 
 def panel_distribution(ax, clade_gains, highlights):
@@ -329,6 +374,9 @@ def main():
     ap.add_argument('--outdir', default='docs/figures')
     ap.add_argument('--no-distribution', action='store_true',
                     help='omit the panel placing each example within its clade')
+    ap.add_argument('--rebuild-gains', action='store_true',
+                    help='recompute docs/comparisons/figure_inputs/gene_gains.tsv '
+                         'from live run directories, then exit')
     args = ap.parse_args()
 
     # The committed Erwiniaceae run predates the 10 kb neighbourhood and its
@@ -338,7 +386,7 @@ def main():
     # genomes were re-run at 10 kb, both arms, so every panel matches.
     base = ROOT / 'results_fig1_pan10_norec/antismash_results/Pantoea_10kb'
     base_a = ROOT / 'results_fig1_pan10_rec/antismash_results/Pantoea_10kb'
-    # (short clade name, panel title, before dir, after dir, region key)
+    # (short clade name, panel title, before dir, after dir, extract key, region key)
     #
     # Ordered as a gradient in how much the deposit left out, because that is
     # the argument: recovery is targeted, not indiscriminate.
@@ -351,12 +399,12 @@ def main():
          # membership -- LMG 5342 r2 reads 3 -> 2 and that is not evidence.
          'Winslowiella iniecta B149  —  recovery restores CORE and '
          'TAILORING enzymes  —  joint-most affected of 228 regions',
-         base, base_a,
+         base, base_a, 'pantoea10kb',
          'Winslowiella_iniecta_B149/JRXF01000012.1.region001.gbk'),
         ('Pantoea',
          'Pantoea ananatis LMG 5342 region 2  —  confirmed '
          'phosphonolipid  —  joint-most affected of 228 regions',
-         base, base_a,
+         base, base_a, 'pantoea10kb',
          'Pantoea_ananatis_LMG_5342/HE617160.1.region002.gbk'),
         # Same genome, same deposit, same year as the panel above. One region
         # gains 14 genes and this one gains 4, so the difference is which genes
@@ -369,7 +417,7 @@ def main():
          'Pantoea ananatis LMG 5342 region 1  ·  pantaphos / HiVir  '
          '—  same genome, already well annotated; rank 7 of 228; '
          'recovery completes the LeuC/LeuD dehydratase',
-         base, base_a,
+         base, base_a, 'pantoea10kb',
          'Pantoea_ananatis_LMG_5342/HE617160.1.region001.gbk'),
         # S. griseus, not S. hygroscopicus: the bialaphos lineage yields only 2
         # phosphonate regions across 39 genomes (reproducing its count of 2 in
@@ -379,12 +427,13 @@ def main():
          'ATP-grasp tailoring enzymes',
          ROOT / 'results_fig1_gris_norecover/antismash_results/Streptomyces_griseus',
          ROOT / 'results_fig1_gris_recover/antismash_results/Streptomyces_griseus',
-         None),
+         'griseus', None),
         ('Bacteroides',
          'Bacteroides fragilis BFG-525  ·  region 1  —  deposit '
          'already complete; recovery adds hypotheticals only',
          ROOT / 'results_fig1_bact_norecover/antismash_results/Bacteroides_fragilis',
          ROOT / 'results_heldout_off/antismash_results/Bacteroides_fragilis',
+         'bfragilis',
          'Bacteroides_fragilis_BFG-525/CP103089.1.region001.gbk'),
     ]
 
@@ -393,23 +442,27 @@ def main():
     ROW_NAME = {'Winslowiella': 'Erwiniaceae', 'Pantoea': 'Erwiniaceae',
                 'pantaphos': 'Pantoea + Winslowiella\n(10 kb)'}
 
+    if args.rebuild_gains:
+        rebuild_gains({c[4]: (c[2], c[3]) for c in CLADES})
+        return 0
+
     transferred = load_transferred(TRANSFER_TSV)
     print(f'{len(transferred)} transferred gene names available')
-    clades, rows, cache = [], {}, {}
-    for short, title, bdir, adir, key in CLADES:
-        if not (bdir.exists() and adir.exists()):
-            print(f'skipping {short}: {bdir if not bdir.exists() else adir} missing')
-            continue
-        run = (str(bdir), str(adir))
-        if run not in cache:
-            cache[run] = gain_distribution(bdir, adir)
-        gains = cache[run]
+    clades, rows = [], {}
+    for short, title, bdir, adir, ckey, key in CLADES:
+        bdir, adir = src_dir(bdir, ckey, 'before'), src_dir(adir, ckey, 'after')
+        gains = gain_distribution(ckey)
         if not gains:
-            print(f'skipping {short}: no paired regions')
+            print(f'skipping {short}: no gains recorded for {ckey}')
             continue
         if key is None:                       # pick the clade's best example
-            key = max(gains, key=lambda k: gains[k])
+            # sorted() first: max() breaks ties on iteration order, and a dict
+            # built from a glob has filesystem order, which is not stable.
+            key = max(sorted(gains), key=lambda k: gains[k])
             title = f'{title}  —  best of {len(gains)} regions'
+        if not (bdir / key).exists() or not (adir / key).exists():
+            print(f'skipping {short}: {key} not in {bdir}')
+            continue
         letter = 'ABCDEF'[len(clades)]
         rows.setdefault(ROW_NAME.get(short, short), (gains, []))[1].append((letter, key))
         clades.append((title, bdir / key, adir / key))
