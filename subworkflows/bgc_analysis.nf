@@ -143,7 +143,6 @@ workflow BGC_ANALYSIS {
                 )
                 bioprofile_ch = BIOSYNTHETIC_PROFILE.out.profile
                     .ifEmpty(file('NO_BIOPROFILE'))
-                    .ifEmpty(file('NO_BRANCH_POINT'))
 
                 // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
                 // data and reports whether pepM identity could partition
