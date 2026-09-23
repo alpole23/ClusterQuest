@@ -1,0 +1,46 @@
+{
+  "question": "Does a full Erwiniaceae run reproduce the pipeline after the September changes, and what moves?",
+  "date": "2026-09-22",
+  "run": "2,771 genomes, fresh download, pre-screen on, ORF recovery on, GTDB-Tk on, 10 kb neighbourhood. Written to results_erw_verify/ rather than over the baseline so the two are diffable; databases symlinked from results/ to avoid re-downloading 139 GB.",
+  "changes_under_test": [
+    "pseudogene-flagged pepM now translated in the pre-screen",
+    "recover_orfs=false no longer collides on NO_RECOVERED_GFF (not exercised here; recovery was on)",
+    "PEPM_ALL_BY_ALL no longer fails a run below three pepMs",
+    "AGGREGATE_TAXONOMY skips instead of failing when no taxonomy map exists",
+    "BRANCH_POINT_PREDICTION: renamed from headgroup, scored by profile HMM, first run under Nextflow",
+    "per-family GCF pages actually published",
+    "10 kb neighbourhood as the default"
+  ],
+  "unchanged_as_expected": {
+    "pre-screen": "2,784 screened, 307 passed (11.0%), top bitscore 552 -- identical to baseline. Erwiniaceae carries no pseudogenised pepM, so the fix adds sensitivity without moving calls.",
+    "detection": "334 regions in 299 BGC-positive genomes, identical to baseline. The neighbourhood sets how much flank a region carries, not whether the rule fires."
+  },
+  "changed_by_design": {
+    "gene content per region": {
+      "LMG 5342 region 1 (pantaphos)": "13,337 bp / 14 CDS  ->  23,337 bp / 25 CDS",
+      "LMG 5342 region 2 (phosphonolipid)": "25,521 bp / 28 CDS  ->  35,521 bp / 37 CDS",
+      "note": "Reproduces the targeted runs Figure 1 was built from, at full-pipeline scale."
+    },
+    "clustering": {
+      "families": "18 -> 22",
+      "largest family": "215 -> 186",
+      "singletons": "7 -> 9",
+      "ARI": 0.7939,
+      "co_membership": "baseline 24,040 pairs, fresh 18,568, agreed 18,568",
+      "split": 5472,
+      "merged": 0,
+      "reading": "ZERO merges. Every co-membership relationship in the fresh clustering also existed in the baseline, so the 10 kb clustering is a strict REFINEMENT of the 5 kb one -- more sequence per region makes the comparison more discriminating and families split, but nothing is spuriously joined. That is the behaviour a wider window should have, and it is a stronger statement than the ARI alone."
+    },
+    "annotation transfer": "38.0% -> 78.8% of 8,400 CDS across 22 families (baseline was 40.2% -> 80.2% over the narrower regions)"
+  },
+  "new_output": {
+    "branch_point_prediction.tsv": "not via PnAA 12, 2-AEP 6, unknown 4 across 22 families",
+    "published GCF pages": "22, all 22 report links resolve, all 22 carry the branch-point call"
+  },
+  "cost": {
+    "cpu_hours": 26.9,
+    "baseline_cpu_hours": 75.6,
+    "why_lower": "The baseline ran antiSMASH over all 2,771 genomes; this run screened first and analysed 307. Not a like-for-like speedup -- it is the pre-screen doing what it is for."
+  },
+  "consequences_for_the_write_ups": "CLAUDE.md, the manuscript and the novelty ranking all quote 18 or 19 Erwiniaceae families. At the 10 kb default the number is 22, with the dominant family at 186 rather than 215. This is a result of adopting the wider window, not a regression, but every figure and table quoting the old count needs revisiting."
+}
