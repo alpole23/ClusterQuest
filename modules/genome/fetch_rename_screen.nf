@@ -39,9 +39,15 @@
  * cycling accession pool. Budget order-scale downloads at the SUSTAINED figure:
  * 150,000 genomes is ~25 h, not the ~8 h the burst implied.
  *
- * Not yet known: what the failures actually are. `datasets` prints the same usage
- * banner for every error and the soak harness kept only the last three lines, so
- * the cause was discarded. Worth capturing before an order-scale run.
+ * The cause is now known. Captured with full stderr, 3 of 40 batches failed with
+ *
+ *   Downloading: d.zip  32.8MB invalid zip archive
+ *   Error: Internal error (invalid zip archive). Please try again
+ *
+ * identical in all three: the archive transfers in full (33-43 MB) and then fails
+ * NCBI's own validation partway through. Transfer corruption, transient, and the
+ * client says to retry — the same failure class as the null-byte files the loop
+ * further down was written for. Handled by the inline retry in the script.
  *
  * ## Corruption handling is carried over deliberately
  *
@@ -86,13 +92,35 @@ process FETCH_RENAME_SCREEN {
     """
     # Same filters as NCBI_FETCH_METADATA. Redundant given the accession list came
     # from that call, and kept anyway so the two cannot silently diverge.
-    datasets download genome accession \\
-        --inputfile ${accessions} \\
-        --include gbff \\
-        --assembly-source ${params.assembly_source} \\
-        --exclude-atypical \\
-        ${level_flag} \\
-        --filename batch.zip
+    #
+    # Retried inline because this fails ~7.5% of the time with
+    #   Error: Internal error (invalid zip archive). Please try again
+    # measured 3 of 40 batches, matching the soak's 8.1%. The zip transfers in full
+    # (33-43 MB) and then fails NCBI's own validation partway through, so it is
+    # transfer corruption and the client itself says to retry. The `retry_on_error`
+    # label would also catch it, but at the cost of re-running the whole task for a
+    # bad download; three attempts here take 7.5% to ~0.04% without leaving the task.
+    FETCHED=no
+    for ATTEMPT in 1 2 3; do
+        rm -f batch.zip
+        if datasets download genome accession \\
+                --inputfile ${accessions} \\
+                --include gbff \\
+                --assembly-source ${params.assembly_source} \\
+                --exclude-atypical \\
+                ${level_flag} \\
+                --filename batch.zip \\
+            && unzip -qt batch.zip >/dev/null 2>&1; then
+            FETCHED=yes
+            break
+        fi
+        echo "fetch attempt \$ATTEMPT failed (invalid or incomplete archive); retrying"
+        sleep \$(( ATTEMPT * 10 ))
+    done
+    if [ "\$FETCHED" != yes ]; then
+        echo "ERROR: could not fetch a valid archive for this batch in 3 attempts"
+        exit 1
+    fi
 
     unzip -q batch.zip
     sync
