@@ -130,15 +130,33 @@ def accessionBatches(accessions_ch, batch_size) {
         accs.each { a ->
             def digest = java.security.MessageDigest.getInstance('MD5')
                 .digest(a.getBytes('UTF-8'))
-            // top 4 bytes as an unsigned int, so the bucket does not depend on
-            // Groovy's String.hashCode(), which is stable but not portable-by-contract
-            long h = 0
-            (0..3).each { i -> h = (h << 8) | (digest[i] & 0xff) }
-            groups[(h % nbatches) as int] << a
+            // BigInteger(1, ...) reads the digest as UNSIGNED and .mod() is always
+            // non-negative. Hand-rolling this from bytes produced negative keys and
+            // therefore ~2x the intended number of batches: 343 Pantoea ananatis
+            // genomes at batch_size 50 came out as 13 batches of 14-59 rather than
+            // 7 of ~49. Harmless to correctness -- every genome still lands in
+            // exactly one batch -- but it defeats the point of a batch size.
+            def bucket = new BigInteger(1, digest)
+                .mod(BigInteger.valueOf(nbatches as long)).intValue()
+            groups[bucket] << a
         }
+        // Written to a STABLE path with a STABLE timestamp. The first version used
+        // Files.createTempFile, which gave every batch a fresh random name on every
+        // run; Nextflow hashes a path input's name, size and last-modified, so all
+        // seven Pantoea batches re-ran on -resume (cached=4, completed=7) and the
+        // whole point of hash-based batching was lost.
+        //
+        // Rewriting in place is not enough either -- an identical rewrite still
+        // moves last-modified and still misses. So the file is only touched when
+        // its content actually changes.
+        def dir = java.nio.file.Paths.get("${workflow.workDir}", 'accession_batches')
+        java.nio.file.Files.createDirectories(dir)
         groups.keySet().sort().collect { k ->
-            def f = java.nio.file.Files.createTempFile("accessions_${k}_", '.txt')
-            f.toFile().text = groups[k].join('\n') + '\n'
+            def f = dir.resolve("accessions_${k}.txt")
+            def body = groups[k].join('\n') + '\n'
+            if (!java.nio.file.Files.exists(f) || f.toFile().text != body) {
+                f.toFile().text = body
+            }
             f
         }
     }
