@@ -117,12 +117,46 @@ process FETCH_RENAME_SCREEN {
         echo "fetch attempt \$ATTEMPT failed (invalid or incomplete archive); retrying"
         sleep \$(( ATTEMPT * 10 ))
     done
+    # Falling back to one accession at a time is not belt-and-braces: a whole-batch
+    # fetch is all-or-nothing, and CLAUDE.md's rule for every batched process here is
+    # that a batch must exit non-zero only when EVERY item failed, or batching turns
+    # one bad download into fifty lost genomes. It did exactly that on a P. ananatis
+    # run -- one 130 MB archive failed all three inline attempts and all three task
+    # retries, killing the run, while the same 51 accessions fetched cleanly in
+    # 17-accession chunks minutes later. Risk scales with archive size, so the
+    # fallback shrinks the request rather than just repeating it.
     if [ "\$FETCHED" != yes ]; then
-        echo "ERROR: could not fetch a valid archive for this batch in 3 attempts"
-        exit 1
+        echo "whole-batch fetch failed 3 times; falling back to one accession at a time"
+        mkdir -p singles
+        SOLO_OK=0
+        while read -r ACC; do
+            [ -n "\$ACC" ] || continue
+            for TRY in 1 2; do
+                if datasets download genome accession "\$ACC" --include gbff \\
+                        --assembly-source ${params.assembly_source} \\
+                        --filename "singles/\$ACC.zip" >/dev/null 2>&1 \\
+                   && unzip -qt "singles/\$ACC.zip" >/dev/null 2>&1; then
+                    unzip -qo "singles/\$ACC.zip" -x README.md md5sum.txt >/dev/null 2>&1 || true
+                    SOLO_OK=\$((SOLO_OK + 1))
+                    break
+                fi
+                rm -f "singles/\$ACC.zip"
+                sleep 5
+            done
+        done < ${accessions}
+        rm -rf singles
+        if [ "\$SOLO_OK" -eq 0 ]; then
+            echo "ERROR: every accession in this batch failed to fetch"
+            exit 1
+        fi
+        echo "recovered \$SOLO_OK of \$(wc -l < ${accessions}) accessions individually"
     fi
 
-    unzip -q batch.zip
+    # Only the whole-batch path leaves an archive to open; the fallback already
+    # unpacked each accession as it went.
+    if [ "\$FETCHED" = yes ]; then
+        unzip -q batch.zip
+    fi
     sync
 
     # Null-filled files are what a timed-out transfer leaves behind. Delete and

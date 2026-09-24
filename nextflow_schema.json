@@ -168,8 +168,8 @@
         },
         "download_batch_size": {
             "type": "integer",
-            "description": "Accessions fetched per FETCH_RENAME_SCREEN task. Sets transient disk, which is download_batch_size x download_max_forks x ~8.7 MB \u2014 about 3.5 GB at the defaults, against the 1.3 TB a 150,000-genome taxon used to hold at once.",
-            "default": 200,
+            "description": "Accessions fetched per FETCH_RENAME_SCREEN task. Sets transient disk (batch x download_max_forks x ~8.7 MB, about 440 MB at the defaults) and, less obviously, the FAILURE RATE. NCBI returns `Internal error (invalid zip archive)` for a share",
+            "default": 25,
             "x-group": "Download Genome Options"
         },
         "download_max_forks": {
