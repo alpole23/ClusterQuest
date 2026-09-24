@@ -718,6 +718,25 @@ the per-clade BGC prevalence the whole analysis rests on. Changing a pin changes
 **Release numbers are not sequential counters.** GTDB has run 202, 207, 214, 220, 226,
 232 — r226 is one release behind r232, not six.
 
+**A new `--outdir` re-downloads all 153 GB.** `storeDir` is
+`${params.outdir}/databases`, and it skips a download only when that exact path
+exists — so an A/B comparison, which by definition uses a second outdir, pays for
+GTDB-Tk (139 GB), antiSMASH (9.4), Pfam (4.5) and TaxonKit (0.5) all over again:
+~77 minutes before any analysis, and another chance to stall. A comparison run died
+that way, the antiSMASH fetch hanging until Nextflow reported `process hasn't
+exited`. Link them first:
+
+```bash
+mkdir -p results_new/databases
+ln -s "$(readlink -f results/databases)"/* results_new/databases/
+```
+
+Always safe: the databases are pinned above and identical across runs by
+construction. A **normal single-outdir user never meets this** — results are already
+namespaced by taxon inside one outdir, so ten taxa download the databases once. It is
+the comparison workflow that pays, which is why this is a documented step rather than
+a parameter. See `docs/comparisons/README.md`.
+
 ## Software Versions
 
 Versions are dynamically collected from installed tools. Most use `--version` flag, but TaxonKit uses `version` subcommand.

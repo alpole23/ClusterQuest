@@ -16,6 +16,36 @@ python scripts/compare_runs.py --results results \
 It matches BGCs on genome plus region filename — never on file hash, since antiSMASH
 stamps a run date into every region GenBank and no two runs agree byte for byte.
 
+## Link the databases before running an arm into a new `--outdir`
+
+```bash
+mkdir -p results_new/databases
+ln -s "$(readlink -f results/databases)"/* results_new/databases/
+```
+
+**Do this first, every time.** Every database process uses
+`storeDir "${params.outdir}/databases"`, and `storeDir` skips a download only when
+that exact path already exists. A second `--outdir` is therefore a second copy of
+everything — **153 GB** (GTDB-Tk 139, antiSMASH 9.4, Pfam 4.5, TaxonKit 0.5), about
+77 minutes of transfer before any analysis starts, and another chance for a download
+to stall. One comparison run died exactly that way: the antiSMASH fetch hung and
+Nextflow killed the run with `process hasn't exited`.
+
+The databases are **version-pinned** (`gtdb_release`, `pfam_release`, `taxdump_date`)
+and byte-identical across runs by construction, so sharing them is always correct.
+Nothing about them depends on the taxon or the output directory.
+
+This never affects a normal single-`outdir` user, which is why it stays a documented
+step rather than a parameter: results are already namespaced by taxon *inside* one
+outdir (`${outdir}/antismash_results/<taxon>/`, and `Utils.buildReusePath` resolves
+within the same outdir), so analysing ten taxa downloads the databases once. It is
+specifically the A/B pattern below — a second outdir per comparison — that pays.
+
+A `params.database_dir` was considered and rejected: it would add API surface for a
+problem only this project's own methodology creates, and the default would have to
+stay `${outdir}/databases` anyway, since changing it would make every existing
+install silently re-download 153 GB.
+
 ## What is here
 
 | change | question | data | status |
