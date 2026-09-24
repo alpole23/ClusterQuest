@@ -72,6 +72,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
                          gcf_tree_mime='image/png',
                          gcf_heatmap_b64=None, novelty_ranking=None,
+                         bioprofile_path=None,
                          consensus_clusters=None, transfer_summary=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
@@ -141,7 +142,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # coupling_table_rows and would otherwise interpolate a literal "None".
     # Region count for the collapsed listing's summary line.
     n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
-    priority_html    = build_priority_section(novelty_ranking)
+    priority_html    = build_priority_section(novelty_ranking, bioprofile_path)
     novelty_tab      = build_novelty_tab(priority_html, novel_bgcs_tab_content, n_regions)
     consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary)
     gcf_analysis_tab = build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html,
@@ -323,6 +324,10 @@ def main():
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--novelty_ranking', type=Path, help='novelty_ranking.tsv from NOVELTY_SCORE')
+    parser.add_argument('--biosynthetic_profile', type=Path,
+                        help='biosynthetic_profile.tsv from BIOSYNTHETIC_PROFILE: filtered domain content per family, and which splits are not biosynthetic')
+    parser.add_argument('--branch_point', type=Path,
+                        help='branch_point_prediction.tsv from BRANCH_POINT_PREDICTION: the 2-AEP / 2-HEP call per family')
     parser.add_argument('--consensus_clusters', type=Path,
                         help='gcf_consensus_clusters.tsv from GCF_ANNOTATION_TRANSFER')
     parser.add_argument('--transfer_summary', type=Path,
@@ -438,7 +443,8 @@ def main():
             consensus_blocks=consensus_blocks_by_family(args.consensus_clusters,
                                                         args.transfer_summary),
             meta=family_meta(gcf_data_file=args.gcf_data,
-                             novelty_path=args.novelty_ranking))
+                             novelty_path=args.novelty_ranking,
+                             branch_point_path=args.branch_point))
         print(f"  {len(gcf_hrefs)} per-family pages written to gcf/")
         gcf_visualization_html, _ = generate_gcf_visualization_html(
             str(args.gcf_data), args.taxon, hrefs=gcf_hrefs)
@@ -533,6 +539,7 @@ def main():
                             gcf_tree_mime=gcf_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
                             novelty_ranking=args.novelty_ranking,
+                            bioprofile_path=args.biosynthetic_profile,
                             consensus_clusters=args.consensus_clusters,
                             transfer_summary=args.transfer_summary,
                             coupling_table_rows=coupling_table_rows,

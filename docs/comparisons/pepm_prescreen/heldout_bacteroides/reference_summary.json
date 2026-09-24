@@ -1,0 +1,162 @@
+{
+  "cutoff": 0.3,
+  "references": {
+    "argolaphos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8224,
+      "nearest_genome": "Bacteroides_fragilis_BFG-536",
+      "nearest_family": 3,
+      "bgcs_within_cutoff": 0
+    },
+    "bialaphos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.9204,
+      "nearest_genome": "Bacteroides_fragilis_BFG-539",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "pantaphos_LMG5342": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.9137,
+      "nearest_genome": "Bacteroides_fragilis_BFG-403",
+      "nearest_family": 13,
+      "bgcs_within_cutoff": 0
+    },
+    "phosphinothricin_PTT": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.9224,
+      "nearest_genome": "Bacteroides_fragilis_BFG-539",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "phosphonothrixin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.9339,
+      "nearest_genome": "Bacteroides_fragilis_BFG-1",
+      "nearest_family": 11,
+      "bgcs_within_cutoff": 0
+    }
+  },
+  "references_not_loaded": [],
+  "families": {
+    "1": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 14,
+      "members_within_cutoff": {}
+    },
+    "10": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "11": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8314,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "12": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8338,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "13": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8703,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "14": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "15": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "16": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "17": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8757,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "18": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8338,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "19": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8321,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "2": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 6,
+      "members_within_cutoff": {}
+    },
+    "3": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8224,
+      "members": 42,
+      "members_within_cutoff": {}
+    },
+    "4": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 23,
+      "members_within_cutoff": {}
+    },
+    "5": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 13,
+      "members_within_cutoff": {}
+    },
+    "6": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 12,
+      "members_within_cutoff": {}
+    },
+    "7": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8329,
+      "members": 6,
+      "members_within_cutoff": {}
+    },
+    "8": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 6,
+      "members_within_cutoff": {}
+    },
+    "9": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8982,
+      "members": 6,
+      "members_within_cutoff": {}
+    }
+  }
+}

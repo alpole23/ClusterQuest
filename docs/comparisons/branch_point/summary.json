@@ -1,0 +1,161 @@
+{
+  "question": "Can gene content predict whether a phosphonate pathway proceeds via 2-AEP or 2-HEP?",
+  "why": "Both branch from phosphonoacetaldehyde, so the split is a real fork in phosphonate biosynthesis and one the report does not currently express. The coupling-enzyme class already names the fate of phosphonoPYRUVATE; this names the fate of its product.",
+  "date": "2026-09-22",
+  "references_added": {
+    "file": "assets/reference_sequences/reference_branch_enzymes.faa",
+    "count": 15,
+    "note": "Curated by the project owner. Role is carried in the FUNCTION field (\"AEP branch\" / \"HEP branch\" / \"HEP branch downstream\") so a parser can key on it without a sixth pipe field, which would break the 5-field convention of reference_coupling_enzymes.faa.",
+    "AEP branch \u2014 PnAA -> 2-AEP, PLP aminotransferase": [
+      "CAH07597 AepZ  Bacteroides fragilis NCTC 9343 (LPS virulence factor)",
+      "WP_398362785 DfmM-like  Streptomyces lavendulae, dehydrofosmidomycin BGC0002036 (named dfmM has no protein accession of its own; encoding contig JNXL01000002.1)"
+    ],
+    "HEP branch \u2014 PnAA -> 2-HEP, HEP dehydrogenase, CDD cd08182": [
+      "ACZ13458 DhpG  Streptomyces luridus, dehydrophos BGC0000897",
+      "BAA32497 FomC  Streptomyces wedmorensis, fosfomycin (not in MIBiG)",
+      "AKO69603 PhpC  Kitasatospora phosalacinea, phosalacine",
+      "D9XF45 PhpC-Sv  Streptomyces viridochromogenes Tu494, Swiss-Prot reviewed orthologue of AKO69603 (62.5% id / 98.7% cov). Named PhpC-Sv because two references called PhpC made a best-hit label ambiguous and forced the classifier to key on accession."
+    ],
+    "HEP branch downstream \u2014 acts ON 2-HEP": [
+      "AKO69604 PhpD  Kitasatospora phosalacinea \u2014 forms hydroxymethylphosphonate from 2-HEP (HEPD). Corroborates the branch; does NOT form 2-HEP, so it is never a primary marker"
+    ],
+    "argolaphos_added_2026-09-22": {
+      "sequences": [
+        "HEP  AglG URQ58552",
+        "HEPD AglD URQ58549",
+        "PEPM AglE URQ58550",
+        "PPD  AglF URQ58551"
+      ],
+      "organism": "Streptomyces monomycini NRRL B-24309, argolaphos MZ612424",
+      "why": "Broadens every class, and fixes the one that was demonstrably too thin: HEPD had a single member (PhpD) and scored AglD at 20.9, so it could not corroborate anything.",
+      "cost": "Argolaphos is no longer a held-out positive control. Its numbers in this file were measured BEFORE it was added and remain the evidence; leave-one-out is now the only way to re-derive them."
+    }
+  },
+  "decision_rule": {
+    "gate": "Ppd (ThDP decarboxylase) must be present -- without it there is no phosphonoacetaldehyde",
+    "rules": {
+      "Ppd absent": "not via PnAA (synthase / direct transaminase / direct reductase route)",
+      "Ppd + PhnW-like only": "2-AEP",
+      "Ppd + PhpC-like only": "2-HEP",
+      "Ppd + both": "ambiguous",
+      "Ppd + neither": "undetermined"
+    },
+    "why_the_gate_is_load_bearing": "19 of 228 Pantoea/Winslowiella regions carry an Aminotran_5 with NO Ppd. Those are not AEP clusters, and a bare presence/absence rule would mis-call every one."
+  },
+  "marker_prevalence": {
+    "Pantoea_Winslowiella_228_regions": {
+      "Ppd": 44,
+      "Aminotran_5": 45,
+      "Fe-ADH": 0,
+      "HMGL_synthase": 180
+    },
+    "Bacteroides_fragilis_143_regions": {
+      "Ppd": 143,
+      "Aminotran_5": 81,
+      "Fe-ADH": 57,
+      "HMGL_synthase": 0
+    }
+  },
+  "headline_finding": {
+    "what": "B. fragilis splits 81 regions AEP / 57 regions HEP with ZERO co-occurrence of the two branch markers across all 143 regions, every one of which is Ppd-positive.",
+    "why_it_is_not_an_artefact": "A promiscuous marker would co-occur. None does. The split is bimodal within a single species."
+  },
+  "validation": {
+    "VlpB_vs_PhpC_discrimination": "The 12 Fe-ADH proteins sampled from B. fragilis phosphonate regions hit PhpC at 32.3% identity / 55% coverage / bit 102, and hit VlpB NOT AT ALL, even at e-value 10. So these are phosphonoacetaldehyde reductases, not phosphonopyruvate reductases -- the 2-HEP call is discriminating rather than picking the nearer of two similar references.",
+    "AEP_branch_hits": "B. fragilis, B149 and the LMG 5342 phosphonolipid all hit PhnW at 35-42% identity and 96% coverage, bitscore 184-192.",
+    "negative_control": "LMG 5342 region 1 (pantaphos, synthase route) hits NEITHER reference. A classifier that labelled everything AEP or HEP would be useless; this one correctly declines.",
+    "coverage_caveat": "The PhpC hits are 55% coverage against 96% for PhnW, so the HEP call rests on a partial-length match. Worth a profile HMM if it is to carry weight.",
+    "expanded_set_improves_the_HEP_call": "B. fragilis Fe-ADH proteins: PhpC 32.3% id / bit 102 against the 2-sequence set, DhpG 38.7% id / bit 135 against the 8-sequence set. Coverage stays ~57%.",
+    "two_independent_marker_systems_agree": "Classifying 367 regions by characterised-reference similarity reproduces the Pfam/SMCOG keyword partition EXACTLY \u2014 Pantoea 180 not-via-PnAA / 26 AEP / 18 undetermined, B. fragilis 81 AEP / 57 HEP / 5 undetermined \u2014 with ZERO ambiguous calls. Two unrelated evidence types giving the same partition is the strongest check available without chemistry.",
+    "three_independent_lines_agree": {
+      "deposited_annotation": "38 of the 62 Fe-ADH proteins in B. fragilis phosphonate regions are ALREADY deposited by NCBI as \"phosphonoacetaldehyde reductase\". 15 carry no product at all and 9 have generic ADH names, so the deposit alone covers ~61% \u2014 which is why reference scoring is needed to reach the rest, and is the same annotation gap as Figures 1-2.",
+      "reference_similarity": "DhpG 38.7% id / bit 135 on the same proteins.",
+      "pfam_smcog_keywords": "Classifying 367 regions by reference similarity reproduces the Pfam/SMCOG keyword partition EXACTLY, with zero ambiguous calls."
+    },
+    "phpD_demotion_changed_nothing": "Restricting the primary HEP call to the cd08182 formers (DhpG, FomC, PhpC) and using PhpD only as corroboration left every call identical \u2014 so no region had ever been called 2-HEP on PhpD alone."
+  },
+  "open": {
+    "not_yet_wired": "The classifier and report columns are designed but not implemented.",
+    "coverage_caveat": "HEP hits align over ~57% of the reference against ~96-99% for the AEP hits. The HEP call rests on a partial-length match and wants a profile HMM before it carries weight in a figure.",
+    "fasta_parsing_hazard": "Function fields say 'PnAA to 2-HEP' rather than 'PnAA -> 2-HEP'. An arrow in a header breaks any consumer that splits the file on '>', which mangled this very file once.",
+    "HEPD_still_needs_a_third_reference": "HEPD now has two members (PhpD, AglD) rather than one, but the two-member profile has never been tested on a HEPD outside the set. Its leave-one-out score on AglD was 20.9 with PhpD alone, so whether the pair generalises is unmeasured."
+  },
+  "phpC_assignment_corrected": {
+    "what": "phpC is a HEP-branch enzyme (HEP dehydrogenase), not a 2-AEP aminotransferase.",
+    "evidence": [
+      "The source paper gene table: \"phpC (395) Phosphonoacetaldehyde reductase\", \"phpD (443) Hydroxyethylphosphonate dioxygenase\".",
+      "AKO69603 (phpC) hits Swiss-Prot D9XF45 \"Phosphonoacetaldehyde reductase\" at 62.5% identity over 98.7% coverage \u2014 orthologues.",
+      "All-vs-all groups AKO69603 with DhpG and FomC and with neither aminotransferase.",
+      "NCBI annotates dhpG and fomC as HEP dehydrogenase, CDD cd08182, \"catalyzes the reduction of phosphonoacetaldehyde (PnAA) to hydroxyethylphosphonate\"."
+    ],
+    "and_phpD": "phpD is a separate family \u2014 it hit none of the other seven references at e-value 1e-3 \u2014 consistent with a cupin-fold dioxygenase rather than an ADH."
+  },
+  "finding_bacteroides_does_not_run_HEPD": "ZERO of the 57 B. fragilis 2-HEP regions carry a PhpD/HEPD homologue. So this clade forms 2-HEP and stops: it does not continue to hydroxymethylphosphonate. The HEPD route appears to be an actinomycete trait (fosfomycin, phosalacine, dehydrophos), while B. fragilis splits into AEP-decorating and HEP-decorating clusters that both terminate at the C2 intermediate.",
+  "phnW_removed": {
+    "what": "P96060 PhnW (Salmonella Typhimurium LT2, catabolic direction) was removed.",
+    "measured_cost": "Pantoea/Winslowiella 2-AEP calls fall from 26 to 2, the other 24 moving to undetermined. PhnW was the only AEP reference close enough to Enterobacterial transaminases to detect them (40.1% identity, against 28.5% for AepZ), because Salmonella is in the same family as Pantoea.",
+    "consequence": "AEP detection is now effectively Bacteroidota (AepZ) and actinomycete (DfmM-like) only. Enterobacterial AEP clusters will read undetermined until a biosynthetic-direction Enterobacterial reference is added.",
+    "superseded_by_the_HMM": "The 26 -> 2 loss recorded above applies to the DIAMOND method only. With the HMM profile the same 26 calls are recovered without PhnW, so the removal has no cost under the method that should actually be used."
+  },
+  "self_match_caveat": "AepZ (CAH07597) IS a Bacteroides fragilis NCTC 9343 sequence and hits B. fragilis clusters at 100.0% identity. The 81 AEP calls in that clade are therefore a reference recognising its own species, not independent evidence -- the same self-match that made the actinomycete pepM validation circular. The genuinely cross-clade result is the 57 B. fragilis 2-HEP calls at 38.7% identity via DhpG/FomC/PhpC, none of which is Bacteroidota.",
+  "hmm_vs_diamond_experiment": {
+    "question": "Does a profile HMM detect the branch enzymes that pairwise DIAMOND misses?",
+    "method": "Profiles built with the repo's existing seed-and-refine trick, the same one bgc_coupling_tree.py uses and the reason no MSA tool is needed: hmmbuild from the single longest reference (a lone sequence is a trivial alignment), hmmalign the rest to it, hmmbuild again from that alignment. AEP profile from 2 refs (AepZ, DfmM-like), HEP profile from 4 (DhpG, FomC, PhpC, PhpC-Sv); PhpD excluded because it does not form 2-HEP. The Ppd gate stays on DIAMOND so the comparison changes exactly one variable.",
+    "result": {
+      "DIAMOND, curated refs": "Pantoea 2 AEP / 42 undetermined; B. fragilis 81 AEP / 57 HEP / 5 undetermined",
+      "HMM, same curated refs": "Pantoea 26 AEP / 18 undetermined; B. fragilis 81 / 57 / 5",
+      "what_that_means": "The profile recovers all 26 Enterobacterial AEP clusters from the two curated references alone -- the same 26 that DIAMOND could only reach with the Salmonella PhnW included. A profile captures family-level conservation; pairwise identity to one sequence does not. Removing PhnW therefore costs nothing once the call is made by HMM."
+    },
+    "robustness": "Identical calls at bitscore cutoffs 30, 50, 80 and 150. The lowest hit scores 77.4 and medians run 259 (Pantoea AEP), 720 (B. fragilis AEP), 194 (B. fragilis HEP), so no threshold tuning is involved.",
+    "profiles": "docs/comparisons/branch_intermediate/hmm/{AEP,HEP}.hmm (LENG 373 and 305)",
+    "still_open": "The HEP profile is built from four actinomycete references and its only test set is B. fragilis. It has no positive control from a clade of independently known 2-HEP chemistry."
+  },
+  "folded_into_the_pipeline": {
+    "what": "NOT a new stage. The pipeline already had HEADGROUP_PREDICTION doing 2-AEP vs 2-HEP; a duplicate BRANCH_INTERMEDIATE was built by mistake and discarded before being committed. The existing stage was upgraded and renamed instead, because \"headgroup\" names the product while the call is about which enzyme acts on phosphonoacetaldehyde.",
+    "renames": {
+      "HEADGROUP_PREDICTION": "BRANCH_POINT_PREDICTION",
+      "headgroup_prediction.py": "branch_point_prediction.py",
+      "headgroup_prediction.tsv": "branch_point_prediction.tsv",
+      "reference_headgroup_enzymes.faa + reference_branch_enzymes.faa": "reference_branch_point_enzymes.faa (11 refs in one file)"
+    },
+    "method_change": "DIAMOND identity floors (40% strong / 25% possible) replaced by per-class profile HMMs built from the references at run time, at bitscore 120 / 50.",
+    "reference_change": "5 references became 11; the HEP side went from 2 to 6 and now spans four clades (Bacteroides, Glycomyces, Streptomyces, Kitasatospora)."
+  },
+  "gcf18_call_was_wrong_and_is_corrected": {
+    "what": "The DIAMOND version called LMG 5342 region 2 \"unknown (Ppd + class I/II transaminase, not aepZ family)\" and its docstring presented that as a worked negative showing the confirmed phosphonolipid does not use canonical 2-AEP machinery. Laboratory work says it DOES run the 2-AEP pathway.",
+    "root_cause": "The region carries TWO transaminases: a deposited class I/II aspartate transaminase (PANA5342_2588) and a RECOVERED aepZ-family 2-aminoethylphosphonate--pyruvate transaminase (recovered_HE617160.1_0219). Reading the deposit alone saw only the first, so the conclusion was an artefact of the annotation gap RECOVER_ORFS exists to close -- and it had been written up as a biological finding.",
+    "now": "GCF 2 is called \"2-AEP (homologue)\" at bitscore 259, unanimous 24/24."
+  },
+  "validation_after_folding_in": {
+    "Bacteroides fragilis": "19 families, 18 unanimous: 11 2-AEP, 7 2-HEP, 1 unknown. Matches the 81/57/5 region split found independently.",
+    "Pantoea + Winslowiella": "pantaphos GCF 1 (180 members) \"not via PnAA\" -- negative control holds; GCF 2 (LMG 5342 phosphonolipid) 2-AEP; GCF 5 (B149, B120) 2-AEP."
+  },
+  "positive_controls_from_known_2HEP_clusters": {
+    "argolaphos MZ612424 (Streptomyces monomycini NRRL B-24309)": {
+      "held_out": "FULLY. No argolaphos protein is in the reference set; the closest is AglG at 46.4% identity to DhpG, nowhere near a self-match.",
+      "result": "AglG (phosphonoacetaldehyde reductase) hits the HEP profile at 273.2, AglF the Ppd gate at 155.0, AglE the pepM profile at 147.9. The AEP profile does NOT fire at all -- and AglI is a formylphosphonate aminotransferase, so the AEP profile correctly declined a transaminase that is not an AEP transaminase.",
+      "verdict": "Unambiguous 2-HEP. This is the cross-clade positive control the HEP side lacked."
+    },
+    "dehydrophos BGC0000897 (Streptomyces luridus)": {
+      "held_out": "PARTIALLY. DhpG is in the HEP reference set and DhpF in the Ppd gate, so the naive run is circular and proves only that the plumbing works.",
+      "leave_one_out": "With DhpG removed from the references, DhpG still hits the HEP profile at 223.8 (down from a self-matched 420.7), far above the 120 floor. FomC, PhpC, PhpC-Sv, PnAA-reductase and Fe-ADH-Gly detect it on their own.",
+      "it_also_found_a_false_positive": "DhpH scores 121.9 on the AEP profile, just over the 120 floor. It is a class V aminotransferase doing downstream peptide chemistry, not AEP formation. On absolute thresholds both profiles fire and this known 2-HEP cluster reads \"ambiguous\"."
+    }
+  },
+  "margin_rule": {
+    "what": "When both profiles clear POSSIBLE_BITS the call goes to the higher one, provided it leads by MIN_MARGIN_BITS (50). Below that the call is ambiguous and says by how much.",
+    "why": "Absolute thresholds cannot separate dehydrophos: AEP 121.9 against a 120 floor. The margin can: HEP 223.8 beats AEP 121.9 by 102 bits. Raising the floor instead would have been tuning to one cluster, and 121.9 sits uncomfortably close to B149's genuine AEP hit at 178.0.",
+    "no_effect_on_the_validated_sets": "B. fragilis stays 11 2-AEP / 7 2-HEP / 1 unknown and Pantoea stays 2 not-via-PnAA / 2 2-AEP / 2 unknown, because in those sets only one profile ever fires."
+  },
+  "leave_one_out_preserves_the_validation": {
+    "method": "Rebuild every profile with all four argolaphos sequences removed, then re-score them.",
+    "result": {
+      "HEP  AglG": "full set 534.2 (self-match) / leave-one-out 273.2",
+      "HEPD AglD": "full set 1034.2 (self-match) / leave-one-out 20.9",
+      "PEPM AglE": "full set 513.9 (self-match) / leave-one-out 147.9",
+      "PPD  AglF": "full set 734.6 (self-match) / leave-one-out 155.0"
+    },
+    "reading": "The leave-one-out column reproduces the pre-addition run exactly, so the cross-clade validation survives the sequences being added. The other column is what a self-match looks like -- HEPD moves 20.9 to 1034.2 purely because the query is now in its own model. Any future positive control must be scored leave-one-out, or it measures nothing."
+  },
+  "regression_after_expansion": "B. fragilis stays 11 2-AEP / 7 2-HEP / 1 unknown and Pantoea stays 2 not-via-PnAA / 2 2-AEP / 2 unknown. Adding four references changed no call."
+}

@@ -1,0 +1,335 @@
+region	organism	gcf	region_bp	core_bp	core_bp_after_trim	extension_bp	extending_profiles
+CP059087.1.region001.gbk	Pantoea agglomerans	2	51132	31132	3340	27792	Aminotran_1_2
+CP134747.1.region001.gbk	Pantoea agglomerans	2	51087	31087	3340	27747	Aminotran_1_2
+JBBJRK010000012.1.region001.gbk	Pantoea agglomerans	2	51087	31087	3340	27747	Aminotran_1_2
+CP084200.1.region001.gbk	Pantoea agglomerans	2	50462	30462	3340	27122	Aminotran_1_2
+JBBJPZ010000017.1.region001.gbk	Pantoea agglomerans	2	50462	30462	3340	27122	Aminotran_1_2
+CP134764.1.region001.gbk	Pantoea agglomerans	2	50462	30462	3340	27122	Aminotran_1_2
+JBBJQM010000016.1.region001.gbk	Pantoea agglomerans	2	50462	30462	3340	27122	Aminotran_1_2
+CP134727.1.region001.gbk	Pantoea agglomerans	2	50462	30462	3340	27122	Aminotran_1_2
+JBBJQY010000013.1.region001.gbk	Pantoea agglomerans	2	31283	19588	3340	16248	Aminotran_1_2
+JBBJQT010000015.1.region001.gbk	Pantoea agglomerans	2	31272	19587	3340	16247	Aminotran_1_2
+JBBJSA010000012.1.region001.gbk	Pantoea agglomerans	2	31497	19587	3340	16247	Aminotran_1_2
+CEUYZP010000005.1.region001.gbk	Pantoea sp. E956-1	22	25812	15346	1548	13798	Aminotran_1_2;PALP
+CAHS01000016.1.region001.gbk	Erwinia piriflorinigrans CFBP 5888	20	38467	18467	5069	13398	Aminotran_5
+CP049115.1.region001.gbk	Pantoea stewartii	9	38279	18279	5076	13203	2-Hacid_dh_C
+JADWWD010000003.1.region001.gbk	Pantoea stewartii subsp. indologenes	9	38261	18261	5076	13185	2-Hacid_dh_C
+SOAJ01000002.1.region001.gbk	Pantoea sp. PNA 14-12	9	38261	18261	5076	13185	2-Hacid_dh_C
+JADWWC010000004.1.region001.gbk	Pantoea stewartii subsp. indologenes	9	38261	18261	5076	13185	2-Hacid_dh_C
+JADWWB010000005.1.region001.gbk	Pantoea stewartii subsp. indologenes	9	38261	18261	5076	13185	2-Hacid_dh_C
+JACVUO010000002.1.region001.gbk	Pantoea sp. S61	15	34772	14772	3355	11417	Fe-ADH
+CP171468.1.region001.gbk	Pantoea vagans	2	36147	16147	4735	11412	Aminotran_1_2
+JBBCYJ010000002.1.region001.gbk	Pantoea ananatis	5	35533	15533	6528	9005	Aminotran_1_2
+JABDYX010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	6527	9005	Aminotran_1_2
+JASCYM010000012.1.region001.gbk	Pantoea stewartii	17	34144	14144	7031	7113	PALP
+JALKLF010000062.1.region001.gbk	Pantoea ananatis	5	21290	15532	9145	6387	Aminotran_1_2
+JABDZL010000075.1.region001.gbk	Pantoea ananatis	5	21290	15532	9145	6387	Aminotran_1_2
+CP022725.1.region001.gbk	Erwinia persicina	8	35627	15627	9313	6314	Aminotran_1_2
+JBSPZY010000001.1.region001.gbk	Pantoea ananatis	5	35533	15533	9224	6309	Aminotran_1_2
+JAABOW010000009.1.region001.gbk	Pantoea ananatis	5	35533	15533	9224	6309	Aminotran_1_2
+JASHLP010000001.1.region001.gbk	Pantoea ananatis	5	35533	15533	9224	6309	Aminotran_1_2
+JASHLO010000001.1.region002.gbk	Pantoea ananatis	5	35533	15533	9224	6309	Aminotran_1_2
+JBYHZO010000002.1.region001.gbk	Pantoea ananatis	5	35533	15533	9224	6309	Aminotran_1_2
+JBBJQR010000002.1.region001.gbk	Pantoea agglomerans	8	35715	15715	9408	6307	Aminotran_1_2
+CP086009.1.region002.gbk	Pantoea ananatis	5	35521	15521	9217	6304	Aminotran_1_2
+HE617160.1.region002.gbk	Pantoea ananatis LMG 5342	5	35521	15521	9217	6304	Aminotran_1_2
+CP193916.1.region001.gbk	Pantoea allii	19	35577	15577	9287	6290	Aminotran_1_2
+JABDYZ010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JALKJI010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JABDZC010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JALKJK010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JALKKJ010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+FPJM01000001.1.region001.gbk	Pantoea ananatis	5	35533	15533	9275	6258	Aminotran_1_2
+JABDZA010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JALKKN010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JBBCZL010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JALKMA010000003.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JALKLR010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JABDZE010000001.1.region001.gbk	Pantoea ananatis	5	35532	15532	9274	6258	Aminotran_1_2
+JALKLZ010000016.1.region001.gbk	Pantoea ananatis	5	25715	15532	9274	6258	Aminotran_1_2
+JALKIR010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLG010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKI010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAD010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZN010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDYS010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CP090356.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAZ010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKX010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JAUHJV010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLK010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJN010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKN010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBYHZO010000002.1.region002.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLS010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JASCAL010000031.1.region001.gbk	Pantoea sp. V108_6	1	23338	3338	3338	0	
+JALKLM010000007.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JAABOW010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLF010000010.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJY010000008.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZM010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBQOUR010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKY010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLV010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAP010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKC010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLN010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBB010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBNDNJ010000002.1.region001.gbk	Pantoea sp. EEL5	1	23338	3338	3338	0	
+JABEBJ010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBYHZK010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZC010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJJ010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JFZU01000015.1.region001.gbk	Pantoea ananatis LMG 2665	1	23338	3338	3338	0	
+JABDZY010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBR010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJQ010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKMB010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBSSCE010000003.1.region001.gbk	Pantoea sp. PA1	1	23338	3338	3338	0	
+QTTO01000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKQ010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAK010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJK010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDYR010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZZ010000004.1.region001.gbk	Pantoea ananatis	1	23339	3339	3339	0	
+JABEBN010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJZ010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBYHZL010000009.1.region001.gbk	Pantoea ananatis	1	21546	3338	3338	0	
+JMJJ01000006.1.region001.gbk	Pantoea ananatis LMG 2665	1	23338	3338	3338	0	
+SMZS01000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JXUI01000022.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+LYOQ01000033.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+QGGN01000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JAODYK010000017.1.region001.gbk	Pantoea ananatis	1	16690	3338	3338	0	
+CP086009.1.region001.gbk	Pantoea ananatis	1	23337	3337	3337	0	
+JABDZT010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JASHLO010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBNFPX010000006.1.region001.gbk	Pantoea ananatis	1	15663	3338	3338	0	
+CABTKG010000010.1.region001.gbk	uncultured Pantoea sp.	1	23338	3338	3338	0	
+JABDZA010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJT010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAU010000054.1.region001.gbk	Pantoea ananatis	1	4227	3302	3302	0	
+JALKKJ010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLU010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBP010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKM010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZK010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBSPZW010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBYHZF010000005.1.region001.gbk	Pantoea ananatis	1	13893	3338	3338	0	
+JALKKA010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAI010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBD010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJS010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJU010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JAUHJU010000015.1.region001.gbk	Pantoea ananatis	1	21293	3338	3338	0	
+JAUHJW010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAQ010000011.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAE010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDYX010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZL010000010.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+HE617160.1.region001.gbk	Pantoea ananatis LMG 5342	1	23337	3337	3337	0	
+JALKLD010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAC010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZV010000007.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJH010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+RQJN01000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JASCAK010000029.1.region001.gbk	Pantoea sp. V106_11	1	23338	3338	3338	0	
+JXUJ01000033.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CP020943.2.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLC010000006.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKF010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CP122403.1.region001.gbk	Pantoea sp. nfd-35	1	23338	3338	3338	0	
+NMZZ01000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAN010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBQ010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+QGTU01000003.1.region001.gbk	Pantoea sp. AG702	1	23338	3338	3338	0	
+JALKKK010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJR010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLR010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJD010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CP003085.1.region001.gbk	Pantoea ananatis PA13	1	23338	3338	3338	0	
+JALKJI010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKP010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBBCYJ010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CM152815.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKG010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBC010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLY010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAX010000006.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZX010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDYZ010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+NMZU01000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJW010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKL010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAO010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JAQNAK010000007.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZH010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBYHZE010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZW010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLW010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLJ010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBK010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBSSGC010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CP059084.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CVNG01000056.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKU010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBBCZL010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JAKZMT010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAW010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBQOUQ010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+LYOP01000033.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBL010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+QICU01000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKIQ010000056.1.region001.gbk	Pantoea ananatis	1	16619	3338	3338	0	
+JABEAS010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJX010000006.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBMUJK010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKZ010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+FPJM01000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAV010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLE010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CP166503.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+FUXY01000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKE010000006.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKJP010000004.1.region001.gbk	Pantoea ananatis	1	23339	3339	3339	0	
+JABEBM010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZS010000006.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDYT010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLO010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKH010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+AYST01000002.1.region001.gbk	Pantoea ananatis BRT98	1	23338	3338	3338	0	
+CP001875.2.region001.gbk	Pantoea ananatis LMG 20103	1	23338	3338	3338	0	
+JALKKR010000003.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBH010000003.1.region001.gbk	Pantoea ananatis	1	40447	20447	20447	0	
+JASHLP010000011.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+NMZR01000002.1.region001.gbk	Pantoea ananatis	1	40447	20447	20447	0	
+JALKJO010000003.1.region001.gbk	Pantoea ananatis	1	40447	20447	20447	0	
+JABDZD010000007.1.region001.gbk	Pantoea ananatis	1	30711	20494	20494	0	
+JABEBO010000003.1.region001.gbk	Pantoea ananatis	1	40447	20447	20447	0	
+BATH01000003.1.region001.gbk	Pantoea ananatis DAR 76143	1	21929	3338	3338	0	
+JALKIU010000007.1.region001.gbk	Pantoea ananatis	1	30711	20494	20494	0	
+JBSPZY010000003.1.region001.gbk	Pantoea ananatis	1	40493	20493	20493	0	
+JALKKD010000002.1.region001.gbk	Pantoea ananatis	1	40447	20447	20447	0	
+JABDZP010000003.1.region001.gbk	Pantoea ananatis	1	40447	20447	20447	0	
+QRDI01000007.1.region001.gbk	Pantoea ananatis	1	37823	20493	20493	0	
+NMZV01000006.1.region001.gbk	Pantoea ananatis	1	30761	20494	20494	0	
+JALKLP010000004.1.region001.gbk	Pantoea ananatis	1	40447	20447	20447	0	
+QGTO01000003.1.region001.gbk	Pantoea ananatis	1	40492	20492	20492	0	
+JABDYW010000005.1.region001.gbk	Pantoea ananatis	1	40493	20493	20493	0	
+JALKKB010000003.1.region001.gbk	Pantoea ananatis	1	40492	20492	20492	0	
+JBQOUT010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLT010000002.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDYY010000005.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEBS010000011.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKMA010000009.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLX010000012.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABEAA010000005.1.region001.gbk	Pantoea ananatis	1	40493	20493	20493	0	
+CM188849.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JABDZE010000004.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+CP014207.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JBQOUP010000011.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKKT010000005.1.region001.gbk	Pantoea ananatis	1	40493	20493	20493	0	
+JALKKS010000005.1.region001.gbk	Pantoea ananatis	1	40493	20493	20493	0	
+CM168046.1.region001.gbk	Pantoea ananatis	1	40492	20492	20492	0	
+JALKLQ010000001.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+JALKLZ010000006.1.region001.gbk	Pantoea ananatis	1	23338	3338	3338	0	
+AP019753.1.region001.gbk	Pantoea ananatis	2	23338	3338	3338	0	
+JBNUMP010000042.1.region001.gbk	Pantoea allii	2	6979	3338	3338	0	
+JBNUMR010000006.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+JAKZMU010000007.1.region001.gbk	Pantoea allii	2	19777	3338	3338	0	
+JBNUMS010000008.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+JBNUMM010000006.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+CP125959.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+JBNUMO010000006.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+JBNUML010000010.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+JALNPN010000006.1.region001.gbk	Pantoea sp. Fr+CA_20	2	23338	3338	3338	0	
+JBNUMN010000006.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+CP126315.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+JBNUMQ010000007.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+CP193925.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+CP193909.1.region001.gbk	Pantoea allii	2	23338	3338	3338	0	
+QICO01000002.1.region001.gbk	Pantoea sp. PNA 03-3	2	23338	3338	3338	0	
+JBXUHX010000010.1.region001.gbk	Pantoea sp. RCC30.1	2	23340	3340	3340	0	
+JBBJQG010000012.1.region001.gbk	Pantoea agglomerans	3	31298	19476	19476	0	
+JBBJRA010000013.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJSL010000008.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJRG010000008.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJSI010000010.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJQK010000011.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJQX010000010.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJRX010000008.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJRN010000013.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJRY010000003.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJSJ010000012.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJPX010000012.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJQB010000008.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JAKZMS010000010.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJRH010000009.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+CP134755.1.region001.gbk	Pantoea agglomerans subsp. jekyllhydei (SeqCode)	3	39476	19476	19476	0	
+JBBJQQ010000011.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+CP134721.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJRF010000008.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJSH010000012.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+JBBJPW010000003.1.region001.gbk	Pantoea agglomerans	3	39476	19476	19476	0	
+CP193910.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JAHVXV010000002.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JBNUMI010000001.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+MLFE01000001.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JBNUME010000010.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JAHVXZ010000003.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JAHVYA010000003.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JBNUMH010000001.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JCBORL010000001.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JAHVXX010000001.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JBNUMF010000007.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+CP193913.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JAHVXU010000003.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+CP193926.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JAHVXY010000003.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+CP193916.1.region002.gbk	Pantoea allii	4	25076	5076	5076	0	
+JBNUMJ010000005.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JAHVXW010000002.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JABLUS010000039.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JBNUMG010000005.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+LWLR01000001.1.region001.gbk	Pantoea sp. OXWO6B1	4	25076	5076	5076	0	
+NTMH01000040.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+JBNUMK010000004.1.region001.gbk	Pantoea allii	4	25076	5076	5076	0	
+RQRZ01000003.1.region001.gbk	Erwinia psidii	6	22240	2240	2240	0	
+RHHM01000002.1.region001.gbk	Erwinia psidii	6	22240	2240	2240	0	
+RQSA01000004.1.region001.gbk	Erwinia psidii	6	22240	2240	2240	0	
+RQSB01000002.1.region001.gbk	Erwinia psidii	6	22240	2240	2240	0	
+JQZZ01000144.1.region001.gbk	Pantoea ananatis	7	15268	2090	2090	0	
+JABDYW010000008.1.region001.gbk	Pantoea ananatis	7	21285	2090	2090	0	
+CM135103.1.region001.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+NMZV01000004.1.region001.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+CP160459.1.region001.gbk	Pantoea stewartii subsp. indologenes	7	22084	2084	2084	0	
+CP003085.1.region002.gbk	Pantoea ananatis PA13	7	22090	2090	2090	0	
+OZ496979.1.region001.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+AP012032.2.region001.gbk	Pantoea ananatis AJ13355	7	21973	1973	1973	0	
+CAEI01000109.1.region001.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+CM146739.1.region001.gbk	Pantoea stewartii	7	22090	2090	2090	0	
+JABDZD010000005.1.region001.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+JALKKS010000009.1.region001.gbk	Pantoea ananatis	7	16179	2090	2090	0	
+CM194831.1.region001.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+JALKJF010000007.1.region001.gbk	Pantoea ananatis	7	12562	2090	2090	0	
+CAEJ01000136.1.region001.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+JALKTT010000004.1.region001.gbk	Pantoea stewartii	7	22090	2090	2090	0	
+BATH01000055.1.region001.gbk	Pantoea ananatis DAR 76143	7	11052	2090	2090	0	
+JALKIU010000004.1.region001.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+JBYHZE010000001.1.region002.gbk	Pantoea ananatis	7	22090	2090	2090	0	
+QRDI01000020.1.region001.gbk	Pantoea ananatis	7	19635	2090	2090	0	
+JANFMY010000003.1.region001.gbk	Erwinia persicina	10	39698	19698	19698	0	
+JANFMX010000007.1.region001.gbk	Erwinia persicina	10	39698	19698	19698	0	
+CP082904.1.region001.gbk	Mixta hanseatica	11	31874	11874	11874	0	
+JAVAXU010000005.1.region001.gbk	Pantoea sp. BS_8	11	22668	11869	11869	0	
+JASCYM010000001.1.region001.gbk	Pantoea stewartii	11	31869	11869	11869	0	
+JABEAG010000006.1.region001.gbk	Pantoea ananatis	12	14343	1551	1551	0	
+JALKIW010000013.1.region001.gbk	Pantoea ananatis	12	14343	1551	1551	0	
+JMJL01000004.1.region001.gbk	Pantoea ananatis BD442	12	21551	1551	1551	0	
+JARNMU010000002.1.region001.gbk	Pantoea ananatis	12	21551	1551	1551	0	
+JRXF01000012.1.region001.gbk	Winslowiella iniecta	13	34630	14630	14630	0	
+JRXE01000010.1.region001.gbk	Winslowiella iniecta	13	34630	14630	14630	0	
+JQNE01000001.1.region001.gbk	Erwinia sp. 9145	14	45527	25527	25527	0	
+CALNWY010000004.1.region001.gbk	Mixta sp. Marseille-Q2659	16	20633	633	633	0	
+JCAKJO010000002.1.region001.gbk	Pantoea agglomerans	18	24682	4682	4682	0	
+CP022427.1.region001.gbk	Pantoea ananatis	21	22090	2090	2090	0	

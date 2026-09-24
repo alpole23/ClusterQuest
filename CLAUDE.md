@@ -574,7 +574,13 @@ workflow (entry point)
     │
     ├── GCF_BIOSYNTHETIC_TREE # GCF biosynthetic NJ tree (when bigscape enabled, runs before visualization)
     │                         # Also outputs phosphonate_itol_coupling.txt (coupling annotation)
-    └── VISUALIZE_RESULTS     # HTML report generation (receives GCF tree PNG + coupling annotation)
+    │
+    ├── BRANCH_POINT_PREDICTION # 2-AEP vs 2-HEP per family, by profile HMM (after CLUSTERING)
+    ├── BIOSYNTHETIC_PROFILE    # per-family filtered domain profile; flags non-chemical family splits
+    │                           # Both need family membership only, so they run concurrently
+    │
+    └── VISUALIZE_RESULTS     # HTML report generation (receives GCF tree PNG + coupling annotation,
+                              # the branch-point call and the biosynthetic profile)
 ```
 
 **Running a single stage:**
@@ -1467,6 +1473,44 @@ A `--min_density` guard (500 proteins/Mb) routes partially-annotated genomes to
 blastx, closing the one failure mode the two modes do not share. Observed density
 was 576-1,015 with nothing below 500, so it costs nothing today.
 
+**A pseudogene-flagged pepM was invisible to the screen, and is no longer.** NCBI
+withholds `/translation` from any CDS it flags `/pseudo`, and `parse_genome` collected
+only CDS that had one — so a genome whose pepM is annotated `phosphoenolpyruvate mutase`
+*and* `/pseudo` reached diamond with no pepM in its protein set and scored **0.0**. Found
+on the held-out clade (below), where it cost 2 of 98 true positives; `--min_density` does
+not catch it, because both genomes run 726-763 CDS/Mb and density is a whole-genome proxy
+for a single-gene problem. Such a CDS is now translated from its own coordinates, internal
+stops kept as `X` rather than truncating, since a pseudogene spreads its signal across the
+frameshift. Erwiniaceae is unchanged in every field.
+
+### Held-out clade: *Bacteroides fragilis* (2026-09-19)
+
+Every earlier validation was on a clade the reference set draws from — Erwiniaceae
+supplies HvrA (1 of 7), the actinomycete set supplies the other 6 and contains the source
+strain of one, which self-matched at 828. **Bacteroidota supplies none**, and is held out
+in BGC space too: all 5 reference clusters sit 0.82-0.93 from their nearest *B. fragilis*
+BGC, none inside the 0.30 cutoff.
+
+136 genomes, ground truth from an unscreened arm: **98 BGC-positive (72%), 143 regions,
+19 GCFs**. After the pseudogene fix:
+
+| | |
+|---|---:|
+| sensitivity | **98 / 98** |
+| false positives | 2 of 38 |
+| true-positive bitscore | 342-567 |
+| top negative | 330 |
+
+**The classes separate completely** — any cut in (330, 342] gives 98/98 with zero false
+positives, where the actinomycete set had no such cut. The caveat is diversity rather
+than count: one species, true positives clustered at a modal 514, so 98 positives is not
+98 independent tests.
+
+At 72% BGC-positive the screen saves only 11% here (277.4 -> 247.3 CPU-min for a screen
+costing 3.6), against 6.5x on Erwiniaceae and 7.3x on the actinomycetes. **The saving is
+proportional to how dilute the taxon is**, and this clade was chosen to test sensitivity,
+not savings. Data: `docs/comparisons/pepm_prescreen/heldout_bacteroides/`.
+
 **Expanding the reference set made it worse.** Mining MIBiG by HMM added eight
 unique pepMs (15 total); sensitivity stayed at 298/298 while false positives rose
 from 8 to 67. Those extras are pepMs from fosfomycin and dehydrophos clusters,
@@ -1638,6 +1682,14 @@ nextflow run main.nf -resume <uuid> --taxon "Pantoea"
 Confirm it bound before letting it run: `-dump-hashes` prints the session UUID as the
 first hash entry, and the summary line should report a large `cached=` count. If you
 see `cached=0` and `NCBI_DATASETS_DOWNLOAD` starting, kill it — the resume missed.
+
+**`bash tests/run_tests.sh` poisons a bare `-resume`.** The schema tests run
+`nextflow run main.nf -preview` three times, and the batching tests add two more
+sessions, so a completed test run leaves five entries on top of `.nextflow/history`.
+A bare `-resume` afterwards binds to a preview — which executes nothing, so it caches
+nothing — and silently restarts from the first uncached stage. This is not theoretical:
+it cost hours of re-running here, with no error and no warning, and it is the reason to
+resume by UUID *every* time rather than only when you remember having run a preview.
 
 ### BiG-SCAPE Partitioning (`--bigscape_partition`)
 
@@ -1829,6 +1881,35 @@ reproduces the hash results were already produced under (verified: `55968d66...`
 matches the `.antismash_meta` of the Erwiniaceae run) and keeps them reusable, while any
 other value invalidates them by design — the regions genuinely differ. Changing it also
 moves every BiG-SCAPE distance, since complete regions are compared end to end.
+
+**At 10 kb Erwiniaceae gives 22 families, not the 19 most tables in this file quote.**
+Full verification run 2026-09-22, 2,771 genomes, fresh download, pre-screen and ORF
+recovery on (`docs/comparisons/erwiniaceae_verification/`):
+
+| | 5 kb baseline | 10 kb |
+|---|---:|---:|
+| regions | 334 | **334 — identical** |
+| families | 18 | **22** |
+| largest family | 215 | **186** |
+| singletons | 7 | 9 |
+| annotation transfer | 40.2% → 80.2% | 38.0% → 78.8% (over wider regions) |
+
+**Detection does not move; only clustering does.** The neighbourhood sets how much flank
+a region carries, not whether the rule fires — so the same 334 regions in the same 299
+genomes are simply compared over more sequence. The comparison against the baseline is
+**ARI 0.7939 with 5,472 split and 0 merged**: every co-membership relationship in the
+10 kb clustering also existed at 5 kb, making it a strict *refinement* rather than a
+reshuffle. Zero merges is the load-bearing number, and a stronger statement than the ARI.
+
+Two of the extra families are contextual and one split is partly real — see
+`BIOSYNTHETIC_PROFILE`, which exists to tell them apart. Read the 22 as roughly **20
+distinct chemistries**.
+
+**Historical tables in this file quoting 19 Erwiniaceae families were measured at 5 kb**
+— the benchmark table, the validation matrix, the partitioning verification, the
+`NOVELTY_SCORE` ranking and the `PEPM_ALL_BY_ALL` comparisons. They are left as measured,
+because rewriting them to 22 would misreport what those runs actually did. The *Bacteroides*
+held-out clade's 19 GCFs is a different taxon entirely and unrelated to either number.
 
 ### `BIGSCAPE_REFERENCES` — distance to the characterised clusters
 
@@ -2102,6 +2183,90 @@ clusters are the worst possible pair for it: GCF-18 is a well-annotated singleto
 (both missing the same genes — its `NTP_transf_3` CDS is labelled "hypothetical
 protein"). Neither improves. See "Predicting phosphonolipid vs. small molecule is
 unsolved" above.
+
+### `BRANCH_POINT_PREDICTION` — 2-AEP vs 2-HEP from gene content
+
+The coupling class names the fate of *phosphonopyruvate*. This names the fate of its
+product, phosphonoacetaldehyde (PnAA): a transaminase gives **2-AEP**, a dehydrogenase
+gives **2-HEP**. Those are the two commonest secondary intermediates in phosphonate
+biosynthesis, so which one a cluster goes through is most of what a reader wants to know
+next. Runs after `CLUSTERING`, since it needs family membership.
+
+**Profile HMMs, not pairwise DIAMOND.** The reference set is 15 characterised enzymes in
+`assets/reference_sequences/reference_branch_point_enzymes.faa`, headers class-prefixed
+`CLASS|name|function|organism`. Each class is built into a profile by the seed-and-refine
+route (`hmmbuild` single seq → `hmmalign` → `hmmbuild`), which needs no MUSCLE or MAFFT.
+Measured on Enterobacterial AEP detection, **profiles found 26 where pairwise DIAMOND
+found 2** — divergence from any single reference is exactly what a profile absorbs.
+
+`STRONG_BITS = 120`, `POSSIBLE_BITS = 50`, and `MIN_MARGIN_BITS = 50` between the best
+and second-best *class*. The margin is what makes it safe: dehydrophos's DhpH scores
+121.9 against a 120 floor, so an absolute cut alone would call it, while comparing the
+profiles against each other does not.
+
+**Validate by leave-one-out, always.** A reference scores ~100% against its own profile,
+which looks like a triumph and is arithmetic. Adding the argolaphos enzymes moved one
+score from 20.9 to 1034.2 for that reason alone.
+
+Erwiniaceae (22 families): `not via PnAA` 12, `2-AEP` 6, `unknown` 4, `2-HEP` 1 —
+including LMG 5342 region 2, which is 2-AEP. An earlier version called that one "not
+aepZ family", an artefact of reading only the deposited annotation: the region carries a
+deposited class I/II aspartate transaminase *and* a **recovered** aepZ-family
+transaminase, and only the recovered one settles it. See `RECOVER_ORFS`.
+
+`carrier_genes` / `carrier_class` are reported separately, because the intermediate and
+its carrier are independent — 2-AEP and 2-HEP both occur on glycans. On Erwiniaceae every
+family reads `none in cluster`, and **that is correct, not a broken column**: PF00535
+occurs in 23 regions and PF00534 in 1 across the entire run, and the families reading
+nonzero (GCF 3 at 3.0, GCF 14/17 at 2.0) are exactly those. These clusters lack glycan
+machinery.
+
+`PhnW` is deliberately **not** in the reference set, and `PhpC` is deliberately in the
+**HEP** group — NCBI and the phpC/phpD discovery paper agree it reduces PnAA to HEP
+(cd08182), at 62.5% identity to Swiss-Prot D9XF45. `PhpD` forms hydroxymethylphosphonate
+and is classed HEPD, not HEP.
+
+### `BIOSYNTHETIC_PROFILE` — which family splits are chemistry
+
+A family count is read as biological resolution, and at a 10 kb neighbourhood it partly
+is not: the flank reaches ~9 kb past the core in both directions and reliably catches
+chromosomal neighbours, so two groups with different neighbours land in different
+families with identical biosynthesis. This reports each family's domain content
+**filtered to `core`/`tailoring`/`lipid`/`transport`** via `utils/domain_functions`,
+dropping `primary` and `mobile`, and names the families whose filtered profiles match.
+
+Deliberately **not** the antiSMASH `proto_core`, which is 3.3 kb here and would discard
+LeuC/LeuD, the methyltransferase, SanS and the GNAT — most of the tailoring chemistry
+anyone would want to compare. `PREVALENCE = 0.5`; reading the database costs seconds and
+needs no external tool.
+
+**`=` and `~` are different claims, and conflating them was a real bug.** Only an empty
+symmetric difference licenses *indistinguishable*. An earlier version put that sentence on
+everything at Jaccard ≥ 0.9, which on Erwiniaceae captured the pantaphos pair — GCF 1
+(186 members) and GCF 2 (29) differ by **exactly one** filtered domain, PF13535
+ATP-grasp_4, at 96.8% vs 3.4%. 10/11 = 0.909. An ATP-grasp is an amide-bond ligase, so
+the one domain the threshold waved through is the one that would separate a monopeptide
+from a dipeptide: the tool asserted the negative of the run's most interesting open
+question on a rounding margin. Near misses now name their differing domains in a
+`differing_domains` column and say they are **not** indistinguishable.
+
+| Erwiniaceae, 22 families | |
+|---|---|
+| identical (`= GCF-n`) | 7 == 21, 8 == 19 — each a real family plus a singleton |
+| near-identical (`~ GCF-n`) | 1 ~ 2, the pantaphos pair, differing by ATP-grasp_4 |
+
+**A narrower window does not fix the pantaphos split.** Across all 215 regions the HiVir
+ATP-grasp sits 9.2 kb from the core while the housekeeping that also differs sits at 5.0,
+6.6, 8.5 and 9.4 kb — the wanted gene is farther out than three of the four unwanted
+ones, so 7.5 or 8 kb would drop the ATP-grasp and keep the diguanylate cyclase and
+SpoIIE. Asymmetry fails too: the cluster is downstream of the core in 96 regions and
+upstream in 85.
+
+**Never a score input.** The flag annotates the novelty ranking and must not move a rank.
+The domain map covers ~93% of observed hits and everything else is `other`, meaning
+*unmapped* rather than absent, so scoring on filtered similarity would penalise precisely
+the families the shortlist exists to surface — genuinely novel chemistry would present as
+an empty profile and read as "same as everything".
 
 ### `PEPM_ALL_BY_ALL` — pepM identity vs gene-neighbourhood similarity
 

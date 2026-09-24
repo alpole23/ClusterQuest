@@ -1,0 +1,117 @@
+{
+  "question": "Does the pepM pre-screen hold on a clade that contributes none of its references?",
+  "why": "Every prior validation was on a clade the reference set draws from. Erwiniaceae supplies HvrA (1 of 7); the actinomycete set supplies the other 6 and even contains the source strain of one, which self-matched at 828. Neither could answer whether the screen generalises.",
+  "date": "2026-09-19",
+  "dataset": "136 Bacteroides fragilis genomes (GenBank, complete + chromosome). Phylum Bacteroidota contributes NO pepM reference, and the clade is held out in BGC space too: all 5 characterised reference clusters sit 0.82-0.93 from their nearest B. fragilis BGC, none inside the 0.30 GCF cutoff.",
+  "method": "Ground truth from an unscreened arm - all 136 genomes through antiSMASH - graded against the screen per-genome verdicts by scripts/validate_prescreen.py. antiSMASH phosphonate rule is \"phosphonates and minimum(1,[...])\" where \"phosphonates\" is a PEP mutase profile at cutoff 150, so every region called is a genome that provably carries a pepM-family gene.",
+  "ground_truth": {
+    "genomes": 136,
+    "bgc_positive_genomes": 98,
+    "regions": 143,
+    "gcf_families": 19,
+    "largest_family": 42,
+    "singletons": 8,
+    "note": "72% BGC-positive, against 11% for Erwiniaceae and 9.6% for the actinomycete set - so this is a sensitivity test, not a savings test. 98 true positives is the largest held-out positive set measured."
+  },
+  "result_before_fix": {
+    "sensitivity": "96/98",
+    "missed": [
+      {
+        "genome": "Bacteroides_fragilis_BFG-448",
+        "bitscore": 0.0,
+        "mode": "blastp",
+        "regions": 1
+      },
+      {
+        "genome": "Bacteroides_fragilis_BFG-536",
+        "bitscore": 0.0,
+        "mode": "blastp",
+        "regions": 1
+      }
+    ],
+    "passed_the_screen": 97,
+    "false_positives": 1,
+    "negatives": 38,
+    "false_positive_rate_pct": 2.63,
+    "cutoff": 100.0,
+    "cutoff_analysis": {
+      "highest_lossless_cut": 0.0,
+      "false_positives_there": 38,
+      "zero_fp_cut": 255.1,
+      "true_positives_kept_there": "96/98",
+      "true_positive_range": [
+        0.0,
+        567.0
+      ],
+      "negative_range": [
+        0.0,
+        255.0
+      ]
+    }
+  },
+  "result_after_fix": {
+    "sensitivity": "98/98",
+    "missed": [],
+    "passed_the_screen": 100,
+    "false_positives": 2,
+    "negatives": 38,
+    "false_positive_rate_pct": 5.26,
+    "cutoff": 100.0,
+    "cutoff_analysis": {
+      "highest_lossless_cut": 342.0,
+      "false_positives_there": 0,
+      "zero_fp_cut": 330.1,
+      "true_positives_kept_there": "98/98",
+      "true_positive_range": [
+        342.0,
+        567.0
+      ],
+      "negative_range": [
+        0.0,
+        330.0
+      ]
+    }
+  },
+  "the_bug": {
+    "what": "The screen missed 2 of 98. Both scored exactly 0.0 - no hit at all - while antiSMASH called a phosphonate region in each.",
+    "genomes": [
+      "Bacteroides_fragilis_BFG-448 (locus NXV34_17935)",
+      "Bacteroides_fragilis_BFG-536 (locus NXW36_17280)"
+    ],
+    "cause": "Both loci are annotated \"phosphoenolpyruvate mutase\" AND flagged /pseudo. NCBI withholds /translation from a /pseudo CDS, and parse_genome only collected CDS that had one - so the pepM protein never reached diamond. The screen was not failing to recognise a pepM; it was never shown one.",
+    "why_min_density_missed_it": "Both genomes are densely annotated overall, 763 and 726 CDS/Mb against the 500 guard. Density is a whole-genome proxy for what is a single-gene problem.",
+    "fix": "Translate from the CDS own coordinates when /translation is absent; internal stops become X rather than truncating, since a pseudogene spreads its signal across the frameshift. Recovers the two at bitscore 388 and 310 against a cut of 100.",
+    "why_two_prior_clades_passed": "Neither Erwiniaceae nor the actinomycete set contains a pseudogenised pepM. This is a failure only a held-out clade was going to surface."
+  },
+  "regression_check_erwiniaceae": {
+    "sensitivity": "299/299",
+    "passed_the_screen": 307,
+    "false_positives": 8,
+    "negatives": 2485,
+    "true_positive_range": [
+      154.0,
+      552.0
+    ],
+    "verdict": "identical in every field before and after the fix"
+  },
+  "reading": "The screen generalises: 98/98 on a clade with no reference of its own, and on this clade the classes separate completely - any cut in (330, 342] gives 98/98 with zero false positives, where the actinomycete set had no such cut. The caveat is diversity, not count: B. fragilis is one species and its true positives cluster tightly (modal bitscore 514), so 98 positives is not 98 independent tests. What the run does establish beyond doubt is the pseudogene blind spot, which was invisible to both earlier validations.",
+  "cost": {
+    "screen_off_cpu_min": 277.4,
+    "screen_on_cpu_min": 247.3,
+    "antismash_cpu_min": {
+      "off": 150.6,
+      "on": 140.5
+    },
+    "recover_orfs_cpu_min": {
+      "off": 87.5,
+      "on": 57.2
+    },
+    "prescreen_cpu_min": 3.64,
+    "genomes_reaching_antismash": {
+      "off": 136,
+      "on": 97
+    },
+    "note": "The screen saves 11% here, against 6.5x on Erwiniaceae and 7.3x on the actinomycete set. That is the expected behaviour, not a disappointment: the saving is proportional to how dilute the taxon is, and at 72% BGC-positive there is almost nothing to remove. This clade was chosen to test sensitivity, and its cost figures are reported so the savings claim is not quietly generalised from the two dilute clades alone.",
+    "caveat": "These traces are from the screened arm running the PRE-FIX code, which passed 97 genomes. With the fix it passes 100, so antiSMASH cost would rise by roughly 3 genomes (~4 CPU-min). The arm was not re-run for that."
+  }
+}

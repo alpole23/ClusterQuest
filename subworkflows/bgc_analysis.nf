@@ -5,7 +5,8 @@ include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
 include { NOVELTY_SCORE } from '../modules/analysis/novelty_score'
 include { GCF_ANNOTATION_TRANSFER } from '../modules/analysis/gcf_annotation_transfer'
-include { HEADGROUP_PREDICTION } from '../modules/analysis/headgroup_prediction'
+include { BRANCH_POINT_PREDICTION } from '../modules/analysis/branch_point_prediction'
+include { BIOSYNTHETIC_PROFILE } from '../modules/analysis/biosynthetic_profile'
 include { PEPM_ALL_BY_ALL } from '../modules/analysis/pepm_all_by_all'
 include { COLLECT_VERSIONS } from '../modules/utilities/collect_versions'
 
@@ -40,10 +41,20 @@ workflow BGC_ANALYSIS {
                           Utils.scriptsHash(projectDir, ['analysis/count_regions.py']))
             counts_ch = COUNT_REGIONS.out.counts
 
-            AGGREGATE_TAXONOMY(taxon, taxonomy_map, COUNT_REGIONS.out.counts, name_map,
+            // Needs the taxonomy map, which a bgc_analysis run pointed at
+            // another run's genomes does not have. Skipping loses the report's
+            // taxonomy tree and nothing else; failing lost the whole run.
+            // main.nf warns when it substitutes the placeholder -- do not warn
+            // again from inside a channel closure, where `log` is out of scope
+            // and -preview cannot catch the NoSuchVariable because it never
+            // executes operators.
+            AGGREGATE_TAXONOMY(taxon,
+                               taxonomy_map.filter { m -> Utils.isValidInput(m) },
+                               COUNT_REGIONS.out.counts, name_map,
                                Utils.scriptsHash(projectDir,
                                    ['taxonomy/aggregate_taxonomy.py']))
             taxonomy_tree_ch = AGGREGATE_TAXONOMY.out.taxonomy_tree
+                .ifEmpty(file('NO_TAXONOMY_TREE'))
 
             TABULATE_REGIONS(taxon, antismash_results,
                              Utils.scriptsHash(projectDir,
@@ -73,7 +84,8 @@ workflow BGC_ANALYSIS {
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
             novelty_ch              = placeholder('NO_NOVELTY')
-            headgroup_ch            = placeholder('NO_HEADGROUP')
+            branch_point_ch            = placeholder('NO_BRANCH_POINT')
+            bioprofile_ch              = placeholder('NO_BIOPROFILE')
             consensus_ch            = placeholder('NO_CONSENSUS')
             transfer_summary_ch     = placeholder('NO_TRANSFER_SUMMARY')
             pepm_svg_ch             = placeholder('NO_PEPM_SVG')
@@ -107,18 +119,30 @@ workflow BGC_ANALYSIS {
                         .ifEmpty(file('NO_TRANSFER_SUMMARY'))
                 }
 
-                // Headgroup prediction: 2-AEP vs 2-HEP, from the enzyme acting
-                // after Ppd. Needs family membership, so it runs after CLUSTERING.
-                HEADGROUP_PREDICTION(
+                // Secondary branch point: 2-AEP vs 2-HEP, decided by the enzyme
+                // acting on phosphonoacetaldehyde. The coupling class names the
+                // fate of phosphonopyruvate; this names the fate of its product.
+                // Needs family membership, so it runs after CLUSTERING.
+                BRANCH_POINT_PREDICTION(
                     taxon,
                     CLUSTERING.out.bigscape_db,
                     antismash_results,
-                    file("${projectDir}/assets/reference_sequences/reference_headgroup_enzymes.faa"),
+                    file("${projectDir}/assets/reference_sequences/reference_branch_point_enzymes.faa"),
                     Utils.scriptsHash(projectDir,
-                        ['analysis/headgroup_prediction.py', 'utils'])
+                        ['analysis/branch_point_prediction.py', 'utils'])
                 )
-                headgroup_ch = HEADGROUP_PREDICTION.out.prediction
-                    .ifEmpty(file('NO_HEADGROUP'))
+                branch_point_ch = BRANCH_POINT_PREDICTION.out.prediction
+
+                // Reads the finished clustering database, so it runs beside the
+                // branch-point call rather than after it.
+                BIOSYNTHETIC_PROFILE(
+                    taxon,
+                    CLUSTERING.out.bigscape_db,
+                    Utils.scriptsHash(projectDir,
+                        ['analysis/biosynthetic_profile.py', 'utils'])
+                )
+                bioprofile_ch = BIOSYNTHETIC_PROFILE.out.profile
+                    .ifEmpty(file('NO_BIOPROFILE'))
 
                 // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
                 // data and reports whether pepM identity could partition
@@ -178,6 +202,8 @@ workflow BGC_ANALYSIS {
                 coupling_annotation_ch,
                 coupling_support_ch,
                 novelty_ch,
+                branch_point_ch,
+                bioprofile_ch,
                 consensus_ch,
                 transfer_summary_ch,
                 pepm_svg_ch,

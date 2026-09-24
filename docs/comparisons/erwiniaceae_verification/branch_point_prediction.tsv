@@ -1,0 +1,23 @@
+gcf	members	branch_point	support	best_bitscore	reference	carrier_genes	carrier_class
+1	186	not via PnAA	186/186			0.0	none in cluster
+2	29	not via PnAA	29/29			0.0	none in cluster
+3	21	not via PnAA	21/21			3.0	none in cluster
+4	23	not via PnAA	23/23			0.0	none in cluster
+5	24	2-AEP (homologue)	24/24	259.0	AEP profile	0.0	none in cluster
+6	4	unknown (Ppd, no third enzyme found)	4/4			0.0	none in cluster
+7	20	unknown (Ppd, no third enzyme found)	20/20			0.0	none in cluster
+8	2	2-AEP (homologue)	2/2	257.0	AEP profile	0.0	none in cluster
+9	5	not via PnAA	5/5			0.0	none in cluster
+10	2	2-AEP (homologue)	2/2	195.6	AEP profile	0.0	none in cluster
+11	3	2-AEP (homologue)	3/3	239.1	AEP profile	0.3	none in cluster
+12	4	not via PnAA	4/4			0.0	none in cluster
+13	2	2-AEP (homologue)	2/2	178.0	AEP profile	0.0	none in cluster
+14	1	not via PnAA	1/1			2.0	none in cluster
+15	1	2-HEP (homologue)	1/1	179.2	HEP profile	0.0	none in cluster
+16	1	not via PnAA	1/1			0.0	none in cluster
+17	1	not via PnAA	1/1			2.0	none in cluster
+18	1	not via PnAA	1/1			0.0	none in cluster
+19	1	2-AEP (homologue)	1/1	255.2	AEP profile	0.0	none in cluster
+20	1	not via PnAA	1/1			0.0	none in cluster
+21	1	unknown (Ppd, no third enzyme found)	1/1			0.0	none in cluster
+22	1	not via PnAA	1/1			0.0	none in cluster
