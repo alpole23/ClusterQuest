@@ -41,6 +41,8 @@ process NCBI_FETCH_METADATA {
 
     script:
     def level_flag = params.assembly_level ? "--assembly-level ${params.assembly_level}" : ''
+    // Selection filter: applied here only. See the note in nextflow.config.
+    def ref_flag = params.assembly_reference_only ? '--reference' : ''
     """
     # Dehydrated: data report and file manifest, no genome payload.
     datasets download genome taxon "${taxon}" \\
@@ -48,6 +50,7 @@ process NCBI_FETCH_METADATA {
         --assembly-source ${params.assembly_source} \\
         --exclude-atypical \\
         ${level_flag} \\
+        ${ref_flag} \\
         --filename ncbi_dataset.zip \\
         --dehydrated
 

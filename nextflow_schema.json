@@ -70,6 +70,12 @@
             "description": "Restrict the NCBI download by assembly level, e.g. 'complete' or 'chromosome,complete'. Null takes everything. Useful when taxonomic breadth matters more than exhaustive coverage: Streptomyces has 16,030 GenBank genomes but 1,573 complete o",
             "x-group": "Download Genome Options"
         },
+        "assembly_reference_only": {
+            "type": "boolean",
+            "description": "Restrict to NCBI's designated REFERENCE genome per species. Enterobacterales has 150,690 RefSeq assemblies and 640 reference ones, so this is a ~235x sample that still spans the order -- the same argument assembly_level makes above, taken f",
+            "default": false,
+            "x-group": "Download Genome Options"
+        },
         "assembly_source": {
             "type": "string",
             "description": "'GenBank' (GCA_), 'RefSeq' (GCF_) or 'all'. GenBank was hardcoded until 2026-09-23 and remains the default so existing runs reproduce. **RefSeq is the one to use at order scale.** Measured 2026-09-23: Enterobacterales has 1,257,000 GenBank ",
