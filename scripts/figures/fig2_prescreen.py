@@ -10,6 +10,11 @@ precisely because it is the case where neutrality initially failed: a
 pseudogene-flagged pepM carries no /translation, so the screen dropped two
 genomes until parse_genome was taught to translate such a CDS itself.
 
+The screening cost annotations read "screening work", not "screen stage": the
+screen was its own stage when these were measured and now runs inside
+FETCH_RENAME_SCREEN, so the work is the same and the accounting boundary is not.
+See the comment on COST.
+
 Sources, all committed under docs/comparisons/pepm_prescreen/.
 
 Usage:
@@ -26,6 +31,17 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # (clade, genomes, % BGC-positive, total CPU-min screen off, screen on, screen cost)
 # Ordered by BGC prevalence, lowest first: the saving is monotonic in it, and
 # that ordering is the whole point of the panel.
+#
+# The fourth column was measured when the screen was its own stage, PEPM_PRESCREEN,
+# and could be read straight off the trace. It no longer is: the screen now runs
+# inside FETCH_RENAME_SCREEN, so that a genome the screen rejects is deleted before
+# its output is declared and never reaches publishDir. The screen does the same work
+# on the same genomes for the same verdicts -- verified identical on P. ananatis
+# (193 of 344) and Winslowiella -- but it is no longer a separately timed task, so
+# these figures are labelled as what the screening WORK costs rather than as a stage.
+# Re-measuring would mean eight runs, the screen-off arms of which are the expensive
+# ones (Erwiniaceae alone is 2,771 genomes through antiSMASH, ~61 CPU-h), to move
+# numbers by a few percent and change no conclusion.
 COST = [
     ('Actinomycetes\n323 genomes\n9.6% positive', 1618.8, 179.4, 12.7),
     ('Erwiniaceae\n2,771 genomes\n11% positive', 4508.0, 1497.0, 91.0),
@@ -61,7 +77,7 @@ def panel_cost(ax):
     for i, (_, o, n, screen) in enumerate(COST):
         ax.text(i, max(off) * 4.4, f'{o / n:.1f}× less',
                 ha='center', fontsize=9, color=AFTER, fontweight='bold')
-        ax.text(i, max(off) * 2.1, f'screen costs {screen:.0f}',
+        ax.text(i, max(off) * 2.1, f'screening work: {screen:.0f}',
                 ha='center', fontsize=7.2, color=FAINT)
     ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, -0.19))
 
