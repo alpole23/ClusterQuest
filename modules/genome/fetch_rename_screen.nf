@@ -201,12 +201,20 @@ PY
         # Renamed files land in the task directory; the fetched originals stay under
         # ncbi_dataset/, so a bare *.gbff glob here is unambiguous — unlike in
         # RENAME_GENOMES, where the staged inputs share the extension.
+        # Flags must match PEPM_PRESCREEN's invocation exactly -- tests/check_screen_flags.py
+        # enforces it. Both call the same script, so the screening ALGORITHM cannot drift,
+        # but the arguments can and did: this call site was written without --threads and
+        # --diamond, and agreed with the other one only by coincidence (process_medium is
+        # 4 CPUs and the script's --threads default is 4; diamond happened to be on PATH).
+        # Change the label to 8 CPUs and one path would quietly use half the threads.
         python ${projectDir}/scripts/analysis/pepm_prescreen.py \\
             --genomes *.gbff \\
             --db ${pepm_db} \\
             --out prescreen_${task.index}.tsv \\
             --bitscore ${params.pepm_prescreen_bitscore} \\
-            --min_density ${params.pepm_prescreen_min_density}
+            --min_density ${params.pepm_prescreen_min_density} \\
+            --threads ${task.cpus} \\
+            --diamond \$(which diamond)
 
         python3 - <<'PRUNE_EOF'
 import csv, os

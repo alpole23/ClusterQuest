@@ -226,6 +226,15 @@ else
     skip "parameter validation" "nextflow not available"
 fi
 
+# The pepM screen is invoked from two modules. Both call the same script, so the
+# algorithm cannot drift, but the flags can -- and did, silently agreeing only
+# because process_medium's 4 CPUs matched the script's --threads default.
+if SCRFLG="$("$SYS_PY" "$PROJECT_DIR/tests/check_screen_flags.py" 2>&1)"; then
+    pass "pepM screen flags consistent"
+else
+    fail "pepM screen flags differ:"; echo "$SCRFLG" | sed 's/^/      /'
+fi
+
 # The report's JavaScript lives in Python string constants, so check_undefined.py
 # cannot see it — that gap shipped a search box wired to an undefined function.
 if JSCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_report_js.py" 2>&1)"; then
