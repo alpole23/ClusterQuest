@@ -57,6 +57,7 @@ install silently re-download 153 GB.
 | antiSMASH neighbourhood | does a wider flank capture the whole cluster, at what cost? | `antismash_neighbourhood/` | one genome for boundaries, family scale in **two clades** — which disagree |
 | pepM screen discriminators | can more references or a profile HMM make the screen more specific? | `pepm_screen_discriminators/` | **no** — tested three alternatives, all worse |
 | BiG-SCAPE determinism | are distances reproducible run to run? | `bigscape_determinism/` | measured |
+| Enterobacterales pilot | is a RefSeq order-scale run feasible on one box, and what are this order's real rates? | `enterobacterales_pilot/` | **yes, ~2-3 days** — 640 reference genomes measured instead of borrowing Erwiniaceae's rates, which were an order of magnitude out |
 | pantaphos family split | is the 186/29 split biosynthetic, and does antiSMASH's CUTOFF-chaining manufacture families? | `pantaphos_family_split/` | **yes** for the ATP-grasp (ablation merges 18 of 29); **no** for the chaining — negative result, nothing merged across 334 regions |
 
 ### pepM pre-screen — `pepm_prescreen/`

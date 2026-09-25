@@ -1,0 +1,55 @@
+{
+  "question": "Is a RefSeq Enterobacterales run feasible on one 16-core/56 GB box, and what are this order's actual BGC prevalence and screen retention?",
+  "date": "2026-09-25",
+  "answer": "Feasible, ~2-3 days, download-dominated. No resource comes close to a limit.",
+  "why_a_pilot": "Every projection before this borrowed Erwiniaceae's rates -- 11% screen retention, 10.8% BGC-positive, 0.121 BGCs/genome. Applied to an order whose composition is completely different they were wrong by an order of magnitude, and wrong on the stage that binds. NCBI's 640 designated reference genomes are a ~235x sample of RefSeq Enterobacterales that still spans the order, so they measure the rates directly for a few hours of compute.",
+
+  "run": {
+    "command": "--taxon Enterobacterales --assembly_source RefSeq --assembly_reference_only true --run_gtdbtk false",
+    "genomes": 640,
+    "outcome": "completed=51 failed=0",
+    "disk": "1.2 GB"
+  },
+
+  "measured": {
+    "screen_retention": "56 of 640 (8.8%)",
+    "regions": 50,
+    "bgc_positive_genomes": "48 of 640 (7.5%)",
+    "gcfs": 40,
+    "family_sizes": "4, 3, 3, 2, 2, 2, then 34 singletons",
+    "distinct_species_among_bgc_positive": "46 of 50 BGCs"
+  },
+
+  "THE_CAVEAT_THAT_MATTERS": "8.8% retention here does NOT translate to 8.8% on full RefSeq. This is one genome per species, so E. coli, Salmonella and Klebsiella are three entries out of 640 -- and 114,532 assemblies out of 150,690 in full RefSeq. The pilot measures prevalence PER SPECIES, not per assembly. Translating properly: 48 of ~640 species positive (7.5%), applied to the 36,158 non-clinical assemblies plus a 0.32% false-positive rate on the 114,532 clinical ones, gives ~2,700 genomes retained on the full set.",
+
+  "projection_for_full_refseq": {
+    "basis": "150,690 RefSeq assemblies; 114,532 of them E. coli + Salmonella + Klebsiella, which the lab's prior work puts at fewer than 10 BGC-positive between them",
+    "download": "1.1 d -- bandwidth-bound at the measured 98 genomes/min, and most of the run",
+    "screen": "~0.1 d",
+    "antiSMASH": "~0.2 d on ~2,700 retained",
+    "GTDB-Tk": "~1 d, no longer the bottleneck it appeared to be at a flat 10.8% prevalence",
+    "disk": "~50 GB of 647 free",
+    "BiG-SCAPE": "a few GB of 56",
+    "total": "~2-3 days"
+  },
+
+  "is_any_of_it_pantaphos": {
+    "yes": "Pantoea ananatis PA13, distance 0.000 to the curated pantaphos LMG 5342 reference -- identical.",
+    "everything_else": "0.836-0.907 from the nearest characterised cluster (phosphonothrixin, argolaphos, phosphinothricin, bialaphos). Nothing else here is known chemistry."
+  },
+
+  "why_are_most_families_singletons": {
+    "dominant_cause": "Dereplication. 46 distinct species for 50 BGCs, so a family can only form where DIFFERENT species share a cluster -- and every multi-member family is exactly that (4 Pectobacterium spp., 3 Lonsdalea spp., 3 Candidatus Fukatsuia, and three pairs).",
+    "the_decisive_evidence": "Pantaphos is a SINGLETON here. It is the largest family in Erwiniaceae at 186 members, because those are strains of one species. Singleton-ness in this set therefore says nothing about abundance in nature.",
+    "real_component": "Not purely an artefact. Pectobacterium contributes 12 BGCs across ~12 species and only 6 of them cluster; congeneric species routinely exceed the 0.30 cutoff. BIOSYNTHETIC_PROFILE puts numbers on it: 12 of 40 families are chemically INDISTINGUISHABLE from another, separated by something other than chemistry, and 28 of 40 are genuinely distinct with no empty profiles.",
+    "mechanism": "The same one measured on the P. agglomerans 11 in docs/comparisons/pantaphos_family_split/: at a 10 kb flank, species-level chromosomal context alone separates families. In a one-genome-per-species set every comparison is cross-species, so that effect is at its maximum."
+  },
+
+  "a_conclusion_retracted": "An earlier reading of this pilot took the high family count as evidence of high diversity, and concluded that pepM components would stay small -- Streptomyces-like -- so BiG-SCAPE memory would be trivial and partitioning would work well. That reasoning is wrong: the small components are the dereplication artefact above. At full RefSeq depth Pectobacterium, Pantoea and Photorhabdus would accumulate strains into large families exactly as P. ananatis does in Erwiniaceae, and components grow with them. The feasibility verdict is unchanged -- ~2,700 retained genomes is small whatever the component structure -- but it holds because the set is SMALL, not because it is diverse.",
+
+  "who_actually_carries_them": "Pectobacterium 12, Photorhabdus 5, Candidatus 5, Xenorhabdus 4, Pantoea 4, Brenneria 4, Lonsdalea 3, Erwinia 2, and singletons across 17 genera. Plant and insect pathogens, not the clinical bulk -- consistent with the prior observation that E. coli and Salmonella carry almost none.",
+
+  "branch_points": "not via PnAA 12, unknown (Ppd, no third enzyme) 13, 2-AEP 11, 2-HEP 2, unknown (Ppd + class I/II transaminase) 2. Not one pathway repeated.",
+
+  "genbank_remains_infeasible": "1,257,000 assemblies: 2.4 TB retained against 647 GB free, 133 GB of BiG-SCAPE memory against 56 even partitioned, ~76 days. The extra 1.1M over RefSeq are overwhelmingly the clinical clades shown here to carry nothing."
+}

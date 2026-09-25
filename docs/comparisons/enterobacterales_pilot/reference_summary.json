@@ -1,0 +1,290 @@
+{
+  "cutoff": 0.3,
+  "references": {
+    "argolaphos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8752,
+      "nearest_genome": "Dickeya_dianthicola_ME23",
+      "nearest_family": 36,
+      "bgcs_within_cutoff": 0
+    },
+    "bialaphos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.9073,
+      "nearest_genome": "Kosakonia_quasisacchari_WCHEs120001",
+      "nearest_family": 17,
+      "bgcs_within_cutoff": 0
+    },
+    "pantaphos_LMG5342": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.0,
+      "nearest_genome": "Pantoea_ananatis_PA13",
+      "nearest_family": 22,
+      "bgcs_within_cutoff": 1
+    },
+    "phosphinothricin_PTT": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8975,
+      "nearest_genome": "Kosakonia_quasisacchari_WCHEs120001",
+      "nearest_family": 17,
+      "bgcs_within_cutoff": 0
+    },
+    "phosphonothrixin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8358,
+      "nearest_genome": "Xenorhabdus_thuongxuanensis_30TX1",
+      "nearest_family": 12,
+      "bgcs_within_cutoff": 0
+    }
+  },
+  "references_not_loaded": [],
+  "families": {
+    "1": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.8575,
+      "members": 4,
+      "members_within_cutoff": {}
+    },
+    "10": {
+      "nearest_reference": "phosphinothricin_PTT",
+      "distance": 0.9518,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "11": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.9303,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "12": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.8358,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "13": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.9248,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "14": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.9494,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "15": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8886,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "16": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.8893,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "17": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8808,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "18": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.876,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "19": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9446,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "2": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.8766,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "20": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.9502,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "21": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8913,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "22": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.0,
+      "members": 1,
+      "members_within_cutoff": {
+        "pantaphos_LMG5342": 1
+      }
+    },
+    "23": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.5403,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "24": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9439,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "25": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9228,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "26": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.9162,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "27": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9478,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "28": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9391,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "29": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.9507,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "3": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8907,
+      "members": 3,
+      "members_within_cutoff": {}
+    },
+    "30": {
+      "nearest_reference": "phosphinothricin_PTT",
+      "distance": 0.9229,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "31": {
+      "nearest_reference": "bialaphos",
+      "distance": 0.9255,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "32": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8764,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "33": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8902,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "34": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8922,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "35": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.9186,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "36": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8752,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "37": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.8062,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "38": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.921,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "39": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.9586,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "4": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.537,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "40": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8932,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "5": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9274,
+      "members": 3,
+      "members_within_cutoff": {}
+    },
+    "6": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8908,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "7": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9319,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "8": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8757,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "9": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8912,
+      "members": 1,
+      "members_within_cutoff": {}
+    }
+  }
+}
