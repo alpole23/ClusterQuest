@@ -189,6 +189,16 @@ process ANTISMASH {
 version=${antismash_version}
 params_hash=${antismash_params_hash}
 EOF
+            # The HTML viewer costs ~1.13 MB per genome: js/css/images are
+            # BYTE-IDENTICAL boilerplate in every genome directory (708 KB),
+            # plus regions.js (384 KB) and index.html. At order scale that is
+            # tens of GB for pages nobody opens. Dropped here, before the output
+            # is declared, because deleting published output later races with
+            # publishDir and is undone by -resume.
+            if [ "${params.antismash_html}" != "true" ]; then
+                rm -rf "as_out/\$BASE/js" "as_out/\$BASE/css" "as_out/\$BASE/images" \\
+                       "as_out/\$BASE/index.html" "as_out/\$BASE/regions.js"
+            fi
             OK=\$((OK + 1))
         else
             echo "  SKIP: antiSMASH failed"

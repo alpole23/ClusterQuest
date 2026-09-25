@@ -101,3 +101,63 @@ def sortedBatches(ch, n) {
 def sortedTupleBatches(ch, n) {
     ch.toSortedList { a, b -> a[0] <=> b[0] }.flatMap { it }.collate(n)
 }
+
+/*
+ * Batches of ACCESSIONS, written one file per batch, assigned by hash.
+ *
+ * `sortedBatches` above makes composition reproducible for a FIXED input set, which
+ * is what `-resume` needs within a taxon. It is not enough across taxon growth: with
+ * positional batching, one genome appearing at the front of a sorted accession list
+ * shifts every later genome into a different batch, so every download task rehashes
+ * and a 150,000-genome taxon re-downloads in full because NCBI added one assembly.
+ *
+ * Assigning by `md5(accession) % nbatches` makes membership a property of the
+ * accession alone. Adding a genome dirties exactly one batch. The trade is that
+ * changing `download_batch_size` reshuffles everything — but that is a deliberate
+ * act, where a new NCBI deposit is not.
+ *
+ * Emits a batch as a FILE of accessions rather than a value list: the batch is an
+ * input to `datasets --inputfile`, and a file also keeps the task hash keyed on
+ * content rather than on a long interpolated string.
+ */
+def accessionBatches(accessions_ch, batch_size) {
+    accessions_ch.flatMap { acc_file ->
+        def accs = acc_file.readLines().findAll { it.trim() }.collect { it.trim() }.sort()
+        // integer ceiling without a cast: Nextflow 26's strict parser rejects
+        // the C-style `(int) Math.ceil(...)` spelling outright
+        def nbatches = Math.max(1, (accs.size() + batch_size - 1).intdiv(batch_size))
+        def groups = [:].withDefault { [] }
+        accs.each { a ->
+            def digest = java.security.MessageDigest.getInstance('MD5')
+                .digest(a.getBytes('UTF-8'))
+            // BigInteger(1, ...) reads the digest as UNSIGNED and .mod() is always
+            // non-negative. Hand-rolling this from bytes produced negative keys and
+            // therefore ~2x the intended number of batches: 343 Pantoea ananatis
+            // genomes at batch_size 50 came out as 13 batches of 14-59 rather than
+            // 7 of ~49. Harmless to correctness -- every genome still lands in
+            // exactly one batch -- but it defeats the point of a batch size.
+            def bucket = new BigInteger(1, digest)
+                .mod(BigInteger.valueOf(nbatches as long)).intValue()
+            groups[bucket] << a
+        }
+        // Written to a STABLE path with a STABLE timestamp. The first version used
+        // Files.createTempFile, which gave every batch a fresh random name on every
+        // run; Nextflow hashes a path input's name, size and last-modified, so all
+        // seven Pantoea batches re-ran on -resume (cached=4, completed=7) and the
+        // whole point of hash-based batching was lost.
+        //
+        // Rewriting in place is not enough either -- an identical rewrite still
+        // moves last-modified and still misses. So the file is only touched when
+        // its content actually changes.
+        def dir = java.nio.file.Paths.get("${workflow.workDir}", 'accession_batches')
+        java.nio.file.Files.createDirectories(dir)
+        groups.keySet().sort().collect { k ->
+            def f = dir.resolve("accessions_${k}.txt")
+            def body = groups[k].join('\n') + '\n'
+            if (!java.nio.file.Files.exists(f) || f.toFile().text != body) {
+                f.toFile().text = body
+            }
+            f
+        }
+    }
+}

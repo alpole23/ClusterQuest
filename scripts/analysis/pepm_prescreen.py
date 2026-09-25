@@ -136,6 +136,19 @@ def main():
                     break
             try:
                 proteins, contigs, bp = parse_genome(p)
+            except ImportError as exc:
+                # A missing interpreter module is a broken ENVIRONMENT, not a bad
+                # genome, and it applies to every genome in the batch. Caught as a
+                # per-genome error it degrades to "screening by DNA" with nothing to
+                # screen, and the run reports "0 carry pepM" -- a successful-looking
+                # result that silently discards every genome, including known
+                # producers. Observed for real: RENAME_GENOMES was given a
+                # python-only conda environment and rejected all 8 Winslowiella
+                # genomes, B149 among them.
+                sys.exit(f'cannot read genomes: {exc}. This is an environment '
+                         f'problem, not a data problem -- the screen needs '
+                         f'biopython and diamond. Refusing to report every genome '
+                         f'as pepM-negative.')
             except Exception as exc:                      # a corrupt genome is
                 print(f'{name}: unreadable ({exc}); screening by DNA', file=sys.stderr)
                 proteins, contigs, bp = [], [], 0         # not a reason to lose the batch

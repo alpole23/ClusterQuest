@@ -99,10 +99,10 @@ if ! echo "$BATCH_OUT" | grep -q 'SUCCESS\|Succeeded'; then
     echo "$BATCH_OUT" | tail -20
 fi
 
-# 7 good genomes + 1 corrupt: all 8 rename, only the 7 parseable ones convert.
+# 7 good genomes + 1 corrupt: all 8 are supplied, only the 7 parseable convert.
 count() { echo "$BATCH_OUT" | grep -o "$1" | wc -l | tr -d ' '; }
 
-check "renamed genomes"        "$(count 'RENAMED:')"        "8"
+check "genomes supplied"       "$(count 'RENAMED:')"        "8"
 if [ -n "$BIO_PY" ]; then
     check "fasta conversions"      "$(count 'FASTA:')"        "7"
     check "corrupt genome skipped" "$(count 'FASTA: Broken')" "0"
@@ -111,12 +111,12 @@ else
 fi
 check "reuse dirs copied"      "$(count 'COPIED:')"         "2"
 
-# Assembly ID → mapped name pairing must survive batch staging (genome?.gbff)
-MISPAIRED=0
-for i in $(seq 1 7); do
-    [ -f "$SCRATCH/out/ncbi_genomes/Test_taxon/renamed_genomes/Test_organism_${i}.gbff" ] || MISPAIRED=$((MISPAIRED + 1))
-done
-check "assembly ID pairing" "$MISPAIRED" "0"
+# Assembly ID -> mapped name pairing used to be asserted here against
+# RENAME_GENOMES, which paired by STAGING ORDER and so genuinely needed a guard.
+# FETCH_RENAME_SCREEN replaced it and reads each accession from the name of the
+# directory NCBI downloaded it into, so there is no ordering to get wrong. The
+# fixtures now supply pre-renamed genomes directly; what remains testable offline
+# is that a batch survives one unparseable member, asserted just above.
 
 # Copy fidelity: hidden file and nested directory must survive cp -rL
 check "hidden file copied" \
