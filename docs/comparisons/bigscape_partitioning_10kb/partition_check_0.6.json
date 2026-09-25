@@ -1,0 +1,17 @@
+{
+  "bgcs_compared": 334,
+  "pairs": 55611,
+  "together_reference": 18568,
+  "together_partitioned": 18568,
+  "agreed_together": 18568,
+  "split_by_partitioning": 0,
+  "merged_by_partitioning": 0,
+  "adjusted_rand_index": 1.0,
+  "identical": true,
+  "threshold": 0.6,
+  "partitions": 6,
+  "largest_partition": 236,
+  "families_reference": 22,
+  "families_partitioned": 22,
+  "bigscape_seconds_partitioned": 109.1
+}

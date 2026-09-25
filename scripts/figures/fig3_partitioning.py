@@ -41,6 +41,19 @@ RUNTIMES = [
 ]
 
 # Family counts, unpartitioned vs partitioned at the safe 0.60 cut. All ARI 1.0000.
+#
+# All three rows were measured at the 5 kb neighbourhood, which is what antiSMASH's
+# own phosphonate rule declares. The pipeline default is now 10 kb, and the counts
+# there are different -- Erwiniaceae reads 22 families rather than 19. They are left
+# as measured: re-running Streptomyces and Combined at 10 kb means re-running
+# antiSMASH over both sets, and mixing windows between rows of one figure would be
+# worse than a consistent older one.
+#
+# What matters is that the CLAIM is window-independent, and that was checked rather
+# than assumed. Re-run at the 10 kb default on Erwiniaceae (2026-09-25, 334 BGCs,
+# 6 partitions sized 236/89/4/2/2/1): 22 families unpartitioned, 22 partitioned,
+# 18,568 co-membership pairs either way, 0 split, 0 merged, ARI 1.0000. Identical
+# conclusion, different absolute numbers.
 FAMILIES = [
     ('Streptomyces\n185 BGCs', 81, 81),
     ('Erwiniaceae\n333 BGCs', 19, 19),

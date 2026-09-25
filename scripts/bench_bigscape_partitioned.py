@@ -81,7 +81,7 @@ def components(pairs_tsv, threshold, nodes):
     return sorted(groups.values(), key=len, reverse=True)
 
 
-def run_partition(members, paths, workdir, bigscape, pfam, cores, cutoff, tag):
+def run_partition(members, paths, workdir, bigscape, pfam, cores, cutoff, tag, gbk_root=None):
     """Run BiG-SCAPE on one partition; return {record_id: local family id}.
 
     A partition of one BGC has nothing to compare against, so BiG-SCAPE is not
@@ -100,6 +100,21 @@ def run_partition(members, paths, workdir, bigscape, pfam, cores, cutoff, tag):
     # do in the pipeline.
     for rid in members:
         src = Path(paths[rid])
+        # A BiG-SCAPE database records gbk.path as it was at clustering time,
+        # which for a pipeline run points into work/. That directory is routinely
+        # cleaned (`nextflow clean`, or just reclaiming disk), so a database can
+        # outlive the files it names. --gbk_root re-resolves by the layout every
+        # arrangement of these files shares: <genome>/<region>.gbk.
+        if not src.exists() and gbk_root:
+            alt = Path(gbk_root) / src.parent.name / src.name
+            if not alt.exists():
+                found = list(Path(gbk_root).glob(f'*/{src.name}'))
+                alt = found[0] if found else alt
+            if not alt.exists():
+                raise SystemExit(
+                    f'{src} is gone and not found under {gbk_root}. '
+                    f'Point --gbk_root at the antismash_results directory for this run.')
+            src = alt
         gdir = indir / src.parent.name
         gdir.mkdir(parents=True, exist_ok=True)
         dest = gdir / src.name
@@ -196,6 +211,10 @@ def main():
     ap.add_argument('--cores', type=int, default=8)
     ap.add_argument('--cutoff', default='0.30')
     ap.add_argument('--workdir', type=Path, required=True)
+    ap.add_argument('--gbk_root', type=Path,
+                    help='antismash_results directory to re-resolve region GBKs '
+                         'against, when the paths recorded in the database no '
+                         'longer exist (work/ cleaned since the run)')
     ap.add_argument('--keep', action='store_true', help='keep per-partition outputs')
     args = ap.parse_args()
 
@@ -210,7 +229,8 @@ def main():
     test_fam, total_s = {}, 0.0
     for i, members in enumerate(parts):
         fam, secs = run_partition(members, paths, args.workdir, args.bigscape,
-                                  args.pfam, args.cores, args.cutoff, f'p{i:03d}')
+                                  args.pfam, args.cores, args.cutoff, f'p{i:03d}',
+                                  gbk_root=args.gbk_root)
         test_fam.update(fam)
         total_s += secs
         print(f'  partition {i:>3}: {len(members):>4} BGCs -> '

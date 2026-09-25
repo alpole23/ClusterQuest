@@ -1,0 +1,20 @@
+{
+  "question": "The partitioning benchmark was measured at the 5 kb neighbourhood. The pipeline default is now 10 kb, where Erwiniaceae has 22 families rather than 19. Does partitioning still reproduce the clustering exactly?",
+  "date": "2026-09-25",
+  "answer": "Yes. Identical conclusion, different absolute numbers.",
+  "source_run": "results_erw_verify (2,771 Erwiniaceae genomes, 334 regions, 10 kb neighbourhood)",
+  "command": "scripts/bench_bigscape_partitioned.py --db <10kb run db> --pairs pepm_vs_neighbourhood.tsv --threshold 0.60 --gbk_root <antismash_results>",
+  "result": {
+    "reference": "334 BGCs, 22 families",
+    "partitions at pepM identity 0.60": "6, sizes 236/89/4/2/2/1",
+    "per_partition_families": {"p0 (236)": 3, "p1 (89)": 15, "p2 (4)": 1, "p3 (2)": 1, "p4 (2)": 1, "p5 (1)": 1},
+    "partitioned_total_families": 22,
+    "co_membership_pairs": "18,568 reference, 18,568 partitioned",
+    "split": 0,
+    "merged": 0,
+    "ARI": 1.0000
+  },
+  "why_it_was_worth_re-running": "The 5 kb result (19 vs 19, ARI 1.0000) could not be carried over by assertion. Family assignment is a global step over the distance matrix, so changing how much sequence each region carries changes the clustering context, and partitioning could in principle behave differently. It does not.",
+  "note_on_the_figure": "docs/figures/fig3_partitioning.svg keeps all three of its rows at 5 kb -- Streptomyces, Erwiniaceae, Combined -- because re-running the other two at 10 kb means re-running antiSMASH over both sets, and mixing windows between rows of one figure would be worse than a consistent older one. This directory is the evidence that the claim the figure makes survives the window change.",
+  "incidental": "The benchmark script gained --gbk_root. A BiG-SCAPE database records gbk.path as it was at clustering time, which for a pipeline run points into work/; that directory is routinely cleaned, so a database outlives the files it names. Without the flag this comparison could not be run at all after a `nextflow clean`."
+}
