@@ -36,11 +36,56 @@ carrying a pepM homologue — five more than a keyword search finds:
     BGC0000926  rhizocticin A                           BGC0002036  dehydrofosmidomycin
     BGC0002670  fosfonochlorin
 
-Set `--bigscape_mibig_version 4.0` to bring those in. Cost on a 334-BGC run: 2,766 BGCs
-total, ~2.1 GB peak RAM against a 32 GB allocation, ~62 CPU-min.
+**Twelve of those 13 are now in this directory** (2026-09-25), fetched and prepared by
+`scripts/genome/fetch_mibig_references.py`. They come in as *references*, so they are
+measured against every BGC without joining the published clustering.
 
-**Note it changes clustering.** MIBiG entries join the same distance matrix, so family
-composition can shift. That is why the default is off rather than on.
+`--bigscape_mibig_version 4.0` remains the alternative and remains off by default. It
+brings the same 13 plus ~2,400 unrelated clusters into the same distance matrix, which
+**shifts family composition**, and a reference inside the 0.30 cutoff joins a family —
+which the ~15 downstream scripts cannot distinguish from a dataset BGC. Cost on a 334-BGC
+run: 2,766 BGCs, ~2.1 GB peak RAM, ~62 CPU-min, against 12 files here.
+
+### BGC0000383 is excluded, deliberately
+
+It is deposited as the **luminmycin/glidobactin** NRPS/PKS cluster of *Photorhabdus*. Its
+pepM is there because a **pantaphos-like BGC sits adjacent in the deposit and its authors
+did not notice**. Including it would attach a phosphonate distance to an unrelated product
+name.
+
+It also explains a result recorded above that had no explanation: in the Erwiniaceae
+KnownClusterBlast run, luminmycin/glidobactin was the best hit on **236 of 334 regions**.
+That was not noise — those regions were matching the unannounced phosphonate cluster
+inside it.
+
+### BGC0001411 is included, deliberately
+
+Listed by MIBiG as "polysaccharide B" of *B. fragilis*, it is the **2-AEP phosphonolipid**
+— the same chemistry as LMG 5342's region 2. It is a genuine comparator for the
+phosphonolipid question and is kept for that reason.
+
+Worth knowing what it does *not* buy: the two confirmed 2-AEP phosphonolipid clusters sit
+**0.9633 apart**. Shared head-group chemistry does not make two clusters similar at the
+cluster level, because BiG-SCAPE measures whole domain content and adjacency, and the
+machinery around the head group differs completely between the two organisms.
+
+### Preparing a MIBiG file for BiG-SCAPE
+
+BiG-SCAPE 2.0.1 cannot read a MIBiG 4.0 GenBank as published, and patching the symptoms
+does not converge. MIBiG writes `Version :: False` in the antiSMASH-Data header and a
+`region` feature with no `candidate_cluster_numbers`; fixing both yields a third failure,
+because the AS5 reader walks region → cand_cluster → protocluster → proto_core and MIBiG
+supplies only the first. So the fetch script **strips MIBiG's partial region and rebuilds
+the hierarchy with `make_reference_bgc.py`**, which already writes the whole chain. The
+boundary is unchanged: MIBiG declares the whole record to be the cluster, and so does the
+rebuild.
+
+The quieter trap is the filename. BiG-SCAPE only ingests `.gbk` files whose names contain
+"cluster" or "region", so `BGC0000897.gbk` would have been skipped **in silence**. Every
+file here is `<accession>_<product>.region001.gbk`.
+
+Verified: all **17 of 17** references load, and LMG 5342's region 1 sits 0.0129 from the
+curated pantaphos reference while every MIBiG cluster is 0.84–0.96 away.
 
 ## What MIBiG lacks — this directory
 
