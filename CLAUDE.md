@@ -433,11 +433,16 @@ in `work/`, renamed published — 35.3 MB/genome, 68% of all storage. Two change
   `workDir` on one filesystem — set `'copy'` if they are not, or if anything edits
   published files in place, since a write through a hard link also rewrites the cached
   task output and corrupts `-resume`.
-- **`NCBI_DATASETS_DOWNLOAD` no longer publishes the genomes**, only the metadata that
-  `main.nf`'s `bgc_analysis` entry reads. The `*.gbff` payload is republished by
-  `RENAME_GENOMES` anyway.
+- **The download no longer publishes the genomes**, only the metadata that `main.nf`'s
+  `bgc_analysis` entry reads. The `*.gbff` payload was republished by the renaming step
+  anyway.
 
 Together: ~52 -> ~16 MB/genome peak, and the 1M-genome projection goes 49.6 TB -> ~16 TB.
+
+**Superseded downward again on 2026-09-24.** That 16 MB/genome was every downloaded
+genome. Screening now happens inside the fetch, so at Erwiniaceae's 11% retention the
+other 89% are never written: ~2 TB at a million genomes rather than 16, and peak stops
+tracking taxon size at all. See "Batched download" below.
 
 Two Nextflow traps found doing this, both verified against the real output declarations:
 `publishDir`'s `pattern:` publishes **nothing at all** when any output is declared with a
@@ -546,9 +551,10 @@ The pipeline uses DSL2 subworkflows for modularity. Parameters in `nextflow.conf
 workflow (entry point)
 │
 ├── DOWNLOAD_GENOMES          # Download and prepare genomes from NCBI
-│   ├── NCBI_DATASETS_DOWNLOAD
+│   ├── NCBI_FETCH_METADATA   # taxon -> accessions + metadata, NO payload (3.7 kB/genome)
 │   ├── CREATE_NAME_MAP
-│   ├── RENAME_GENOMES
+│   ├── PEPM_MAKEDB
+│   ├── FETCH_RENAME_SCREEN   # per batch: fetch, rename, screen, keep survivors
 │   └── EXTRACT_TAXONOMY
 │
 └── BGC_ANALYSIS              # Main analysis pipeline
@@ -1364,6 +1370,13 @@ truncate `pipeline_info/`. The suite covers:
 - `Utils` helpers — `optArg` across real/placeholder/list/empty/null inputs, `isValidInput`, `sanitizeTaxon`, and that `batchSize()` yields a real Integer (`collate()` silently fails otherwise)
 - Batched per-genome processes — assembly-ID pairing across a batch, one output per genome after `.flatten()`, a corrupt genome skipped without losing its batch, and reuse-copy fidelity for hidden and nested files
 - Static checks — every script compiles, and `check_undefined.py` finds calls to names that are never defined or imported (this is what surfaced the phylo-fallback `NameError`)
+- `check_screen_flags.py` — the pepM screen is invoked from two modules (`PEPM_PRESCREEN`
+  for `--input_genomes`, `FETCH_RENAME_SCREEN` for downloaded genomes). Both call the same
+  script so the algorithm cannot drift, but the FLAGS can: the fused call site was written
+  without `--threads` and `--diamond` and agreed with the other only by coincidence
+  (`process_medium` is 4 CPUs, the script's `--threads` default is 4). Raise the label to
+  8 and one path silently uses half the threads. The check compares flag sets, not values
+  — the two legitimately differ in how they name inputs
 
 Notes on the runner: Nextflow derives `projectDir` from the entry script's location, so
 the test scripts are staged into the scratch dir with a `scripts/` symlink — otherwise
@@ -1421,8 +1434,8 @@ Steps whose per-genome work is under a couple of seconds are batched — one job
 genome is almost entirely scheduler overhead, and at 3M genomes the submission rate
 limit becomes the bottleneck rather than the compute.
 
-Batched processes: `RENAME_GENOMES`, `GENBANK_TO_FASTA`, `COPY_ANTISMASH_RESULT`
-(`params.task_batch_size`, default 100). `CHECK_ANTISMASH_REUSE` is not batched because
+Batched processes: `FETCH_RENAME_SCREEN` (`params.download_batch_size`, default 25),
+`GENBANK_TO_FASTA`, `COPY_ANTISMASH_RESULT` (`params.task_batch_size`, default 100). `CHECK_ANTISMASH_REUSE` is not batched because
 it already runs with `executor 'local'`.
 
 When adding or changing a batched process:
@@ -1432,11 +1445,99 @@ When adding or changing a batched process:
 - **Keep failures per-genome.** The batch script must catch per-item errors and continue,
   exiting non-zero only if every item failed — otherwise batching turns one bad genome
   into 100 lost ones
-- **Watch for input name collisions.** NCBI genomes are all named `genomic.gbff`, so
-  `RENAME_GENOMES` stages them as `genome?.gbff` and pairs staging order against the
-  assembly-ID list via a manifest
+- **Watch for input name collisions.** NCBI names every genome `genomic.gbff`.
+  `RENAME_GENOMES` handled this by staging them as `genome?.gbff` and pairing staging
+  ORDER against an assembly-ID list, which needed a guard because order is fragile.
+  `FETCH_RENAME_SCREEN` reads each accession from the directory NCBI downloaded it into,
+  so there is no ordering to get wrong -- the hazard is structurally gone rather than
+  guarded
 - **`collate()` needs a real Integer.** Params given on the command line arrive as
   strings, which silently fail to dispatch — always go through `batchSize()`
+
+### Batched download (`NCBI_FETCH_METADATA` + `FETCH_RENAME_SCREEN`)
+
+`NCBI_DATASETS_DOWNLOAD` was one task for the whole taxon: every genome resident in one
+work directory before anything downstream could run. At the 150,690 genomes of RefSeq
+Enterobacterales that is **1.3 TB**, and no amount of screening helps, because the screen
+cannot filter what has not finished downloading. The split is at a seam that already
+existed -- `datasets download --dehydrated` fetches metadata and a manifest, `rehydrate`
+fetches the payload:
+
+| stage | does | cost |
+|---|---|---|
+| `NCBI_FETCH_METADATA` | taxon -> accessions + metadata, no payload | 3.7 kB/genome |
+| `FETCH_RENAME_SCREEN` | per batch: fetch, rename, screen, keep survivors | one batch resident |
+
+Transient disk becomes `download_batch_size x download_max_forks x 8.7 MB`, ~440 MB at
+the defaults.
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `assembly_source` | `GenBank` | `RefSeq` is 8.3x smaller for Enterobacterales (150,690 against 1,257,000) and drops mostly redundant clinical isolates |
+| `assembly_reference_only` | `false` | NCBI's designated reference genome per species. Enterobacterales: 640. For measuring a clade before committing to it |
+| `download_batch_size` | 25 | sets transient disk AND the failure rate -- see below |
+| `download_max_forks` | 2 | measured, not guessed |
+
+**Concurrency above 2 is worse, not better.** Probed at 1/2/4/8 with zero failures at any
+level: 23.5, **33.5**, 29.0, 25.1 MB/s. Throughput peaks at 2 and declines -- a saturated
+link (~264 Mbit/s here), not server throttling. Batching therefore costs no wall time,
+because two fetches already saturate the connection.
+
+**NCBI returns an invalid zip for a share of requests, and the share grows with archive
+size.** A 30-minute soak found **8.1% of batch fetches failing**, flat across every
+5-minute bucket, all with
+
+    Downloading: d.zip  32.8MB invalid zip archive
+    Error: Internal error (invalid zip archive). Please try again
+
+The archive transfers in full and then fails NCBI's own validation. Three inline attempts
+each verified with `unzip -t` take 7.5% to ~0.04%. A **51-accession request (~130 MB)
+failed all six attempts of a real run and killed it**, while the same accessions fetched
+cleanly in 17-accession chunks minutes later -- hence 25 rather than the 200 this started
+at, and hence the per-accession fallback: a batch must exit non-zero only when *every*
+item failed.
+
+**Sustained throughput is ~98 genome-fetches/min, not the burst's 159.** Budget
+order-scale downloads at the sustained figure: 150,000 genomes is ~25 h.
+
+**Batch membership is assigned by `md5(accession) % n`, not by position.** Positional
+batching means one new NCBI deposit shifts every later genome into a different batch and
+the whole taxon re-downloads on `-resume`. Two bugs found doing this, both invisible at
+one batch: hand-rolling an unsigned int from the digest produced **negative** keys and
+~2x the intended batch count, and writing batch files with `createTempFile` gave each a
+fresh name and timestamp per run, so `-resume` missed all of them (`cached=4,
+completed=7`). Batch files now live at a stable path and are rewritten only when their
+content changes -- an identical rewrite still moves `last-modified` and still misses.
+
+### Enterobacterales feasibility (measured 2026-09-25)
+
+| | RefSeq · 150,690 | GenBank · 1,257,000 |
+|---|---:|---:|
+| total wall | **~2-3 d** | ~76 d |
+| disk retained | ~50 GB | 2.4 TB (of 647 GB free) |
+| BiG-SCAPE RAM, partitioned | a few GB | 133 GB (of 56) |
+
+**RefSeq is feasible on this box; GenBank is not, on three independent counts.**
+
+The projection was wrong until it was measured. Borrowing Erwiniaceae's rates -- 11%
+screen retention, 10.8% BGC-positive -- made GTDB-Tk look like a 7-day bottleneck, because
+it scales with BGC-POSITIVE genomes. Enterobacterales is **76% *E. coli*, *Salmonella* and
+*Klebsiella*** (114,532 of 150,690 RefSeq assemblies), clades known from prior lab work to
+carry fewer than 10 BGCs between them.
+
+A 640-genome pilot on the reference set measured it directly: 56 of 640 pass the screen
+(8.8%), 50 regions in 48 genomes, 40 GCFs. **That 8.8% does not transfer** -- the reference
+set is one genome per species, so it measures prevalence per SPECIES. Translating gives
+~2,700 genomes retained on full RefSeq. Data: `docs/comparisons/enterobacterales_pilot/`.
+
+One BGC in the pilot is pantaphos (*P. ananatis* PA13, distance 0.000); everything else
+sits 0.84-0.91 from any characterised cluster. Carriers are *Pectobacterium* (12),
+*Photorhabdus*, *Xenorhabdus*, *Brenneria*, *Lonsdalea* -- plant and insect pathogens, not
+the clinical bulk.
+
+**Do not read the 34 singletons as diversity.** 46 distinct species for 50 BGCs, so a
+family can only form where different species share a cluster. Pantaphos -- 186 members in
+Erwiniaceae -- is a singleton there, because those 186 are strains of one species.
 
 ### pepM Pre-Screen (`--pepm_prescreen`)
 
@@ -1448,10 +1549,11 @@ what this pipeline looks for. Establishing that costs **~0.9 CPU-s** against
 antiSMASH's **41.4**, which is what makes an order-scale run tractable.
 
 ```
-RENAME_GENOMES (renames AND screens) -> ANTISMASH   (only genomes that pass)
+FETCH_RENAME_SCREEN (fetches, renames AND screens) -> ANTISMASH   (only those that pass)
 ```
 
-**The screen runs inside `RENAME_GENOMES`, not as its own stage** (moved 2026-09-23).
+**The screen runs inside `FETCH_RENAME_SCREEN`, not as its own stage** (moved
+2026-09-23; that process was `RENAME_GENOMES` until the download was batched on 09-24).
 It used to filter the channel downstream, which scheduled correctly but kept every
 rejected genome on disk: on the Erwiniaceae verification run **24 GB of a 27 GB
 result directory was renamed genomes, and 2,464 of 2,771 were rejected and used for
@@ -1463,14 +1565,14 @@ output is declared, so it never reaches `publishDir` and `-resume` cannot resurr
 it. Both outputs are `optional`: a batch in a phosphonate-poor clade can legitimately
 have zero survivors.
 
-Genomes supplied via `--input_genomes` never pass through `RENAME_GENOMES`, so
+Genomes supplied via `--input_genomes` never pass through `FETCH_RENAME_SCREEN`, so
 `ANTISMASH_ANALYSIS` keeps its own `PEPM_PRESCREEN` for that path. The
 `prescreened` flag threaded through `BGC_ANALYSIS` decides which one runs; it is a
 plain boolean because the answer is known when the DAG is built.
 
 **Two bugs this move surfaced, both worth knowing:**
 
-- `RENAME_GENOMES` inherited a python-only conda environment, so the screen could
+- The fused process inherited a python-only conda environment, so the screen could
   not import biopython. `pepm_prescreen.py` caught that per genome, fell back to
   "screening by DNA", found nothing, and reported **every genome as
   pepM-negative** -- including *W. iniecta* B149, the known producer. It exited 0.
@@ -1711,10 +1813,10 @@ Each script-running process now embeds a digest of the scripts it depends on:
 
 The script block's text is part of the task hash, so a changed digest re-runs the
 task. Dependencies are listed **per process**, not hashed as one tree: a whole-tree
-digest would make `RENAME_GENOMES` depend on plotting code, and since it feeds
+digest would make the genome-fetching step depend on plotting code, and since it feeds
 antiSMASH, editing a chart would invalidate 1,735 antiSMASH tasks. Measured: editing
-`viz/rarefaction.py` changes the `VISUALIZE_RESULTS` digest and leaves
-`RENAME_GENOMES` and `GCF_BIOSYNTHETIC_TREE` untouched.
+`viz/rarefaction.py` changes the `VISUALIZE_RESULTS` digest and leaves the fetch and
+`GCF_BIOSYNTHETIC_TREE` untouched.
 
 Note `path` inputs were tried first and rejected. A directory `path` input does **not**
 hash its contents — a process staging `scripts/` served stale output while reporting
@@ -2000,6 +2102,35 @@ the counts and labels rather than to the clustering.
 `--db-only-output` is what makes it cheap: without it the pass spends 42 s of 78 s at
 2,000 BGCs regenerating HTML and trees nothing here reads. Verified to leave all 10,010
 and 20,010 reference distances identical. Copying the database costs 0.82 s at 856 MB.
+
+**17 references as of 2026-09-26**: 5 curated (pantaphos, argolaphos, bialaphos,
+phosphinothricin, phosphonothrixin) plus 12 of MIBiG 4.0's 13 pepM-bearing clusters,
+fetched by `scripts/genome/fetch_mibig_references.py`. Measured on the 10 kb Erwiniaceae
+run, 5,678 pairs in 18.7 s: **only pantaphos is inside the cutoff** (0.0000, 234 BGCs);
+every MIBiG cluster returns zero, nearest dehydrofosmidomycin 0.6198 and FR-900098 0.6280.
+The 5 pre-existing references return byte-identical numbers with 12 more present, which is
+the control that matters -- references perturb neither each other nor the clustering.
+
+That negative supersedes a weaker one: the claim that no Erwiniaceae BGC resembles a
+characterised cluster previously rested on KnownClusterBlast returning nothing above its
+own floor, which is a weak instrument reporting an absence.
+
+**Two clusters were judged, not just fetched.** BGC0000383 is EXCLUDED: deposited as the
+luminmycin/glidobactin NRPS/PKS cluster, its pepM is there because a pantaphos-like BGC
+sits adjacent in the deposit unnoticed by its authors. That also explains why
+luminmycin/glidobactin was KCB's best hit on 236 of 334 Erwiniaceae regions -- not noise,
+the unannounced phosphonate cluster inside it. BGC0001411 is KEPT: MIBiG calls it
+"polysaccharide B" but it is the 2-AEP phosphonolipid, the same chemistry as LMG 5342
+region 2. The two sit **0.9633 apart** -- shared head-group chemistry does not make
+clusters similar when the machinery around it differs.
+
+**MIBiG files need preparing, and patching the symptoms does not converge.** BiG-SCAPE
+2.0.1 rejects `Version :: False` in the header, then a region with no
+`candidate_cluster_numbers`, then the missing `cand_cluster` feature -- its AS5 reader
+walks region/cand_cluster/protocluster/proto_core and MIBiG supplies only the first. The
+fetch script strips MIBiG's partial region and rebuilds via `make_reference_bgc.py`, which
+already writes the whole chain. And BiG-SCAPE only ingests `.gbk` filenames containing
+"cluster" or "region", so `BGC0000897.gbk` would have been skipped SILENTLY.
 
 **Not wired on the partitioned path.** A merged partition database holds only
 within-partition distances, so this pass would compute every cross-partition pair that
@@ -2318,6 +2449,24 @@ ATP-grasp sits 9.2 kb from the core while the housekeeping that also differs sit
 ones, so 7.5 or 8 kb would drop the ATP-grasp and keep the diguanylate cyclase and
 SpoIIE. Asymmetry fails too: the cluster is downstream of the core in 96 regions and
 upstream in 85.
+
+**The 186/29 pantaphos split is biosynthetic, and that was settled by ablation rather
+than argued.** Removing PF13535 from all 215 regions and re-clustering (matched control
+reproducing 186/29 exactly) merges **18 of the 29**. An earlier correlational reading of
+this repo concluded the opposite -- that housekeeping context drove the split -- by
+comparing each member's mean distance to each family. Wrong twice: five GCF 1 members
+lacking the gene stay put because they keep the housekeeping, which shows housekeeping is
+SUFFICIENT for membership rather than the ATP-grasp being UNNECESSARY for exclusion; and
+family assignment is threshold-and-linkage, so one domain can be decisive at the boundary
+while barely moving an average.
+
+The 11 that remain are all *P. agglomerans*, and after trimming to the same size as the
+other 18 with their mobile cargo removed they STILL separate: species-level chromosomal
+context, not chemistry. Separately measured and NEGATIVE: antiSMASH's CUTOFF-chaining
+extends 14.4% of region cores across a >=5 kb gap (40 of 48 via `Aminotran_1_2`), but
+trimming every inflated boundary and re-clustering merges ZERO families. It inflates
+reported boundaries far more than it affects clustering, because the 10 kb neighbourhood
+re-covers most of what the core shed. Data: `docs/comparisons/pantaphos_family_split/`.
 
 **Never a score input.** The flag annotates the novelty ranking and must not move a rank.
 The domain map covers ~93% of observed hits and everything else is `other`, meaning
