@@ -1,0 +1,282 @@
+{
+  "cutoff": 0.3,
+  "references": {
+    "BGC0000806_phosphonoglycans_Glycomyces": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8862,
+      "nearest_genome": "Pantoea_ananatis_DAR_76143_DAR76143",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000807_phosphonoglycans_Stackebrandtia": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8873,
+      "nearest_genome": "Pantoea_ananatis_DAR_76143_DAR76143",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000897_dehydrophos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.866,
+      "nearest_genome": "Mixta_hanseatica_X22927",
+      "nearest_family": 11,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000904_FR900098": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.628,
+      "nearest_genome": "Pantoea_ananatis_PNA_18_9S",
+      "nearest_family": 1,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000926_rhizocticin_A": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8282,
+      "nearest_genome": "Pantoea_ananatis_PNA_18_9S",
+      "nearest_family": 1,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000937_fosfazinomycin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8819,
+      "nearest_genome": "Pantoea_ananatis_PNA_18_9S",
+      "nearest_family": 1,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000938_fosfomycin_Sfradiae": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8479,
+      "nearest_genome": "Erwinia_psidii_LPF_534",
+      "nearest_family": 6,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0001411_polysaccharideB_Bfragilis_2AEP": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8848,
+      "nearest_genome": "Pantoea_ananatis_DAR_76143_DAR76143",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0001739_phosphonoacetic_acid": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8256,
+      "nearest_genome": "Pantoea_ananatis_PANS_02-01",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0001859_fosfomycin_Psyringae": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.7461,
+      "nearest_genome": "Pantoea_ananatis_PNA_18_9S",
+      "nearest_family": 1,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0002036_dehydrofosmidomycin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.6198,
+      "nearest_genome": "Pantoea_ananatis_4-1",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0002670_fosfonochlorin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8482,
+      "nearest_genome": "Pantoea_ananatis_4-1",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "argolaphos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.7832,
+      "nearest_genome": "Pantoea_sp._BS_8",
+      "nearest_family": 11,
+      "bgcs_within_cutoff": 0
+    },
+    "bialaphos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8789,
+      "nearest_genome": "Pantoea_ananatis_DAR_76143_DAR76143",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "pantaphos_LMG5342": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.0,
+      "nearest_genome": "Pantoea_ananatis_PNA_07_7",
+      "nearest_family": 1,
+      "bgcs_within_cutoff": 234
+    },
+    "phosphinothricin_PTT": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.8784,
+      "nearest_genome": "Pantoea_ananatis_DAR_76143_DAR76143",
+      "nearest_family": 7,
+      "bgcs_within_cutoff": 0
+    },
+    "phosphonothrixin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.7472,
+      "nearest_genome": "Pantoea_allii_KB4",
+      "nearest_family": 4,
+      "bgcs_within_cutoff": 0
+    }
+  },
+  "references_not_loaded": [],
+  "families": {
+    "1": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.0,
+      "members": 186,
+      "members_within_cutoff": {
+        "pantaphos_LMG5342": 185
+      }
+    },
+    "10": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8749,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "11": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.6662,
+      "members": 3,
+      "members_within_cutoff": {}
+    },
+    "12": {
+      "nearest_reference": "BGC0000937_fosfazinomycin",
+      "distance": 0.9217,
+      "members": 4,
+      "members_within_cutoff": {}
+    },
+    "13": {
+      "nearest_reference": "BGC0002670_fosfonochlorin",
+      "distance": 0.9382,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "14": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.8565,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "15": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8859,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "16": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.9441,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "17": {
+      "nearest_reference": "BGC0000937_fosfazinomycin",
+      "distance": 0.9418,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "18": {
+      "nearest_reference": "BGC0000938_fosfomycin_Sfradiae",
+      "distance": 0.9362,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "19": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.9255,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "2": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.0196,
+      "members": 29,
+      "members_within_cutoff": {
+        "pantaphos_LMG5342": 28
+      }
+    },
+    "20": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.7602,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "21": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8886,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "22": {
+      "nearest_reference": "BGC0000897_dehydrophos",
+      "distance": 0.9378,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "3": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.199,
+      "members": 21,
+      "members_within_cutoff": {
+        "pantaphos_LMG5342": 21
+      }
+    },
+    "4": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.7472,
+      "members": 23,
+      "members_within_cutoff": {}
+    },
+    "5": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8288,
+      "members": 24,
+      "members_within_cutoff": {}
+    },
+    "6": {
+      "nearest_reference": "BGC0000938_fosfomycin_Sfradiae",
+      "distance": 0.8479,
+      "members": 4,
+      "members_within_cutoff": {}
+    },
+    "7": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.6198,
+      "members": 20,
+      "members_within_cutoff": {}
+    },
+    "8": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8992,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "9": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.7507,
+      "members": 5,
+      "members_within_cutoff": {}
+    }
+  }
+}

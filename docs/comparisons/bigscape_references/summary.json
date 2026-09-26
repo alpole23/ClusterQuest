@@ -56,5 +56,19 @@
     ],
     "per_bgc": "a1_contig_edge_per_bgc.tsv"
   },
-  "boundary_cause": "antiSMASH strict phosphonate rule NEIGHBOURHOOD 5; see ../antismash_neighbourhood"
+  "boundary_cause": "antiSMASH strict phosphonate rule NEIGHBOURHOOD 5; see ../antismash_neighbourhood",
+  "expanded_to_17_references_2026-09-26": {
+    "question": "Do the 12 pepM-bearing MIBiG clusters, added as references rather than as a full MIBiG run, find anything in Erwiniaceae that the 5 curated ones missed?",
+    "answer": "No, and that is the useful result.",
+    "run": "Reference pass over a copy of the 10 kb Erwiniaceae database (334 regions, 22 families), 17 references, 5,678 reference-BGC pairs, 18.7 s on 8 cores.",
+    "result": {
+      "pantaphos_LMG5342": "0.0000, 234 BGCs within the 0.30 cutoff",
+      "every_other_reference": "0 BGCs within cutoff",
+      "nearest_non_pantaphos": "dehydrofosmidomycin 0.6198, FR-900098 0.6280 -- both phosphonate natural products, so the ordering is chemically sensible",
+      "furthest": "phosphonoglycans (Stackebrandtia) 0.8873"
+    },
+    "the_control_that_matters": "The 5 pre-existing references return byte-identical numbers with 12 more in the directory -- argolaphos 0.7832/0, bialaphos 0.8789/0, phosphonothrixin 0.7472/0, phosphinothricin 0.8784/0, pantaphos 0.0000/234. References are measured independently: they neither perturb each other nor the published clustering, which is the whole reason for running them as a separate pass rather than with --bigscape_mibig_version.",
+    "what_it_confirms": "The README's original claim -- that no Erwiniaceae phosphonate BGC resembles a characterised cluster -- rested on KnownClusterBlast, which scores shared genes plus synteny and returned nothing above its floor. That was a weak instrument reporting an absence. This is the same absence measured properly, over whole domain content and adjacency, against every pepM-bearing cluster MIBiG has. Erwiniaceae phosphonate chemistry really is unrepresented in the characterised record, pantaphos aside.",
+    "cost": "18.7 s, against ~62 CPU-min and a shifted family composition for --bigscape_mibig_version 4.0."
+  }
 }
