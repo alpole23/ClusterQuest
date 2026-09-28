@@ -1,0 +1,73 @@
+gcf	members	branch_point	support	best_bitscore	reference	carrier_genes	carrier_class
+1	5	not via PnAA	5/5			0.8	none in cluster
+2	39	unknown (Ppd, no third enzyme found)	39/39			1.0	none in cluster
+3	53	unknown (Ppd, no third enzyme found)	53/53			1.0	none in cluster
+4	30	unknown (Ppd, no third enzyme found)	30/30			1.0	none in cluster
+5	32	unknown (Ppd, no third enzyme found)	30/32	136.4	HEP profile	0.0	none in cluster
+6	38	unknown (Ppd, no third enzyme found)	38/38			0.0	none in cluster
+7	100	unknown (Ppd, no third enzyme found)	100/100			0.0	none in cluster
+8	21	unknown (Ppd, no third enzyme found)	21/21			0.0	none in cluster
+9	126	unknown (Ppd, no third enzyme found)	126/126			0.0	none in cluster
+10	28	unknown (Ppd, no third enzyme found)	28/28			0.0	none in cluster
+11	24	unknown (Ppd, no third enzyme found)	24/24			0.0	none in cluster
+12	49	unknown (Ppd, no third enzyme found)	49/49			0.0	none in cluster
+13	28	unknown (Ppd, no third enzyme found)	28/28			0.0	none in cluster
+14	6	unknown (Ppd, no third enzyme found)	6/6			0.0	none in cluster
+15	78	unknown (Ppd + class I/II transaminase only)	77/78			0.0	none in cluster
+16	7	unknown (Ppd, no third enzyme found)	7/7			0.0	none in cluster
+17	16	not via PnAA	16/16			0.0	none in cluster
+18	17	not via PnAA	17/17			0.0	none in cluster
+19	9	not via PnAA	9/9			0.0	none in cluster
+20	30	not via PnAA	30/30			0.0	none in cluster
+21	8	not via PnAA	8/8			0.0	none in cluster
+22	186	not via PnAA	186/186			0.0	none in cluster
+23	21	not via PnAA	21/21			3.0	none in cluster
+24	28	not via PnAA	28/28			0.0	none in cluster
+25	18	unknown (Ppd, no third enzyme found)	17/18			0.0	none in cluster
+26	31	2-AEP (homologue)	31/31	239.4	AEP profile	0.9	none in cluster
+27	38	2-AEP (homologue)	28/38	257.0	AEP profile	0.1	none in cluster
+28	55	2-AEP (homologue)	55/55	218.2	AEP profile	0.0	none in cluster
+29	22	2-AEP (homologue)	22/22	259.0	AEP profile	0.0	none in cluster
+30	2	2-AEP (homologue)	2/2	195.6	AEP profile	0.0	none in cluster
+31	17	unknown (Ppd, no third enzyme found)	17/17			0.0	none in cluster
+32	6	2-AEP (homologue)	6/6	215.3	AEP profile	0.0	none in cluster
+33	5	unknown (Ppd, no third enzyme found)	5/5			0.0	none in cluster
+34	3	not via PnAA	3/3			0.0	none in cluster
+35	16	2-AEP (homologue)	16/16	288.9	AEP profile	4.1	glycan
+36	5	2-AEP (homologue)	5/5	314.3	AEP profile	3.0	none in cluster
+37	7	not via PnAA	4/7	96.7	HEP profile	0.4	none in cluster
+38	5	2-HEP (weak homologue)	4/5	90.2	HEP profile	0.0	none in cluster
+39	3	2-AEP (homologue)	3/3	288.2	AEP profile	3.0	none in cluster
+40	22	not via PnAA	22/22			0.0	none in cluster
+41	6	not via PnAA	6/6			0.0	none in cluster
+42	2	not via PnAA	2/2			0.0	none in cluster
+43	5	not via PnAA	5/5			0.0	none in cluster
+44	5	unknown (Ppd, no third enzyme found)	5/5			0.0	none in cluster
+45	2	2-AEP (class V transaminase, no profile hit)	2/2			0.0	none in cluster
+46	2	2-AEP (homologue)	2/2	178.0	AEP profile	0.0	none in cluster
+47	4	unknown (Ppd, no third enzyme found)	4/4			0.0	none in cluster
+48	5	not via PnAA	5/5			0.0	none in cluster
+49	2	not via PnAA	2/2			0.0	none in cluster
+50	5	not via PnAA	5/5			0.6	none in cluster
+51	2	not via PnAA	2/2			0.0	none in cluster
+52	2	not via PnAA	2/2			0.0	none in cluster
+53	4	unknown (Ppd, no third enzyme found)	4/4			0.0	none in cluster
+54	3	unknown (Ppd, no third enzyme found)	3/3			0.0	none in cluster
+55	2	unknown (Ppd, no third enzyme found)	2/2			0.0	none in cluster
+56	2	unknown (Ppd + class I/II transaminase only)	2/2			0.0	none in cluster
+57	1	unknown (Ppd, no third enzyme found)	1/1			0.0	none in cluster
+58	1	2-AEP (homologue)	1/1	230.5	AEP profile	0.0	none in cluster
+59	1	not via PnAA	1/1			0.0	none in cluster
+60	1	not via PnAA	1/1			0.0	none in cluster
+61	1	2-HEP (homologue)	1/1	179.2	HEP profile	0.0	none in cluster
+62	1	not via PnAA	1/1			0.0	none in cluster
+63	1	not via PnAA	1/1			0.0	none in cluster
+64	1	not via PnAA	1/1			0.0	none in cluster
+65	1	not via PnAA	1/1			0.0	none in cluster
+66	1	not via PnAA	1/1			0.0	none in cluster
+67	1	not via PnAA	1/1			2.0	none in cluster
+68	1	unknown (Ppd, no third enzyme found)	1/1			0.0	none in cluster
+69	1	not via PnAA	1/1			0.0	none in cluster
+70	1	not via PnAA	1/1			0.0	none in cluster
+71	1	2-AEP (homologue)	1/1	231.0	AEP profile	0.0	none in cluster
+72	1	2-HEP (weak homologue)	1/1	78.7	HEP profile	0.0	none in cluster

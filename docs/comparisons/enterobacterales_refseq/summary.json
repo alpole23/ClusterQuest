@@ -1,0 +1,71 @@
+{
+  "question": "What does a full RefSeq Enterobacterales run cost and find, on one 16-core / 56 GB box?",
+  "date": "2026-09-27",
+  "run": {
+    "taxon": "Enterobacterales", "assembly_source": "RefSeq",
+    "genomes": 150690, "tasks": 6098, "failed": 0,
+    "wall": "43.1 h (1.80 d)", "cpu": "104.2 CPU-h",
+    "settings": "pepm_prescreen on, recover_orfs on, GTDB-Tk on, 10 kb neighbourhood, download_batch_size 25, download_max_forks 2"
+  },
+
+  "found": {
+    "screened": 150682,
+    "passed_screen": "1,309 (0.87%)",
+    "regions": 1303,
+    "bgc_positive_genomes": 1261,
+    "gcfs": 72,
+    "largest_families": "186, 126, 100, 78, 55, 53, 49, 39",
+    "singletons": 16
+  },
+
+  "the_cpu_shape_has_inverted": {
+    "measured": {
+      "FETCH_RENAME_SCREEN": "42.1 CPU-h, 40.4%, 6,028 tasks",
+      "ANTISMASH": "30.5 CPU-h, 29.3%, 27 tasks",
+      "RECOVER_ORFS": "20.9 CPU-h, 20.0%",
+      "GTDBTK_CLASSIFY": "9.1 CPU-h, 8.8%",
+      "BIGSCAPE": "0.7 CPU-h, 0.7%"
+    },
+    "why_it_matters": "On Erwiniaceae antiSMASH was 81.5% of CPU and every sizing note in CLAUDE.md follows from that. Here it is 29%, and fetching-and-screening is the largest single consumer -- because the screen rejects 99.1% and antiSMASH only ever sees 1,309 genomes. At order scale this pipeline is no longer antiSMASH-bound.",
+    "the_stage_nobody_modelled": "RECOVER_ORFS is 20% of CPU and appeared in none of the projections given before this run."
+  },
+
+  "peak_disk_measured_not_projected": {
+    "observed_peak": "150 GB total consumed; outdir 30 GB, work 150 GB",
+    "projected": "~50 GB",
+    "where_it_actually_went": "111 GB of the peak is a single GTDBTK_CLASSIFY task, 95 GB of that being pplacer scratch. That is set by GTDB's reference data, not by how few genomes reach it.",
+    "what_the_storage_work_did_and_did_not_do": "The output directory behaved exactly as designed: 30 GB, with the screened-out 99.1% never written. What was wrong was generalising that to 'peak disk'. Peak no longer tracks TAXON SIZE -- it tracks GTDB-Tk. Those are different claims and CLAUDE.md asserted the weaker one as though it were the stronger.",
+    "memory_peak": "19 GB of 56"
+  },
+
+  "download": {
+    "batches": 6028,
+    "rate": "70.4 genomes/min sustained, against 98 measured in the Erwiniaceae soak",
+    "why_slower": "The soak cycled a 2,784-accession Erwiniaceae pool containing 213 Buchnera endosymbionts at ~0.6 Mb. Enterobacterales is full of 5-6 Mb Klebsiella and E. coli, so bytes per genome are higher. 98/min was a clade-specific figure generalised too freely.",
+    "failures": "0 tasks failed across 6,028 fetch batches. The ~8% invalid-zip rate measured in the soak was absorbed by the three inline retries; the per-accession fallback is not known to have fired."
+  },
+
+  "chemistry": {
+    "only_reference_inside_the_cutoff": "pantaphos, 0.0000, 234 BGCs",
+    "nearest_of_the_other_16": "fosfomycin (P. syringae) 0.3685, rhizocticin A 0.3847, bialaphos 0.4041",
+    "reading": "1,069 of 1,303 BGCs are not within 0.30 of ANY characterised cluster, including all 12 pepM-bearing MIBiG entries. Note the nearest non-pantaphos distances are much shorter here than on Erwiniaceae (0.37-0.43 against 0.62-0.89), so the order does contain chemistry closer to the known record -- just not inside the family cutoff.",
+    "branch_points": "not via PnAA 30, unknown (Ppd, no third enzyme) 24, 2-AEP 13, 2-HEP 3, unknown (Ppd + class I/II transaminase) 2"
+  },
+
+  "the_pilot_retraction_was_right": "The 640-genome pilot gave 40 GCFs from 50 BGCs, 34 of them singletons, and an early reading took that as high diversity. It was dereplication: one genome per species. At full depth the same order gives 72 families from 1,303 BGCs with a largest of 186 and only 16 singletons -- families accumulate members exactly as predicted.",
+
+  "prevalence_projection_vs_measurement": {
+    "erwiniaceae_rates_borrowed": "11% screen retention, 10.8% BGC-positive -- would have predicted ~16,500 genomes to antiSMASH",
+    "clade_aware_model": "1.7-2.9% retention, ~2,700 genomes",
+    "measured": "0.87% retention, 1,309 genomes",
+    "reading": "The clade-aware model was right in shape and conservative in degree. The flat Erwiniaceae rate was wrong by 12x, and wrong on the stage that binds."
+  },
+
+  "data": {
+    "disk_samples.tsv": "60 s samples of free/outdir/work/memory across the whole run -- peak only exists during a run, and du afterwards measures the residue",
+    "pipeline_trace.tsv.gz": "per-task Nextflow trace, the basis of the CPU table above",
+    "prescreen_verdicts.tsv.gz": "every one of the 150,682 screen decisions",
+    "region_tabulation.tsv.gz": "the 1,303 regions",
+    "reference_summary.json": "distances to all 17 references"
+  }
+}

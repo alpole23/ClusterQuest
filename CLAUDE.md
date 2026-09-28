@@ -311,6 +311,42 @@ write-up with the cost model: `docs/benchmark_2026-08-29.html`.
 
 **antiSMASH is O(n) and dominant today.** BiG-SCAPE was measured separately (below).
 
+### Measured: RefSeq Enterobacterales (2026-09-27) — the shape inverts at order scale
+
+150,690 genomes, one 16-core / 56 GB box, screen on, recovery on, GTDB-Tk on.
+**6,098 tasks, 0 failed, 43.1 h wall, 104.2 CPU-h.** Found 1,303 regions in 1,261
+genomes, 72 families (largest 186, 16 singletons).
+
+| process | CPU-h | share | Erwiniaceae share |
+|---|---:|---:|---:|
+| `FETCH_RENAME_SCREEN` | **42.1** | **40.4%** | — |
+| `ANTISMASH` | 30.5 | 29.3% | **81.5%** |
+| `RECOVER_ORFS` | 20.9 | 20.0% | — |
+| `GTDBTK_CLASSIFY` | 9.1 | 8.8% | 16.4% |
+| `BIGSCAPE` | 0.7 | 0.7% | 0.2% |
+
+**Do not size an order-scale run from the Erwiniaceae table above.** antiSMASH falls
+from 81.5% to 29% because the screen rejects 99.1% and antiSMASH sees only 1,309
+genomes; fetching-and-screening becomes the largest consumer. `RECOVER_ORFS` at 20% had
+been in no projection at all.
+
+**Screen retention is 0.87%, against 11% on Erwiniaceae.** Borrowing the Erwiniaceae rate
+would have predicted ~16,500 genomes to antiSMASH rather than 1,309 — wrong by 12x, and
+wrong on the stage that binds. Retention tracks clade composition: 76% of RefSeq
+Enterobacterales is *E. coli*, *Salmonella* and *Klebsiella*, which carry almost none.
+
+**Download ran at 70.4 genomes/min, not the 98 measured in the Erwiniaceae soak.** That
+soak cycled a pool containing 213 *Buchnera* endosymbionts at ~0.6 Mb; Enterobacterales is
+5-6 Mb *Klebsiella*. 98/min was clade-specific and was generalised too freely. Zero of
+6,028 fetch batches failed — the ~8% invalid-zip rate was absorbed by the inline retries.
+
+**Peak disk was 150 GB, and 111 GB of it was one GTDB-Tk task** (95 GB of pplacer
+scratch, set by GTDB's reference data rather than by the query set). The output directory
+did what the storage rewrite intended — 30 GB, the screened-out 99.1% never written — but
+"peak no longer tracks taxon size" is the correct claim, NOT "peak is ~50 GB". Peak now
+tracks GTDB-Tk. Memory peaked at 19 GB of 56. Data:
+`docs/comparisons/enterobacterales_refseq/`.
+
 **GTDB-Tk's scaling is linear, measured 2026-09-18.** An earlier version of this file
 claimed it was fixed-dominated ("59% more genomes cost 3% more, therefore O(1)"), which
 compared *total* genomes (1,736 → 2,758) while `gtdbtk_bgc_genomes_only` means GTDB-Tk
@@ -1518,6 +1554,11 @@ content changes -- an identical rewrite still moves `last-modified` and still mi
 | BiG-SCAPE RAM, partitioned | a few GB | 133 GB (of 56) |
 
 **RefSeq is feasible on this box; GenBank is not, on three independent counts.**
+
+**Run 2026-09-27 and measured: 43.1 h, 104.2 CPU-h, 0 failures.** The ~2-3 day estimate
+held. Retention came in at 0.87% against the 1.7-2.9% modelled, so the clade-aware model
+was right in shape and conservative in degree. Peak disk was 150 GB rather than the ~50 GB
+projected, because GTDB-Tk's scratch dominates it — see the benchmark section above.
 
 The projection was wrong until it was measured. Borrowing Erwiniaceae's rates -- 11%
 screen retention, 10.8% BGC-positive -- made GTDB-Tk look like a 7-day bottleneck, because
