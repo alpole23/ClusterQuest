@@ -374,6 +374,54 @@ the 23.2 CPU-min intercept, so 20 shards cost ~7.7 CPU-h on ~1,271 — **0.6%**,
 the sharding cheap insurance rather than a gamble. Data:
 `docs/comparisons/gtdbtk_scaling/`.
 
+**What the order actually contains.** Only pantaphos falls inside the 0.30 cutoff
+(234 BGCs). The other 16 references sit **0.37-0.43** away, against 0.62-0.89 on
+Erwiniaceae — so Enterobacterales holds chemistry markedly closer to the characterised
+record, just not inside the family cutoff. 1,069 of 1,303 BGCs are not within 0.30 of any
+characterised cluster. Branch points: not via PnAA 30, unknown (Ppd, no third enzyme) 24,
+2-AEP 13, 2-HEP 3.
+
+**The 640-genome pilot's singletons were dereplication, confirmed.** That pilot gave 40
+GCFs from 50 BGCs, 34 of them singletons, and an early reading took it for high diversity.
+One genome per species means a family can only form where different species share a
+cluster. At full depth the same order gives 72 families from 1,303 BGCs, largest 186, only
+16 singletons. **Never read family structure off a dereplicated set.**
+
+### Paper figures (`scripts/figures/`, output in `docs/figures/`)
+
+Four figures, each regenerating with one command and no live run directory:
+
+| script | manuscript | shows |
+|---|---|---|
+| `fig1_window_x_recovery.py` | Figure 1 | LMG 5342's two clusters at 2x2 window x recovery |
+| `fig1_orf_recovery.py` | Figure 2 | ORF recovery across clades + a gain distribution |
+| `fig2_prescreen.py` | Figure 3 | pre-screen CPU saving and detection neutrality |
+| `fig3_partitioning.py` | Figure 4 | BiG-SCAPE partitioning: runtime, memory, families |
+
+**Inputs are committed, and that was not free.** Figures 1 and 2 read region GenBanks
+that used to come from six A/B run directories under `results_*/`, which is gitignored and
+was 177 GB — so the manuscript's "every figure regenerates from committed data" was false
+until `docs/comparisons/figure_inputs/` was extracted (2.5 MB: the 14 GenBanks the panels
+draw, plus 717 per-region gene gains as a table). `gain_distribution()` reads that table
+and never globs: only the drawn regions are committed, so a glob would return a PARTIAL
+distribution and draw a wrong panel with no error. `--rebuild-gains` refreshes it from a
+live run.
+
+**Measured and projected must not look alike.** Figure 3 carries Enterobacterales at 32x,
+which is the panel's strongest point and also the only one whose without-screen arm was
+never run (150,690 antiSMASH runs, ~3,365 CPU-h). It is drawn hatched and captioned
+"PROJECTED, not run" rather than filled like the four measured pairs.
+
+**Check the render, not just the exit code.** Adding that point produced a figure whose
+headline still said "up to 9x" and which placed the most dilute taxon at the right-hand
+end of a panel ordered by prevalence lowest-first. Both were obvious on sight and
+invisible in the script.
+
+Output is byte-deterministic across processes — `utils/plotting` pins `svg.hashsalt` and
+`canonicalise_svg` rewrites clip-path ids. The committed SVGs were found stale once,
+produced by older script versions and never refreshed; regenerate all four after touching
+any of them.
+
 ### Measured: BiG-SCAPE scaling (2026-08-30)
 
 `scripts/bench_bigscape_scaling.py`, ten sizes from 333 to 10,000 BGCs, built by
