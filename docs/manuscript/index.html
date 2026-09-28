@@ -1,0 +1,638 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Phosphonate Cluster Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --paper:      #fcfcfb;
+    --surface:    #f1f3f2;
+    --surface-2:  #e7ebe9;
+    --ink:        #15191a;
+    --ink-soft:   #454e50;
+    --ink-faint:  #6b7679;
+    --rule:       #d6dbd9;
+    --rule-soft:  #e6eae8;
+    --accent:     #0f5c4d;
+    --accent-soft:#e2eeea;
+    --flag:       #8c3b2e;
+    --flag-bg:    #f7eeec;
+    --serif: "Spectral", Georgia, "Times New Roman", serif;
+    --sans:  "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono:  "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #101413;
+      --surface:    #171d1c;
+      --surface-2:  #1e2625;
+      --ink:        #e9eeec;
+      --ink-soft:   #b2bcb9;
+      --ink-faint:  #87918f;
+      --rule:       #2b3634;
+      --rule-soft:  #212a29;
+      --accent:     #5fc0a8;
+      --accent-soft:#16302a;
+      --flag:       #e0937f;
+      --flag-bg:    #2a1d19;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:      #101413;
+    --surface:    #171d1c;
+    --surface-2:  #1e2625;
+    --ink:        #e9eeec;
+    --ink-soft:   #b2bcb9;
+    --ink-faint:  #87918f;
+    --rule:       #2b3634;
+    --rule-soft:  #212a29;
+    --accent:     #5fc0a8;
+    --accent-soft:#16302a;
+    --flag:       #e0937f;
+    --flag-bg:    #2a1d19;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 44rem; margin: 0 auto; padding-inline: 20px; padding-block: 0 96px; }
+  .wide { max-width: 58rem; margin-inline: auto; }
+
+  /* ---------- masthead ---------- */
+  header.paper-head { padding-block: 56px 26px; border-bottom: 2px solid var(--ink); margin-bottom: 32px; }
+  .kicker {
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--accent);
+  }
+  h1 {
+    font-size: clamp(27px, 4.6vw, 38px); line-height: 1.16; font-weight: 600;
+    letter-spacing: -0.017em; margin: 16px 0 14px; text-wrap: balance;
+  }
+  .byline { font-family: var(--sans); font-size: 14.5px; color: var(--ink-soft); margin: 0 0 4px; }
+  .affil  { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); margin: 0; }
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px;
+    font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+  }
+
+  /* ---------- structure ---------- */
+  h2 {
+    font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink);
+    margin: 52px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--rule);
+  }
+  h2 .num { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums; }
+  h3 {
+    font-family: var(--sans); font-size: 15.5px; font-weight: 600;
+    margin: 34px 0 10px; letter-spacing: -0.005em;
+  }
+  h3 .num { color: var(--accent); margin-right: 9px; font-variant-numeric: tabular-nums; font-weight: 500; }
+  p { margin: 0 0 16px; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+
+  /* ---------- abstract ---------- */
+  .abstract {
+    background: var(--surface); padding: 22px 24px; margin-block: 8px 12px;
+    border-left: 3px solid var(--accent);
+  }
+  .abstract p:last-child { margin-bottom: 0; }
+  .abstract .label {
+    font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 9px;
+  }
+
+  /* ---------- figures ---------- */
+  figure { margin: 30px 0; }
+  figure img {
+    width: 100%; max-width: 100%; display: block;
+    border: 1px solid var(--rule-soft); border-radius: 2px; background: #fff;
+  }
+  figcaption {
+    font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--ink-soft);
+    margin-top: 11px;
+  }
+  figcaption .fignum { font-weight: 600; color: var(--ink); }
+
+  /* ---------- tables ---------- */
+  .table-wrap { overflow-x: auto; margin-block: 20px; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 13.5px; }
+  caption {
+    caption-side: top; text-align: left; font-family: var(--sans); font-size: 13px;
+    color: var(--ink-soft); padding-bottom: 9px;
+  }
+  caption .fignum { font-weight: 600; color: var(--ink); }
+  th, td { padding: 8px 15px 8px 0; text-align: left; vertical-align: top; }
+  thead th {
+    font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ink-faint); border-bottom: 1px solid var(--rule); white-space: nowrap;
+  }
+  tbody tr + tr td { border-top: 1px solid var(--rule-soft); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+  tr.total td { border-top: 1px solid var(--rule); font-weight: 600; }
+  .yes { color: var(--accent); font-weight: 600; }
+  .no  { color: var(--flag); font-weight: 600; }
+
+  /* ---------- callouts ---------- */
+  .flagbox {
+    background: var(--flag-bg); border-left: 3px solid var(--flag);
+    padding: 16px 19px; margin-block: 24px; font-size: 16px;
+  }
+  .flagbox p:last-child { margin-bottom: 0; }
+  .flagbox .label {
+    font-family: var(--sans); font-size: 10.5px; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--flag); display: block; margin-bottom: 7px;
+  }
+  .notebox {
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    padding: 16px 19px; margin-block: 24px; font-size: 16px;
+  }
+  .notebox p:last-child { margin-bottom: 0; }
+  .notebox .label {
+    font-family: var(--sans); font-size: 10.5px; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 7px;
+  }
+
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code, .mono { font-family: var(--mono); font-size: .86em; }
+  code { background: var(--surface); padding: 1px 4px; border-radius: 2px; }
+
+  .stat-row { display: flex; flex-wrap: wrap; gap: 10px; margin-block: 22px; }
+  .stat {
+    flex: 1 1 140px; background: var(--surface); padding: 13px 15px;
+    border-top: 2px solid var(--accent);
+  }
+  .stat .v {
+    font-family: var(--sans); font-size: 23px; font-weight: 600; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums; display: block; line-height: 1.2;
+  }
+  .stat .k {
+    font-family: var(--sans); font-size: 11px; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--ink-faint); margin-top: 3px; display: block;
+  }
+
+  footer.paper-foot {
+    margin-top: 54px; padding-top: 18px; border-top: 1px solid var(--rule);
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink-faint); line-height: 1.6;
+  }
+  footer.paper-foot p { margin-bottom: 9px; }
+
+  .ref { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); }
+  .ref li { margin-bottom: 10px; }
+  .todo {
+    font-family: var(--mono); font-size: 11.5px; color: var(--flag);
+    background: var(--flag-bg); padding: 1px 5px; border-radius: 2px;
+  }
+</style>
+
+<div class="wrap">
+
+<header class="paper-head">
+  <div class="kicker">Preprint · methods</div>
+  <h1>Two blind spots in automated biosynthetic gene cluster detection, and a pipeline that closes them</h1>
+  <p class="byline">A. Polidore<span class="todo">co-author list to be completed</span></p>
+  <p class="affil">ClusterQuest — <span class="mono">github.com/alpole23/ClusterQuest</span></p>
+  <div class="meta-row">
+    <span>19 September 2026</span>
+    <span>antiSMASH 8.0.4 · BiG-SCAPE 2.0.1 · GTDB r226 · Pfam 38.2</span>
+  </div>
+</header>
+
+<div class="abstract">
+  <span class="label">Abstract</span>
+  <p>Automated biosynthetic gene cluster (BGC) detection is usually treated as a solved
+  preprocessing step. Using phosphonate BGCs as a test case, we show that two independent
+  failures of the standard antiSMASH configuration remove a large fraction of cluster gene
+  content before any downstream analysis begins, and that they are not the same failure.
+  First, the phosphonate detection rule ships a 5 kb flank that is too narrow for this
+  chemistry: 4.2 kb of the characterised HiVir cluster of <em>Pantoea ananatis</em> LMG 5342
+  lies outside it. Second, antiSMASH performs gene finding only on records with zero CDS
+  features, so a partially annotated deposit is trusted for all of its genes; on the same
+  genome this left 14 of 28 genes of a confirmed phosphonolipid cluster invisible, including
+  both CDP-alcohol phosphatidyltransferases. Correcting both raises the two clusters from 10
+  and 14 genes to 25 and 37.</p>
+  <p>We further show the corrections are not independent — recovered genes can match the
+  detection rule, extending the cluster core and shifting the flank by 1.6 kb — and that the
+  two clusters in this single genome require opposite fixes. We describe a pepM pre-screen
+  that removes up to 9× of the compute without losing a BGC, validate it on a clade
+  contributing none of its references, and report a sensitivity failure that only that
+  held-out clade exposed. All figures regenerate from committed data.</p>
+</div>
+
+<h2><span class="num">1</span>Introduction</h2>
+
+<p>Phosphonates are a structurally diverse class of natural products unified by a direct
+carbon–phosphorus bond, installed by phosphoenolpyruvate mutase (pepM). Because pepM is
+obligate, phosphonate biosynthesis is one of the few natural-product classes with a single
+reliable genomic marker, which makes it an unusually clean system for asking how well
+automated BGC detection actually performs.</p>
+
+<p>The conventional pipeline — antiSMASH for detection, BiG-SCAPE for gene cluster family
+(GCF) clustering — is typically run at defaults and its output taken as the substrate for
+everything downstream: gene-content metrics, family assignment, novelty ranking, target
+selection. We report that at defaults this substrate is systematically incomplete, in two
+ways that compound, and that the incompleteness is invisible: a truncated or under-annotated
+cluster produces no warning and scores as a minimal cluster rather than an unreadable one.</p>
+
+<p>This matters beyond bookkeeping. An earlier version of this work attempted to predict
+phosphonolipid versus small-molecule product from cluster gene content and obtained an
+inverted answer on the two clusters whose chemistry is known from laboratory work. The cause
+was not the metric: all four signals tested had been measured on a cluster the pipeline could
+not see.</p>
+
+<h2><span class="num">2</span>Results</h2>
+
+<h3><span class="num">2.1</span>Two blind spots, measured on one genome</h3>
+
+<p><em>P. ananatis</em> LMG 5342 carries two phosphonate clusters — the pantaphos/HiVir cluster
+and a confirmed phosphonolipid cluster — in a 2012 GenBank deposit that annotates a minority
+of their genes. Running all four combinations of detection neighbourhood (5 or 10 kb) and ORF
+recovery (off or on) isolates each effect and their interaction (Figure 1).</p>
+
+<figure>
+  <img src="fig1.svg" alt="Four detection configurations applied to the two phosphonate clusters of Pantoea ananatis LMG 5342, drawn on genome coordinates. Grey bands show the captured interval; gene arrows are coloured by antiSMASH functional class and outlined where recovered by gene calling.">
+  <figcaption><span class="fignum">Figure 1.</span> The two clusters of <em>P. ananatis</em>
+  LMG 5342 at all four combinations of neighbourhood and ORF recovery, drawn on genome
+  coordinates so the captured intervals can be overlaid. Grey bands are the reported region;
+  heavy outlines mark genes recovered by gene calling. <strong>A</strong>, pantaphos/HiVir —
+  4.2 kb of the cluster falls outside the 5 kb flank. <strong>B</strong>, the phosphonolipid
+  cluster — note that the "+ ORF recovery" bands extend further right than their "deposited
+  only" counterparts at the <em>same</em> neighbourhood setting, the 1,566 bp boundary shift
+  caused by recovery alone.</figcaption>
+</figure>
+
+<div class="table-wrap">
+  <table>
+    <caption><span class="fignum">Table 1.</span> Genes reported per cluster under each
+    configuration. Both clusters lie in one genome and one deposit.</caption>
+    <thead>
+      <tr><th>Configuration</th><th class="num">region 1 (pantaphos)</th><th class="num">region 2 (phosphonolipid)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>5 kb, deposited annotation only <span class="mono">(antiSMASH default)</span></td><td class="num">10</td><td class="num">14</td></tr>
+      <tr><td>5 kb, + ORF recovery</td><td class="num">14</td><td class="num">28</td></tr>
+      <tr><td>10 kb, deposited annotation only</td><td class="num">19</td><td class="num">22</td></tr>
+      <tr class="total"><td>10 kb, + ORF recovery</td><td class="num">25</td><td class="num">37</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p><strong>The two clusters require opposite fixes.</strong> Pantaphos gains more from the
+wider window (+9) than from recovery (+4); the phosphonolipid gains more from recovery (+14)
+than from the window (+8). Neither correction alone is sufficient for both, and they sit in
+the same genome — so this is not a property of assembly quality or submitter, but of which
+genes the annotation pipeline happened to call and where the rule core happened to fall.</p>
+
+<div class="notebox">
+  <span class="label">Why a 2 × 2 and not a sequence</span>
+  <p>The two corrections interact. Recovered genes can themselves match the detection rule,
+  which extends the rule core, which moves the flank with it: region 2's 3′ boundary shifts
+  <strong>1,566 bp from recovery alone</strong>, at both neighbourhood settings. Presenting
+  one correction as applied "before" the other would assert an independence the data does not
+  support.</p>
+</div>
+
+<p>The recovered genes are not filler. In the phosphonolipid cluster they include the
+2-aminoethylphosphonate transaminase, both CDP-alcohol phosphatidyltransferases, a
+phosphocholine cytidylyltransferase and an MFS transporter — that is, the genes that
+determine what the cluster makes. In the pantaphos cluster, recovery restores the 175 aa
+small subunit (LeuD) of a 3-isopropylmalate dehydratase whose 412 aa large subunit was
+annotated, completing a two-subunit enzyme, plus a GNAT-family N-acetyltransferase.</p>
+
+<h3><span class="num">2.2</span>ORF recovery is targeted, not indiscriminate</h3>
+
+<p>A correction that adds genes everywhere would be suspect. Applied across five clades
+(Figure 2), recovery instead fires in proportion to how incomplete the deposit is — and
+what it recovers tracks that too.</p>
+
+<figure>
+  <img src="fig2.svg" alt="Five phosphonate clusters from four clades shown before and after ORF recovery, with a panel placing each example within the distribution of per-region gene gains for its clade.">
+  <figcaption><span class="fignum">Figure 2.</span> ORF recovery across five clusters and
+  four clades, all at the 10 kb neighbourhood. <strong>A–B</strong>, recovery restores core
+  and tailoring enzymes. <strong>C</strong>, the pantaphos cluster in the same genome as B,
+  already well annotated. <strong>D</strong>, <em>S. griseus</em> — two ATP-grasp tailoring
+  enzymes recovered. <strong>E</strong>, <em>B. fragilis</em> — a modern complete deposit,
+  where recovery adds hypotheticals only. <strong>F</strong> places each illustrated cluster
+  within its clade's distribution of per-region gains; the illustrated examples are the tail,
+  not the typical case.</figcaption>
+</figure>
+
+<div class="table-wrap">
+  <table>
+    <caption><span class="fignum">Table 2.</span> Proportion of BGC regions gaining any gene
+    from ORF recovery, by clade.</caption>
+    <thead>
+      <tr><th>Clade</th><th class="num">regions</th><th class="num">gained ≥1 gene</th><th class="num">%</th><th>character of recovered genes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><em>Pantoea</em> + <em>Winslowiella</em></td><td class="num">228</td><td class="num">67</td><td class="num">29%</td><td>core and tailoring enzymes</td></tr>
+      <tr><td><em>Bacteroides fragilis</em></td><td class="num">143</td><td class="num">44</td><td class="num">31%</td><td>82 of 99 hypothetical; 3 classified</td></tr>
+      <tr><td><em>Streptomyces griseus</em></td><td class="num">13</td><td class="num">1</td><td class="num">8%</td><td>two ATP-grasp tailoring enzymes</td></tr>
+      <tr><td>Enterobacterales <span class="mono">(RefSeq)</span></td><td class="num">1,303</td><td class="num">732</td><td class="num">56%</td><td>1,126 genes, <strong>none</strong> classified by antiSMASH; 968 hypothetical</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p>Across the <em>Erwiniaceae</em> set, recovery raises the fraction of cluster CDS carrying
+an informative product from <strong>38.0% to 78.8%</strong> when combined with within-family
+annotation transfer, over 8,400 CDS in 22 families. On modern complete <em>B. fragilis</em> assemblies it is nearly silent:
+82 of 99 recovered genes are annotated "hypothetical" and only three receive any antiSMASH
+functional call, because the core cluster was already fully annotated in the deposit.</p>
+
+<p><strong>Breadth and value come apart at the top of that table.</strong> Enterobacterales
+is the broadest case measured — 1,303 regions, 56% gaining a gene — and also the least
+informative: all 1,126 recovered genes are unclassified by antiSMASH and 968 of them are
+annotated "hypothetical". These are RefSeq assemblies, annotated by PGAP, so what recovery
+finds is not the missing biosynthetic core of a 2012 deposit but the short and dubious open
+reading frames a modern pipeline declines to call. A high recovery rate is therefore not by
+itself evidence that anything important was missing; the <em>P. ananatis</em> and
+<em>Winslowiella</em> panels, where recovery restores an AEP transaminase and both
+CDP-alcohol phosphatidyltransferases, are the cases that matter, and they are the tail of
+their own distribution rather than the typical case.</p>
+
+<h3><span class="num">2.3</span>A pepM pre-screen removes most of the compute at no cost in BGCs</h3>
+
+<p>Because every phosphonate BGC carries a pepM, a genome without one cannot contain the
+target. Establishing this costs ~0.9 CPU-s against antiSMASH's ~41 CPU-s, which is what makes
+order-scale analysis tractable. The screen is deliberately <em>detection-neutral</em> by
+design — it cannot find more BGCs, only fewer — so the evidence that matters is that the BGC
+count is unchanged (Figure 3).</p>
+
+<figure>
+  <img src="fig3.svg" alt="Bar charts comparing total pipeline CPU-minutes and phosphonate BGC counts with and without the pepM pre-screen, across four clades ordered by BGC prevalence.">
+  <figcaption><span class="fignum">Figure 3.</span> The pepM pre-screen. <strong>A</strong>,
+  total pipeline CPU-minutes with and without the screen, across four clades ordered by BGC
+  prevalence — the saving is monotonic in how dilute the taxon is. <strong>B</strong>, BGC
+  regions detected; identical in two clades, and the one case where neutrality initially
+  failed is shown as such.</figcaption>
+</figure>
+
+<p>The saving tracks prevalence exactly: 9.0× at 9.6% BGC-positive, 3.0× at 11%, 1.7× at 56%,
+1.1× at 72%. This is the expected behaviour rather than a disappointment, and it is reported
+across all four clades so that the headline figure is not generalised from the dilute ones
+alone.</p>
+
+<h3><span class="num">2.4</span>A held-out clade exposed a sensitivity failure</h3>
+
+<p>Every prior validation of the screen was run on a clade the reference set draws from.
+<em>Erwiniaceae</em> supplies one of the seven pepM references; the actinomycete set supplies
+the other six and contains the source strain of one, which self-matches at bitscore 828.
+Neither can answer whether the screen generalises.</p>
+
+<p><em>Bacteroides fragilis</em> (phylum Bacteroidota) contributes none of the references, and
+is held out in BGC space as well: all five characterised reference clusters sit 0.82–0.93
+from their nearest <em>B. fragilis</em> BGC, with none inside the 0.30 GCF cutoff. Ground
+truth from an unscreened arm gave 98 BGC-positive genomes of 136 (143 regions, 19 GCFs) — the
+largest held-out positive set measured, with no self-match.</p>
+
+<div class="flagbox">
+  <span class="label">The failure</span>
+  <p>The screen missed 2 of 98. Both scored exactly <strong>0.0</strong> — not a weak hit, no
+  hit at all — while antiSMASH called a phosphonate region in each. Both loci are annotated
+  <em>phosphoenolpyruvate mutase</em> and flagged <code>/pseudo</code>, and NCBI withholds
+  <code>/translation</code> from a pseudogene-flagged CDS. The pepM protein never reached the
+  aligner; the screen was not failing to recognise a pepM, it was never shown one.</p>
+  <p>The existing partial-annotation guard could not catch this: both genomes are densely
+  annotated overall (763 and 726 CDS/Mb against a 500 CDS/Mb threshold), because density is a
+  whole-genome proxy for what is a single-gene problem.</p>
+</div>
+
+<p>Translating such a CDS from its own coordinates — keeping internal stops rather than
+truncating, since a pseudogene spreads its signal across the frameshift — recovers both at
+bitscore 388 and 310 against a cutoff of 100.</p>
+
+<div class="table-wrap">
+  <table>
+    <caption><span class="fignum">Table 3.</span> pepM pre-screen performance. The held-out
+    clade is the only one that contributes no reference.</caption>
+    <thead>
+      <tr><th>Validation set</th><th class="num">references from clade</th><th class="num">sensitivity</th><th class="num">false positives</th><th class="num">FP rate</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><em>Erwiniaceae</em> (2,784 genomes)</td><td class="num">1 of 7</td><td class="num yes">299 / 299</td><td class="num">8 of 2,485</td><td class="num">0.32%</td></tr>
+      <tr><td>Actinomycetes (323 genomes)</td><td class="num">6 of 7</td><td class="num yes">31 / 31</td><td class="num">23 of 292</td><td class="num">7.9%</td></tr>
+      <tr><td><em>B. fragilis</em>, before fix</td><td class="num">0 of 7</td><td class="num no">96 / 98</td><td class="num">1 of 38</td><td class="num">2.6%</td></tr>
+      <tr class="total"><td><em>B. fragilis</em>, after fix</td><td class="num">0 of 7</td><td class="num yes">98 / 98</td><td class="num">2 of 38</td><td class="num">5.3%</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p>After the fix the classes separate completely on this clade: true positives span 342–567
+and the highest negative is 330, so any cutoff in (330, 342] is lossless with zero false
+positives. <em>Erwiniaceae</em> is unchanged in every field, so the correction is strictly an
+improvement. Neither <em>Erwiniaceae</em> nor the actinomycete set contains a pseudogenised
+pepM, which is why two prior validations passed over this.</p>
+
+<h3><span class="num">2.5</span>Clustering at scale trades runtime for memory</h3>
+
+<p>BiG-SCAPE's all-pairs comparison is quadratic in both time and memory. Measured to 10,000
+BGCs, peak resident memory fits <span class="mono">GB = 1.14 + 1.29 × 10⁻⁷ n²</span>,
+projecting ~1,890 GB at the ~121,000 BGCs a million genomes would yield — a machine most
+groups do not have. Partitioning on pepM identity bounds this, at a cost (Figure 4).</p>
+
+<figure>
+  <img src="fig4.svg" alt="Three panels: BiG-SCAPE wall time with and without partitioning at three scales; peak memory versus BGC count with measured points and fitted curves; and gene cluster family counts showing no change.">
+  <figcaption><span class="fignum">Figure 4.</span> BiG-SCAPE partitioning.
+  <strong>A</strong>, partitioning is 1.7–3.7× <em>slower</em> at every scale measured,
+  because each partition re-pays the fixed profile-loading cost. <strong>B</strong>, peak
+  memory; the fit is drawn solid over its measured range and dashed where extrapolated.
+  <strong>C</strong>, family counts are identical, ARI 1.0000, zero families split or merged.
+  All three scales were measured at antiSMASH's own 5 kb flank; re-run at the 10 kb default
+  the <em>Erwiniaceae</em> counts are 22 rather than 19, and the result is unchanged — 22
+  families either way, 18,568 co-membership pairs either way, ARI 1.0000.</figcaption>
+</figure>
+
+<p>We report this as a trade rather than an improvement, because at every scale we could
+measure it is a runtime loss. Its value is that it converts an impossible job into a possible
+one without changing a single cluster assignment. The runtime crossover is projected near
+10,000–12,000 BGCs, above anything we measured directly.</p>
+
+<div class="flagbox">
+  <span class="label">Reproducibility</span>
+  <p>BiG-SCAPE 2.0.1 returns different distances for identical input. Its input deduplication
+  is keyed on a Python <code>set</code> of hash strings, so load order follows the per-process
+  hash salt; that order sets record identifiers, which set pair orientation, and pair
+  extension is asymmetric. Between repeat runs <strong>8–14% of pairs differed</strong>, by up
+  to 0.18. Pinning <code>PYTHONHASHSEED=0</code> made repeat runs identical. GCF membership at
+  the 0.30 cutoff was never affected — no distance below 0.5 ever moved — but family
+  <em>centres</em> did move, so representative selection was unstable before this.</p>
+</div>
+
+<h3><span class="num">2.6</span>Projected cost at one million genomes</h3>
+
+<div class="stat-row">
+  <div class="stat"><span class="v">~5,400</span><span class="k">CPU-hours</span></div>
+  <div class="stat"><span class="v">~2 TB</span><span class="k">storage</span></div>
+  <div class="stat"><span class="v">~9.5 days</span><span class="k">elapsed, bandwidth-bound</span></div>
+</div>
+
+<p>Extrapolated from a measured 2,758-genome <em>Erwiniaceae</em> run with pinned databases.</p>
+
+<p><strong>Elapsed time used to be a scheduling problem and is now a bandwidth one.</strong>
+At one antiSMASH job per genome and a 20 jobs/min submission limit, submission alone took
+833 h against 55 h of compute. Batching removed that: at 50 genomes per job, and with only
+the ~110,000 screened genomes reaching antiSMASH, submission is about two hours and compute
+about six. What is left is the download, which no amount of batching or concurrency helps,
+because the limit is the network rather than the scheduler — measured here at 98 genomes per
+minute sustained over half an hour, with throughput peaking at two concurrent fetches and
+declining above it.</p>
+
+<div class="table-wrap">
+  <table>
+    <caption><span class="fignum">Table 5.</span> Projected wall-clock at one million
+    genomes, on the SLURM profile's 200 concurrent jobs. GTDB-Tk and BiG-SCAPE follow
+    detection; the download dominates and barely overlaps.</caption>
+    <thead>
+      <tr><th>Stage</th><th class="num">hours</th><th class="num">days</th><th>limited by</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>NCBI download</td><td class="num">170</td><td class="num">7.1</td><td>network bandwidth</td></tr>
+      <tr><td>antiSMASH</td><td class="num">6</td><td class="num">0.3</td><td>400 cores</td></tr>
+      <tr><td>GTDB-Tk <span class="mono">(24 shards in parallel)</span></td><td class="num">53</td><td class="num">2.2</td><td>pplacer, single-threaded per shard</td></tr>
+      <tr><td>BiG-SCAPE <span class="mono">(partitioned)</span></td><td class="num">6</td><td class="num">0.3</td><td>largest partition, 8 cores</td></tr>
+      <tr class="total"><td>Critical path</td><td class="num">229</td><td class="num">9.5</td><td>74% of it download</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p>The download figure is the one that travels least well. It is a property of this
+connection — about 264 Mbit/s — not of the pipeline, and a site with more egress would see it
+fall until GTDB-Tk became the limit at roughly two days. It is reported as measured rather
+than as a best case, because the measurement that matters for planning is the one taken on
+the machine the run will happen on.</p>
+
+<div class="table-wrap">
+  <table>
+    <caption><span class="fignum">Table 4.</span> Projected CPU-hours at one million
+    genomes, by stage, with and without the pre-screen. Per-stage rates are measured on the
+    <em>Erwiniaceae</em> run; retention is that run's 11%.</caption>
+    <thead>
+      <tr><th>Stage</th><th class="num">antiSMASH only</th><th class="num">+ pre-screen</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>NCBI download</td><td class="num">312</td><td class="num">312</td></tr>
+      <tr><td>pepM pre-screen</td><td class="num">—</td><td class="num">250</td></tr>
+      <tr><td>antiSMASH</td><td class="num">22,328</td><td class="num">2,456</td></tr>
+      <tr><td>GTDB-Tk <span class="mono">(BGC-positive genomes only)</span></td><td class="num">1,271</td><td class="num">1,271</td></tr>
+      <tr><td>BiG-SCAPE</td><td class="num">1,090</td><td class="num">1,090</td></tr>
+      <tr class="total"><td>Total CPU-hours</td><td class="num">25,001</td><td class="num">5,379</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p><strong>The screen is worth 4.6× on the whole projection because antiSMASH is 89% of
+it.</strong> Only that row moves: the screen decides which genomes antiSMASH sees and nothing
+else. The download is unchanged, since a genome must be fetched to be screened. BiG-SCAPE is
+unchanged, since the screen is detection-neutral and the same BGCs reach it. GTDB-Tk is
+unchanged because it already ran on BGC-positive genomes only, which is a subset of what the
+screen keeps — the two filters do not compound.</p>
+
+<p>An earlier version of this section gave ~24,100 CPU-hours, which was the unscreened figure
+assembled from measurements taken at different times; recomputed from per-stage rates it is
+~25,001, and the stage table above is given so the arithmetic can be checked rather than
+taken on trust.</p>
+
+<p><strong>Storage is set by what is never written, not by what is deleted.</strong> Three
+changes take the projection from 49.6 TB to ~2 TB. Publishing by hard link rather than copy,
+and dropping the redundant publish of each raw download, removed three of the four copies
+every genome used to occupy: ~52 to ~16 MB per genome. The remaining factor is the
+pre-screen. It decides which genomes antiSMASH sees, so at <em>Erwiniaceae</em>'s 11%
+retention the other 89% need never be written at all — the screen runs inside the task that
+fetches and renames a batch, and a rejected genome is deleted before its output is declared.
+That leaves ~0.96 TB of retained GenBanks and ~0.97 TB of antiSMASH output, with the
+per-genome HTML viewer off saving a further 0.13 TB.</p>
+
+<p>Deleting them afterwards does not work, which is why the ordering matters: Nextflow
+re-publishes from its work directory on resume, silently undoing any prune, and pruning
+published output races with tasks still writing it. For the same reason the download itself
+is batched — resolving the taxon to an accession list first and fetching in small groups —
+so that <em>peak</em> disk is set by the batch size rather than by the size of the taxon.
+Downloading a million genomes into one directory before the first screen can run would need
+8.7 TB whatever is deleted later.</p>
+
+<h2><span class="num">3</span>Limitations</h2>
+
+<ul>
+  <li><strong>The held-out clade is one species.</strong> Its 98 true positives cluster
+  tightly around a modal bitscore of 514, so this is closer to one well-replicated test than
+  to 98 independent ones. The pseudogene finding is robust to this; a claim that the screen
+  generalises across divergent pepMs would need a genus- or phylum-scale set.</li>
+  <li><strong>The 10 kb neighbourhood is tuned to one cluster.</strong> It was chosen because
+  it captures HiVir completely. The flank is symmetric, so it also admits 10 kb of upstream
+  context the cluster does not contain, and the value is not a general claim.</li>
+  <li><strong>Partitioning is validated at 185–518 BGCs, not at the scale that requires
+  it</strong>, and has not been run on a cluster scheduler.</li>
+  <li><strong>Gene categories are antiSMASH's own.</strong> Region GenBank files carry no Pfam
+  accessions, so 15 of 28 genes in the illustrated cluster are unclassified — including the
+  CDP-alcohol phosphatidyltransferases that determine the product. Product-keyword
+  classification was tried and rejected: it inverted on the two laboratory-confirmed clusters,
+  because <em>serine hydroxymethyltransferase</em> matches <em>methyltransferase</em>.</li>
+  <li><strong>Predicting phosphonolipid versus small molecule remains unsolved.</strong> With
+  the genes restored, the confirmed lipid and confirmed non-lipid are nearly identical in
+  domain content, differing only in CDP-alcohol phosphatidyltransferase copy number — one
+  example per class, which is not signal.</li>
+</ul>
+
+<h2><span class="num">4</span>Methods</h2>
+
+<p><strong>Pipeline.</strong> Nextflow DSL2. Genomes are retrieved from NCBI, screened for
+pepM, annotated with antiSMASH 8.0.4 restricted to the phosphonate rule, clustered with
+BiG-SCAPE 2.0.1, and placed with GTDB-Tk 2.6.1 against GTDB r226. Databases are version-pinned
+and the pins are written into every run's output; an unpinned URL resolves once and is never
+re-checked, which had previously left this pipeline classifying against a seven-month-old
+taxonomy with no record of it.</p>
+
+<p><strong>Detection neighbourhood.</strong> antiSMASH exposes no option for a bacterial
+neighbourhood, so an idempotent, atomic patch is applied to the installed rule file before
+each invocation. The value enters the antiSMASH parameter hash only when set, so a run at the
+tool's own value reproduces results produced under it.</p>
+
+<p><strong>ORF recovery.</strong> A protein pool is built from the analysed genomes; genes
+absent from the deposit are recovered by homology and supplied to antiSMASH as GFF3. This is
+necessary because antiSMASH runs gene finding only on records with zero CDS features.</p>
+
+<p><strong>pepM pre-screen.</strong> DIAMOND against seven curated pepM references at bitscore
+100. Annotated genomes take a blastp path over their proteins; unannotated ones take blastx
+over contigs. The two paths were verified to make identical calls on all 341 genomes where
+both could run. A CDS lacking <code>/translation</code> is translated from its own
+coordinates, with internal stops retained as <code>X</code>.</p>
+
+<p><strong>Comparisons.</strong> BGCs are matched between runs on genome plus region filename,
+never on file hash: antiSMASH stamps a run date into every region GenBank, so no two runs
+agree byte for byte. Clustering comparisons use co-membership and the adjusted Rand index
+rather than family identifiers, which are autoincrement values recording write order and do
+not name the same family across databases.</p>
+
+<h2>Data and code availability</h2>
+
+<p>Pipeline, figure-generating scripts and the extracted comparison data are at
+<span class="mono">github.com/alpole23/ClusterQuest</span> (MIT). Every figure in this
+manuscript regenerates from committed data with a single command, and output is deterministic:
+the plotting layer pins matplotlib's hash salt and strips creation timestamps, so repeat runs
+produce byte-identical files. Per-change before/after data is under
+<span class="mono">docs/comparisons/</span>, with a stated-gaps section listing the changes for
+which no such data exists.</p>
+
+<footer class="paper-foot">
+  <p><strong>Author contributions and funding</strong> <span class="todo">to be completed</span>.
+  ClusterQuest is independent work; copyright is held by the author.</p>
+  <p><strong>Note on scope.</strong> This manuscript covers the computational methods only.
+  Benchtop characterisation of the <em>Winslowiella iniecta</em> B149 cluster — BGC discovery,
+  gene characterisation, strain engineering, structure elucidation and bioassays — is reported
+  separately.</p>
+  <p><strong>References</strong> <span class="todo">reference list to be completed</span>.
+  Key prior work: Yu et al., <em>PNAS</em> 2013;110(51):20759 (pepM identity predicts
+  gene-neighbourhood similarity above ~60% identity, the basis for partitioning on pepM).</p>
+</footer>
+
+</div>
+
+</body></html>
