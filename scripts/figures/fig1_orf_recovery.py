@@ -439,7 +439,16 @@ def main():
 
     # Rows of the distribution panel are keyed on the SOURCE RUN, and several
     # panels may share one; the Erwiniaceae pair supplies three of them.
-    ROW_NAME = {'Winslowiella': 'Erwiniaceae', 'Pantoea': 'Erwiniaceae',
+    # All three of those panels come from ONE run -- the 228-region Pantoea +
+    # Winslowiella pair at 10 kb -- so they must share one row. They did not: two
+    # names mapped to "Erwiniaceae" and one to "Pantoea + Winslowiella", which drew
+    # the same distribution twice, labelled it with two different clade names, and
+    # printed "67/228 gained" under both as though they were independent
+    # measurements. That is the exact failure this function's docstring warns about,
+    # reintroduced by the naming. "Erwiniaceae" was also simply wrong for a run of
+    # Pantoea and Winslowiella genomes.
+    ROW_NAME = {'Winslowiella': 'Pantoea + Winslowiella\n(10 kb)',
+                'Pantoea': 'Pantoea + Winslowiella\n(10 kb)',
                 'pantaphos': 'Pantoea + Winslowiella\n(10 kb)'}
 
     if args.rebuild_gains:
@@ -468,12 +477,24 @@ def main():
         clades.append((title, bdir / key, adir / key))
     clade_gains = [(name, gains, marks) for name, (gains, marks) in rows.items()]
 
+    # Enterobacterales appears in the DISTRIBUTION only, with no gene diagram above.
+    # It is 1,303 regions against the 228 of the largest illustrated clade, and at 56%
+    # gaining a gene it is the strongest evidence in the figure that recovery is not a
+    # rare-case fix -- but drawing a seventh panel for it would crowd six already, and
+    # the distribution is where a number that size belongs. The row carries no marker
+    # because no panel above draws from it.
+    entero = gain_distribution('enterobacterales')
+    if entero:
+        clade_gains.append(('Enterobacterales\n(RefSeq)', entero, []))
+
     nrows = len(clades) + (0 if args.no_distribution else 1)
-    fig, axes = plt.subplots(nrows, 1, figsize=(11.6, 2.15 * len(clades) + 2.6),
+    dist_h = max(1.7, 0.62 * len(clade_gains)) if not args.no_distribution else 0
+    fig, axes = plt.subplots(nrows, 1, figsize=(11.6, 2.15 * len(clades) + dist_h + 1.4),
                              squeeze=False,
                              gridspec_kw={'height_ratios':
                                           [2.15] * len(clades) +
-                                          ([1.7] if not args.no_distribution else [])})
+                                          ([max(1.7, 0.62 * len(clade_gains))]
+                                           if not args.no_distribution else [])})
     used = []
     for ax, (name, before, after) in zip(axes[:, 0], clades):
         nb, na = draw_clade(ax, name, before, after, transferred)
