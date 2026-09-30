@@ -255,11 +255,11 @@ def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=N
         Shows which Gene Cluster Families (GCFs) are taxon-specific vs widespread.</em>
     </p>
 
-    <h3>GCF × Genus Heatmap</h3>
+    <h3>{'GCF × Species Heatmap' if gcf_heatmap_b64 else 'GCF × Genus Heatmap'}</h3>
     <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
-        {'Presence/absence of each Gene Cluster Family across genera. Rows: GCFs ordered by Jaccard-distance hierarchical clustering; columns: genera ordered by GTDB-Tk phylogeny.' if gcf_heatmap_b64 else 'Top 30 GCFs (rows) vs top 20 genera (columns). Color intensity = number of BGCs.'}
+        {'Every Gene Cluster Family against every species carrying one — all region-level BGCs, not one representative per family. Rows: GCFs ordered by Jaccard-distance hierarchical clustering; columns: species, grouped under their genus and ordered by the GTDB reference phylogeny.' if gcf_heatmap_b64 else 'Top 30 GCFs (rows) vs top 20 genera (columns). Color intensity = number of BGCs.'}
     </p>
-    {'<div style="margin-bottom: 30px;"><img src="data:image/svg+xml;base64,' + gcf_heatmap_b64 + '" alt="GCF × Genus Heatmap" style="max-width: 100%; height: auto; display: block;"></div>' if gcf_heatmap_b64 else f"""
+    {'<div style="margin-bottom: 30px;"><img src="data:image/svg+xml;base64,' + gcf_heatmap_b64 + '" alt="GCF × Species Heatmap" style="max-width: 100%; height: auto; display: block;"></div>' if gcf_heatmap_b64 else f"""
     <div id="heatmap-container" style="width: 100%; overflow-x: auto; margin-bottom: 30px;">
         <canvas id="heatmap-canvas" style="max-width: 100%;"></canvas>
     </div>

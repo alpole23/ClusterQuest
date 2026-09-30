@@ -17,7 +17,11 @@ REPORT_CSS = """\
            Still pure CSS: the radio inputs drive `#tabN:checked ~ #contentN`,
            which does not care whether the labels sit above or beside the panes.
            Group headings are static labels, so sub-sections need no mechanism of
-           their own — they are simply more radios under a heading. */
+           their own — they are simply more radios under a heading.
+
+           One `#tabN:checked ~ #contentN` rule is needed per pane and the pane
+           count now depends on which analyses a run produced, so the rule list is
+           generated below rather than written out. */
         .tabs {
             margin-top: 20px;
             display: grid;
@@ -66,11 +70,7 @@ REPORT_CSS = """\
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             min-height: 400px;
         }
-        #tab1:checked ~ #content1,
-        #tab2:checked ~ #content2,
-        #tab3:checked ~ #content3,
-        #tab4:checked ~ #content4,
-        #tab5:checked ~ #content5 {
+/*PANE_RULES*/ {
             display: block;
         }
         /* Below this width a 224px rail costs more than it gives, so the nav
@@ -293,6 +293,14 @@ REPORT_CSS = """\
         }
 """
 
+# One rule per pane. A run without clustering emits fewer panes than one with it,
+# so the ceiling is generous and unused rules simply never match: the alternative
+# is threading generated CSS through generate_html_report, for a few hundred bytes.
+MAX_PANES = 40
+REPORT_CSS = REPORT_CSS.replace(
+    '/*PANE_RULES*/',
+    ',\n'.join(f'        #tab{i}:checked ~ #content{i}' for i in range(1, MAX_PANES + 1)))
+
 REPORT_JS = """\
         // Jump from the priority table to the family's row in the master table.
         // Defined here, not in viz/clustering.py, because the caller and the target
@@ -303,11 +311,22 @@ REPORT_JS = """\
         // The tabs are CSS radio buttons, so <a href="#gcfrow_7"> would scroll to an
         // element that is display:none and appear to do nothing — the radio has to be
         // checked first. The row carries the link to the family's own page.
+        //
+        // Which radio that is, is found from the pane the target sits in rather than
+        // hardcoded: pane numbering runs across the whole report and shifts whenever a
+        // run emits a different set of sections, so an id written in here goes stale
+        // silently — the link would open the wrong pane and scroll nowhere.
+        function revealPane(el) {
+            const pane = el.closest('.tab-content');
+            if (!pane) return;
+            const radio = document.getElementById(pane.id.replace('content', 'tab'));
+            if (radio) radio.checked = true;
+        }
+
         function showGCF(familyId) {
             const row = document.getElementById('gcfrow_' + familyId);
             if (!row) return;                       // no families in this run
-            const tab = document.getElementById('tab3');   // Gene Cluster Families
-            if (tab) tab.checked = true;
+            revealPane(row);
             row.hidden = false;                     // in case a filter hid it
             row.scrollIntoView({behavior: 'smooth', block: 'center'});
             row.style.transition = 'background .3s';

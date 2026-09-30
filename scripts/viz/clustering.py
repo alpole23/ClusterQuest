@@ -104,9 +104,6 @@ def generate_bigscape_stats_html(bigscape_stats_file, mibig_included=False):
             </tr>
             {class_breakdown_html}
         </table>
-        <p style="margin-top: 15px; font-size: 0.9em; color: #666;">
-            <strong>Note:</strong> Statistics extracted from BiG-SCAPE clustering files. For detailed network analysis, open the BiG-SCAPE HTML output in <code>results/bigscape_results/[taxon]/index.html</code>.
-        </p>
     </div>
     '''
 
