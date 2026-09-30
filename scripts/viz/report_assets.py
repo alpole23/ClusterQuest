@@ -452,7 +452,6 @@ REPORT_JS = """\
         }
         function filterGenomes()   { _debounce('genomes', _filterGenomes,   150); }
         function filterNovelBGCs() { _debounce('novel',   _filterNovelBGCs, 150); }
-        function filterKCBHits()   { _debounce('kcb',     _filterKCBHits,   150); }
 
         function searchNorm(text) {
             return text.toLowerCase().replace(/[_\\s]+/g, ' ').trim();
@@ -476,6 +475,48 @@ REPORT_JS = """\
             return false;
         }
 
+        // Click-to-sort for the detected-regions table. Added so that sorting on
+        // MIBiG ID or KCB hit groups the regions matching one characterised cluster:
+        // that grouping used to be a second table, by cluster, which truncated its
+        // region list at five ("+62 more") and could not be searched with the rest.
+        //
+        // The sort key is the cell's data-sort when it has one and its text otherwise,
+        // because several columns render a badge or a link whose text does not order
+        // the way the value does. Keys compare numerically when both sides parse as
+        // numbers, so 9% sorts below 40% rather than after it.
+        function sortRegions(th) {
+            const table = th.closest('table');
+            const tbody = table.tBodies[0];
+            if (!tbody) return;
+            const idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+            const asc = table.dataset.sortCol === String(idx)
+                ? table.dataset.sortAsc !== 'true' : true;
+            table.dataset.sortCol = idx;
+            table.dataset.sortAsc = asc;
+            const key = row => {
+                const cell = row.children[idx];
+                if (!cell) return '';
+                const raw = cell.dataset.sort;
+                return (raw === undefined ? cell.textContent : raw).trim();
+            };
+            const rows = Array.prototype.slice.call(tbody.rows);
+            rows.sort((a, b) => {
+                const ka = key(a), kb = key(b);
+                const na = parseFloat(ka), nb = parseFloat(kb);
+                const cmp = (!isNaN(na) && !isNaN(nb) && ka !== '' && kb !== '')
+                    ? na - nb : ka.localeCompare(kb, undefined, {numeric: true});
+                return asc ? cmp : -cmp;
+            });
+            const frag = document.createDocumentFragment();
+            rows.forEach(r => frag.appendChild(r));
+            tbody.appendChild(frag);
+            // Arrow on the active column only; the others revert to their plain label.
+            Array.prototype.forEach.call(th.parentNode.children, (h, i) => {
+                h.textContent = h.textContent.replace(/[\u00a0\u25b2\u25bc]+$/, '');
+                if (i === idx) h.textContent += asc ? '\u00a0\u25b2' : '\u00a0\u25bc';
+            });
+        }
+
         function _filterNovelBGCs() {
             const input = document.getElementById('novelSearch');
             if (!input) return;
@@ -497,26 +538,6 @@ REPORT_JS = """\
             }
         }
 
-        function _filterKCBHits() {
-            const input = document.getElementById('kcbSearch');
-            if (!input) return;
-            const filter = searchNorm(input.value);
-            const tbody = document.getElementById('kcbTableBody');
-            if (!tbody) return;   // table absent, e.g. the empty-hits KCB tab
-            const rows = tbody.getElementsByTagName('tr');
-
-            for (let i = 0; i < rows.length; i++) {
-                const cells = rows[i].getElementsByTagName('td');
-                let found = false;
-                for (let j = 0; j < cells.length; j++) {
-                    if (searchMatches(cells[j].textContent, filter)) {
-                        found = true;
-                        break;
-                    }
-                }
-                rows[i].style.display = found ? '' : 'none';
-            }
-        }
 
         // ---- Taxonomy tree: species genome lists rendered on first expand -------
         // Inlined, these were a second copy of all 1,735 genomes and ~90% of the tree's

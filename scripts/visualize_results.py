@@ -88,7 +88,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     kcb = _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes, gcf_hrefs)
     kcb_mapping_section    = kcb['kcb_mapping_section']
     novel_bgcs_tab_content = kcb['novel_bgcs_tab_content']
-    kcb_hits_tab_content   = kcb['kcb_hits_tab_content']
 
     overview_stats = build_overview_stats(stats, kcb_stats, gcf_data, rarefaction_stats)
 
@@ -176,13 +175,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
         ('BGCs', [
             ('Priority for follow-up',    priority_section),
             ('All detected regions',      regions_section),
-            ('Known-cluster matches',     f'''            <h2>Known-cluster matches</h2>
-            <p style="color:#666;font-size:.9em;max-width:70ch;">
-                <em>KnownClusterBlast hits against MIBiG. MIBiG holds few characterised
-                phosphonate pathways, so absence of a hit is weak evidence of novelty —
-                see Priority for follow-up for the measure this report ranks on.</em>
-            </p>
-            {kcb_hits_tab_content}''' if kcb_hits_tab_content else ''),
         ]),
         ('Gene cluster families', [
             ('Consensus gene content',    consensus_html),

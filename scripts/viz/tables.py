@@ -236,26 +236,36 @@ def calculate_summary_statistics(counts_file, tabulation_file=None):
                     kcb_mapping.sort(key=lambda x: x['count'], reverse=True)
                 kcb_stats['cluster_mapping'] = kcb_mapping
 
-            # Build novel BGCs list (regions without KCB hits)
+            # Every region, and separately the count of those with no above-floor
+            # hit. The report used to render two tables from these -- one per region
+            # below the floor, one per known cluster above it -- which split the
+            # region list in two on a distinction the reader cannot see from either
+            # table, and the by-cluster one truncated its region lists at five
+            # ("+62 more"). One sortable table carries both.
             if 'KCB_hit' in tab_df.columns:
-                novel_df = tab_df[tab_df['KCB_hit'] == ''].copy()
-                novel_bgcs = []
-                if len(novel_df) > 0:
-                    for _, row in novel_df.iterrows():
-                        novel_bgcs.append({
-                            'genome': row.get('file', 'unknown'),
-                            'region': row.get('region', '?'),
-                            'region_name': row.get('region_name', row.get('region', '?')),
-                            'record_index': row.get('record_index', 1),
-                            'product': row.get('product', ''),
-                            'record_id': row.get('record_id', ''),
-                            'contig_edge': row.get('contig_edge', ''),
-                            'top_hit': row.get('KCB_top_hit', ''),
-                            'top_acc': row.get('KCB_top_acc', ''),
-                            'top_sim': row.get('KCB_top_sim', ''),
-                        })
-                kcb_stats['novel_bgcs'] = novel_bgcs
-                kcb_stats['novel_bgc_count'] = len(novel_bgcs)
+                def _region_record(row):
+                    return {
+                        'genome': row.get('file', 'unknown'),
+                        'region': row.get('region', '?'),
+                        'region_name': row.get('region_name', row.get('region', '?')),
+                        'record_index': row.get('record_index', 1),
+                        'product': row.get('product', ''),
+                        'record_id': row.get('record_id', ''),
+                        'contig_edge': row.get('contig_edge', ''),
+                        # The above-floor hit, when there is one...
+                        'kcb_hit': row.get('KCB_hit', ''),
+                        'kcb_acc': row.get('KCB_acc', ''),
+                        'kcb_sim': row.get('KCB_sim', ''),
+                        # ...and the best hit whatever its similarity, which is what
+                        # the MIBiG column shows when nothing cleared the floor.
+                        'top_hit': row.get('KCB_top_hit', ''),
+                        'top_acc': row.get('KCB_top_acc', ''),
+                        'top_sim': row.get('KCB_top_sim', ''),
+                    }
+                kcb_stats['all_regions'] = [_region_record(r) for _, r in tab_df.iterrows()]
+                novel_df = tab_df[tab_df['KCB_hit'] == '']
+                kcb_stats['novel_bgcs'] = [_region_record(r) for _, r in novel_df.iterrows()]
+                kcb_stats['novel_bgc_count'] = int(len(novel_df))
 
             # Count BGCs on contig edges (potentially incomplete)
             if 'contig_edge' in tab_df.columns:

@@ -18,19 +18,19 @@ from viz.report_assets import MAX_PANES
 def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_hrefs=None):
     """Compute KCB tab contents.
 
-    Returns dict with keys: kcb_mapping_section, novel_bgcs_tab_content,
-    kcb_hits_tab_content.
+    Returns dict with keys: kcb_mapping_section, novel_bgcs_tab_content.
     """
     kcb_mapping_section = ''''''
     novel_bgcs_tab_content = '''
-            <h2>Potentially Novel BGCs</h2>
-            <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to identify potentially novel BGCs.</p>'''
-    kcb_hits_tab_content = '''
-            <h2>KnownClusterBlast Hits</h2>
-            <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to identify known cluster matches.</p>'''
+            <h2>Detected BGC regions</h2>
+            <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to record known-cluster matches.</p>'''
 
     if kcb_stats.get('total_regions', 0) > 0:
-        novel_bgcs = kcb_stats.get('novel_bgcs', [])
+        # Every region, ranked or not, above the floor or below it. This used to be
+        # two tables: one region-per-row for the below-floor regions and one
+        # cluster-per-row for the rest. The second said nothing the first could not,
+        # ordered it differently, and truncated its region lists at five.
+        novel_bgcs = kcb_stats.get('all_regions') or kcb_stats.get('novel_bgcs', [])
         novel_count = kcb_stats.get('novel_bgc_count', 0)
 
         gcf_lookup = {}
@@ -56,22 +56,40 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                 # The best KnownClusterBlast hit, whatever its similarity. On this
                 # chemistry every hit falls at or below the floor, so showing only
                 # above-floor hits made a weak hit indistinguishable from none at all.
-                top_hit = str(bgc.get('top_hit') or '')
+                # `kcb_*` is the hit that cleared the floor; `top_*` is the best hit
+                # regardless. They are the same hit when one cleared.
+                cleared = str(bgc.get('kcb_hit') or '')
+                top_hit = str(bgc.get('top_hit') or '') or cleared
                 top_sim = bgc.get('top_sim')
+                acc = str(bgc.get('top_acc') or bgc.get('kcb_acc') or '')
+                try:
+                    sim_val = float(top_sim)
+                except (TypeError, ValueError):
+                    sim_val = None
+                sim_txt = f'{sim_val:.0f}%' if sim_val is not None else ('?' if top_hit else '')
                 if top_hit:
-                    try:
-                        sim_txt = f'{float(top_sim):.0f}%'
-                    except (TypeError, ValueError):
-                        sim_txt = '?'
-                    acc = str(bgc.get('top_acc') or '')
                     name = top_hit[:28] + ('…' if len(top_hit) > 28 else '')
+                    tone = '#1d6fa5' if cleared else '#6c757d'
                     link = (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
-                            f'target="_blank" style="color:#6c757d;">{name}</a>' if acc else name)
-                    kcb_cell = (f'{link} <span style="color:#999;" title="below the '
-                                f'{KCB_THRESHOLDS["low"]}% floor — too weak to call this cluster '
-                                f'known">{sim_txt}</span>')
+                            f'target="_blank" style="color:{tone};">{name}</a>' if acc else name)
+                    if cleared:
+                        note = (f'<span style="color:#1d6fa5;font-weight:600;" title="at or above '
+                                f'the {KCB_THRESHOLDS["low"]}% floor">{sim_txt}</span>')
+                    else:
+                        note = (f'<span style="color:#999;" title="below the '
+                                f'{KCB_THRESHOLDS["low"]}% floor — too weak to call this '
+                                f'cluster known">{sim_txt}</span>')
+                    kcb_cell = f'{link} {note}'
                 else:
                     kcb_cell = '<span style="color:#ccc;">no hit</span>'
+                # MIBiG accession in its own column, because it is the identifier a
+                # reader takes elsewhere -- and it makes the column sortable, which
+                # a name truncated to 28 characters inside a link is not.
+                mibig_cell = (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
+                              f'target="_blank" style="color:#6c757d;font-variant-numeric:'
+                              f'tabular-nums;">{acc}</a>' if acc
+                              else '<span style="color:#ccc;">—</span>')
+                sort_sim = f'{sim_val:.4f}' if sim_val is not None else '-1'
                 edge_badge = '<span style="background: #e74c3c; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75em;">edge</span>' if str(contig_edge).lower() == 'true' else ''
                 antismash_link = f'../../antismash_results/{taxon_clean}/{genome}/index.html#r{record_index}c{region}'
                 gcf_cell = ''
@@ -94,49 +112,64 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                                  f'display: inline-block; white-space: nowrap;">GCF-{fid}</span>')
                         if href:
                             badge = f'<a href="{href}" style="text-decoration: none;">{badge}</a>'
-                        gcf_cell = (f'<td style="text-align: center;">{badge}'
-                                    f'</td><td style="text-align: center;">{mc}</td>')
+                        gcf_cell = (f'<td style="text-align: center;" data-sort="{int(fid):06d}">'
+                                    f'{badge}</td>'
+                                    f'<td style="text-align: center;" data-sort="{int(mc):06d}">{mc}</td>')
                     else:
-                        gcf_cell = '<td style="text-align: center; color: #999;">-</td><td style="text-align: center; color: #999;">-</td>'
+                        gcf_cell = ('<td style="text-align: center; color: #999;" data-sort="~">-</td>'
+                                    '<td style="text-align: center; color: #999;" data-sort="-1">-</td>')
+                # data-sort carries the sort key for the columns where the rendered
+                # text does not sort correctly: a % inside a span, an accession beside
+                # a link, a GCF badge whose text is "GCF-7" and must order as 7.
                 detail_rows += f'''
                 <tr>
                     <td><a href="genomes/{genome}.html" title="{genome}" style="color: #2c5aa0; display: inline-block; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;">{genome}</a></td>
                     <td style="text-align: center;"><a href="{antismash_link}" target="_blank" style="color: #28a745; font-weight: bold;">Region {region_name}</a></td>
                     <td>{product}</td>
-                    <td style="text-align: center;">{edge_badge}</td>
+                    <td style="text-align: center;" data-sort="{'1' if str(contig_edge).lower() == 'true' else '0'}">{edge_badge}</td>
                     {gcf_cell}
-                    <td style="font-size: .85em;">{kcb_cell}</td>
+                    <td style="font-size: .85em;" data-sort="{_html.escape(top_hit.lower(), quote=True) or '~'}">{kcb_cell}</td>
+                    <td style="font-size: .85em;" data-sort="{acc or '~'}">{mibig_cell}</td>
+                    <td style="text-align: right; font-size: .85em;" data-sort="{sort_sim}">{sim_txt}</td>
                 </tr>'''
 
             kcb_mapping_section = ''''''
-            gcf_header = '<th>GCF Family</th><th>Members</th>' if has_gcf_data else ''
-            gcf_description = ' When BiG-SCAPE clustering is enabled, the GCF (Gene Cluster Family) assignment shows how these novel BGCs group together.' if has_gcf_data else ''
+            th = ('onclick="sortRegions(this)" style="cursor:pointer;" '
+                  'title="Click to sort; click again to reverse"')
+            gcf_header = (f'<th {th}>GCF Family</th><th {th}>Members</th>'
+                          if has_gcf_data else '')
+            gcf_description = (' Follow a GCF badge to that family’s page.'
+                               if has_gcf_data else '')
             kcb_floor = KCB_THRESHOLDS['low']
+            n_cleared = sum(1 for b in novel_bgcs if b.get('kcb_hit'))
             novel_bgcs_tab_content = f'''
             <h2>Detected BGC regions</h2>
-            <p style="color: #666; margin-bottom: 15px;">
-                <em>Every region whose best KnownClusterBlast hit falls below the
-                {kcb_floor}% similarity floor — which for phosphonate chemistry is most of them, since
-                MIBiG holds few characterised pathways, so a miss is weak evidence of novelty. The
-                <strong>Best KCB hit</strong> column shows what was returned anyway, greyed because it is
-                too weak to call the cluster known; a region with no ranking at all says "no hit". Regions
-                that cleared the floor are listed under <strong>Known-cluster matches</strong>. "edge"
-                marks a region on a contig boundary, which may be incomplete.{gcf_description} Follow a
-                GCF badge to that family's page.</em>
+            <p style="color: #666; margin-bottom: 15px; max-width: 78ch;">
+                <em>Every region found. <strong>Sort by any column</strong> — sorting on
+                <strong>MIBiG ID</strong> or <strong>Best KCB hit</strong> groups the regions that
+                matched the same characterised cluster. Of {len(novel_bgcs):,} regions,
+                {n_cleared:,} have a KnownClusterBlast hit at or above the {kcb_floor}% floor
+                (shown in blue); the rest are greyed, because a hit below the floor is too weak
+                to call the cluster known, and a region with no hit at all says "no hit". For
+                phosphonate chemistry a miss is weak evidence of novelty — MIBiG holds few
+                characterised pathways. "edge" marks a region on a contig boundary, which may be
+                incomplete.{gcf_description}</em>
             </p>
             <div class="search-box">
-                <input type="text" id="novelSearch" placeholder="Search by genome, strain, region or GCF (e.g. 5342)" onkeyup="filterNovelBGCs()">
+                <input type="text" id="novelSearch" placeholder="Search by genome, strain, region, GCF or MIBiG ID (e.g. BGC0000904)" onkeyup="filterNovelBGCs()">
             </div>
             <div class="table-container">
                 <table id="novelTable">
                     <thead>
                         <tr>
-                            <th>Genome</th>
-                            <th>antiSMASH Region</th>
-                            <th>Product Type</th>
-                            <th>Contig Edge</th>
+                            <th {th}>Genome</th>
+                            <th {th}>antiSMASH Region</th>
+                            <th {th}>Product Type</th>
+                            <th {th}>Contig Edge</th>
                             {gcf_header}
-                            <th>Best KCB hit</th>
+                            <th {th}>Best KCB hit</th>
+                            <th {th}>MIBiG ID</th>
+                            <th {th} style="cursor:pointer;text-align:right;">Similarity</th>
                         </tr>
                     </thead>
                     <tbody id="novelTableBody">
@@ -154,116 +187,9 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
             <h2>Potentially Novel BGCs</h2>
             <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to identify potentially novel BGCs.</p>'''
 
-        # Build KCB Hits tab content
-        cluster_mapping = kcb_stats.get('cluster_mapping', [])
-        unique_clusters = kcb_stats.get('unique_known_clusters', 0)
-        sim_breakdown = kcb_stats.get('similarity_breakdown', {})
-        sim_badges = ''
-        for sim_level, count in sim_breakdown.items():
-            color = '#27ae60' if sim_level == 'high' else '#f39c12' if sim_level == 'medium' else '#95a5a6'
-            sim_badges += f'<span style="background: {color}; color: white; padding: 4px 12px; border-radius: 4px; margin-right: 8px;">{sim_level}: {count}</span>'
-        kcb_table_rows = ''
-        for item in cluster_mapping:
-            known_cluster = item['known_cluster']
-            mibig_acc = item['mibig_acc']
-            hit_count = item['count']
-            regions = item['regions']
-            product_types = list(set(r['product'] for r in regions))
-            products_display = ', '.join(product_types[:3])
-            if len(product_types) > 3:
-                products_display += f' (+{len(product_types) - 3} more)'
-            bgc_links = []
-            for r in regions[:5]:
-                genome = r['genome']; region = r['region']
-                region_name = r.get('region_name', region); record_index = r.get('record_index', 1)
-                antismash_link = f'../../antismash_results/{taxon_clean}/{genome}/index.html#r{record_index}c{region}'
-                bgc_links.append(f'<a href="{antismash_link}" target="_blank" style="color: #28a745;">{genome} Region {region_name}</a>')
-            bgc_display = ', '.join(bgc_links)
-            if len(regions) > 5:
-                bgc_display += f' (+{len(regions) - 5} more)'
-            sim_counts = {}
-            for r in regions:
-                sim = r.get('similarity', 'unknown'); sim_counts[sim] = sim_counts.get(sim, 0) + 1
-            sim_display = ' / '.join([f'{k}: {v}' for k, v in sim_counts.items()])
-            if 'high' in sim_counts:
-                row_bg = 'background: rgba(39, 174, 96, 0.15);'
-            elif 'medium' in sim_counts:
-                row_bg = 'background: rgba(243, 156, 18, 0.15);'
-            elif 'low' in sim_counts:
-                row_bg = 'background: rgba(149, 165, 166, 0.15);'
-            else:
-                row_bg = ''
-            mibig_link = f'https://mibig.secondarymetabolites.org/repository/{mibig_acc}/' if mibig_acc else '#'
-            kcb_table_rows += f'''
-                <tr style="{row_bg}">
-                    <td><a href="{mibig_link}" target="_blank" style="color: #2c5aa0; font-weight: bold;">{known_cluster}</a></td>
-                    <td><a href="{mibig_link}" target="_blank" style="color: #666;">{mibig_acc}</a></td>
-                    <td style="text-align: center; font-weight: bold;">{hit_count}</td>
-                    <td>{products_display}</td>
-                    <td>{sim_display}</td>
-                    <td>{bgc_display}</td>
-                </tr>'''
-        if not cluster_mapping:
-            # Zero hits is a result, not a failure: it means every region is
-            # potentially novel. Rendering bare table headers reads like a bug.
-            total_regions = kcb_stats.get('total_regions', 0)
-            kcb_hits_tab_content = f'''
-            <h2>KnownClusterBlast Hits</h2>
-            <div style="background: #eef6ec; border: 1px solid #cfe3ca; border-radius: 6px; padding: 18px 20px; margin-top: 10px;">
-                <strong>No KnownClusterBlast hits.</strong>
-                <p style="margin: 8px 0 0; color: #555;">
-                    None of the {total_regions} detected region{'s' if total_regions != 1 else ''}
-                    matched a characterised cluster in the MIBiG database, so all of them appear in
-                    the <em>Novel BGCs</em> tab. For phosphonate BGCs this is common — MIBiG holds
-                    relatively few characterised phosphonate pathways — and it is a finding rather
-                    than an error.
-                </p>
-            </div>'''
-        else:
-            kcb_hits_tab_content = f'''
-            <h2>KnownClusterBlast Hits</h2>
-            <div style="margin-bottom: 20px;">
-                <strong>Total Hits by Similarity:</strong> {sim_badges}
-            </div>
-            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 15px; margin-bottom: 20px;">
-                <strong>Similarity Legend:</strong>
-                <div style="margin-top: 10px; display: flex; gap: 20px; flex-wrap: wrap;">
-                    <div><span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 3px;">high</span> &gt;75% sequence similarity to MIBiG reference</div>
-                    <div><span style="background: #f39c12; color: white; padding: 2px 8px; border-radius: 3px;">medium</span> 50-75% sequence similarity</div>
-                    <div><span style="background: #95a5a6; color: white; padding: 2px 8px; border-radius: 3px;">low</span> 15-50% sequence similarity</div>
-                </div>
-                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666;">
-                    The "Similarity" column shows how many regions matched each known cluster at different similarity levels (e.g., "high: 1 / low: 2" means 1 region matched with &gt;75% similarity and 2 regions matched with 15-50% similarity).
-                </p>
-            </div>
-            <div class="search-box">
-                <input type="text" id="kcbSearch" placeholder="Search known clusters..." onkeyup="filterKCBHits()">
-            </div>
-            <div class="table-container">
-                <table id="kcbTable">
-                    <thead>
-                        <tr>
-                            <th>Known Cluster</th>
-                            <th>MIBiG ID</th>
-                            <th>Hits</th>
-                            <th>Product Types</th>
-                            <th>Similarity</th>
-                            <th>BGC Regions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="kcbTableBody">
-                        {kcb_table_rows}
-                    </tbody>
-                </table>
-            </div>
-            <p style="color: #666; font-style: italic; margin-top: 15px;">
-                Table shows {unique_clusters} unique known clusters from MIBiG database. Each row represents a characterized BGC that matched one or more regions in your dataset.
-            </p>'''
-
     return {
         'kcb_mapping_section':    kcb_mapping_section,
         'novel_bgcs_tab_content': novel_bgcs_tab_content,
-        'kcb_hits_tab_content':   kcb_hits_tab_content,
     }
 
 
