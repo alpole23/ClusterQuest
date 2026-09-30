@@ -12,6 +12,7 @@ import sqlite3
 
 from utils.constants import load_coupling_classes, COUPLING_COLORS, KCB_THRESHOLDS
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
+from viz.report_assets import MAX_PANES
 
 
 def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_hrefs=None):
@@ -350,24 +351,22 @@ def _build_gcf_support_section(gcf_support_rows):
         return ''
     return f'''
             <h3 style="margin-top: 30px;">Coupling enzyme support by GCF</h3>
-            <p style="color: #666; font-size: 0.9em; margin-bottom: 12px;">
-                GCF membership comes from BiG-SCAPE, which compares the whole gene
-                neighbourhood. The coupling class comes from antiSMASH SMCOG/domain markers,
-                which are deliberately broad — characterised phosphonate coupling enzymes are
-                scarce, and a narrow reference-driven classifier would only recover chemistry
-                already known. <em>Support</em> is the identity of the enzyme that drove each
-                call to the nearest characterised reference of its class. It is advisory:
-                a low value may mean the assignment is wrong, or that the enzyme is a novel
-                variant unlike the one characterised example — both warrant a look.
-                <strong>Read it against the reference it was scored on.</strong> Most
-                characterised phosphonate enzymes come from <em>Streptomyces</em>, so a
-                modest identity may simply reflect the genus gap rather than a doubtful
-                call; the one class with a <em>Pantoea</em> reference (Synthase, HvrC)
-                scores near 100% partly for that reason. Only one boundary is measurable
-                here: characterised enzymes of <em>different</em> classes score 26.7–29.7%
-                against each other, so at or below ~30% an identity carries no class
-                information. Above that the reference set is too small, and drawn from too
-                few genera, to support a verdict — so none is given.
+            <p style="color: #666; font-size: 0.9em; margin-bottom: 12px; max-width: 74ch;">
+                Membership comes from BiG-SCAPE (whole gene neighbourhood); the coupling
+                class comes from antiSMASH domain markers. <strong>Support</strong> is the
+                identity of the enzyme that drove the call, measured against the nearest
+                characterised reference of its class — advisory, not a verdict. A low value
+                may mean the call is wrong, or that the enzyme is a novel variant; both
+                warrant a look.
+            </p>
+            <p style="color: #666; font-size: 0.9em; margin-bottom: 12px; max-width: 74ch;">
+                <strong>Read it against the reference named.</strong> Enzymes of
+                <em>different</em> classes score 26.7–29.7% against each other, so at or
+                below ~30% an identity carries no class information. Above that there is no
+                threshold to quote: five of the seven references are <em>Streptomyces</em>,
+                so a modest score may be the genus gap rather than a doubtful call, and the
+                one class with a <em>Pantoea</em> reference scores near 100% for the same
+                reason.
             </p>
             <div class="table-container">
                 <table>
@@ -385,19 +384,22 @@ def _build_gcf_support_section(gcf_support_rows):
             </div>'''
 
 
-def _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean,
-                                 gcf_support_rows=None):
-    """Return the BiG-SCAPE GCF section HTML for the GCF Analysis tab."""
-    if not (bigscape_stats_html or gcf_visualization_html):
+def build_bigscape_stats_section(bigscape_stats_html, taxon_clean):
+    """Network-level clustering numbers, and where to open BiG-SCAPE's own output.
+
+    The per-family tables that used to sit in this block are their own sections
+    now; what is left is the network summary and the pointer to the interactive
+    output, which is the one thing this report cannot reproduce.
+    """
+    if not bigscape_stats_html:
         return ''
     return f'''
             <div class="clustering-section">
-                {bigscape_stats_html if bigscape_stats_html else ''}
-                {_build_gcf_support_section(gcf_support_rows)}
-                {gcf_visualization_html if gcf_visualization_html else ''}
+                {bigscape_stats_html}
                 <div class="info-box" style="margin-top: 20px;">
-                    <p>BiG-SCAPE clusters biosynthetic gene clusters into gene cluster families based on sequence similarity.</p>
-                    <p style="margin-top: 15px;"><strong>To view interactive results:</strong></p>
+                    <p><strong>The interactive BiG-SCAPE output</strong> — the similarity
+                    network, per-family alignments and the distance browser — is not
+                    reproduced here. To open it:</p>
                     <ol style="margin: 10px 0 10px 20px; line-height: 1.8;">
                         <li>Open: <code>results/bigscape_results/{taxon_clean}/index.html</code></li>
                         <li>Select database: <code>results/bigscape_results/{taxon_clean}/{taxon_clean}.db</code></li>
@@ -500,8 +502,11 @@ _COUPLING_META = {
         'Decarboxylase', 'SMCOG1055 (ThDP)',
         '2-Phosphonoacetaldehyde (2-AEP)', 'DhpF, Fom2, Ppd'),
     'Transaminase': (
+        # PnaA is the sequence the Support column is scored against; PalB names the
+        # class in the literature but is not in assets/reference_sequences/, so
+        # listing it bare implied an identity that is never computed.
         'Transaminase', 'SMCOG1019 (Aminotran_1_2 / PF00155)',
-        'L-Phosphonoalanine', 'PnaA, PalB'),
+        'L-Phosphonoalanine', 'PnaA (PalB-like)'),
     'Unknown': (
         'Unknown', 'no marker matched',
         'not assignable', 'none'),
@@ -828,6 +833,51 @@ def build_partition_section(pepm_summary):
     '''
 
 
+# ─── Sidebar navigation ────────────────────────────────────────────────────────
+
+def build_tabbed_nav(groups):
+    """Sidebar entries and content panes for the whole report.
+
+    `groups` is [(group_label, [(entry_label, pane_html), ...]), ...].
+
+    The report grew by merging tabs — the five that were left held between one and
+    seven unrelated sections each, and Gene Cluster Families was a single pane about
+    two metres long in which the only way to reach the family trees was to scroll
+    past every consensus table. Each section is now its own pane, and the rail is
+    what makes them reachable.
+
+    A pane with no HTML is dropped and so is a group left empty by that, so a run
+    without clustering has fewer entries rather than entries that open onto nothing.
+    A group with one pane renders as a plain top-level entry; a group with several
+    renders as a heading with indented entries beneath it.
+
+    Numbering runs across the whole report, not per group, because the CSS rule that
+    reveals a pane pairs `#tabN` with `#contentN`. Nothing may depend on a particular
+    N: which sections a run emits decides them.
+    """
+    nav_parts, pane_parts, n = [], [], 0
+    for group_label, entries in groups:
+        live = [(label, html) for label, html in entries if html and html.strip()]
+        if not live:
+            continue
+        if len(live) > 1:
+            nav_parts.append(f'        <div class="nav-group">{_html.escape(group_label)}</div>')
+        for label, html in live:
+            n += 1
+            if n > MAX_PANES:
+                raise ValueError(
+                    f'report has more than {MAX_PANES} panes; raise MAX_PANES in '
+                    'viz/report_assets.py, which generates one CSS rule per pane')
+            checked = ' checked' if n == 1 else ''
+            cls = ' class="sub"' if len(live) > 1 else ''
+            nav_parts.append(
+                f'        <input type="radio" id="tab{n}" name="tabs"{checked}>\n'
+                f'        <label for="tab{n}"{cls}>{_html.escape(label)}</label>')
+            pane_parts.append(
+                f'        <div class="tab-content" id="content{n}">\n{html}\n        </div>')
+    return '\n'.join(nav_parts) + '\n\n' + '\n'.join(pane_parts)
+
+
 # ─── Tab bodies ────────────────────────────────────────────────────────────────
 # These were inline in a single 300-line f-string inside generate_html_report,
 # which made every tab edit a careful string match into a wall of markup. Each
@@ -838,28 +888,22 @@ _MISSING = ('<div style="color: #999; padding: 20px; background: #f8f9fa; '
             'border-radius: 8px; text-align: center; font-size: 0.9em;">{}</div>')
 
 
-def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_section_html,
-                           priority_html='', consensus_html=''):
-    """Clustering statistics, the coupling-enzyme class table and the pepM figure.
+def build_biosynthetic_phylogeny_section(coupling_table_rows):
+    """The coupling-enzyme classification reference table.
 
-    The trees themselves are in the GCF Trees tab; the class table stays here
-    because it is a classification reference, and the tree figures carry their
-    own colour legends.
+    This is the key to every coupling class named elsewhere in the report — the
+    tree colours, the support table, the branch points — so it is a reference
+    page rather than a result. The trees themselves are under Family trees, and
+    carry their own colour legends.
     """
-    no_clustering = ('<div class="info-box" style="background-color: #f8f9fa; '
-                     'border-left: 4px solid #6c757d;"><p style="color: #666;">'
-                     'No clustering analysis was performed. To enable clustering, run the '
-                     'pipeline with <code>--clustering bigscape</code>.</p></div>')
-    th = ('text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;')
+    th = 'text-align: left; padding: 8px 12px; border-bottom: 2px solid #dee2e6;'
     return f'''
-            {priority_html}
-            {consensus_html}
-
             <h3>GCF Biosynthetic Phylogeny</h3>
-            <p style="color: #666; margin-bottom: 20px;">
-                <em>Classification of phosphonate BGCs by the coupling enzyme acting on phosphonopyruvate — the branching step
-                immediately downstream of PEP mutase that determines the downstream biosynthetic pathway.
-                The trees themselves are in the <strong>GCF Trees</strong> tab.</em>
+            <p style="color: #666; margin-bottom: 20px; max-width: 74ch;">
+                <em>Phosphonate BGCs classified by the coupling enzyme acting on
+                phosphonopyruvate — the branching step immediately downstream of PEP
+                mutase, which fixes the rest of the pathway. This table is the key to
+                every coupling class named elsewhere in the report.</em>
             </p>
 
             <div style="margin-top: 24px; background: #f8f9fa; padding: 20px; border-radius: 10px;">
@@ -878,13 +922,15 @@ def build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html, pepm_sect
                         {coupling_table_rows}
                     </tbody>
                 </table>
-            </div>
+            </div>'''
 
-            <hr class="tab-section-divider">
 
-            {bigscape_section_html}
-            {pepm_section_html}
-            {'' if bigscape_section_html else no_clustering}'''
+def build_no_clustering_notice():
+    """Shown in place of every BiG-SCAPE-derived section when there was no run."""
+    return ('<div class="info-box" style="background-color: #f8f9fa; '
+            'border-left: 4px solid #6c757d;"><p style="color: #666;">'
+            'No clustering analysis was performed. To enable clustering, run the '
+            'pipeline with <code>--clustering bigscape</code>.</p></div>')
 
 
 def build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime):
@@ -910,8 +956,8 @@ def build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime):
     return f'''
             <h3>Gene Cluster Family Trees</h3>
             <p style="color: #666; margin-bottom: 20px;">
-                <em>Branch colours are coupling enzyme classes; the class table is in the
-                <strong>GCF Analysis</strong> tab.</em>
+                <em>Branch colours are coupling enzyme classes; the class table is under
+                <strong>Biosynthetic phylogeny</strong>.</em>
             </p>
 
             <div class="plot" style="margin-top: 20px;">
@@ -986,12 +1032,13 @@ def build_priority_section(ranking_path, bioprofile_path=None):
     orders the list, the components justify the order.
 
     Distance is ISOLATION in BiG-SCAPE space -- how far the family sits from everything
-    else in this run -- not distance to a reference. The reference set is 6 Streptomyces
-    enzymes plus one Pantoea, which made the old axis a binary readout of "does a
-    same-taxon reference exist" and put five Reductase families on top purely because
-    VlpB is the most distant reference in the set. The reference columns are still
-    shown, as context: seeing "23.9% to Streptomyces durhamensis" is what tells a reader
-    the number means an absent reference rather than novel chemistry.
+    else in this run -- not distance to a reference. The coupling-enzyme reference set is
+    seven characterised proteins (five Streptomyces, one Glycomyces, one Pantoea), which
+    made the old axis close to a binary readout of "does a same-taxon reference exist"
+    and put five Reductase families on top purely because VlpB is the most distant
+    reference in the set. The reference columns are still shown, as context: seeing
+    "23.9% to Streptomyces durhamensis" is what tells a reader the number means an absent
+    reference rather than novel chemistry.
     """
     import csv as _csv
     from pathlib import Path as _Path
@@ -1021,6 +1068,22 @@ def build_priority_section(ranking_path, bioprofile_path=None):
 
     unc = [r for r in rows if r['status'] != 'ranked']
     ranked = [r for r in rows if r['status'] == 'ranked']
+
+    # The case against ranking on reference identity is that the reference set is
+    # small and taxonomically narrow, so identities clump rather than grading
+    # smoothly. That was asserted here as "bimodal, nothing between 45% and 94%" --
+    # an Erwiniaceae measurement that is simply untrue of Enterobacterales, where
+    # the same column runs 18.5-100% with its widest gap at 75-94%. Measure it.
+    pcts = sorted(float(r['reference_pct_id']) for r in rows
+                  if (r.get('reference_pct_id') or '').strip())
+    spread = ''
+    if len(pcts) >= 4:
+        lo, hi = pcts[0], pcts[-1]
+        gap_lo, gap_hi = max(zip(pcts, pcts[1:]), key=lambda ab: ab[1] - ab[0])
+        spread = (f' Across the {len(pcts)} families scored here those identities run '
+                  f'{lo:.1f}–{hi:.1f}%')
+        spread += (f', with nothing between {gap_lo:.1f}% and {gap_hi:.1f}%.'
+                   if gap_hi - gap_lo >= 10 else '.')
 
     def bar(frac, tone):
         pct = max(0.0, min(1.0, frac)) * 100
@@ -1103,13 +1166,13 @@ def build_priority_section(ranking_path, bioprofile_path=None):
             middling one on both.
         </p>
         <p style="color:#555;max-width:70ch;font-size:.92em;">
-            <strong>Why isolation and not distance to a reference.</strong> Six of the seven
-            characterised references are <em>Streptomyces</em>; the one Enterobacterial
-            reference is the pantaphos synthase. Identities against that set are bimodal
-            with nothing between 45% and 94% — a binary readout of whether a same-taxon
-            reference happens to exist, not a novelty gradient. Reference identity is kept
-            in the last column as context, and is used only to zero the distance of a family
-            whose chemistry is already characterised.
+            <strong>Why isolation and not distance to a reference.</strong> The
+            coupling-enzyme reference set is seven characterised proteins — five
+            <em>Streptomyces</em>, one <em>Glycomyces</em>, one <em>Pantoea</em> — so an
+            identity against it largely reports whether a same-taxon reference happens to
+            exist, rather than grading novelty.{spread} Reference identity is kept in the
+            last column as context, and is used only to zero the distance of a family whose
+            chemistry is already characterised.
         </p>
         {unc_html}
         <div class="table-container">
@@ -1136,45 +1199,46 @@ def build_priority_section(ranking_path, bioprofile_path=None):
     </div>'''
 
 
-def build_novelty_tab(priority_html, all_regions_html, n_regions=0):
-    """BGC Novelty: what to look at, then everything else.
-
-    The ranking is 17 rows; the full region list is 333. Presenting them as equals
-    buries the actionable part under a table where every row says the same thing —
-    which is what the old "Novel BGCs" tab did, at 30.7% of the whole report. The list
-    is kept, because it is genuinely useful, but folded into a `<details>` so it is one
-    click away rather than the first thing in the section.
-    """
-    count = f' ({n_regions:,} regions)' if n_regions else ''
-    listing = f'''
-        <details style="margin-top:26px;border:1px solid #dee2e6;border-radius:8px;padding:0;">
-            <summary style="cursor:pointer;padding:13px 18px;font-weight:600;background:#f8f9fa;
-                            border-radius:8px;">
-                All detected regions{count}
-            </summary>
-            <div style="padding:4px 18px 18px;">
-                <p style="color:#666;font-size:.9em;max-width:70ch;">
-                    Every phosphonate region found, whether or not its family ranked above.
-                    Use this to locate a specific contig or genome; use the ranking to decide
-                    what to work on.
-                </p>
-                {all_regions_html}
-            </div>
-        </details>''' if all_regions_html else ''
-
-    if not priority_html and not all_regions_html:
-        return ('<div class="info-box"><p style="color:#666;">No BGC novelty analysis '
-                'available. Run with <code>--clustering bigscape</code> to enable.</p></div>')
-
-    return f'''
+def build_novelty_intro():
+    """One line saying what the ranking orders on, above the ranking itself."""
+    return '''
             <h2>BGC Novelty</h2>
             <p style="color:#666;max-width:70ch;">
-                <em>Which gene cluster families are worth taking into the laboratory, and why.
-                Ordered by divergence from characterised chemistry, discounted by how well
-                evidenced each family is.</em>
+                <em>Which gene cluster families are worth taking into the laboratory, and
+                why. Ordered by how isolated each family is from everything else in this
+                run, discounted by how well evidenced it is — not by distance to a
+                characterised reference, for the reason given below.</em>
+            </p>'''
+
+
+def build_all_regions_section(all_regions_html, n_regions=0):
+    """Every region found, as its own pane rather than a fold in the ranking.
+
+    The ranking has one row per family and this has one per region — 72 against
+    1,303 on Enterobacterales. Presenting them as equals buries the actionable part
+    under a table where every row says the same thing, which is what the old "Novel
+    BGCs" tab did at 30.7% of the whole report. It used to be hidden in a
+    `<details>` under the ranking for that reason; a pane of its own separates them
+    without hiding it.
+    """
+    if not all_regions_html:
+        return ''
+    # Count the rows actually rendered here. `n_regions` counts every region in the
+    # tabulation, but this table holds only those below the KnownClusterBlast floor
+    # -- 1,196 of 1,309 on Enterobacterales -- so using it labelled the table with a
+    # total that did not match the rows under it.
+    shown = max(0, all_regions_html.count('<tr') - all_regions_html.count('<thead'))
+    count = f' ({shown:,})' if shown else ''
+    return f'''
+            <h2>All detected regions{count}</h2>
+            <p style="color:#666;font-size:.9em;max-width:70ch;">
+                Every region whose best KnownClusterBlast hit falls below the similarity
+                floor — which for phosphonate chemistry is nearly all of them. The rest are
+                under <strong>Known-cluster matches</strong>. Use this to locate a specific
+                contig or genome; use <strong>Priority for follow-up</strong> to decide what
+                to work on.
             </p>
-            {priority_html}
-            {listing}'''
+            {all_regions_html}'''
 
 
 # ─── Consensus gene content ──────────────────────────────────────────────────
@@ -1203,9 +1267,23 @@ def _consensus_block(fam, fam_rows, s):
     head = f'GCF-{fam}'
     if n_mem:
         head += f' — {n_mem} member{"s" if n_mem != 1 else ""}'
-    if s.get('pct_after') is not None and s.get('pct_before') is not None:
-        head += (f' · annotation {s["pct_before"]}% → '
-                 f'<strong>{s["pct_after"]}%</strong>')
+    # The arrow is shown only where the transfer actually moved something. On a
+    # RefSeq-only run every genome already carries PGAP annotation, so 64 of 72
+    # families here move by under a point and "78.0% → 78.5%" reads as a result
+    # when it is rounding. The coverage itself still matters — it says how much of
+    # the family has no name anywhere — so it stays, without the arrow.
+    before, after = s.get('pct_before'), s.get('pct_after')
+    if before is not None and after is not None:
+        if after - before >= 1.0:
+            head += (f' · annotation {before}% → <strong>{after}%</strong>'
+                     f' <span style="color:#166b47;" title="gained by transferring '
+                     f'product names from better-annotated members of this family"'
+                     f'>+{after - before:.1f}</span>')
+        else:
+            head += (f' · <span title="share of this family\'s CDS carrying an '
+                     f'informative product. Transferring names from better-annotated '
+                     f'members moved it by less than a point.">annotation '
+                     f'{after}%</span>')
 
     body = []
     for g in genes:
@@ -1295,12 +1373,15 @@ def consensus_blocks_by_family(consensus_path, transfer_summary_path=None):
 def build_consensus_clusters_section(consensus_path, transfer_summary_path=None):
     """One consensus cluster per family, assembled from every member.
 
-    A single representative BGC shows one genome's annotation, and on this data that
-    is usually a bad draw: only 40.2% of CDS carry an informative product and 170 of
-    333 regions carry none at all. Pooling orthologues across a family and taking the
-    majority name lifts that to 80.2% — the consensus pantaphos cluster recovers a
-    GNAT acetyltransferase and an ATP-grasp protein that LMG 5342's own annotation
-    calls "hypothetical".
+    A single representative BGC shows one genome's annotation, which on a mixed
+    assembly set is usually a bad draw. Measured on Erwiniaceae, where GenBank-only
+    deposits are common: 40.2% of CDS carried an informative product and 170 of 333
+    regions carried none at all; pooling orthologues across a family and taking the
+    majority name lifted that to 80.2%, and the consensus pantaphos cluster recovered
+    a GNAT acetyltransferase and an ATP-grasp protein that LMG 5342's own annotation
+    calls "hypothetical". The gain is much smaller on a RefSeq-only set — 87.8% to
+    88.2% on Enterobacterales — because PGAP has already annotated every genome. The
+    rendered section reports whichever applies to the run in hand.
 
     Prevalence is what makes this more than a longer gene list: a gene at 1.00 is in
     every member and is part of what defines the family; one at 0.24 is accessory and
@@ -1334,6 +1415,34 @@ def build_consensus_clusters_section(consensus_path, transfer_summary_path=None)
     for fam in sorted(by_fam, key=order):
         blocks.append(_consensus_block(fam, by_fam[fam], summary.get(fam, {})))
 
+    # Coverage from this run, not from the run this section was written against.
+    # The prose used to quote 40.2% -> 80.2% over 333 regions as though it were a
+    # property of the method; those are Erwiniaceae numbers, and on a RefSeq-only
+    # order the same step moves 87.8% -> 88.2%. Quoting them as "this run" made the
+    # section describe data the reader was not looking at.
+    overall = {}
+    if transfer_summary_path and _Path(transfer_summary_path).exists():
+        try:
+            overall = _json.loads(_Path(transfer_summary_path).read_text())
+        except Exception:
+            overall = {}
+    b, a = overall.get('pct_before'), overall.get('pct_after')
+    n_cds = overall.get('cds')
+    if b is not None and a is not None and n_cds:
+        gain = a - b
+        measured = (
+            f'Across the {n_cds:,} CDS in these families that took annotation '
+            f'coverage from <strong>{b}%</strong> to <strong>{a}%</strong>.'
+            if gain >= 1.0 else
+            f'These families were already <strong>{b}%</strong> annotated across '
+            f'{n_cds:,} CDS, so the transfer had little left to do here — it earns '
+            f'its place on assembly sets that include GenBank-only deposits with no '
+            f'functional annotation at all, where it has lifted coverage from 40.2% '
+            f'to 80.2%.')
+    else:
+        measured = ('A product name found on any member is propagated to the '
+                    'orthologues that lack one.')
+
     legend = ' '.join(
         f'<span style="background:{bg};color:{fg};padding:1px 7px;border-radius:9px;'
         f'font-size:.82em;margin-right:6px;" title="{tip}">{role}</span>'
@@ -1344,10 +1453,10 @@ def build_consensus_clusters_section(consensus_path, transfer_summary_path=None)
         <h3>Consensus Gene Content</h3>
         <p style="color:#555;max-width:72ch;">
             One consensus cluster per family, assembled from <strong>every member</strong>
-            rather than a single representative. Only 40.2% of CDS in this run carry an
-            informative product and 170 of 333 regions carry none at all, so any one
-            representative is usually a bad draw. Pooling orthologues across the family and
-            taking the majority name lifts that to 80.2%.
+            rather than a single representative. Annotation quality is distributed very
+            unevenly within a family, so any one representative is a lottery; pooling
+            orthologues across the family and taking the majority name removes that draw.
+            {measured}
         </p>
         <p style="color:#555;max-width:72ch;font-size:.92em;">
             <strong>Prevalence is the column to read.</strong> A gene present in every

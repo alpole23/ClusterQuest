@@ -199,6 +199,16 @@ def plot_gcf_tree(tree, gcf_info, gcf_dominant, outdir):
     fig_h = max(3.0, n * 0.45)
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
+    # Reserve the title band in INCHES, not as a fraction of the figure. This tree
+    # grows with the family count -- 72 families is 32 inches tall -- and
+    # matplotlib's default top margin of 12% then puts nearly four blank inches
+    # between the title and the first branch. bbox_inches='tight' below cannot
+    # crop it, because the gap sits between two drawn artists rather than at an
+    # edge. bgc_gcf_heatmap and bgc_all_bgcs_tree already lay out in inches for
+    # exactly this reason; this figure was the one left on the defaults.
+    title_in = 0.44
+    fig.subplots_adjust(top=1 - title_in / fig_h)
+
     draw_cladogram(ax, tree.root, lw=1.2)
 
     # Draw leaf nodes as colored circles + labels
@@ -246,7 +256,7 @@ def plot_gcf_tree(tree, gcf_info, gcf_dominant, outdir):
 
     fig.suptitle('GCF Biosynthetic Phylogeny\n'
                  'NJ tree · BiG-SCAPE center-to-center distances',
-                 fontsize=10, y=0.98, va='top')
+                 fontsize=10, y=1 - 0.06 / fig_h, va='top')
 
     out_png = os.path.join(outdir, 'gcf_biosynthetic_tree.png')
     out_svg = os.path.join(outdir, 'gcf_biosynthetic_tree.svg')
