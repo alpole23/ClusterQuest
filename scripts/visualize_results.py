@@ -39,7 +39,7 @@ from viz.distribution import generate_bgc_distribution_html
 from viz.genome_pages import create_genome_metadata_pages
 from viz.rarefaction import generate_rarefaction_curve
 from viz.report_sections import (build_bigscape_stats_section,
-                                 build_pepm_section, build_partition_section,
+                                 build_partition_section,
                                  _build_kcb_content, _build_rarefaction_section,
                                  gcf_coupling_classes, build_gcf_support_rows,
                                  build_overview_stats, _build_gcf_support_section,
@@ -77,7 +77,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          consensus_clusters=None, transfer_summary=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
-                         pepm_b64=None, pepm_summary=None, gcf_hrefs=None):
+                         pepm_summary=None, gcf_hrefs=None):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -105,9 +105,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     provenance = (f'{_n_genomes:,} genomes · generated {_generated}{_as_ver}'
                   if _n_genomes else f'generated {_generated}{_as_ver}')
 
-    # pepM evidence sits with the clustering it justifies; the partitioning
-    # table is operational and belongs with the pipeline diagnostics.
-    pepm_section_html = build_pepm_section(pepm_b64, pepm_summary)
+    # Whether pepM identity could partition BiG-SCAPE is operational, so it sits
+    # with the pipeline diagnostics rather than with the chemistry.
     partition_section_html = build_partition_section(pepm_summary)
 
     bigscape_stats_section = build_bigscape_stats_section(bigscape_stats_html, taxon_clean)
@@ -182,7 +181,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             ('BiG-SCAPE statistics',      bigscape_stats_section),
             ('Coupling enzyme support',   support_section),
             ('Family representatives',    gcf_visualization_html),
-            ('pepM vs cluster similarity', pepm_section_html),
             ('Family trees',              gcf_trees_tab),
         ]),
         ('Phylogeny', [
@@ -297,7 +295,6 @@ def main():
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
-    parser.add_argument('--pepm_svg', type=Path, help='pepM vs BiG-SCAPE similarity SVG from PEPM_ALL_BY_ALL')
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--novelty_ranking', type=Path, help='novelty_ranking.tsv from NOVELTY_SCORE')
@@ -470,7 +467,6 @@ def main():
     # pepM all-by-all: the figure goes in GCF Analysis, the partitioning table in
     # the pipeline-info block on Overview. Both are optional — the analysis is a
     # separate process and a run without it should still produce a report.
-    pepm_b64, _ = embed_image(args.pepm_svg)
     pepm_summary = None
     if args.pepm_json and args.pepm_json.exists():
         with open(args.pepm_json) as f:
@@ -507,7 +503,7 @@ def main():
                             phylo_tree_generated,
                             genome_table, resource_usage_html, phylo_tree_data,
                             taxonomy_genome_json=taxonomy_genome_json,
-        pepm_b64=pepm_b64, pepm_summary=pepm_summary,
+        pepm_summary=pepm_summary,
                             gcf_data=gcf_data_dict, taxonomy_map=taxonomy_map_dict,
                             versions_data=versions_data,
                             rarefaction_stats=rarefaction_stats,

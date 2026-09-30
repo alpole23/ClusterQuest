@@ -851,7 +851,7 @@ The report uses 7 tabs:
 - **Overview**: Summary statistics grid, rarefaction curve, pipeline resource usage (collapsible) and software versions
 - **Phylogeny**: NCBI taxonomy tree + GTDB-Tk phylogenetic tree and BGC distribution
 - **Genomes**: Searchable genome table with links to individual genome pages
-- **GCF Analysis**: GCF biosynthetic NJ tree (embedded as base64), dynamic coupling enzyme class table, BiG-SCAPE clustering statistics, GCF visualization, and the **pepM identity vs gene-cluster similarity** figure with its correlation table — the Yu et al. replication that is the evidence the GCF assignments above it can be trusted
+- **Gene cluster families**: seven sub-panes — consensus gene content, biosynthetic phylogeny (the coupling enzyme class table), BiG-SCAPE clustering statistics, coupling enzyme support by GCF, family representatives, and the family-centre tree
 - **Pipeline Info**: resource usage, **BiG-SCAPE partitioning feasibility**, software versions
 - **Novel BGCs**: BGC regions without KnownClusterBlast matches
 - **KCB Hits**: Known cluster matches grouped by MIBiG entry
@@ -2563,38 +2563,55 @@ The domain map covers ~93% of observed hits and everything else is `other`, mean
 the families the shortlist exists to surface — genuinely novel chemistry would present as
 an empty profile and read as "same as everything".
 
-### `PEPM_ALL_BY_ALL` — pepM identity vs gene-neighbourhood similarity
+### `PEPM_ALL_BY_ALL` — can pepM identity partition BiG-SCAPE?
 
-Reproduces Yu et al. (PNAS 2013;110(51):20759) Fig. 2B on the run's own data, and answers
-whether pepM identity could partition BiG-SCAPE's all-pairs problem.
+Answers one operational question: whether pepM identity is a cheap key to split
+BiG-SCAPE's all-pairs problem, which is what stops a very large run clustering in one
+pass. Output feeds the **BiG-SCAPE Partitioning Feasibility** table in Pipeline Info.
 
-This is **not** the pepM-vs-references divergence plot removed on 2026-08-27 (below).
-That compared each pepM against a reference set, which the paper does not license. This
-is the paper's actual analysis: all pepMs compared pairwise against each other.
+**It is mostly a join.** BiG-SCAPE's `distance` table already holds every pair, so
+nothing is recompared; only the pepM axis is new. Identity comes from one alignment with
+**pairwise deletion of missing sites**, not BLAST — `hmmalign` against PF13714, linear in
+sequence count where all-by-all alignment is quadratic. Only match columns count, so
+fusion proteins are not penalised for residues nobody was aligned against.
 
-**It is mostly a join.** BiG-SCAPE's `distance` table already holds the y-axis for every
-pair — `jaccard` is shared domain content, the analogue of the paper's "fraction of
-homologous genes shared". Only the pepM axis is new.
+**Every same-GCF pair on Erwiniaceae has pepM identity ≥ 0.901** (median 1.000), so a cut
+anywhere from 0.50 to 0.90 is lossless there.
 
-Method follows the paper: identity from one alignment with **pairwise deletion of missing
-sites**, not BLAST. `hmmalign` against PF13714 gives that and is linear in sequence count
-where all-by-all alignment is quadratic. Only match columns count, so fusion proteins are
-not penalised for residues nobody was aligned against.
+#### The Yu et al. figure was removed on 2026-09-30
 
-**Measured on Erwiniaceae (333 BGCs, 55,278 pairs, 100% pepM coverage):**
+This stage used to also plot pepM identity against neighbourhood similarity, a
+replication of Yu et al. (PNAS 2013;110(51):20759) Fig. 2B. **On a taxonomically broad
+run that figure mostly measures taxonomy.** Splitting the 848,253 Enterobacterales pairs
+by GTDB relationship, over the paper's 0.6–1.0 fitting window:
 
-| | r | r² | slope |
+| stratum | n | r | r² |
 |---|---|---|---|
-| vs `jaccard` | +0.598 | 0.358 | +2.49 |
-| vs BiG-SCAPE similarity | +0.641 | 0.411 | +2.71 |
+| **pooled — what the figure reported** | 302,730 | **0.789** | 0.623 |
+| different genus | 149,485 | 0.353 | 0.125 |
+| same genus, different species | 108,079 | 0.194 | 0.038 |
+| same species | 45,166 | 0.385 | 0.148 |
 
-The correlation above 60% identity is confirmed, but in this data the relationship is a
-**step, not a line**: median neighbourhood similarity is ~0.03 below 0.88 identity and
-jumps to 0.998 at ≥0.98. The paper's dataset spanned all known producers and had a
-populated middle; one family does not.
+**92.4% of the covariance in that window is *between* strata.** The three groups are
+near-disjoint clouds on both axes — identity 0.725 / 0.967 / 0.994, similarity
+0.20 / 0.63 / 0.87 — so the regression is a line drawn through three points. Within a
+species, where identity spans 0.991–1.000 (p5–p95), neighbourhood similarity still has
+sd 0.225: pepM says nothing there.
 
-**Every same-GCF pair has pepM identity ≥ 0.901** (median 1.000), so a cut anywhere from
-0.50 to 0.90 is lossless here.
+Over the *full* identity range the confound is weaker (63.4% between strata, within-
+stratum r 0.54 / 0.75 / 0.86), so the relationship is not purely artefactual — but the
+fitted window is what the figure reported. Yu et al. fitted the same window on a set
+spanning phyla, so their figure carries the same confound; replicating it faithfully
+reproduced the problem.
+
+The partitioning analysis is unaffected: it asks only whether a pepM cut separates
+same-family pairs, an operational claim about where the input can be split, not a claim
+that identity predicts chemistry.
+
+`pepm_vs_neighbourhood.tsv` is still written — `bench_bigscape_partitioned.py` consumes
+it — and still carries the `jaccard` and `bigscape_similarity` columns. What went is
+`binned_stats`, `regression`, `plot`, the two `pepm_vs_*.{png,svg}` figures, the report
+section, and matplotlib from this process's conda environment.
 
 **But it does not partition well enough on its own.** Single-linkage at any threshold
 leaves one component holding 71% of BGCs, because the dominant GCF is genuinely one

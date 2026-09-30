@@ -256,7 +256,7 @@ results/
     ├── rarefaction_curve.png
     ├── pruned_phylo_tree.nwk
     ├── taxonomy_tree.json
-    ├── pepm_all_by_all/                # pepM identity vs neighbourhood similarity
+    ├── pepm_all_by_all/                # pepM pairwise identity; BiG-SCAPE partitioning feasibility
     └── gcf_heatmap/
         ├── gcf_species_heatmap.{png,svg}
         ├── gcf_biosynthetic_tree.{png,svg}
