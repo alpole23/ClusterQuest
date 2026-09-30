@@ -881,8 +881,15 @@ def _twin_cell(other, differing):
             f'Not counted against the rank.">~ GCF-{other}</span>')
 
 
-def build_priority_section(ranking_path, bioprofile_path=None):
+def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None):
     """Gene cluster families ranked by how much they warrant laboratory follow-up.
+
+    Each GCF links to its own page -- the representative cluster's gene diagram and
+    table, and the consensus gene content across every member. That page did not
+    exist when this table was written, so the link used to call showGCF(), which
+    switched panes and scrolled to the family's row in the master table: one more
+    table, in another pane, to find the same link in. showGCF is kept as the
+    fallback for a run whose per-family pages were not written.
 
     Distance and evidence are shown beside the priority they multiply to, deliberately.
     The weights behind them are reasoned, not fitted — there is no set of leads that
@@ -939,8 +946,7 @@ def build_priority_section(ranking_path, bioprofile_path=None):
     if len(pcts) >= 4:
         lo, hi = pcts[0], pcts[-1]
         gap_lo, gap_hi = max(zip(pcts, pcts[1:]), key=lambda ab: ab[1] - ab[0])
-        spread = (f' Across the {len(pcts)} families scored here those identities run '
-                  f'{lo:.1f}–{hi:.1f}%')
+        spread = f' Here they run {lo:.1f}–{hi:.1f}% across {len(pcts)} families'
         spread += (f', with nothing between {gap_lo:.1f}% and {gap_hi:.1f}%.'
                    if gap_hi - gap_lo >= 10 else '.')
 
@@ -952,13 +958,20 @@ def build_priority_section(ranking_path, bioprofile_path=None):
                 f'background:{tone}"></div></div>'
                 f'<span style="font-variant-numeric:tabular-nums">{frac:.2f}</span></div>')
 
+    def gcf_link(fid, tone, title):
+        """Link to the family's own page, or fall back to the in-report jump."""
+        href = (gcf_hrefs or {}).get(str(fid))
+        target = (f'href="{href}"' if href
+                  else f'href="javascript:void(0)" onclick="showGCF(\'{fid}\')"')
+        return (f'<a {target} style="color:{tone};font-weight:600;text-decoration:none;'
+                f'border-bottom:1px dotted {tone};" title="{title}">GCF-{fid}</a>')
+
     unc_html = ''
     if unc:
         items = ''.join(
             f'<tr><td style="padding:6px 10px;white-space:nowrap;">'
-            f'<a href="javascript:void(0)" onclick="showGCF(\'{r["gcf"]}\')" '
-            f'style="color:#8a5a0c;font-weight:600;text-decoration:none;'
-            f'border-bottom:1px dotted #8a5a0c;">GCF-{r["gcf"]}</a></td>'
+            + gcf_link(r["gcf"], '#8a5a0c', 'Open this family\'s page')
+            + '</td>'
             f'<td style="padding:6px 10px;text-align:right;">{r["members"]}</td>'
             f'<td style="padding:6px 10px;text-align:right;">{r["genomes"]}</td>'
             f'<td style="padding:6px 10px;text-align:right;">{float(r["intact"]):.0%}</td></tr>'
@@ -985,10 +998,10 @@ def build_priority_section(ranking_path, bioprofile_path=None):
         f'<tr>'
         f'<td style="padding:7px 10px;color:#888;text-align:right;">{r["rank"]}</td>'
         f'<td style="padding:7px 10px;white-space:nowrap;">'
-        f'<a href="javascript:void(0)" onclick="showGCF(\'{r["gcf"]}\')" '
-        f'style="color:#2c5aa0;font-weight:600;text-decoration:none;'
-        f'border-bottom:1px dotted #2c5aa0;" '
-        f'title="Show this family in Gene Cluster Families">GCF-{r["gcf"]}</a></td>'
+        + gcf_link(r["gcf"], '#2c5aa0',
+                   'Open this family\'s page: representative cluster, gene diagram '
+                   'and consensus gene content')
+        + '</td>'
         f'<td style="padding:7px 10px;font-weight:600;text-align:right;'
         f'font-variant-numeric:tabular-nums;">{float(r["priority"]):.3f}</td>'
         f'<td style="padding:7px 10px;">{bar(float(r["distance"]), "#0e5c6b")}</td>'
@@ -1009,29 +1022,21 @@ def build_priority_section(ranking_path, bioprofile_path=None):
     return f'''
     <div class="section">
         <h3>Priority for Laboratory Follow-Up</h3>
-        <p style="color:#555;max-width:70ch;">
-            Families ordered by <strong>distance × evidence</strong>. Distance is
-            <strong>isolation</strong>: how far this family sits from every other family in
-            this run, measured over BiG-SCAPE's all-pairs matrix. Evidence is how confident
-            we can be the family is real rather than an assembly artefact — independent
-            genomes, independent genera, and the share of regions not truncated at a contig
-            edge. They multiply because both are necessary.
+        <p style="color:#555;max-width:72ch;">
+            Ordered by <strong>isolation × evidence</strong>. <strong>Isolation</strong> is
+            how far a family sits from every other family in this run, over BiG-SCAPE's
+            all-pairs matrix — not distance to a reference. <strong>Evidence</strong> is
+            independent genomes, independent genera, and the share of regions not truncated
+            at a contig edge. They multiply because both are necessary, so read across the
+            row: high isolation with low evidence is a different proposition from middling
+            on both.
         </p>
-        <p style="color:#555;max-width:70ch;font-size:.92em;">
-            <strong>The components are shown deliberately.</strong> Their weights are reasoned,
-            not fitted to any set of leads that panned out, so the ordering is a considered
-            opinion rather than a measurement. Read across the row, not just down the score:
-            a family with high distance and low evidence is a different proposition from a
-            middling one on both.
-        </p>
-        <p style="color:#555;max-width:70ch;font-size:.92em;">
-            <strong>Why isolation and not distance to a reference.</strong> The
-            coupling-enzyme reference set is seven characterised proteins — five
-            <em>Streptomyces</em>, one <em>Glycomyces</em>, one <em>Pantoea</em> — so an
-            identity against it largely reports whether a same-taxon reference happens to
-            exist, rather than grading novelty.{spread} Reference identity is kept in the
-            last column as context, and is used only to zero the distance of a family whose
-            chemistry is already characterised.
+        <p style="color:#555;max-width:72ch;font-size:.92em;">
+            The weights are reasoned, not fitted — there is no set of leads that panned out
+            to fit against — so this is a considered opinion, which is why the components
+            are shown beside the score. <strong>Reference identity is context only</strong>,
+            used solely to zero a family whose chemistry is already characterised: the
+            reference set is seven proteins, five of them <em>Streptomyces</em>.{spread}
         </p>
         {unc_html}
         <div class="table-container">
@@ -1062,11 +1067,9 @@ def build_novelty_intro():
     """One line saying what the ranking orders on, above the ranking itself."""
     return '''
             <h2>BGC Novelty</h2>
-            <p style="color:#666;max-width:70ch;">
-                <em>Which gene cluster families are worth taking into the laboratory, and
-                why. Ordered by how isolated each family is from everything else in this
-                run, discounted by how well evidenced it is — not by distance to a
-                characterised reference, for the reason given below.</em>
+            <p style="color:#666;max-width:72ch;">
+                <em>Which gene cluster families are worth taking into the laboratory,
+                and why.</em>
             </p>'''
 
 

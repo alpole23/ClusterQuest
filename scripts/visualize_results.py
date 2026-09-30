@@ -140,7 +140,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # coupling_table_rows and would otherwise interpolate a literal "None".
     # Region count for the collapsed listing's summary line.
     n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
-    priority_html    = build_priority_section(novelty_ranking, bioprofile_path)
+    priority_html    = build_priority_section(novelty_ranking, bioprofile_path, gcf_hrefs)
     priority_section = (build_novelty_intro() + priority_html) if priority_html else ''
     regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
     consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary)
