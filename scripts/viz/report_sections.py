@@ -12,6 +12,7 @@ import sqlite3
 
 from utils.constants import load_coupling_classes, COUPLING_COLORS, KCB_THRESHOLDS
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
+from utils.gene_diagram import generate_gene_svg
 from viz.report_assets import MAX_PANES
 
 
@@ -1118,13 +1119,134 @@ _ROLE_STYLE = {
 }
 
 
+def _in_gene_order(fam_rows):
+    """Consensus genes in cluster order, matching the diagram drawn above them.
+
+    Prevalence order was the old default and is wrong for reading a cluster: a BGC
+    is a sequence, and the first thing anyone wants is left-to-right.
+
+    Two orders are available and they disagree. The diagram is drawn on one member,
+    so its order is that member's coordinates; `median_rank` is the family-wide
+    consensus order. Sorting on median_rank alone put the table out of step with
+    the diagram in 37 of 72 families here -- the same genes listed in a different
+    sequence from the picture above them, which is worse than either order alone.
+
+    So: genes the scaffold carries take their scaffold order, and the rest are
+    slotted between them by interpolating their median_rank against the scaffold
+    genes' ranks. One order, and it is the one drawn.
+
+    A run predating these columns falls back to the prevalence sort.
+    """
+    def rank_of(r):
+        v = (r.get('median_rank') or '').strip()
+        return int(v) if v else None
+
+    if not any(rank_of(r) is not None for r in fam_rows):
+        return sorted(fam_rows, key=lambda r: -float(r['prevalence'] or 0))
+
+    on = sorted((r for r in fam_rows if (r.get('scaffold_start') or '').strip()),
+                key=lambda r: int(r['scaffold_start']))
+    if not on:
+        return sorted(fam_rows, key=lambda r: (rank_of(r) if rank_of(r) is not None else 1 << 30,
+                                               -float(r['prevalence'] or 0)))
+
+    pos = {id(r): float(i) for i, r in enumerate(on)}
+    # (median_rank, scaffold position) for the drawn genes, to interpolate against.
+    anchors = sorted((rank_of(r), pos[id(r)]) for r in on if rank_of(r) is not None)
+
+    def slot(r):
+        k = rank_of(r)
+        if k is None:
+            return len(on) + 0.5          # no rank at all: after everything drawn
+        lo = max((a for a in anchors if a[0] <= k), default=None)
+        hi = min((a for a in anchors if a[0] >= k), default=None)
+        if lo is None:
+            return hi[1] - 0.5
+        if hi is None:
+            return lo[1] + 0.5
+        if lo[0] == hi[0]:
+            return lo[1] + 0.5            # same rank as a drawn gene: just after it
+        frac = (k - lo[0]) / (hi[0] - lo[0])
+        return lo[1] + frac * (hi[1] - lo[1])
+
+    return sorted(fam_rows,
+                  key=lambda r: (pos.get(id(r), slot(r)),
+                                 0 if id(r) in pos else 1,
+                                 -float(r['prevalence'] or 0)))
+
+
+def _consensus_diagram(fam, fam_rows, s):
+    """The consensus cluster drawn on the member that best represents it.
+
+    A consensus cluster has no coordinates of its own: it is an abstraction over
+    members sitting at different contig offsets, sometimes in different orders. So
+    rather than synthesise a layout that exists nowhere, the arrows are one real
+    member's -- the scaffold, chosen in gcf_annotation_transfer.py as the member
+    carrying the greatest summed prevalence, which is the member that best shows
+    what defines the family (1,807 of 1,816 core groups across this run, against
+    1,728 when the scaffold was picked on gene count alone).
+
+    What that costs: a group the scaffold happens not to carry has no arrow. The
+    table below is still the full list, and the caption says how many of each.
+    """
+    placed = [r for r in fam_rows if (r.get('scaffold_start') or '').strip()]
+    if not placed:
+        return ''
+    span = s.get('scaffold_span') or []
+    try:
+        lo, hi = int(span[0]), int(span[1])
+    except (IndexError, ValueError, TypeError):
+        lo = min(int(r['scaffold_start']) for r in placed)
+        hi = max(int(r['scaffold_end']) for r in placed)
+
+    genes = []
+    for r in sorted(placed, key=lambda r: int(r['scaffold_start'])):
+        role = r.get('role') or 'other'
+        prev = float(r['prevalence'] or 0)
+        name = r['consensus_product']
+        genes.append({
+            'start': int(r['scaffold_start']), 'end': int(r['scaffold_end']),
+            'strand': int(r.get('scaffold_strand') or 1),
+            'color': _ROLE_STYLE.get(role, _ROLE_STYLE['other'])[0],
+            'locus_tag': r.get('scaffold_locus') or '',
+            'product': f'{name} — in {prev:.0%} of members ({role})',
+            'gene_name': '',
+        })
+    svg = generate_gene_svg(genes, lo, hi, width=900, height=92)
+
+    scaffold = s.get('scaffold') or ''
+    n_groups = s.get('groups') or len(fam_rows)
+    missing = n_groups - len(placed)
+    # Core coverage, not raw count. The scaffold is picked to maximise summed
+    # prevalence, so it is typically a compact member carrying every gene that
+    # defines the family and few of the accessory neighbours -- "21 of 79" reads
+    # as unrepresentative when all 20 core genes are there.
+    core = [r for r in fam_rows if float(r['prevalence'] or 0) >= 0.5]
+    core_on = [r for r in core if (r.get('scaffold_start') or '').strip()]
+    core_txt = (f', including {len(core_on)} of the {len(core)} present in at least '
+                f'half the members' if core else '')
+    note = (f' The remaining {missing} are accessory, and are in the table below.'
+            if missing > 0 else '')
+    return f'''
+        <div style="margin:4px 0 14px;">
+            <div style="overflow-x:auto;">{svg}</div>
+            <p style="color:#777;font-size:.82em;margin:4px 0 0;max-width:80ch;">
+                Drawn on <code>{_html.escape(scaffold)}</code>, the member carrying the
+                most of this family&rsquo;s shared gene content &mdash;
+                {len(placed)} of {n_groups} genes{core_txt}.{note}
+                Arrows are coloured by role and show direction; hover for the gene
+                name and how many members carry it.
+            </p>
+        </div>'''
+
+
 def _consensus_block(fam, fam_rows, s):
     """One family's consensus gene table, collapsed behind a summary line.
 
     Split out of build_consensus_clusters_section so the per-GCF detail pages
     render the identical table rather than a second implementation of it.
     """
-    genes = sorted(fam_rows, key=lambda r: -float(r['prevalence'] or 0))
+    genes = _in_gene_order(fam_rows)
     n_mem = s.get('members', '')
     head = f'GCF-{fam}'
     if n_mem:
@@ -1191,7 +1313,8 @@ def _consensus_block(fam, fam_rows, s):
                         border-radius:5px;">{head}
             <span style="color:#888;font-size:.9em;"> · {len(genes)} genes</span>
         </summary>
-        <div class="table-container" style="padding:4px 10px 10px;">
+        <div style="padding:4px 10px 0;">{_consensus_diagram(fam, fam_rows, s)}</div>
+        <div class="table-container" style="padding:0 10px 10px;">
         <table style="width:100%;border-collapse:collapse;font-size:.9em;">
             <thead><tr style="background:#eef1f2;">
                 <th style="text-align:left;padding:5px 9px;">Gene</th>

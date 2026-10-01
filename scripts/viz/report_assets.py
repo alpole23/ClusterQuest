@@ -93,6 +93,15 @@ REPORT_CSS = """\
             .nav-group { padding: 12px 4px 2px; }
         }
 
+        /* Zoomable figure controls */
+        .zoomfig button {
+            border: 1px solid #ccd2d8; background: #fff; color: #334;
+            border-radius: 4px; padding: 2px 10px; cursor: pointer;
+            font: inherit; font-size: .85em; line-height: 1.5;
+        }
+        .zoomfig button:hover { background: #eef2f6; border-color: #9fb0c0; }
+        .zoompane img { user-select: none; -webkit-user-drag: none; }
+
         /* Collapsible details block (Pipeline Info in Overview) */
         details.pipeline-info {
             margin-top: 30px;
@@ -474,6 +483,59 @@ REPORT_JS = """\
             }
             return false;
         }
+
+        // Zoom and pan for a figure too large to read at pane width -- the GCF x
+        // species heatmap, which is 72 rows against every species carrying one.
+        // Steps are multiples of the fit width rather than absolute pixels, so the
+        // control means the same thing on a phone and on a 4K monitor. "Fit" is the
+        // default view because that is the one showing the block structure; the
+        // zoom levels are for reading a label.
+        const ZOOM_STEPS = [1, 1.5, 2, 3, 4, 6, 8];
+
+        function zoomFig(btn, dir) {
+            const wrap = btn.closest('.zoomfig');
+            const pane = wrap.querySelector('.zoompane');
+            const img  = pane.querySelector('img');
+            let i = parseInt(wrap.dataset.zoom || '0', 10);
+            i = dir === 0 ? 0 : Math.max(0, Math.min(ZOOM_STEPS.length - 1, i + dir));
+            wrap.dataset.zoom = i;
+
+            // Keep whatever is in the middle of the pane in the middle after the
+            // step, or zooming always walks back to the top-left corner.
+            const cx = (pane.scrollLeft + pane.clientWidth  / 2) / Math.max(img.width, 1);
+            const cy = (pane.scrollTop  + pane.clientHeight / 2) / Math.max(img.height, 1);
+            img.style.width = (ZOOM_STEPS[i] * 100) + '%';
+            img.style.maxWidth = 'none';
+            requestAnimationFrame(function () {
+                pane.scrollLeft = cx * img.width  - pane.clientWidth  / 2;
+                pane.scrollTop  = cy * img.height - pane.clientHeight / 2;
+            });
+            const lbl = wrap.querySelector('.zoomlvl');
+            if (lbl) lbl.textContent = i === 0 ? 'fit' : ZOOM_STEPS[i] + '\u00d7';
+        }
+
+        // Drag to pan. Bound once at the document level so it also covers figures
+        // rendered into panes that were not in the DOM when this ran.
+        (function () {
+            let pane = null, x0 = 0, y0 = 0, sl = 0, st = 0;
+            document.addEventListener('mousedown', function (e) {
+                const p = e.target.closest ? e.target.closest('.zoompane') : null;
+                if (!p) return;
+                pane = p; x0 = e.clientX; y0 = e.clientY;
+                sl = p.scrollLeft; st = p.scrollTop;
+                p.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function (e) {
+                if (!pane) return;
+                pane.scrollLeft = sl - (e.clientX - x0);
+                pane.scrollTop  = st - (e.clientY - y0);
+            });
+            document.addEventListener('mouseup', function () {
+                if (pane) pane.style.cursor = 'grab';
+                pane = null;
+            });
+        })();
 
         // Click-to-sort for the detected-regions table. Added so that sorting on
         // MIBiG ID or KCB hit groups the regions matching one characterised cluster:
