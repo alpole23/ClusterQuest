@@ -1,0 +1,46 @@
+{
+  "question": "GCF-22, GCF-18 and GCF-20 all look like the pantaphos BGC. Why did BiG-SCAPE separate them?",
+  "date": "2026-10-02",
+  "dataset": "Enterobacterales RefSeq, 1,303 BGCs, 72 families, 10 kb neighbourhood",
+
+  "answer": "All three carry the same pantaphos biosynthetic cassette. They split on flanking chromosomal context, which differs by genus and which BiG-SCAPE weighs because it compares the whole neighbourhood.",
+
+  "the_shared_cassette": {
+    "genes_in_order": "pepM -> LLM-class flavin-dependent oxidoreductase -> homocitrate/isopropylmalate synthase (HvrC, the Synthase coupling enzyme) -> 3-isopropylmalate dehydratase large subunit -> LeuD/DmdB small subunit -> class I SAM-dependent methyltransferase -> GNAT N-acetyltransferase -> ATP-grasp -> MFS transporter",
+    "comparison_on_biosynthetic_roles_only": {
+      "GCF-18 vs GCF-20": "9 shared, 0 unique to either -- identical",
+      "GCF-22 vs GCF-18": "9 shared, GCF-22 additionally has flavin reductase",
+      "GCF-22 vs GCF-20": "9 shared, GCF-22 additionally has flavin reductase"
+    },
+    "note": "Roles come from Pfam accessions, not product text. GCF-18's cassette runs in the opposite orientation on its scaffold, which is strand, not content."
+  },
+
+  "what_actually_separates_them": {
+    "GCF-22": "Pantoea (185/186). Context at the left edge: purine-nucleoside phosphorylase, penicillin-binding protein 2, GGDEF, SiaB kinase, SpoIIE phosphatase.",
+    "GCF-18": "Photorhabdus (17/17). A complete chemotaxis operon occupying 57-91% of the region: CheA, CheW, CheY, CheZ, CheR, two methyl-accepting chemotaxis proteins, protein-glutamate methylesterase.",
+    "GCF-20": "Photorhabdus 26 / Xenorhabdus 4. Two IS110 transposases, and 67% of its regions truncated at a contig edge against 9-12% for the other two.",
+    "reading": "Each genus pads the cassette with 4-9 chromosomal genes of its own. At a 10 kb neighbourhood those padding genes are a comparable share of the region to the cassette itself, so they dominate the domain-content comparison."
+  },
+
+  "distances": {
+    "all_five_in_one_connected_component": "GCF-18, 20, 21, 22 and 24 are all in connected component 33 at cutoff 0.30, so the separation is affinity propagation partitioning one component, not a distance threshold cutting between them.",
+    "GCF-18 vs GCF-20": "n=510, min 0.067, median 0.134, 379 of 510 pairs BELOW the 0.30 cutoff",
+    "GCF-18 vs GCF-22": "n=3,162, min 0.360, median 0.821, 0 below cutoff",
+    "GCF-20 vs GCF-22": "n=5,580, min 0.284, median 0.576, 2 below cutoff"
+  },
+
+  "two_separate_findings": {
+    "1_GCF_18_and_20_are_one_family": "Their biosynthetic content is identical, 74% of their cross-pairs sit below the family cutoff, and the difference between them is that GCF-20 is the fragmented copy -- 67% contig-edge, median 15.5 kb against 23.6 kb, plus two IS110 transposases. This is a spurious split.",
+    "2_GCF_22_is_genuinely_distant": "0.58-0.82 median to the other two, and it is the family holding the genome identical to the pantaphos reference (Pantoea ananatis PNA 07-10, distance 0.0000). It is the same chemistry in a different genus with different neighbours, not the same cluster."
+  },
+
+  "region_sizes": {
+    "GCF-22": "median 23.3 kb, range 4.2-40.5, 9% contig edge, Pantoea",
+    "GCF-18": "median 23.6 kb, range 21.3-23.6, 12% contig edge, Photorhabdus",
+    "GCF-20": "median 15.5 kb, range 8.7-35.7, 67% contig edge, Photorhabdus/Xenorhabdus"
+  },
+
+  "relation_to_earlier_findings": "This is the third time chromosomal context, not chemistry, has explained a family split in this project: the 11 P. agglomerans BGCs separated by species-level context, the 186/29 split caused by one ATP-grasp, and now this. The biosynthetic_profile comparison already flags it -- GCF-18 and GCF-20 both read 'chemically indistinguishable from GCF-21' -- but that compares each family only to its nearest, so a three-way relationship was not visible from the report.",
+
+  "what_this_does_not_establish": "Whether GCF-18/20 make pantaphos. They carry the same cassette in the same order, which makes the same chemistry the strong hypothesis, but Photorhabdus and Xenorhabdus are not Pantoea and the product has not been measured. The flavin reductase present only in GCF-22 is one real difference worth a bench question."
+}
