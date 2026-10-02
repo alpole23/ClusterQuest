@@ -77,7 +77,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          consensus_clusters=None, transfer_summary=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
-                         pepm_summary=None, gcf_hrefs=None):
+                         pepm_summary=None, gcf_hrefs=None,
+                         branch_point_path=None):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -140,10 +141,12 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # coupling_table_rows and would otherwise interpolate a literal "None".
     # Region count for the collapsed listing's summary line.
     n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
-    priority_html    = build_priority_section(novelty_ranking, bioprofile_path, gcf_hrefs)
+    priority_html    = build_priority_section(novelty_ranking, bioprofile_path,
+                                              gcf_hrefs, branch_point_path, gcf_data)
     priority_section = (build_novelty_intro() + priority_html) if priority_html else ''
     regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
-    consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary)
+    consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary,
+                                                        gcf_hrefs)
     phylogeny_key    = build_biosynthetic_phylogeny_section(coupling_table_rows)
     support_section  = _build_gcf_support_section(gcf_support_rows)
     gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime)
@@ -172,16 +175,18 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             ('Pipeline & resources',      pipeline_tab),
         ]),
         ('BGCs', [
-            ('Priority for follow-up',    priority_section),
+            ('Novelty assessment',        priority_section),
             ('All detected regions',      regions_section),
         ]),
         ('Gene cluster families', [
             ('Consensus gene content',    consensus_html),
-            ('Biosynthetic phylogeny',    phylogeny_key),
+            # The tree and the class table are one subject: branch colours on the
+            # tree ARE the classes in the table, and splitting them put a legend in
+            # one pane and the figure it explains in another.
+            ('Biosynthetic phylogeny',    phylogeny_key + gcf_trees_tab),
             ('BiG-SCAPE statistics',      bigscape_stats_section),
             ('Coupling enzyme support',   support_section),
             ('Family representatives',    gcf_visualization_html),
-            ('Family trees',              gcf_trees_tab),
         ]),
         ('Phylogeny', [
             ('Taxonomic distribution',    f'''            <h3>Taxonomic Distribution of BGCs</h3>
@@ -503,7 +508,8 @@ def main():
                             phylo_tree_generated,
                             genome_table, resource_usage_html, phylo_tree_data,
                             taxonomy_genome_json=taxonomy_genome_json,
-        pepm_summary=pepm_summary,
+                            pepm_summary=pepm_summary,
+                            branch_point_path=args.branch_point,
                             gcf_data=gcf_data_dict, taxonomy_map=taxonomy_map_dict,
                             versions_data=versions_data,
                             rarefaction_stats=rarefaction_stats,

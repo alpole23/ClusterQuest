@@ -814,10 +814,10 @@ def build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime):
               _MISSING.format('Family-centre tree not generated.<br>'
                               'Run with <code>--clustering bigscape</code> to enable.'))
     return f'''
+            <hr class="tab-section-divider">
             <h3>Gene Cluster Family Trees</h3>
             <p style="color: #666; margin-bottom: 20px;">
-                <em>Branch colours are coupling enzyme classes; the class table is under
-                <strong>Biosynthetic phylogeny</strong>.</em>
+                <em>Branch colours are the coupling enzyme classes tabulated above.</em>
             </p>
 
             <div class="plot" style="margin-top: 20px;">
@@ -846,24 +846,6 @@ def build_pipeline_tab(resource_usage_html, partition_section_html, versions_htm
             {versions_html}'''
 
 
-def _ref_cell(r):
-    """Nearest characterised reference, shown so the reader can judge the number.
-
-    "23.9% to Streptomyces durhamensis" reads very differently from a bare 0.76
-    divergence: it says the reference set has nothing close, which is a statement
-    about the reference set rather than about the family.
-    """
-    status = (r.get('reference_status') or '').strip()
-    pct, org = (r.get('reference_pct_id') or '').strip(), (r.get('reference_organism') or '').strip()
-    if status == 'none for this class':
-        return '<span style="color:#9a6b0f;">no reference for this class</span>'
-    if not pct:
-        return '—'
-    tone = '#166b47' if status == 'characterised' else '#666'
-    org_txt = f' <em>{org}</em>' if org else ''
-    return f'<span style="color:{tone};">{pct}%{org_txt}</span>'
-
-
 def _twin_cell(other, differing):
     """The "Same chemistry as" cell: `=` only when the profiles really are equal.
 
@@ -882,30 +864,31 @@ def _twin_cell(other, differing):
             f'Not counted against the rank.">~ GCF-{other}</span>')
 
 
-def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None):
-    """Gene cluster families ranked by how much they warrant laboratory follow-up.
+def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None,
+                           branch_point_path=None, gcf_data=None):
+    """Every family on one row: what it is, and how novel.
 
-    Each GCF links to its own page -- the representative cluster's gene diagram and
-    table, and the consensus gene content across every member. That page did not
-    exist when this table was written, so the link used to call showGCF(), which
-    switched panes and scrolled to the family's row in the master table: one more
-    table, in another pane, to find the same link in. showGCF is kept as the
-    fallback for a run whose per-family pages were not written.
+    This was two questions answered in one table of eleven columns, most of them
+    inputs to the score rather than facts about the family. It is now one table of
+    what a reader wants per family -- organism, known-cluster hit, coupling class,
+    branch point, whether another family shares its chemistry -- and a second,
+    collapsed, holding the score's components for anyone who wants to argue with
+    the weighting.
 
-    Distance and evidence are shown beside the priority they multiply to, deliberately.
-    The weights behind them are reasoned, not fitted — there is no set of leads that
-    panned out to fit against — and a single number would hide that. With the components
-    visible a reader can disagree with the weighting and re-order by eye: the score
-    orders the list, the components justify the order.
+    The "nearest reference" columns are gone. Every number in them was a non-hit:
+    the closest characterised cluster to anything here sits at 0.37, against a
+    family cutoff of 0.30, so the column reported the reference set's coverage
+    rather than anything about the family, and read as a similarity when it was
+    not one. Reference identity still zeroes a family whose chemistry is
+    characterised; it is simply not shown as though it graded the rest.
 
-    Distance is ISOLATION in BiG-SCAPE space -- how far the family sits from everything
-    else in this run -- not distance to a reference. The coupling-enzyme reference set is
-    seven characterised proteins (five Streptomyces, one Glycomyces, one Pantoea), which
-    made the old axis close to a binary readout of "does a same-taxon reference exist"
-    and put five Reductase families on top purely because VlpB is the most distant
-    reference in the set. The reference columns are still shown, as context: seeing
-    "23.9% to Streptomyces durhamensis" is what tells a reader the number means an absent
-    reference rather than novel chemistry.
+    Each GCF links to its own page -- representative cluster, gene diagram, and the
+    consensus gene content across every member. showGCF() is the fallback for a run
+    whose per-family pages were not written.
+
+    The weights are reasoned, not fitted: there is no set of leads that panned out
+    to fit against. The components stay visible, one click away, so a reader can
+    disagree with the weighting and re-order by eye.
     """
     import csv as _csv
     from pathlib import Path as _Path
@@ -929,6 +912,18 @@ def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None):
             if row.get('verdict'):
                 twin[row['gcf']] = (row['nearest_gcf'],
                                     row.get('differing_domains', ''))
+    # Branch point (2-AEP / 2-HEP / other) and the representative's organism and
+    # known-cluster hit: all per-family facts that used to be spread over three
+    # tables in two panes.
+    branch = {}
+    if branch_point_path and _Path(branch_point_path).exists():
+        for row in _csv.DictReader(_Path(branch_point_path).open(), delimiter='\t'):
+            branch[row['gcf']] = (row.get('branch_point', ''), row.get('support', ''))
+    rep = {}
+    for g in ((gcf_data or {}).get('gcfs') or []):
+        rep[str(g.get('family_id'))] = (g.get('organism') or '',
+                                        g.get('kcb_hit') or '', g.get('kcb_acc') or '')
+
     rows = list(_csv.DictReader(_Path(ranking_path).open(), delimiter='\t'))
     if not rows:
         return ''
@@ -995,9 +990,33 @@ def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None):
             </table>
         </div>'''
 
+    # Branch point is the one chemistry fact a reader can act on, so it is named
+    # plainly and the hedged variants ("unknown (Ppd, no third enzyme found)") are
+    # shortened to the call with the detail on hover.
+    def branch_cell(gcf):
+        bp, sup = branch.get(gcf, ('', ''))
+        if not bp:
+            return '<span style="color:#bbb;">—</span>'
+        short = bp.split('(')[0].strip().rstrip(',')
+        tone = '#0e5c6b' if not short.lower().startswith('unknown') else '#8a7a55'
+        sup_txt = f' · {sup}' if sup else ''
+        return (f'<span style="color:{tone};" title="{_html.escape(bp)}{sup_txt}">'
+                f'{_html.escape(short)}</span>')
+
+    def known_cell(gcf):
+        _, hit, acc = rep.get(gcf, ('', '', ''))
+        if not hit:
+            return '<span class="tag-novel">none</span>'
+        txt = _html.escape(hit[:26] + ('…' if len(hit) > 26 else ''))
+        return (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
+                f'target="_blank" style="color:#1d6fa5;">{txt}</a>' if acc else txt)
+
+    def org_cell(gcf):
+        org = rep.get(gcf, ('', '', ''))[0]
+        return f'<em>{_html.escape(org)}</em>' if org else '<span style="color:#bbb;">—</span>'
+
     body = ''.join(
         f'<tr>'
-        f'<td style="padding:7px 10px;color:#888;text-align:right;">{r["rank"]}</td>'
         f'<td style="padding:7px 10px;white-space:nowrap;">'
         + gcf_link(r["gcf"], '#2c5aa0',
                    'Open this family\'s page: representative cluster, gene diagram '
@@ -1005,62 +1024,105 @@ def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None):
         + '</td>'
         f'<td style="padding:7px 10px;font-weight:600;text-align:right;'
         f'font-variant-numeric:tabular-nums;">{float(r["priority"]):.3f}</td>'
-        f'<td style="padding:7px 10px;">{bar(float(r["distance"]), "#0e5c6b")}</td>'
-        f'<td style="padding:7px 10px;">{bar(float(r["evidence"]), "#166b47")}</td>'
         f'<td style="padding:7px 10px;text-align:right;">{r["members"]}</td>'
-        f'<td style="padding:7px 10px;text-align:right;">{r["genera"]}</td>'
-        f'<td style="padding:7px 10px;text-align:right;">{float(r["intact"]):.0%}</td>'
-        f'<td style="padding:7px 10px;">{r["coupling_class"]}</td>'
+        f'<td style="padding:7px 10px;font-size:.9em;">{org_cell(r["gcf"])}</td>'
+        f'<td style="padding:7px 10px;font-size:.85em;">{known_cell(r["gcf"])}</td>'
+        f'<td style="padding:7px 10px;font-size:.9em;">{r["coupling_class"]}</td>'
+        f'<td style="padding:7px 10px;font-size:.85em;">{branch_cell(r["gcf"])}</td>'
         f'<td style="padding:7px 10px;font-size:.85em;">'
         + (_twin_cell(*twin[r["gcf"]]) if r["gcf"] in twin
            else '<span style="color:#bbb;">—</span>')
         + '</td>'
-        f'<td style="padding:7px 10px;font-size:.9em;color:#666;white-space:nowrap;">'
-        f'{_ref_cell(r)}</td>'
+        f'</tr>'
+        for r in ranked)
+
+    # The score's components, collapsed. They justify the order rather than
+    # describe the family, so they are one click away instead of eight columns
+    # wide in the table a reader actually reads.
+    score_rows = ''.join(
+        f'<tr>'
+        f'<td style="padding:6px 10px;color:#888;text-align:right;">{r["rank"]}</td>'
+        f'<td style="padding:6px 10px;white-space:nowrap;">GCF-{r["gcf"]}</td>'
+        f'<td style="padding:6px 10px;font-weight:600;text-align:right;'
+        f'font-variant-numeric:tabular-nums;">{float(r["priority"]):.3f}</td>'
+        f'<td style="padding:6px 10px;">{bar(float(r["distance"]), "#0e5c6b")}</td>'
+        f'<td style="padding:6px 10px;">{bar(float(r["evidence"]), "#166b47")}</td>'
+        f'<td style="padding:6px 10px;text-align:right;">{r["members"]}</td>'
+        f'<td style="padding:6px 10px;text-align:right;">{r["genomes"]}</td>'
+        f'<td style="padding:6px 10px;text-align:right;">{r["genera"]}</td>'
+        f'<td style="padding:6px 10px;text-align:right;">{float(r["intact"]):.0%}</td>'
         f'</tr>'
         for r in ranked)
 
     return f'''
     <div class="section">
-        <h3>Priority for Laboratory Follow-Up</h3>
-        <p style="color:#555;max-width:72ch;">
-            Ordered by <strong>isolation × evidence</strong>. <strong>Isolation</strong> is
-            how far a family sits from every other family in this run, over BiG-SCAPE's
-            all-pairs matrix — not distance to a reference. <strong>Evidence</strong> is
-            independent genomes, independent genera, and the share of regions not truncated
-            at a contig edge. They multiply because both are necessary, so read across the
-            row: high isolation with low evidence is a different proposition from middling
-            on both.
-        </p>
-        <p style="color:#555;max-width:72ch;font-size:.92em;">
-            The weights are reasoned, not fitted — there is no set of leads that panned out
-            to fit against — so this is a considered opinion, which is why the components
-            are shown beside the score. <strong>Reference identity is context only</strong>,
-            used solely to zero a family whose chemistry is already characterised: the
-            reference set is seven proteins, five of them <em>Streptomyces</em>.{spread}
+        <h3>Novelty Assessment</h3>
+        <p style="color:#555;max-width:74ch;">
+            One row per family, ordered by <strong>isolation × evidence</strong>.
+            <strong>Isolation</strong> is how far a family sits from every other family
+            in this run; <strong>evidence</strong> is independent genomes, independent
+            genera, and the share of regions not truncated at a contig edge. They
+            multiply because both are necessary. The weights are reasoned, not fitted,
+            so treat the order as a considered opinion &mdash; the components are under
+            <em>How the score is built</em> below.
         </p>
         {unc_html}
         <div class="table-container">
         <table style="width:100%;border-collapse:collapse;font-size:.9em;">
             <thead><tr style="background:#e9ecef;">
-                <th style="text-align:right;padding:6px 10px;">#</th>
                 <th style="text-align:left;padding:6px 10px;">Family</th>
-                <th style="text-align:right;padding:6px 10px;">Priority</th>
-                <th style="text-align:left;padding:6px 10px;">Distance</th>
-                <th style="text-align:left;padding:6px 10px;">Evidence</th>
+                <th style="text-align:right;padding:6px 10px;" title="isolation × evidence">Novelty</th>
                 <th style="text-align:right;padding:6px 10px;">BGCs</th>
-                <th style="text-align:right;padding:6px 10px;">Genera</th>
-                <th style="text-align:right;padding:6px 10px;">Intact</th>
+                <th style="text-align:left;padding:6px 10px;">Representative organism</th>
+                <th style="text-align:left;padding:6px 10px;"
+                    title="Best KnownClusterBlast hit for the representative. MIBiG holds
+                    few characterised phosphonate pathways, so "none" is weak evidence of
+                    novelty.">Known cluster</th>
                 <th style="text-align:left;padding:6px 10px;">Coupling class</th>
+                <th style="text-align:left;padding:6px 10px;"
+                    title="The intermediate the pathway branches through, from the enzymes
+                    present. Hover a cell for the full call and its support.">Branch point</th>
                 <th style="text-align:left;padding:6px 10px;" title="Another family with the
                     same core/tailoring/lipid/transport domains. A split between two such
                     families is not biosynthetic. Annotation only — it does not affect the
                     rank.">Same chemistry as</th>
-                <th style="text-align:left;padding:6px 10px;">Nearest reference</th>
             </tr></thead>
             <tbody>{body}</tbody>
         </table>
         </div>
+
+        <details style="margin-top:20px;border:1px solid #dee2e6;border-radius:8px;">
+            <summary style="cursor:pointer;padding:11px 16px;font-weight:600;
+                            background:#f8f9fa;border-radius:8px;">
+                How the score is built
+            </summary>
+            <div style="padding:6px 16px 16px;">
+                <p style="color:#555;max-width:74ch;font-size:.92em;">
+                    <strong>Isolation</strong> is measured over BiG-SCAPE&rsquo;s all-pairs
+                    matrix, not against a reference: the characterised set is seven
+                    proteins, five of them <em>Streptomyces</em>, and nothing in this run
+                    falls inside the family cutoff of any of them.{spread} Reference
+                    identity is used only to zero a family whose chemistry is already
+                    characterised.
+                </p>
+                <div class="table-container">
+                <table style="width:100%;border-collapse:collapse;font-size:.88em;">
+                    <thead><tr style="background:#eef1f2;">
+                        <th style="text-align:right;padding:6px 10px;">#</th>
+                        <th style="text-align:left;padding:6px 10px;">Family</th>
+                        <th style="text-align:right;padding:6px 10px;">Novelty</th>
+                        <th style="text-align:left;padding:6px 10px;">Isolation</th>
+                        <th style="text-align:left;padding:6px 10px;">Evidence</th>
+                        <th style="text-align:right;padding:6px 10px;">BGCs</th>
+                        <th style="text-align:right;padding:6px 10px;">Genomes</th>
+                        <th style="text-align:right;padding:6px 10px;">Genera</th>
+                        <th style="text-align:right;padding:6px 10px;">Intact</th>
+                    </tr></thead>
+                    <tbody>{score_rows}</tbody>
+                </table>
+                </div>
+            </div>
+        </details>
     </div>'''
 
 
@@ -1098,7 +1160,7 @@ def build_all_regions_section(all_regions_html, n_regions=0):
                 Every region whose best KnownClusterBlast hit falls below the similarity
                 floor — which for phosphonate chemistry is nearly all of them. The rest are
                 under <strong>Known-cluster matches</strong>. Use this to locate a specific
-                contig or genome; use <strong>Priority for follow-up</strong> to decide what
+                contig or genome; use <strong>Novelty assessment</strong> to decide what
                 to work on.
             </p>
             {all_regions_html}'''
@@ -1117,6 +1179,14 @@ _ROLE_STYLE = {
                            'central metabolism — a chromosomal neighbour, not part of the cluster'),
     'other':      ('#888888', '#f4f4f4', 'not classified'),
 }
+
+
+# Below this share of members a gene is noise in a consensus: present in a handful
+# of regions, usually unnamed, and swept in at a region boundary rather than part of
+# what the family is. GCF-27's table was 505 rows at no cutoff and is 45 at this one;
+# across the run 3,263 rows become 2,214. The full list stays in
+# gcf_consensus_clusters.tsv -- this is a display cut, not a filter on the analysis.
+CONSENSUS_MIN_PREVALENCE = 0.10
 
 
 def _in_gene_order(fam_rows):
@@ -1240,13 +1310,28 @@ def _consensus_diagram(fam, fam_rows, s):
         </div>'''
 
 
-def _consensus_block(fam, fam_rows, s):
+def _consensus_block(fam, fam_rows, s, gcf_hrefs=None):
     """One family's consensus gene table, collapsed behind a summary line.
 
     Split out of build_consensus_clusters_section so the per-GCF detail pages
     render the identical table rather than a second implementation of it.
     """
-    genes = _in_gene_order(fam_rows)
+    shown = [r for r in fam_rows
+             if float(r['prevalence'] or 0) >= CONSENSUS_MIN_PREVALENCE]
+    n_hidden = len(fam_rows) - len(shown)
+    genes = _in_gene_order(shown or fam_rows)
+    hidden_txt = (f'<span title="present in fewer than '
+                  f'{CONSENSUS_MIN_PREVALENCE:.0%} of members — mostly unnamed, and '
+                  f'swept in at a region boundary rather than part of the family. '
+                  f'All of them are in gcf_consensus_clusters.tsv."> '
+                  f'(+{n_hidden} rare)</span>') if n_hidden else ''
+    # The representative cluster's own diagram and gene table live on the family
+    # page; this table is the other half of the same subject, so it links across.
+    href = (gcf_hrefs or {}).get(str(fam))
+    page_link = (f'<a href="{href}" style="float:right;color:#2c5aa0;font-size:.85em;'
+                 f'text-decoration:none;" title="Representative cluster diagram, its '
+                 f'gene table, and this consensus">representative BGC &rarr;</a>'
+                 if href else '')
     n_mem = s.get('members', '')
     head = f'GCF-{fam}'
     if n_mem:
@@ -1311,7 +1396,8 @@ def _consensus_block(fam, fam_rows, s):
     <details style="margin:0 0 10px;border:1px solid #e3e6e8;border-radius:5px;">
         <summary style="padding:9px 13px;cursor:pointer;background:#f7f8f9;
                         border-radius:5px;">{head}
-            <span style="color:#888;font-size:.9em;"> · {len(genes)} genes</span>
+            <span style="color:#888;font-size:.9em;"> · {len(genes)} genes{hidden_txt}</span>
+            {page_link}
         </summary>
         <div style="padding:4px 10px 0;">{_consensus_diagram(fam, fam_rows, s)}</div>
         <div class="table-container" style="padding:0 10px 10px;">
@@ -1355,7 +1441,8 @@ def consensus_blocks_by_family(consensus_path, transfer_summary_path=None):
             for fam, fam_rows in by_fam.items()}
 
 
-def build_consensus_clusters_section(consensus_path, transfer_summary_path=None):
+def build_consensus_clusters_section(consensus_path, transfer_summary_path=None,
+                                     gcf_hrefs=None):
     """One consensus cluster per family, assembled from every member.
 
     A single representative BGC shows one genome's annotation, which on a mixed
@@ -1398,7 +1485,8 @@ def build_consensus_clusters_section(consensus_path, transfer_summary_path=None)
 
     blocks = []
     for fam in sorted(by_fam, key=order):
-        blocks.append(_consensus_block(fam, by_fam[fam], summary.get(fam, {})))
+        blocks.append(_consensus_block(fam, by_fam[fam], summary.get(fam, {}),
+                                       gcf_hrefs))
 
     # Coverage from this run, not from the run this section was written against.
     # The prose used to quote 40.2% -> 80.2% over 333 regions as though it were a
