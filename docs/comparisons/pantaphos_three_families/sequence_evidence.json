@@ -1,0 +1,40 @@
+{
+  "question": "Is GCF-22 genuinely a different cluster from GCF-18/20, or the same one split by context? And are GCF-18 and GCF-20 really one family?",
+  "date": "2026-10-02",
+  "answer": "GCF-22 is genuinely different: its pepM is 67% identical to theirs where within-family pepM runs 97-100%, and the divergence is graded by function. GCF-18 and GCF-20 are one family: their cross-family pepM identity (0.975) is indistinguishable from GCF-18's own internal identity (0.974).",
+
+  "pepM_identity_all_pairs": {
+    "method": "hmmalign against PF13714 with pairwise deletion of gapped sites, from PEPM_ALL_BY_ALL. Family-scale, not representatives.",
+    "within_GCF_22": "n=17,205, median 1.000 (p5 0.996)",
+    "within_GCF_20": "n=435, median 1.000",
+    "within_GCF_18": "n=136, median 0.974 (p5 0.957)",
+    "GCF_18_vs_GCF_20": "n=510, median 0.975 (p5 0.940, p95 0.980)",
+    "GCF_18_vs_GCF_22": "n=3,162, median 0.671 (p5 0.667, p95 0.679)",
+    "GCF_20_vs_GCF_22": "n=5,580, median 0.660 (p5 0.657, p95 0.671)",
+    "reading": "Two populations with nothing between 0.68 and 0.94 across 8,742 cross-pairs. The distributions are razor tight, so this is a clean bimodal separation rather than a continuum someone drew a line through. 67% identity in the most conserved enzyme of the pathway is a 33% sequence difference; Yu et al. 2013 place the floor for neighbourhood correlation at ~60%, so GCF-22 and GCF-18/20 sit at the very bottom of 'related'."
+  },
+
+  "divergence_is_graded_by_function": {
+    "method": "DIAMOND blastp --very-sensitive between the scaffold region of each family (Pantoea sp. V106_11 vs Photorhabdus laumondii QJ1).",
+    "core_scaffold_enzymes": "pepM 66.9%, aconitase/isopropylmalate dehydratase large subunit 67.9%, LLM-class flavin-dependent oxidoreductase 62.2% -- mean 65%",
+    "tailoring_and_transport": "class I SAM-dependent methyltransferase 49.0%, MFS transporter 36.9%, GNAT N-acetyltransferase 34.0% -- mean 40%",
+    "reading": "THIS is the argument that context cannot explain. If GCF-22 and GCF-18 were one pathway separated by flanking DNA, their shared enzymes would be uniformly conserved. Instead the backbone is held at ~65% while the decorating enzymes have fallen to 34-49%. A conserved core with divergent tailoring is the signature of two pathways that branch to different products."
+  },
+
+  "the_overlap_was_overstated_by_product_names": {
+    "proteins_with_any_homologue": "10 of GCF-22's 21, and 5 of those 10 are hypotheticals -- six named orthologues in total.",
+    "the_ATP_grasp_is_not_shared": "GCF-22's ATP-grasp has NO detectable homologue in GCF-18 and vice versa, even at --very-sensitive. ATP-grasp is a large superfamily; two proteins carrying the domain need not be orthologues. The earlier '9 shared biosynthetic genes' count matched product NAMES and overstated the overlap.",
+    "GCF_22_only": "purine-nucleoside phosphorylase, PBP2, GGDEF, DUF1987, SiaB kinase, SpoIIE phosphatase, flavin reductase, ATP-grasp, 3 hypotheticals",
+    "GCF_18_only": "the chemotaxis operon (CheA, CheW, CheY, CheZ, CheR, 2 MCPs, methylesterase), nuclear transport factor 2 family protein, ATP-grasp, 3 hypotheticals"
+  },
+
+  "GCF_18_and_GCF_20_are_one_family": {
+    "pepM": "cross-family median 0.975 against GCF-18's own internal 0.974 -- indistinguishable",
+    "proteome": "19 of 23 proteins homologous at 93-100% identity, including CheY at 100.0% and the whole chemotaxis operon above 99%",
+    "internal_diversity_test": "GCF-18's members are further from each other (median BiG-SCAPE distance 0.190) than from GCF-20 (0.134)",
+    "why_they_split": "Affinity propagation, not the cutoff or the neighbourhood. GCF-20 is near-clonal (median distance 0.008, jaccard 1.000, DSS 0.989) and a cluster that tight is a strong exemplar magnet. GCF-20 is also the fragmented copy -- 67% contig-edge against 12%.",
+    "verdict": "Should be merged. No pipeline parameter achieves it; see cutoff_sweep.json."
+  },
+
+  "verdict": "GCF-22 separate from GCF-18/20 is CORRECT and robust -- stable across cutoffs 0.20-0.80, survives removing all flanking context, and rests on 33% sequence divergence in pepM with a functional gradient on top. GCF-22 holds the genome identical to the pantaphos reference (distance 0.0000), so GCF-22 is pantaphos and GCF-18/20 are a related phosphonate pathway, most likely a different product. GCF-18 vs GCF-20 is the one split in this group that is wrong."
+}
