@@ -1,0 +1,31 @@
+{
+  "question": "The 10 kb neighbourhood is suspected of splitting the pantaphos families by sweeping in genus-specific chromosomal flank. Does narrowing it merge them?",
+  "date": "2026-10-02",
+  "answer": "NO. Narrowing the window does not merge GCF-22 with GCF-18/20 at any width. It does erase a biosynthetic distinction that an ablation had established as real, and it destabilises a third family. 10 kb should stay.",
+
+  "design": {
+    "record_set": "269 regions: GCF-18, 20, 21, 22, 24 -- connected component 33, which holds every pantaphos-cassette family. BiG-SCAPE never compares across components, so nothing is lost by leaving the rest out, and all arms use the identical set.",
+    "arms": "Each region's CDS filtered to proto_core +/- N kb, N = 10 (control), 5, 0. Every arm goes through the same SeqIO read/write path so no arm is advantaged by preparation.",
+    "control_validation": "The 10 kb arm drops ZERO CDS and reproduces the source run's family structure exactly (186/30/28/17/8), confirming core +/- 10 kb is what antiSMASH already drew.",
+    "clustering": "BiG-SCAPE 2.0.1, PYTHONHASHSEED=0, --alignment-mode auto --gcf-cutoffs 0.30 --include-singletons --classify category",
+    "cds_retained": {"nb10": "6,005 (0% dropped)", "nb05": "3,713 (38.2% dropped)", "nb00": "1,431 (76.2% dropped)"}
+  },
+
+  "results": {
+    "family_counts": "FIVE families in every arm. nb10 [186,30,28,17,8], nb05 [200,30,17,14,8], nb00 [200,32,19,14,4].",
+    "pantaphos_families_never_merge": "GCF-22 stays its own family (184-186 of 186) at 10 kb, 5 kb and 0 kb. GCF-18 stays its own 17 at every width. They never join.",
+    "what_narrowing_actually_does": "16 of GCF-24's 28 members merge INTO GCF-22 at both 5 kb and 0 kb. GCF-24 is the family an ablation experiment (2026-09-22) showed is separated from GCF-22 by PF13535, an ATP-grasp amide-bond ligase -- a real difference in biosynthetic potential. Narrowing the window erases it.",
+    "and_it_destabilises": "At 0 kb GCF-20 fragments 30 -> 19 + 7 + 4. Narrower windows make clustering less stable, not more.",
+    "co_membership": "vs the 10 kb control: nb05 merged 2,968 pairs and split 560; nb00 merged 3,279 and split 797."
+  },
+
+  "why_the_hypothesis_was_wrong": {
+    "the_appealing_story": "Each pantaphos family carries ~10 kb of flank on one side -- GCF-18 a complete chemotaxis operon, GCF-22 GGDEF/SiaB/SpoIIE/PBP2, GCF-20 two IS110 transposases -- and that flank is 45-55% of the region. It looks like the flank must be driving the separation.",
+    "why_it_is_not": "Remove the flank and they still separate. The shared content was overstated by comparing PRODUCT NAMES: GCF-18 and GCF-22 share 9 named biosynthetic genes, but BiG-SCAPE's jaccard over actual domain content is 0.300 and its DSS (domain sequence similarity) is 0.144. Same enzyme names, substantially divergent sequences and domain complements. GCF-18 vs GCF-20, by contrast, run jaccard 0.909 and DSS 0.849 -- those two really are one family.",
+    "correction": "An earlier reading in this project attributed the GCF-22 / GCF-18 / GCF-20 separation to flanking chromosomal context. That was inferred from shared product names and the size of the flank, and this experiment refutes it. Context explains the GCF-18 / GCF-20 split and the 18/11 P. agglomerans split; it does not explain GCF-22."
+  },
+
+  "nb00_caveat": "At 0 kb the retained window averages 5.3 CDS per region -- SMALLER than the 9-10 gene cassette, so nb00 cuts into the cluster itself. nb05 (13.8 CDS per region, about cassette-sized) is the meaningful comparison, and it is the one where GCF-22 still does not merge.",
+
+  "verdict": "Keep 10 kb. The cost it was suspected of imposing is not real, and the two costs of narrowing are: at 5 kb antiSMASH's region misses 4 of the 12 HiVir genes (MFS transporter, hypothetical, FMN reductase, second ATP-grasp -- measured on P. ananatis LMG 5342), and clustering at 5 kb merges away a biosynthetic distinction an ablation proved real."
+}
