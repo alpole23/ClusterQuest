@@ -1,0 +1,29 @@
+{
+  "question": "Is the pantaphos family split an artefact of the 0.30 BiG-SCAPE cutoff?",
+  "date": "2026-10-02",
+  "answer": "No. The partition is identical from cutoff 0.20 to 0.80 -- a fourfold range. The cutoff is not what separates them; affinity propagation inside one connected component is.",
+
+  "design": "The same 269 regions as the neighbourhood test (connected component 33: GCF-18, 20, 21, 22, 24), clustered once with --gcf-cutoffs 0.20,0.30,0.40,0.50,0.60,0.70,0.80,0.90. BiG-SCAPE 2.0.1, PYTHONHASHSEED=0.",
+
+  "result": {
+    "0.20": "6 families -- the five, plus 1 of GCF-20's 30 breaking off",
+    "0.30 through 0.80": "5 families, IDENTICAL partition at every cutoff: 22 | 24 | 18 | 20 | 21",
+    "0.90": "2 families: {22+24} = 214, and {18+20+21} = 55"
+  },
+
+  "reading": "A partition that does not move across a fourfold change in the threshold is not a threshold artefact. Even at 0.90 -- effectively 'merge almost everything' -- GCF-22 does not join GCF-18/20; the two groups that form are Pantoea (22+24) and Photorhabdus/Xenorhabdus (18+20+21), which is the taxonomic split and matches the distances.",
+
+  "why_the_cutoff_cannot_be_the_cause": "In BiG-SCAPE 2 the cutoff filters edges, connected components are found on the surviving graph, and then sklearn AffinityPropagation partitions each component into families. All five families already sit in ONE connected component at 0.30, so the threshold is not cutting between them -- AP is choosing to keep separate exemplars.",
+
+  "the_18_20_split_is_wrong_by_an_internal_test": {
+    "median_distance_within_GCF_18": 0.190,
+    "median_distance_within_GCF_20": 0.008,
+    "median_distance_GCF_18_to_GCF_20": 0.134,
+    "reading": "GCF-18's members are FURTHER from each other (0.190) than they are from GCF-20 (0.134). A family whose internal diversity exceeds its distance to a neighbouring family is not a family. AP keeps them apart because GCF-20 is near-clonal -- median 0.008, jaccard 1.000, DSS 0.989 -- and a cluster that tight is a strong exemplar magnet regardless of what sits near it.",
+    "conclusion": "GCF-18 and GCF-20 should be one family. This is an affinity-propagation artefact, not a cutoff or neighbourhood one, and it cannot be fixed by tuning either."
+  },
+
+  "the_22_vs_18_20_separation_is_real": "Stable at every cutoff, survives removing all flanking context (see ../antismash_neighbourhood/neighbourhood_width_test.json), and rests on jaccard 0.300 / DSS 0.144 -- the same enzyme names over divergent sequences and domain complements.",
+
+  "practical_note": "Three hypotheses for this split have now been tested and two refuted: neighbourhood width (no), cutoff (no), affinity propagation (yes, for 18/20). Nothing exposed as a pipeline parameter would merge GCF-18 and GCF-20; detecting it needs the internal-diversity check above, which is cheap and could become a report warning."
+}
