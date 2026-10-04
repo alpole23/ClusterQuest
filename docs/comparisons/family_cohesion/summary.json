@@ -1,0 +1,38 @@
+{
+  "question": "GCF-18/20 looked wrongly split and GCF-27 wrongly merged. How widespread is either failure across the run?",
+  "date": "2026-10-04",
+  "dataset": "Enterobacterales RefSeq, 1,303 BGCs, 72 families, 10 kb neighbourhood",
+  "answer": "Rare. Of 44 families with >=4 members, 40 are sound and 4 are flagged -- 2 chimeric, 2 wrongly split. The clustering is mostly right, and the two cases that prompted this are close to the whole of the problem.",
+
+  "two_diagnostics_are_needed_because_one_is_ambiguous": {
+    "gene_content_cohesion": "mean pairwise Jaccard over orthologue-group content between a family's members. Low = the members do not share genes = the family is several clusters.",
+    "internal_vs_external_distance": "median BiG-SCAPE distance within the family against the median to the nearest other family in the same connected component. Internal > external = the family is further from itself than from its neighbour.",
+    "why_both": "Internal > external ALONE does not identify over-splitting: a chimeric family fails it too, because merging unlike things inflates internal diversity. Crossed with cohesion the two modes separate -- LOW cohesion with high internal diversity means wrongly merged; HIGH cohesion with high internal diversity means wrongly split."
+  },
+
+  "flagged": [
+    {"gcf": 27, "members": 38, "cohesion": 0.10, "internal": 0.878, "nearest": "GCF-28 at 0.751",
+     "verdict": "WRONGLY MERGED, and an extreme outlier -- the next worst cohesion in the run is 0.42. Splits into 21 sub-clusters at Jaccard 0.45, 16 of them singletons, the largest holding 13 of 38. Within-subcluster Jaccard 0.44 against 0.05 between, a ninefold gap. The alignment shows three architectures: two PF01066 upstream at -12/-9 kb (the confirmed phosphonolipid, LMG 5342 and VY148), one PF01066 downstream at +11 kb with a distinct accessory block, and a third with no PF01066 and a different block entirely. 505 orthologue groups across 38 members is the fingerprint."},
+    {"gcf": 24, "members": 28, "cohesion": 0.42, "internal": 0.321, "nearest": "GCF-19 at 0.559",
+     "verdict": "Chimeric by cohesion but it PASSES the distance test (internal 0.321 < external 0.559), so it is not being confused with a neighbour. 6 sub-clusters, largest 46%. The 10-gene redox module at prevalence 0.46 reported earlier is this sub-structure. Weaker case than GCF-27."},
+    {"gcf": 5, "members": 32, "cohesion": 0.67, "internal": 0.159, "nearest": "GCF-6 at 0.150",
+     "verdict": "Wrongly split, marginally. The gap is 0.009 -- within noise, worth a look rather than action."},
+    {"gcf": 18, "members": 17, "cohesion": 0.73, "internal": 0.190, "nearest": "GCF-20 at 0.134",
+     "verdict": "WRONGLY SPLIT, the clearest case. Confirmed independently: cross-family pepM identity 0.975 against GCF-18's own internal 0.974, and 19 of 23 proteins homologous at 93-100%. See ../pantaphos_three_families/sequence_evidence.json."}
+  ],
+
+  "what_this_retracts": "An earlier reading of GCF-27 attributed its low PF01066 prevalence (0.16) to contig truncation -- 71% of members lacking the gene are contig-edge against 21% of those carrying it. The correlation is real but confounded: the truncated members are mostly the third architecture, which lacks PF01066 for architectural reasons. Full-length non-truncated members lack it too (Dickeya dadantii LMG 27546 at 34 CDS, D. dadantii XJ12 at 33, Yersinia wautersii WP-931201 at 38). Prevalence is low because the family is three clusters, not because its members are fragments.",
+
+  "consequences": {
+    "prevalence_in_a_chimeric_family_is_meaningless": "0.16 for PF01066 in GCF-27 averages three architectures. Within the one that has it, it is effectively 1.0.",
+    "the_consensus_for_GCF_27_describes_no_real_cluster": "Its gene list and diagram are an average of unlike things.",
+    "a_proposed_fix_was_aimed_at_the_wrong_thing": "Computing prevalence over intact members only would have corrected a denominator that was not the problem."
+  },
+
+  "method_note": "Families with <4 members are not assessed; pairwise cohesion over 3 points is not informative. Distances come from the run's own BiG-SCAPE database. Cohesion comes from gcf_annotation_transfer.tsv's orthologue groups, which is why the per-CDS group id was added to that file.",
+
+  "data": {
+    "gcf27_alignment.svg": "all 38 GCF-27 members aligned on pepM and flipped so it reads left to right; black = PF01066, red = contig edge",
+    "gcf27_align.py": "the script that drew it; a recorded experiment, not a pipeline stage"
+  }
+}
