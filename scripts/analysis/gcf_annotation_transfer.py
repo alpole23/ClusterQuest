@@ -316,7 +316,7 @@ def main():
                 if transferred:
                     after += 1
                 per_cds.append(dict(
-                    family=fam_id, region=label, genome=genome, locus_tag=tag,
+                    family=fam_id, group=g, region=label, genome=genome, locus_tag=tag,
                     original_product=prod.strip(),
                     transferred_product=transferred,
                     origin='observed' if orig_ok else ('transferred' if cons else 'none'),
@@ -338,7 +338,7 @@ def main():
 
     for name, rows, fields in (
         ('gcf_annotation_transfer.tsv', per_cds,
-         ['family', 'region', 'genome', 'locus_tag', 'original_product',
+         ['family', 'group', 'region', 'genome', 'locus_tag', 'original_product',
           'transferred_product', 'origin', 'source_genomes', 'n_sources',
           'n_agree', 'n_disagree', 'group_size']),
         ('gcf_consensus_clusters.tsv', per_group,
