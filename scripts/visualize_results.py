@@ -38,17 +38,18 @@ from viz.report_assets import REPORT_CSS, REPORT_JS
 from viz.distribution import generate_bgc_distribution_html
 from viz.genome_pages import create_genome_metadata_pages
 from viz.rarefaction import generate_rarefaction_curve
-from viz.report_sections import (_build_bigscape_section_html,
-                                 build_pepm_section, build_partition_section,
+from viz.report_sections import (build_bigscape_stats_section,
+                                 build_partition_section,
                                  _build_kcb_content, _build_rarefaction_section,
                                  gcf_coupling_classes, build_gcf_support_rows,
-                                 build_overview_stats,
+                                 build_overview_stats, _build_gcf_support_section,
                                  _build_versions_html, build_coupling_table_rows,
-                                 build_gcf_analysis_tab, build_gcf_trees_tab,
+                                 build_biosynthetic_phylogeny_section,
+                                 build_no_clustering_notice, build_gcf_trees_tab,
                                  build_consensus_clusters_section,
-                                 consensus_blocks_by_family,
-                                 build_priority_section, build_novelty_tab,
-                                 build_pipeline_tab)
+                                 consensus_blocks_by_family, build_tabbed_nav,
+                                 build_priority_section, build_novelty_intro,
+                                 build_all_regions_section, build_pipeline_tab)
 
 
 def embed_image(svg_path=None, png_path=None):
@@ -76,7 +77,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          consensus_clusters=None, transfer_summary=None,
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
-                         pepm_b64=None, pepm_summary=None, gcf_hrefs=None):
+                         pepm_summary=None, gcf_hrefs=None,
+                         branch_point_path=None):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -87,7 +89,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     kcb = _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes, gcf_hrefs)
     kcb_mapping_section    = kcb['kcb_mapping_section']
     novel_bgcs_tab_content = kcb['novel_bgcs_tab_content']
-    kcb_hits_tab_content   = kcb['kcb_hits_tab_content']
 
     overview_stats = build_overview_stats(stats, kcb_stats, gcf_data, rarefaction_stats)
 
@@ -105,13 +106,11 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     provenance = (f'{_n_genomes:,} genomes · generated {_generated}{_as_ver}'
                   if _n_genomes else f'generated {_generated}{_as_ver}')
 
-    # pepM evidence sits with the clustering it justifies; the partitioning
-    # table is operational and belongs with the pipeline diagnostics.
-    pepm_section_html = build_pepm_section(pepm_b64, pepm_summary)
+    # Whether pepM identity could partition BiG-SCAPE is operational, so it sits
+    # with the pipeline diagnostics rather than with the chemistry.
     partition_section_html = build_partition_section(pepm_summary)
 
-    bigscape_section_html = _build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html,
-                                                        taxon_clean, gcf_support_rows)
+    bigscape_stats_section = build_bigscape_stats_section(bigscape_stats_html, taxon_clean)
 
     versions_html = _build_versions_html(versions_data)
 
@@ -142,112 +141,72 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # coupling_table_rows and would otherwise interpolate a literal "None".
     # Region count for the collapsed listing's summary line.
     n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
-    priority_html    = build_priority_section(novelty_ranking, bioprofile_path)
-    novelty_tab      = build_novelty_tab(priority_html, novel_bgcs_tab_content, n_regions)
-    consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary)
-    gcf_analysis_tab = build_gcf_analysis_tab(coupling_table_rows, bigscape_section_html,
-                                              pepm_section_html,
-                                              consensus_html=consensus_html)
+    priority_html    = build_priority_section(novelty_ranking, bioprofile_path,
+                                              gcf_hrefs, branch_point_path, gcf_data)
+    priority_section = (build_novelty_intro() + priority_html) if priority_html else ''
+    regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
+    consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary,
+                                                        gcf_hrefs)
+    phylogeny_key    = build_biosynthetic_phylogeny_section(coupling_table_rows)
+    support_section  = _build_gcf_support_section(gcf_support_rows)
     gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime)
     pipeline_tab     = build_pipeline_tab(resource_usage_html, partition_section_html,
                                           versions_html)
 
-    html_content = f'''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <!-- Without this, mobile browsers lay the page out against a ~980px virtual
-         viewport and the max-width media queries below never fire. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>BGC Analysis Report - {taxon}</title>
-    <style>{REPORT_CSS}</style>
-</head>
-<body>
-    <h1>BGC Analysis Report</h1>
-    <p class="subtitle">Taxon: <strong>{taxon}</strong></p>
-    <p style="text-align: center; color: #888; font-size: 0.85em; margin: -6px 0 4px;">
-        {provenance}
-    </p>
+    # A run without --clustering bigscape has none of the family sections at all, and
+    # the group would vanish from the rail with no explanation. One pane says why.
+    if not (bigscape_stats_section or gcf_visualization_html or consensus_html):
+        phylogeny_key = build_no_clustering_notice()
 
-    <div class="tabs">
-        <input type="radio" id="tab1" name="tabs" checked>
-        <label for="tab1">Overview</label>
-
-        <input type="radio" id="tab2" name="tabs">
-        <label for="tab2">BGCs</label>
-
-        <input type="radio" id="tab3" name="tabs">
-        <label for="tab3">Gene Cluster Families</label>
-
-        <input type="radio" id="tab4" name="tabs">
-        <label for="tab4">Phylogeny</label>
-
-        <input type="radio" id="tab5" name="tabs">
-        <label for="tab5">Genomes</label>
-
-        <!-- 1. Overview Stats -->
-        <div class="tab-content" id="content1">
-            <p style="color: #666; font-size: 0.9em; margin: 4px 0 2px;">
+    # The rail, and the panes it switches between. Order here is the order on the
+    # page; a section that this run did not produce drops out of both.
+    tabs_html = build_tabbed_nav([
+        ('Overview', [
+            ('Summary',                   f'''            <p style="color: #666; font-size: 0.9em; margin: 4px 0 2px;">
                 <em>Detection is restricted to the antiSMASH <strong>phosphonate</strong> rule
-                (<code>--hmmdetection-limit-to-rule-names phosphonate</code>), so every region below is a
-                phosphonate BGC and no other BGC class was searched for. "No MIBiG match" should be read
+                (<code>--hmmdetection-limit-to-rule-names phosphonate</code>), so every region in this
+                report is a phosphonate BGC and no other BGC class was searched for. "No MIBiG match" should be read
                 against that: MIBiG holds few characterised phosphonate pathways, so a miss is expected
                 and is weaker evidence of novelty than it would be for a well-represented class.</em>
             </p>
             {overview_stats}
             {kcb_mapping_section}
-            {rarefaction_section}
-
-            <details class="pipeline-info">
-                <summary>Pipeline, resources and software versions</summary>
-                <div>{pipeline_tab}</div>
-            </details>
-        </div>
-
-        <!-- 2. BGCs: what to work on, the full region list, and known-cluster matches -->
-        <div class="tab-content" id="content2">{novelty_tab}
-            <details style="margin-top:22px;border:1px solid #dee2e6;border-radius:8px;">
-                <summary style="cursor:pointer;padding:13px 18px;font-weight:600;
-                                background:#f8f9fa;border-radius:8px;">
-                    Known-cluster matches (KnownClusterBlast)
-                </summary>
-                <div style="padding:4px 18px 18px;">{kcb_hits_tab_content}</div>
-            </details>
-        </div>
-
-        <!-- 3. Gene Cluster Families: analysis, then the family-centre tree -->
-        <div class="tab-content" id="content3">{gcf_analysis_tab}
-
-            <hr class="tab-section-divider">
-            {gcf_trees_tab}
-        </div>
-
-        <!-- 4. Phylogeny -->
-        <div class="tab-content" id="content4">
-            <h3>Taxonomic Distribution of BGCs</h3>
+            {rarefaction_section}'''),
+            ('Pipeline & resources',      pipeline_tab),
+        ]),
+        ('BGCs', [
+            ('Novelty assessment',        priority_section),
+            ('All detected regions',      regions_section),
+        ]),
+        ('Gene cluster families', [
+            ('Consensus gene content',    consensus_html),
+            # The tree and the class table are one subject: branch colours on the
+            # tree ARE the classes in the table, and splitting them put a legend in
+            # one pane and the figure it explains in another.
+            ('Biosynthetic phylogeny',    phylogeny_key + gcf_trees_tab),
+            ('BiG-SCAPE statistics',      bigscape_stats_section),
+            ('Coupling enzyme support',   support_section),
+            ('Family representatives',    gcf_visualization_html),
+        ]),
+        ('Phylogeny', [
+            ('Taxonomic distribution',    f'''            <h3>Taxonomic Distribution of BGCs</h3>
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Expandable NCBI taxonomy tree showing BGC statistics at each taxonomic level. Click on nodes to expand/collapse.
                 Species nodes expand to show individual genomes with their BGC counts.</em>
             </p>
             {tree_html if tree_html else '<div class="info-box warning"><p>Taxonomy tree data not available.</p></div>'}
-            <script id="taxonomyGenomeData" type="application/json">{taxonomy_genome_json}</script>
-
-            <hr class="tab-section-divider">
-
-            <h3>GCF Distribution Across Taxa</h3>
+            <script id="taxonomyGenomeData" type="application/json">{taxonomy_genome_json}</script>'''),
+            ('GCF distribution across taxa', f'''            <h3>GCF Distribution Across Taxa</h3>
             <p style="color: #666; margin-bottom: 20px;">
                 <em>Which Gene Cluster Families are confined to one genus and which are widespread,
                 using GTDB-Tk taxonomy where available. The GTDB-Tk tree itself is not drawn here —
                 the Newick files are published under <code>gtdbtk_results/</code> for iTOL, FigTree
                 or Dendroscope.</em>
             </p>
-            {tree_section}
-        </div>
-
-        <!-- 5. Genomes -->
-        <div class="tab-content" id="content5">
-            <h2>All Genomes</h2>
+            {tree_section}'''),
+        ]),
+        ('Genomes', [
+            ('Genomes',                   f'''            <h2>All Genomes</h2>
             <p style="color: #666; margin-bottom: 15px;">
                 <em>Searchable table of all analyzed genomes. Click genome names for detailed metadata pages.</em>
             </p>
@@ -277,9 +236,30 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                     </tbody>
                 </table>
             </div>
-            <script id="genomeData" type="application/json">{genome_data_json}</script>
-        </div>
+            <script id="genomeData" type="application/json">{genome_data_json}</script>'''),
+        ]),
+    ])
 
+    html_content = f'''
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <!-- Without this, mobile browsers lay the page out against a ~980px virtual
+         viewport and the max-width media queries below never fire. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BGC Analysis Report - {taxon}</title>
+    <style>{REPORT_CSS}</style>
+</head>
+<body>
+    <h1>BGC Analysis Report</h1>
+    <p class="subtitle">Taxon: <strong>{taxon}</strong></p>
+    <p style="text-align: center; color: #888; font-size: 0.85em; margin: -6px 0 4px;">
+        {provenance}
+    </p>
+
+    <div class="tabs">
+{tabs_html}
     </div>
 
     <script>{REPORT_JS}</script>
@@ -320,7 +300,6 @@ def main():
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
-    parser.add_argument('--pepm_svg', type=Path, help='pepM vs BiG-SCAPE similarity SVG from PEPM_ALL_BY_ALL')
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--novelty_ranking', type=Path, help='novelty_ranking.tsv from NOVELTY_SCORE')
@@ -493,7 +472,6 @@ def main():
     # pepM all-by-all: the figure goes in GCF Analysis, the partitioning table in
     # the pipeline-info block on Overview. Both are optional — the analysis is a
     # separate process and a run without it should still produce a report.
-    pepm_b64, _ = embed_image(args.pepm_svg)
     pepm_summary = None
     if args.pepm_json and args.pepm_json.exists():
         with open(args.pepm_json) as f:
@@ -530,7 +508,8 @@ def main():
                             phylo_tree_generated,
                             genome_table, resource_usage_html, phylo_tree_data,
                             taxonomy_genome_json=taxonomy_genome_json,
-        pepm_b64=pepm_b64, pepm_summary=pepm_summary,
+                            pepm_summary=pepm_summary,
+                            branch_point_path=args.branch_point,
                             gcf_data=gcf_data_dict, taxonomy_map=taxonomy_map_dict,
                             versions_data=versions_data,
                             rarefaction_stats=rarefaction_stats,

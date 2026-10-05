@@ -27,7 +27,6 @@ process VISUALIZE_RESULTS {
     path biosynthetic_profile
     path consensus_clusters
     path transfer_summary
-    path pepm_svg
     path pepm_json
 
     // Digest of the Python this process runs. A val input, not an
@@ -63,7 +62,6 @@ process VISUALIZE_RESULTS {
     def gcf_tree_arg            = Utils.optArg('--gcf_tree',            gcf_tree_png)
     def gcf_tree_svg_arg        = Utils.optArg('--gcf_tree_svg',        gcf_tree_svg)
     def gcf_heatmap_svg_arg     = Utils.optArg('--gcf_heatmap_svg',     gcf_heatmap_svg)
-    def pepm_svg_arg            = Utils.optArg('--pepm_svg',            pepm_svg)
     def pepm_json_arg           = Utils.optArg('--pepm_json',           pepm_json)
     def coupling_annotation_arg = Utils.optArg('--coupling_annotation', coupling_annotation)
     def coupling_support_arg    = Utils.optArg('--coupling_support',    coupling_support)
@@ -78,6 +76,6 @@ process VISUALIZE_RESULTS {
     """
     python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${branch_point_arg} ${bioprofile_arg} \\
         ${consensus_arg} \\
-        ${transfer_summary_arg} ${pepm_svg_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
+        ${transfer_summary_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
     """
 }

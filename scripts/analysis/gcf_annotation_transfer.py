@@ -78,12 +78,18 @@ def family_members(db_path, cutoff):
 
 
 def read_region(gbk_path):
-    """[(locus_tag, product, translation, [pfam_acc])] for one region GenBank.
+    """[(locus_tag, product, translation, [pfam_acc], start, end, strand)] for one region.
 
     Domains come from antiSMASH's own clusterhmmer scan (`PFAM_domain` features), so
     unlike the product they are present whether or not NCBI annotated the assembly.
     That is what makes them usable for functional comparison across families; see
     utils/domain_functions.py.
+
+    Coordinates are carried so the consensus can be ordered and drawn by position.
+    They are region-relative in effect -- every member's start is subtracted from
+    its own region's first CDS downstream -- because absolute contig coordinates
+    are not comparable across genomes. CDS are returned in coordinate order, which
+    is the order SeqIO yields them in an antiSMASH region GenBank.
     """
     from Bio import SeqIO
     out, doms = [], collections.defaultdict(list)
@@ -105,7 +111,10 @@ def read_region(gbk_path):
             prod = (q.get('product') or [''])[0]
             seq = (q.get('translation') or [''])[0]
             if seq:
-                out.append((tag, prod, seq, doms.get(tag, [])))
+                out.append((tag, prod, seq, doms.get(tag, []),
+                            int(feat.location.start), int(feat.location.end),
+                            1 if feat.location.strand in (None, 1) else -1))
+    out.sort(key=lambda c: c[4])
     return out
 
 
@@ -196,7 +205,12 @@ def main():
 
     for fam_id in sorted(fams):
         members = fams[fam_id]
-        cds = []                      # (region_label, genome, tag, product, seq)
+        # (region_label, genome, tag, product, seq, domains, rank, start, end, strand)
+        # `rank` is the CDS's index within its own region. Absolute coordinates are
+        # not comparable across genomes, but rank is: it is what lets a group be
+        # placed in gene order across members that sit at different contig offsets.
+        cds = []
+        region_len = {}               # region_label -> (n_cds, first_start, last_end)
         for genome, region_file in members:
             base = _dirs.get(genome)
             path = (base / region_file) if base else Path('/nonexistent')
@@ -204,8 +218,12 @@ def main():
                 print(f'  warn: missing {path}', file=sys.stderr)
                 continue
             label = region_file[:-4] if region_file.endswith('.gbk') else region_file
-            for tag, prod, seq, dm in read_region(path):
-                cds.append((label, genome, tag, prod, seq, dm))
+            feats = read_region(path)
+            if not feats:
+                continue
+            region_len[label] = (len(feats), feats[0][4], feats[-1][5])
+            for rank, (tag, prod, seq, dm, st, en, strand) in enumerate(feats):
+                cds.append((label, genome, tag, prod, seq, dm, rank, st, en, strand))
         if not cds:
             continue
 
@@ -213,8 +231,8 @@ def main():
 
         fasta = work / f'fam{fam_id}.faa'
         with fasta.open('w') as fh:
-            for i, (_, _, _, _, seq, _) in enumerate(cds):
-                fh.write(f'>{i}\n{seq}\n')
+            for i, c in enumerate(cds):
+                fh.write(f'>{i}\n{c[4]}\n')
 
         # A family with one member has no relative to learn from; skip the search
         # rather than paying for an all-vs-all that can only find self-hits.
@@ -229,6 +247,28 @@ def main():
         groups = collections.defaultdict(list)
         for i, g in gid.items():
             groups[g].append(i)
+
+        # The scaffold: the one member region carrying the most distinct groups.
+        # A consensus cluster has no coordinates of its own -- it is an abstraction
+        # over members that sit at different contig offsets, in different orders --
+        # so the diagram is drawn on the member that represents the most of it, with
+        # real coordinates that link back to antiSMASH. Ties break on the region with
+        # more CDS, then on the label, so the choice is stable across runs.
+        # Scored by summed PREVALENCE of the groups a region carries, not by their
+        # count: the member with the most genes is often just the one with the most
+        # accessory neighbours swept in at the region boundary, and a diagram of
+        # those is not a diagram of the family. Weighting by prevalence picks the
+        # member that best shows what defines it.
+        groups_per_region = collections.defaultdict(set)
+        for g, idxs in groups.items():
+            for i in idxs:
+                groups_per_region[cds[i][0]].add(g)
+        prev = {g: len(idxs) / len(members) for g, idxs in groups.items()}
+        scaffold = max(groups_per_region,
+                       key=lambda lbl: (round(sum(prev[g] for g in groups_per_region[lbl]), 6),
+                                        len(groups_per_region[lbl]), lbl)) \
+            if groups_per_region else ''
+        scaffold_n = len(groups_per_region.get(scaffold, ()))
 
         after = 0
         for g, idxs in groups.items():
@@ -247,6 +287,14 @@ def main():
                     gdoms[d] += 1
             top_doms = [d for d, _ in gdoms.most_common(6)]
             roles = {domain_functions.category(d) for d in top_doms} - {'other'}
+            # Where this gene sits. `median_rank` orders the consensus table in gene
+            # order instead of by prevalence -- members disagree on absolute position
+            # but rarely on order, so the median is stable. The scaffold coordinates
+            # are what the diagram draws; they are blank for a group the scaffold
+            # happens not to carry, which is why the table remains the full list.
+            ranks = sorted(cds[i][6] for i in idxs)
+            on_scaffold = [i for i in idxs if cds[i][0] == scaffold]
+            sc = cds[on_scaffold[0]] if on_scaffold else None
             per_group.append(dict(
                 family=fam_id, group=g,
                 consensus_product=cons or '(unnamed)',
@@ -255,15 +303,20 @@ def main():
                 role=sorted(roles)[0] if roles else 'other',
                 group_size=len(idxs), n_annotated=len(named),
                 n_sources=len(sources), n_agree=agree, n_disagree=disagree,
-                prevalence=round(len(idxs) / len(members), 3)))
+                prevalence=round(len(idxs) / len(members), 3),
+                median_rank=ranks[len(ranks) // 2],
+                scaffold_start=sc[7] if sc else '',
+                scaffold_end=sc[8] if sc else '',
+                scaffold_strand=sc[9] if sc else '',
+                scaffold_locus=sc[2] if sc else ''))
             for i in idxs:
-                label, genome, tag, prod, _, _ = cds[i]
+                label, genome, tag, prod = cds[i][0], cds[i][1], cds[i][2], cds[i][3]
                 orig_ok = informative(prod)
                 transferred = prod.strip() if orig_ok else cons
                 if transferred:
                     after += 1
                 per_cds.append(dict(
-                    family=fam_id, region=label, genome=genome, locus_tag=tag,
+                    family=fam_id, group=g, region=label, genome=genome, locus_tag=tag,
                     original_product=prod.strip(),
                     transferred_product=transferred,
                     origin='observed' if orig_ok else ('transferred' if cons else 'none'),
@@ -277,19 +330,22 @@ def main():
         summary[str(fam_id)] = dict(
             members=len(members), cds=n, groups=len(groups),
             annotated_before=before, annotated_after=after,
-            pct_before=round(100 * before / n, 1), pct_after=round(100 * after / n, 1))
+            pct_before=round(100 * before / n, 1), pct_after=round(100 * after / n, 1),
+            scaffold=scaffold, scaffold_groups=scaffold_n,
+            scaffold_span=list(region_len.get(scaffold, (0, 0, 0))[1:]))
         print(f'  GCF-{fam_id}: {len(members)} members, {n} CDS, {len(groups)} groups, '
               f'{100*before/n:.1f}% -> {100*after/n:.1f}% annotated')
 
     for name, rows, fields in (
         ('gcf_annotation_transfer.tsv', per_cds,
-         ['family', 'region', 'genome', 'locus_tag', 'original_product',
+         ['family', 'group', 'region', 'genome', 'locus_tag', 'original_product',
           'transferred_product', 'origin', 'source_genomes', 'n_sources',
           'n_agree', 'n_disagree', 'group_size']),
         ('gcf_consensus_clusters.tsv', per_group,
          ['family', 'group', 'consensus_product', 'role', 'domains',
           'domain_accessions', 'prevalence', 'group_size', 'n_annotated',
-          'n_sources', 'n_agree', 'n_disagree'])):
+          'n_sources', 'n_agree', 'n_disagree', 'median_rank',
+          'scaffold_start', 'scaffold_end', 'scaffold_strand', 'scaffold_locus'])):
         with (args.outdir / name).open('w', newline='') as fh:
             w = csv.DictWriter(fh, fieldnames=fields, delimiter='\t')
             w.writeheader()

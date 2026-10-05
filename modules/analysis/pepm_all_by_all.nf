@@ -1,9 +1,7 @@
 /**
- * All-by-all pepM comparison against gene-neighbourhood similarity.
- *
- * Reproduces Yu et al. PNAS 2013;110(51):20759 Fig. 2B on this run's data, and
- * reports whether pepM identity could partition BiG-SCAPE's all-pairs problem —
- * the constraint that stops a million-genome run clustering in one pass.
+ * All-by-all pepM comparison, to test whether pepM identity could partition
+ * BiG-SCAPE's all-pairs problem — the constraint that stops a million-genome
+ * run clustering in one pass.
  *
  * Needs the Pfam HMM (for PF13714) and the BiG-SCAPE database, which already
  * holds the neighbourhood-similarity axis for every pair.
@@ -27,8 +25,6 @@ process PEPM_ALL_BY_ALL {
     output:
     path "pepm_vs_neighbourhood.tsv", emit: pairs,    optional: true
     path "pepm_all_by_all.json",      emit: summary,  optional: true
-    path "pepm_vs_*.png",             emit: figures,  optional: true
-    path "pepm_vs_*.svg",             emit: svgs,     optional: true
 
     script:
     """

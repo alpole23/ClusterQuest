@@ -17,7 +17,11 @@ REPORT_CSS = """\
            Still pure CSS: the radio inputs drive `#tabN:checked ~ #contentN`,
            which does not care whether the labels sit above or beside the panes.
            Group headings are static labels, so sub-sections need no mechanism of
-           their own — they are simply more radios under a heading. */
+           their own — they are simply more radios under a heading.
+
+           One `#tabN:checked ~ #contentN` rule is needed per pane and the pane
+           count now depends on which analyses a run produced, so the rule list is
+           generated below rather than written out. */
         .tabs {
             margin-top: 20px;
             display: grid;
@@ -66,11 +70,7 @@ REPORT_CSS = """\
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             min-height: 400px;
         }
-        #tab1:checked ~ #content1,
-        #tab2:checked ~ #content2,
-        #tab3:checked ~ #content3,
-        #tab4:checked ~ #content4,
-        #tab5:checked ~ #content5 {
+/*PANE_RULES*/ {
             display: block;
         }
         /* Below this width a 224px rail costs more than it gives, so the nav
@@ -92,6 +92,15 @@ REPORT_CSS = """\
             }
             .nav-group { padding: 12px 4px 2px; }
         }
+
+        /* Zoomable figure controls */
+        .zoomfig button {
+            border: 1px solid #ccd2d8; background: #fff; color: #334;
+            border-radius: 4px; padding: 2px 10px; cursor: pointer;
+            font: inherit; font-size: .85em; line-height: 1.5;
+        }
+        .zoomfig button:hover { background: #eef2f6; border-color: #9fb0c0; }
+        .zoompane img { user-select: none; -webkit-user-drag: none; }
 
         /* Collapsible details block (Pipeline Info in Overview) */
         details.pipeline-info {
@@ -293,6 +302,14 @@ REPORT_CSS = """\
         }
 """
 
+# One rule per pane. A run without clustering emits fewer panes than one with it,
+# so the ceiling is generous and unused rules simply never match: the alternative
+# is threading generated CSS through generate_html_report, for a few hundred bytes.
+MAX_PANES = 40
+REPORT_CSS = REPORT_CSS.replace(
+    '/*PANE_RULES*/',
+    ',\n'.join(f'        #tab{i}:checked ~ #content{i}' for i in range(1, MAX_PANES + 1)))
+
 REPORT_JS = """\
         // Jump from the priority table to the family's row in the master table.
         // Defined here, not in viz/clustering.py, because the caller and the target
@@ -303,11 +320,22 @@ REPORT_JS = """\
         // The tabs are CSS radio buttons, so <a href="#gcfrow_7"> would scroll to an
         // element that is display:none and appear to do nothing — the radio has to be
         // checked first. The row carries the link to the family's own page.
+        //
+        // Which radio that is, is found from the pane the target sits in rather than
+        // hardcoded: pane numbering runs across the whole report and shifts whenever a
+        // run emits a different set of sections, so an id written in here goes stale
+        // silently — the link would open the wrong pane and scroll nowhere.
+        function revealPane(el) {
+            const pane = el.closest('.tab-content');
+            if (!pane) return;
+            const radio = document.getElementById(pane.id.replace('content', 'tab'));
+            if (radio) radio.checked = true;
+        }
+
         function showGCF(familyId) {
             const row = document.getElementById('gcfrow_' + familyId);
             if (!row) return;                       // no families in this run
-            const tab = document.getElementById('tab3');   // Gene Cluster Families
-            if (tab) tab.checked = true;
+            revealPane(row);
             row.hidden = false;                     // in case a filter hid it
             row.scrollIntoView({behavior: 'smooth', block: 'center'});
             row.style.transition = 'background .3s';
@@ -433,7 +461,6 @@ REPORT_JS = """\
         }
         function filterGenomes()   { _debounce('genomes', _filterGenomes,   150); }
         function filterNovelBGCs() { _debounce('novel',   _filterNovelBGCs, 150); }
-        function filterKCBHits()   { _debounce('kcb',     _filterKCBHits,   150); }
 
         function searchNorm(text) {
             return text.toLowerCase().replace(/[_\\s]+/g, ' ').trim();
@@ -457,6 +484,101 @@ REPORT_JS = """\
             return false;
         }
 
+        // Zoom and pan for a figure too large to read at pane width -- the GCF x
+        // species heatmap, which is 72 rows against every species carrying one.
+        // Steps are multiples of the fit width rather than absolute pixels, so the
+        // control means the same thing on a phone and on a 4K monitor. "Fit" is the
+        // default view because that is the one showing the block structure; the
+        // zoom levels are for reading a label.
+        const ZOOM_STEPS = [1, 1.5, 2, 3, 4, 6, 8];
+
+        function zoomFig(btn, dir) {
+            const wrap = btn.closest('.zoomfig');
+            const pane = wrap.querySelector('.zoompane');
+            const img  = pane.querySelector('img');
+            let i = parseInt(wrap.dataset.zoom || '0', 10);
+            i = dir === 0 ? 0 : Math.max(0, Math.min(ZOOM_STEPS.length - 1, i + dir));
+            wrap.dataset.zoom = i;
+
+            // Keep whatever is in the middle of the pane in the middle after the
+            // step, or zooming always walks back to the top-left corner.
+            const cx = (pane.scrollLeft + pane.clientWidth  / 2) / Math.max(img.width, 1);
+            const cy = (pane.scrollTop  + pane.clientHeight / 2) / Math.max(img.height, 1);
+            img.style.width = (ZOOM_STEPS[i] * 100) + '%';
+            img.style.maxWidth = 'none';
+            requestAnimationFrame(function () {
+                pane.scrollLeft = cx * img.width  - pane.clientWidth  / 2;
+                pane.scrollTop  = cy * img.height - pane.clientHeight / 2;
+            });
+            const lbl = wrap.querySelector('.zoomlvl');
+            if (lbl) lbl.textContent = i === 0 ? 'fit' : ZOOM_STEPS[i] + '\u00d7';
+        }
+
+        // Drag to pan. Bound once at the document level so it also covers figures
+        // rendered into panes that were not in the DOM when this ran.
+        (function () {
+            let pane = null, x0 = 0, y0 = 0, sl = 0, st = 0;
+            document.addEventListener('mousedown', function (e) {
+                const p = e.target.closest ? e.target.closest('.zoompane') : null;
+                if (!p) return;
+                pane = p; x0 = e.clientX; y0 = e.clientY;
+                sl = p.scrollLeft; st = p.scrollTop;
+                p.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function (e) {
+                if (!pane) return;
+                pane.scrollLeft = sl - (e.clientX - x0);
+                pane.scrollTop  = st - (e.clientY - y0);
+            });
+            document.addEventListener('mouseup', function () {
+                if (pane) pane.style.cursor = 'grab';
+                pane = null;
+            });
+        })();
+
+        // Click-to-sort for the detected-regions table. Added so that sorting on
+        // MIBiG ID or KCB hit groups the regions matching one characterised cluster:
+        // that grouping used to be a second table, by cluster, which truncated its
+        // region list at five ("+62 more") and could not be searched with the rest.
+        //
+        // The sort key is the cell's data-sort when it has one and its text otherwise,
+        // because several columns render a badge or a link whose text does not order
+        // the way the value does. Keys compare numerically when both sides parse as
+        // numbers, so 9% sorts below 40% rather than after it.
+        function sortRegions(th) {
+            const table = th.closest('table');
+            const tbody = table.tBodies[0];
+            if (!tbody) return;
+            const idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+            const asc = table.dataset.sortCol === String(idx)
+                ? table.dataset.sortAsc !== 'true' : true;
+            table.dataset.sortCol = idx;
+            table.dataset.sortAsc = asc;
+            const key = row => {
+                const cell = row.children[idx];
+                if (!cell) return '';
+                const raw = cell.dataset.sort;
+                return (raw === undefined ? cell.textContent : raw).trim();
+            };
+            const rows = Array.prototype.slice.call(tbody.rows);
+            rows.sort((a, b) => {
+                const ka = key(a), kb = key(b);
+                const na = parseFloat(ka), nb = parseFloat(kb);
+                const cmp = (!isNaN(na) && !isNaN(nb) && ka !== '' && kb !== '')
+                    ? na - nb : ka.localeCompare(kb, undefined, {numeric: true});
+                return asc ? cmp : -cmp;
+            });
+            const frag = document.createDocumentFragment();
+            rows.forEach(r => frag.appendChild(r));
+            tbody.appendChild(frag);
+            // Arrow on the active column only; the others revert to their plain label.
+            Array.prototype.forEach.call(th.parentNode.children, (h, i) => {
+                h.textContent = h.textContent.replace(/[\u00a0\u25b2\u25bc]+$/, '');
+                if (i === idx) h.textContent += asc ? '\u00a0\u25b2' : '\u00a0\u25bc';
+            });
+        }
+
         function _filterNovelBGCs() {
             const input = document.getElementById('novelSearch');
             if (!input) return;
@@ -478,26 +600,6 @@ REPORT_JS = """\
             }
         }
 
-        function _filterKCBHits() {
-            const input = document.getElementById('kcbSearch');
-            if (!input) return;
-            const filter = searchNorm(input.value);
-            const tbody = document.getElementById('kcbTableBody');
-            if (!tbody) return;   // table absent, e.g. the empty-hits KCB tab
-            const rows = tbody.getElementsByTagName('tr');
-
-            for (let i = 0; i < rows.length; i++) {
-                const cells = rows[i].getElementsByTagName('td');
-                let found = false;
-                for (let j = 0; j < cells.length; j++) {
-                    if (searchMatches(cells[j].textContent, filter)) {
-                        found = true;
-                        break;
-                    }
-                }
-                rows[i].style.display = found ? '' : 'none';
-            }
-        }
 
         // ---- Taxonomy tree: species genome lists rendered on first expand -------
         // Inlined, these were a second copy of all 1,735 genomes and ~90% of the tree's

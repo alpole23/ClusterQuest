@@ -101,6 +101,36 @@ def build_gcf_taxonomy_distribution(gcf_data, taxonomy_map):
         'family_metadata': family_metadata
     }
 
+def _zoomable(b64, alt='GCF × Species Heatmap'):
+    """The heatmap in a pane that can be zoomed and dragged.
+
+    At 72 families against every species carrying one, the figure is unreadable
+    at the width of a report pane and has no detail at all once the browser has
+    scaled it down. Fit-to-width is still the default view -- that is the one that
+    shows the block structure -- but the controls make it possible to actually
+    read a row label.
+
+    Deliberately operating on the existing <img> rather than re-rendering the
+    matrix in JS: the SVG is already generated, already deterministic, and already
+    the figure that goes in the paper. Zoom is a viewport concern.
+    """
+    return f'''
+    <div class="zoomfig" style="margin-bottom:30px;">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+            <button type="button" onclick="zoomFig(this,-1)" title="Zoom out">&minus;</button>
+            <button type="button" onclick="zoomFig(this,1)" title="Zoom in">+</button>
+            <button type="button" onclick="zoomFig(this,0)" title="Fit to width">Fit</button>
+            <span style="color:#888;font-size:.82em;">drag to pan &middot;
+                <span class="zoomlvl">fit</span></span>
+        </div>
+        <div class="zoompane" style="overflow:auto;max-height:78vh;border:1px solid #e3e6e8;
+                                     border-radius:6px;background:#fff;cursor:grab;">
+            <img src="data:image/svg+xml;base64,{b64}" alt="{alt}"
+                 style="width:100%;height:auto;display:block;">
+        </div>
+    </div>'''
+
+
 def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=None, gcf_heatmap_b64=None):
     """
     Generate HTML for BGC Distribution tab (replaces Tree View).
@@ -255,11 +285,11 @@ def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=N
         Shows which Gene Cluster Families (GCFs) are taxon-specific vs widespread.</em>
     </p>
 
-    <h3>GCF × Genus Heatmap</h3>
+    <h3>{'GCF × Species Heatmap' if gcf_heatmap_b64 else 'GCF × Genus Heatmap'}</h3>
     <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
-        {'Presence/absence of each Gene Cluster Family across genera. Rows: GCFs ordered by Jaccard-distance hierarchical clustering; columns: genera ordered by GTDB-Tk phylogeny.' if gcf_heatmap_b64 else 'Top 30 GCFs (rows) vs top 20 genera (columns). Color intensity = number of BGCs.'}
+        {'Every Gene Cluster Family against every species carrying one — all region-level BGCs, not one representative per family. Rows: GCFs ordered by Jaccard-distance hierarchical clustering; columns: species, grouped under their genus and ordered by the GTDB reference phylogeny.' if gcf_heatmap_b64 else 'Top 30 GCFs (rows) vs top 20 genera (columns). Color intensity = number of BGCs.'}
     </p>
-    {'<div style="margin-bottom: 30px;"><img src="data:image/svg+xml;base64,' + gcf_heatmap_b64 + '" alt="GCF × Genus Heatmap" style="max-width: 100%; height: auto; display: block;"></div>' if gcf_heatmap_b64 else f"""
+    {_zoomable(gcf_heatmap_b64) if gcf_heatmap_b64 else f"""
     <div id="heatmap-container" style="width: 100%; overflow-x: auto; margin-bottom: 30px;">
         <canvas id="heatmap-canvas" style="max-width: 100%;"></canvas>
     </div>

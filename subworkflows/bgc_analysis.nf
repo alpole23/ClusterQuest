@@ -90,7 +90,6 @@ workflow BGC_ANALYSIS {
             bioprofile_ch              = placeholder('NO_BIOPROFILE')
             consensus_ch            = placeholder('NO_CONSENSUS')
             transfer_summary_ch     = placeholder('NO_TRANSFER_SUMMARY')
-            pepm_svg_ch             = placeholder('NO_PEPM_SVG')
             pepm_json_ch            = placeholder('NO_PEPM_JSON')
             if (clusteringEnabled("bigscape")) {
                 GCF_BIOSYNTHETIC_TREE(
@@ -146,22 +145,18 @@ workflow BGC_ANALYSIS {
                 bioprofile_ch = BIOSYNTHETIC_PROFILE.out.profile
                     .ifEmpty(file('NO_BIOPROFILE'))
 
-                // pepM all-by-all: reproduces Yu et al. 2013 Fig. 2B on this run's
-                // data and reports whether pepM identity could partition
-                // BiG-SCAPE. Independent of the tree above, so Nextflow runs
-                // them concurrently.
+                // pepM all-by-all: reports whether pepM identity could partition
+                // BiG-SCAPE's all-pairs problem. Independent of the tree above, so
+                // Nextflow runs them concurrently.
                 PEPM_ALL_BY_ALL(
                     taxon,
                     CLUSTERING.out.bigscape_db,
                     CLUSTERING.out.pfam_db,
-                    Utils.scriptsHash(projectDir, ['analysis/pepm_all_by_all.py', 'utils'])
+                    Utils.scriptsHash(projectDir, ['analysis/pepm_all_by_all.py'])
                 )
-                // The figure goes in GCF Analysis, the partitioning table in
-                // Pipeline Info. Both optional: PEPM_ALL_BY_ALL emits nothing
-                // when there are too few pepMs to compare.
-                pepm_svg_ch  = PEPM_ALL_BY_ALL.out.svgs
-                    .flatten().filter { it.name.contains('bigscape_similarity') }
-                    .ifEmpty(file('NO_PEPM_SVG'))
+                // Feeds the partitioning feasibility table in Pipeline Info.
+                // Optional: PEPM_ALL_BY_ALL emits nothing when there are too few
+                // pepMs to compare.
                 pepm_json_ch = PEPM_ALL_BY_ALL.out.summary.ifEmpty(file('NO_PEPM_JSON'))
 
 
@@ -208,7 +203,6 @@ workflow BGC_ANALYSIS {
                 bioprofile_ch,
                 consensus_ch,
                 transfer_summary_ch,
-                pepm_svg_ch,
                 pepm_json_ch,
                 Utils.scriptsHash(projectDir, ['visualize_results.py', 'utils', 'viz'])
             )

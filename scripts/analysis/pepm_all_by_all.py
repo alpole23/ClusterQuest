@@ -1,42 +1,41 @@
 #!/usr/bin/env python3
-"""All-by-all pepM comparison against gene-neighbourhood similarity.
+"""All-by-all pepM comparison, to test whether pepM identity can partition BiG-SCAPE.
 
-Replicates the analysis in Yu et al., PNAS 2013;110(51):20759
-(doi:10.1073/pnas.1315107110), Fig. 2B, on this run's own data:
+BiG-SCAPE compares every BGC against every other, so its memory grows
+quadratically and that is the constraint that stops a large run clustering in
+one pass. If pepM identity tracked gene-neighbourhood similarity closely enough,
+it would be a cheap key to split the input on. This measures, for a given run,
+how far the input could be split and whether doing so would separate BGCs that
+BiG-SCAPE placed in one family.
 
-    "we plotted the similarity of 342 pepM gene neighborhoods against the
-    similarity of PEP mutase amino acid sequences in all pairwise combinations
-    (58,311 comparisons). The data reveal a highly significant linear
-    correlation for PEP mutase pairs having greater than 60% identity, with
-    essentially no similarity in the pepM gene neighborhood at lower values."
+Two things make it cheap rather than a second clustering run.
 
-and, from their methods:
+**BiG-SCAPE already computed the neighbourhood axis.** Its `distance` table holds
+every pair -- exactly n(n-1)/2 rows, verified -- so nothing is recompared here;
+the pairs are joined on their record ids.
 
-    "PepM identity was calculated using pairwise deletion of missing sites
-    across the entire PepM alignment. Gene-cluster similarity measures were
-    binned by PepM identity at intervals of 0.02 and plotted with a standard
-    box plot. The line shown is a linear regression over the PepM identity
-    range 0.6-1.0."
+**Identity comes from a profile alignment, not BLAST.** `hmmalign` against
+PF13714 with pairwise deletion of gapped sites is linear in sequence count where
+all-by-all alignment is quadratic, which is what makes this tractable at scales
+where BiG-SCAPE itself is not. Only match columns count, so a fusion protein's
+extra residues fall out as insertions rather than dragging identity down.
 
-Two things make this cheap rather than a second clustering run.
+This used to also plot pepM identity against neighbourhood similarity, as a
+replication of Yu et al. PNAS 2013;110(51):20759 Fig. 2B. That figure was
+removed because on a taxonomically broad run it mostly measures taxonomy.
+Splitting the Enterobacterales pairs by GTDB relationship, the pooled r of 0.789
+over the paper's 0.6-1.0 window becomes 0.353 between genera, 0.194 within a
+genus and 0.385 within a species -- 92.4% of the covariance in that window is
+BETWEEN those strata, not within them. The three groups are near-disjoint clouds
+on both axes (identity 0.725 / 0.967 / 0.994, similarity 0.20 / 0.63 / 0.87), so
+the regression is a line through three points. Within a species, where pepM
+spans 0.991-1.000, neighbourhood similarity still has sd 0.225: pepM says
+nothing there. Over the full identity range the confound is weaker (63.4%
+between strata) but the fitted window is what the figure reported.
 
-**BiG-SCAPE already computed the y-axis.** Its `distance` table holds every
-pair — exactly n(n-1)/2 rows, verified — with `jaccard`, the fraction of domain
-content two BGCs share. That is the direct analogue of the paper's
-"fraction of homologous genes shared", so no neighbourhood comparison is
-reimplemented here; the pairs are simply joined on their record ids.
-
-**Identity comes from a profile alignment, not BLAST.** The paper aligned all
-pepMs and deleted gapped sites per pair. `hmmalign` against PF13714 reproduces
-that and is linear in sequence count, where all-by-all alignment is quadratic —
-which is what makes this tractable at scales where BiG-SCAPE itself is not.
-Only match columns count, so a fusion protein's extra residues fall out as
-insertions rather than dragging identity down.
-
-Beyond reproducing the figure, the fitted relationship is a scaling decision:
-if pepM identity predicts neighbourhood similarity, it is a cheap partitioning
-key for BiG-SCAPE, and the identity below which similarity vanishes is where a
-partition can be cut without splitting real families.
+None of that touches the partitioning question below, which asks only whether a
+pepM cut separates same-family pairs -- an operational claim about where the
+input can be split, not a claim that identity predicts chemistry.
 
     python scripts/analysis/pepm_all_by_all.py \\
         --db results/bigscape_results/Erwiniaceae/Erwiniaceae.db \\
@@ -55,11 +54,6 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.plotting import SVG_METADATA, canonicalise_svg  # noqa: E402  (pins svg.hashsalt + Agg)
-
-import matplotlib.pyplot as plt  # noqa: E402
 
 PEPM_ACCESSION = 'PF13714'   # PEP_mutase — the phosphonate detection rule's hallmark
 GAP = 0                      # sentinel for a gap/deleted site in the encoded alignment
@@ -219,41 +213,6 @@ def join_neighbourhood(con, identity):
     return rows
 
 
-def binned_stats(rows, y_index, width):
-    """Box-plot statistics per identity bin, at the paper's 0.02 interval."""
-    buckets = {}
-    for r in rows:
-        buckets.setdefault(min(int(r[2] / width), int(1 / width) - 1), []).append(r[y_index])
-    stats = []
-    for b in sorted(buckets):
-        v = np.array(buckets[b])
-        stats.append({
-            'bin_lo': round(b * width, 4), 'bin_hi': round((b + 1) * width, 4),
-            'n': int(v.size), 'median': float(np.median(v)),
-            'q1': float(np.percentile(v, 25)), 'q3': float(np.percentile(v, 75)),
-            'mean': float(v.mean()),
-        })
-    return stats
-
-
-def regression(rows, y_index, lo, hi):
-    """Least-squares fit over the paper's 0.6-1.0 identity window."""
-    x = np.array([r[2] for r in rows])
-    y = np.array([r[y_index] for r in rows])
-    m = (x >= lo) & (x <= hi)
-    if m.sum() < 3:
-        return None
-    xs, ys = x[m], y[m]
-    slope, intercept = np.polyfit(xs, ys, 1)
-    pred = slope * xs + intercept
-    ss_res = float(((ys - pred) ** 2).sum())
-    ss_tot = float(((ys - ys.mean()) ** 2).sum())
-    r = float(np.corrcoef(xs, ys)[0, 1])
-    return {'slope': float(slope), 'intercept': float(intercept),
-            'r': r, 'r2': 1 - ss_res / ss_tot if ss_tot else None,
-            'n': int(m.sum()), 'range': [lo, hi]}
-
-
 def partition_analysis(rows, thresholds, gcf_similarity_cut=0.70):
     """Could pepM identity partition BiG-SCAPE's all-pairs problem?
 
@@ -311,37 +270,6 @@ def partition_analysis(rows, thresholds, gcf_similarity_cut=0.70):
     return out
 
 
-# ------------------------------------------------------------------ plotting
-
-def plot(rows, y_index, stats, fit, y_label, outbase, width):
-    fig, ax = plt.subplots(figsize=(7.2, 5.0))
-    xs = [(s['bin_lo'] + s['bin_hi']) / 2 for s in stats]
-    ax.scatter([r[2] for r in rows], [r[y_index] for r in rows],
-               s=3, alpha=0.10, color='#a65628', linewidths=0, rasterized=True, zorder=1)
-    ax.plot(xs, [s['median'] for s in stats], color='#22645f', lw=1.6, zorder=3,
-            label=f'median per {width} bin')
-    ax.fill_between(xs, [s['q1'] for s in stats], [s['q3'] for s in stats],
-                    color='#22645f', alpha=0.18, lw=0, zorder=2, label='IQR')
-    if fit:
-        gx = np.array(fit['range'])
-        ax.plot(gx, fit['slope'] * gx + fit['intercept'], color='#1a1917', lw=1.4,
-                ls='--', zorder=4,
-                label=f"fit {fit['range'][0]}-{fit['range'][1]}: r$^2$={fit['r2']:.2f}")
-        ax.axvline(fit['range'][0], color='#98938a', lw=0.8, ls=':', zorder=0)
-    ax.set_xlabel('pepM amino-acid identity (pairwise deletion of missing sites)')
-    ax.set_ylabel(y_label)
-    ax.set_xlim(0, 1); ax.set_ylim(-0.02, 1.02)
-    ax.spines[['top', 'right']].set_visible(False)
-    ax.legend(frameon=False, fontsize=9, loc='upper left')
-    fig.tight_layout()
-    for ext in ('png', 'svg'):
-        p = f'{outbase}.{ext}'
-        fig.savefig(p, dpi=200, metadata=SVG_METADATA if ext == 'svg' else None)
-        if ext == 'svg':
-            canonicalise_svg(p)
-    plt.close(fig)
-
-
 # ---------------------------------------------------------------------- main
 
 def main():
@@ -355,9 +283,6 @@ def main():
                     help='restrict to organisms with this prefix, e.g. "Pantoea"')
     ap.add_argument('--hmmfetch', default=shutil.which('hmmfetch') or 'hmmfetch')
     ap.add_argument('--hmmalign', default=shutil.which('hmmalign') or 'hmmalign')
-    ap.add_argument('--bin-width', type=float, default=0.02, help="paper's interval")
-    ap.add_argument('--fit-min', type=float, default=0.6, help="paper's regression floor")
-    ap.add_argument('--fit-max', type=float, default=1.0)
     args = ap.parse_args()
 
     args.outdir.mkdir(parents=True, exist_ok=True)
@@ -408,19 +333,7 @@ def main():
 
     summary = {'accession': args.accession, 'organism': args.organism,
                'sequences': len(ids),
-               'match_columns': int(mat.shape[1]), 'pairs': len(rows),
-               'bin_width': args.bin_width}
-    for label, idx, key in (('jaccard', 4, 'shared domain content (Jaccard)'),
-                            ('bigscape_similarity', 5, 'BiG-SCAPE similarity (1 - distance)')):
-        stats = binned_stats(rows, idx, args.bin_width)
-        fit = regression(rows, idx, args.fit_min, args.fit_max)
-        summary[label] = {'bins': stats, 'regression': fit}
-        plot(rows, idx, stats, fit, key,
-             str(args.outdir / f'pepm_vs_{label}'), args.bin_width)
-        if fit:
-            print(f'  {label:<22} r={fit["r"]:+.3f}  r2={fit["r2"]:.3f}  '
-                  f'slope={fit["slope"]:+.3f}  over {args.fit_min}-{args.fit_max} '
-                  f'(n={fit["n"]:,})')
+               'match_columns': int(mat.shape[1]), 'pairs': len(rows)}
 
     parts = partition_analysis(rows, [0.5, 0.6, 0.7, 0.8, 0.9])
     summary['partitioning'] = parts
