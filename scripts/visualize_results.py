@@ -78,7 +78,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          coupling_table_rows=None, gcf_classes=None,
                          gcf_support_rows=None, taxonomy_genome_json='{}',
                          pepm_summary=None, gcf_hrefs=None,
-                         branch_point_path=None):
+                         branch_point_path=None, per_cds_path=None):
     '''Generate tab-based HTML report combining all visualizations'''
 
     # Clean taxon name for URLs - match Nextflow sanitizeTaxon function
@@ -146,7 +146,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     priority_section = (build_novelty_intro() + priority_html) if priority_html else ''
     regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
     consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary,
-                                                        gcf_hrefs)
+                                                        gcf_hrefs, per_cds_path)
     phylogeny_key    = build_biosynthetic_phylogeny_section(coupling_table_rows)
     support_section  = _build_gcf_support_section(gcf_support_rows)
     gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime)
@@ -309,6 +309,9 @@ def main():
                         help='branch_point_prediction.tsv from BRANCH_POINT_PREDICTION: the 2-AEP / 2-HEP call per family')
     parser.add_argument('--consensus_clusters', type=Path,
                         help='gcf_consensus_clusters.tsv from GCF_ANNOTATION_TRANSFER')
+    parser.add_argument('--per_cds', type=Path,
+                        help='gcf_annotation_transfer.tsv: which members carry each '
+                             'orthologue group, for the co-occurrence grouping')
     parser.add_argument('--transfer_summary', type=Path,
                         help='gcf_annotation_transfer.json from GCF_ANNOTATION_TRANSFER')
     parser.add_argument('--coupling_support', type=Path,
@@ -420,7 +423,8 @@ def main():
         gcf_hrefs = create_gcf_pages(
             args.outdir, args.taxon, gcf_cards,
             consensus_blocks=consensus_blocks_by_family(args.consensus_clusters,
-                                                        args.transfer_summary),
+                                                        args.transfer_summary,
+                                                        args.per_cds),
             meta=family_meta(gcf_data_file=args.gcf_data,
                              novelty_path=args.novelty_ranking,
                              branch_point_path=args.branch_point))
@@ -510,6 +514,7 @@ def main():
                             taxonomy_genome_json=taxonomy_genome_json,
                             pepm_summary=pepm_summary,
                             branch_point_path=args.branch_point,
+                            per_cds_path=args.per_cds,
                             gcf_data=gcf_data_dict, taxonomy_map=taxonomy_map_dict,
                             versions_data=versions_data,
                             rarefaction_stats=rarefaction_stats,

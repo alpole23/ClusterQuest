@@ -215,6 +215,12 @@ def load_regions(antismash_paths, db_path, cutoff):
 PPD_DOMS = {'PF02775', 'PF02776'}
 AEP_TRANSAMINASE = {'PF00266'}   # Aminotran_5, class V PLP — the family aepZ is in
 OTHER_TRANSAMINASE = {'PF00155'}  # Aminotran_1_2, class I/II — NOT the aepZ family
+
+# The C-P lyase operon (phnGHIJKLMNP). Four of nine components is a deliberately
+# low bar: the operon is contiguous and either largely present or absent, and a
+# region truncated at a contig edge should still be recognised.
+CP_LYASE = {'PF06754', 'PF05845', 'PF05861', 'PF06007', 'PF01979',
+            'PF07969', 'PF00625', 'PF12706', 'PF13238'}
 HEP_REDUCTASE = {'PF00465', 'PF25137'}
 
 CARRIER_DOMS = {'PF00534', 'PF00535', 'PF13439', 'PF13579', 'PF00953'}
@@ -334,6 +340,18 @@ def main():
                     # but it no longer asserts the aepZ family is absent -- it
                     # cannot know that from what it can see.
                     call = 'unknown (Ppd + class I/II transaminase only)'
+                elif len(accs & CP_LYASE) >= 4:
+                    # Ppd with a C-P lyase operon downstream instead of a
+                    # biosynthetic third enzyme. On Enterobacterales this is 19 of
+                    # the 20 families carrying the operon, 595 of 597 BGCs, every
+                    # one of which previously read "no third enzyme found" -- the
+                    # search walks downstream of Ppd for biosynthesis and meets
+                    # catabolism. Naming it is not a claim the cluster is
+                    # catabolic-only: pepM and Ppd sit immediately upstream, and
+                    # dual-arm operons let an organism build phosphonate cell-wall
+                    # structures or scavenge environmental phosphonates for
+                    # phosphorus.
+                    call = 'catabolic arm (Ppd + C-P lyase operon)'
                 else:
                     call = 'unknown (Ppd, no third enzyme found)'
             calls.append(call)
