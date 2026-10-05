@@ -89,6 +89,7 @@ workflow BGC_ANALYSIS {
             branch_point_ch            = placeholder('NO_BRANCH_POINT')
             bioprofile_ch              = placeholder('NO_BIOPROFILE')
             consensus_ch            = placeholder('NO_CONSENSUS')
+            per_cds_ch              = placeholder('NO_PER_CDS')
             transfer_summary_ch     = placeholder('NO_TRANSFER_SUMMARY')
             pepm_json_ch            = placeholder('NO_PEPM_JSON')
             if (clusteringEnabled("bigscape")) {
@@ -116,6 +117,8 @@ workflow BGC_ANALYSIS {
                     )
                     consensus_ch = GCF_ANNOTATION_TRANSFER.out.consensus
                         .ifEmpty(file('NO_CONSENSUS'))
+                    per_cds_ch = GCF_ANNOTATION_TRANSFER.out.per_cds
+                        .ifEmpty(file('NO_PER_CDS'))
                     transfer_summary_ch = GCF_ANNOTATION_TRANSFER.out.summary
                         .ifEmpty(file('NO_TRANSFER_SUMMARY'))
                 }
@@ -202,6 +205,7 @@ workflow BGC_ANALYSIS {
                 branch_point_ch,
                 bioprofile_ch,
                 consensus_ch,
+                per_cds_ch,
                 transfer_summary_ch,
                 pepm_json_ch,
                 Utils.scriptsHash(projectDir, ['visualize_results.py', 'utils', 'viz'])

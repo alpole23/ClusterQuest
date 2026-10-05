@@ -1175,6 +1175,9 @@ _ROLE_STYLE = {
     'transport':  ('#1a4f8a', '#e2ecf9', 'moves the product'),
     'regulation': ('#4a4a10', '#f3f2dd', 'controls expression'),
     'mobile':     ('#7a1f1f', '#fbe4e4', 'how the cluster arrived'),
+    'catabolism': ('#1d5c2e', '#e2f3e6',
+                   'degrades phosphonates — the C-P lyase operon, which scavenges '
+                   'phosphorus rather than making a product'),
     'primary metabolism': ('#666666', '#eeeeee',
                            'central metabolism — a chromosomal neighbour, not part of the cluster'),
     'other':      ('#888888', '#f4f4f4', 'not classified'),
@@ -1245,6 +1248,99 @@ def _in_gene_order(fam_rows):
                                  -float(r['prevalence'] or 0)))
 
 
+# A gene in one of these roles is never hidden, whatever its prevalence. Learned
+# the hard way: the confirmed phosphonolipid's defining enzyme sits at prevalence
+# 0.16 in GCF-27, not because it is accessory but because that family is three
+# architectures averaged together. Low prevalence can mean "this family is
+# chimeric" as easily as "this gene is rare", and the display must not decide.
+NEVER_HIDE = {'core', 'tailoring', 'lipid', 'transport', 'catabolism'}
+
+
+def _member_sets(per_cds_path):
+    """{family: {group: {region, ...}}} from gcf_annotation_transfer.tsv.
+
+    Which members carry each orthologue group, which is what tells one insertion
+    apart from several independent rare genes. Exact, from the group id the
+    transfer records -- matching on product text mis-assigned the GCF-22
+    pathogenicity island, putting STY4528 with the ParABE genes when its member
+    set is a different 19.
+    """
+    from pathlib import Path as _P
+    if not per_cds_path or not _P(per_cds_path).exists():
+        return {}
+    out = {}
+    import csv as _c
+    with _P(per_cds_path).open() as fh:
+        for r in _c.DictReader(fh, delimiter='\t'):
+            if 'group' not in r:
+                return {}          # a run predating the group column
+            out.setdefault(r['family'], {}).setdefault(r['group'], set()).add(r['region'])
+    return out
+
+
+def _cassette_bounds(ordered):
+    """(lo, hi) indices of the biosynthetic cassette within a family's gene order.
+
+    Anchored on biosynthetic genes the family actually keeps -- role in NEVER_HIDE
+    and prevalence >= 0.5. A bare prevalence-free anchor is not usable: GCF-22 has
+    a stray MFS transporter at 0.10 sitting the far side of its chromosomal
+    context, and anchoring on it drags the boundary over GGDEF, SiaB and SpoIIE.
+
+    Then extended outward across adjacent UNNAMED genes at >= 0.9, which are
+    unmapped rather than known-irrelevant -- GCF-18 has one at prevalence 1.00
+    that the role map cannot place. Extending across any >= 0.9 gene was tried and
+    overreaches: it pulled four NADH-quinone oxidoreductase subunits and EF-P
+    hydroxylase into GCF-15.
+    """
+    anchors = [i for i, r in enumerate(ordered)
+               if r['role'] in NEVER_HIDE and float(r['prevalence'] or 0) >= 0.5]
+    if not anchors:
+        return 0, len(ordered) - 1
+    lo, hi = min(anchors), max(anchors)
+    unnamed_core = lambda r: (float(r['prevalence'] or 0) >= 0.9
+                              and r['consensus_product'] == '(unnamed)')
+    while lo > 0 and unnamed_core(ordered[lo-1]):
+        lo -= 1
+    while hi < len(ordered)-1 and unnamed_core(ordered[hi+1]):
+        hi += 1
+    return lo, hi
+
+
+def _cooccurring(rows, member_sets, min_j=0.80):
+    """Group variable genes whose member sets nearly coincide, into events.
+
+    Five rows at 0.17 that are five independent rare genes and five rows at 0.17
+    that are one insertion look identical in a prevalence column, and they are not
+    the same thing. On GCF-22 this resolves nine scattered rows into two events: a
+    five-gene sulfur block in 19 of 186 members and the ParABE / SPI-7
+    pathogenicity island in a different 32.
+
+    Returns a list of lists, each inner list one event, largest first.
+    """
+    if not member_sets:
+        return [[r] for r in rows]
+    ids = [r['group'] for r in rows]
+    parent = {i: i for i in ids}
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]; x = parent[x]
+        return x
+    for i, a in enumerate(ids):
+        for b in ids[i+1:]:
+            sa, sb = member_sets.get(a), member_sets.get(b)
+            if not sa or not sb:
+                continue
+            if len(sa & sb) / len(sa | sb) >= min_j:
+                ra, rb = find(a), find(b)
+                if ra != rb:
+                    parent[ra] = rb
+    out = {}
+    for r in rows:
+        out.setdefault(find(r['group']), []).append(r)
+    return sorted(out.values(),
+                  key=lambda b: (-len(b), -float(b[0]['prevalence'] or 0)))
+
+
 def _consensus_diagram(fam, fam_rows, s):
     """The consensus cluster drawn on the member that best represents it.
 
@@ -1310,16 +1406,24 @@ def _consensus_diagram(fam, fam_rows, s):
         </div>'''
 
 
-def _consensus_block(fam, fam_rows, s, gcf_hrefs=None):
+def _consensus_block(fam, fam_rows, s, gcf_hrefs=None, member_sets=None):
     """One family's consensus gene table, collapsed behind a summary line.
 
     Split out of build_consensus_clusters_section so the per-GCF detail pages
     render the identical table rather than a second implementation of it.
     """
+    # A rare gene is hidden only if its role says nothing. Anything biosynthetic,
+    # transported or catabolic stays however rare -- see NEVER_HIDE.
     shown = [r for r in fam_rows
-             if float(r['prevalence'] or 0) >= CONSENSUS_MIN_PREVALENCE]
+             if float(r['prevalence'] or 0) >= CONSENSUS_MIN_PREVALENCE
+             or r['role'] in NEVER_HIDE]
     n_hidden = len(fam_rows) - len(shown)
     genes = _in_gene_order(shown or fam_rows)
+    lo, hi = _cassette_bounds(genes)
+    cassette, flank = genes[lo:hi+1], genes[:lo] + genes[hi+1:]
+    core = [r for r in cassette if float(r['prevalence'] or 0) >= 0.9]
+    variable = [r for r in cassette if float(r['prevalence'] or 0) < 0.9]
+    events = _cooccurring(variable, (member_sets or {}).get(str(fam), {}))
     hidden_txt = (f'<span title="present in fewer than '
                   f'{CONSENSUS_MIN_PREVALENCE:.0%} of members — mostly unnamed, and '
                   f'swept in at a region boundary rather than part of the family. '
@@ -1354,12 +1458,10 @@ def _consensus_block(fam, fam_rows, s, gcf_hrefs=None):
                      f'members moved it by less than a point.">annotation '
                      f'{after}%</span>')
 
-    body = []
-    for g in genes:
+    def row(g, indent=False):
         prev = float(g['prevalence'] or 0)
         role = g.get('role') or 'other'
         fg, bg, _ = _ROLE_STYLE.get(role, _ROLE_STYLE['other'])
-        # Provenance: a name backed by one genome is one genome's opinion.
         ns = (g.get('n_sources') or '').strip()
         prov = ''
         if ns and ns.isdigit():
@@ -1372,11 +1474,15 @@ def _consensus_block(fam, fam_rows, s, gcf_hrefs=None):
                 extra = f', {dis} disagreed' if dis not in ('0', '') else ''
                 prov = f'<span style="color:#777;">{n} sources{extra}</span>'
         unnamed = g['consensus_product'] == '(unnamed)'
-        name_html = (f'<em style="color:#999;">unnamed</em>' if unnamed
+        name_html = ('<em style="color:#999;">unnamed</em>' if unnamed
                      else _html.escape(g['consensus_product']))
-        body.append(
-            f'<tr>'
-            f'<td style="padding:5px 9px;">{name_html}</td>'
+        # Members, not just a decimal. "6 of 38" and "0.16" are the same number and
+        # read very differently when the denominator is mostly fragments.
+        size, total = g.get('group_size') or '', n_mem or ''
+        count = f'{size} of {total}' if size and total else f'{prev:.2f}'
+        pad = 'padding:5px 9px 5px 26px;' if indent else 'padding:5px 9px;'
+        return (
+            f'<tr><td style="{pad}">{name_html}</td>'
             f'<td style="padding:5px 9px;white-space:nowrap;">'
             f'<span style="background:{bg};color:{fg};padding:1px 7px;'
             f'border-radius:9px;font-size:.82em;">{role}</span></td>'
@@ -1387,10 +1493,38 @@ def _consensus_block(fam, fam_rows, s, gcf_hrefs=None):
             f'<div style="flex:0 0 40px;height:5px;background:#e9ecef;'
             f'border-radius:3px;overflow:hidden;"><div style="width:{prev*100:.0f}%;'
             f'height:100%;background:#0e5c6b;"></div></div>'
-            f'<span style="font-variant-numeric:tabular-nums;font-size:.85em;">'
-            f'{prev:.2f}</span></div></td>'
-            f'<td style="padding:5px 9px;font-size:.85em;">{prov}</td>'
-            f'</tr>')
+            f'<span style="font-variant-numeric:tabular-nums;font-size:.85em;" '
+            f'title="prevalence {prev:.2f}">{count}</span></div></td>'
+            f'<td style="padding:5px 9px;font-size:.85em;">{prov}</td></tr>')
+
+    def band(label, note=''):
+        return (f'<tr><td colspan="5" style="padding:9px 9px 4px;background:#f3f5f6;'
+                f'font-size:.82em;font-weight:600;letter-spacing:.04em;'
+                f'text-transform:uppercase;color:#5a6a78;">{label}'
+                f'<span style="font-weight:400;text-transform:none;letter-spacing:0;'
+                f'color:#8a97a3;"> {note}</span></td></tr>')
+
+    body = [band('Cluster — core', f'· {len(core)} genes in \u226590% of members')]
+    body += [row(g) for g in core]
+    if variable:
+        body.append(band('Cluster — variable',
+                         f'· {len(variable)} genes in {len(events)} independent event'
+                         f'{"s" if len(events) != 1 else ""}'))
+        for ev in events:
+            if len(ev) > 1:
+                ms = (member_sets or {}).get(str(fam), {})
+                u = set().union(*(ms.get(g['group'], set()) for g in ev))
+                body.append(
+                    f'<tr><td colspan="5" style="padding:6px 9px 2px;font-size:.84em;'
+                    f'color:#1d6fa5;">&#9492; co-occurring &mdash; {len(ev)} genes in the '
+                    f'same {len(u)} member{"s" if len(u) != 1 else ""}, so one event</td></tr>')
+                body += [row(g, indent=True) for g in ev]
+            else:
+                body.append(row(ev[0]))
+    if flank:
+        body.append(band('Neighbourhood',
+                         f'· {len(flank)} genes outside the cassette'))
+        body += [row(g) for g in flank]
 
     return (f'''
     <details style="margin:0 0 10px;border:1px solid #e3e6e8;border-radius:5px;">
@@ -1415,7 +1549,8 @@ def _consensus_block(fam, fam_rows, s, gcf_hrefs=None):
     </details>''')
 
 
-def consensus_blocks_by_family(consensus_path, transfer_summary_path=None):
+def consensus_blocks_by_family(consensus_path, transfer_summary_path=None,
+                               per_cds_path=None):
     """{family_id: consensus-table HTML}, for the per-GCF detail pages.
 
     Same renderer the report section uses, keyed by family instead of concatenated,
@@ -1437,12 +1572,13 @@ def consensus_blocks_by_family(consensus_path, transfer_summary_path=None):
     by_fam = {}
     for r in rows:
         by_fam.setdefault(r['family'], []).append(r)
-    return {fam: _consensus_block(fam, fam_rows, summary.get(fam, {}))
+    ms = _member_sets(per_cds_path)
+    return {fam: _consensus_block(fam, fam_rows, summary.get(fam, {}), member_sets=ms)
             for fam, fam_rows in by_fam.items()}
 
 
 def build_consensus_clusters_section(consensus_path, transfer_summary_path=None,
-                                     gcf_hrefs=None):
+                                     gcf_hrefs=None, per_cds_path=None):
     """One consensus cluster per family, assembled from every member.
 
     A single representative BGC shows one genome's annotation, which on a mixed
@@ -1479,6 +1615,7 @@ def build_consensus_clusters_section(consensus_path, transfer_summary_path=None,
     by_fam = {}
     for r in rows:
         by_fam.setdefault(r['family'], []).append(r)
+    ms = _member_sets(per_cds_path)
 
     def order(fam):
         return -int(summary.get(fam, {}).get('members', 0) or 0), int(fam)
@@ -1486,7 +1623,7 @@ def build_consensus_clusters_section(consensus_path, transfer_summary_path=None,
     blocks = []
     for fam in sorted(by_fam, key=order):
         blocks.append(_consensus_block(fam, by_fam[fam], summary.get(fam, {}),
-                                       gcf_hrefs))
+                                       gcf_hrefs, member_sets=ms))
 
     # Coverage from this run, not from the run this section was written against.
     # The prose used to quote 40.2% -> 80.2% over 333 regions as though it were a

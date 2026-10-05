@@ -158,6 +158,40 @@ MOBILE = {
 # pepM. Distance is therefore not evidence AGAINST pathway membership; it only fails to
 # supply evidence for it. These assignments rest on the enzymes' known primary-metabolic
 # function, with position as corroboration where it happens to agree.
+# ─── Phosphonate catabolism ─────────────────────────────────────────────────
+# The C-P lyase operon (phnGHIJKLMNP), which cleaves the C-P bond to release
+# phosphate. Its own category, not a biosynthetic role: it degrades phosphonates
+# rather than making them, so folding it into TAILORING would have made 20 of the
+# 72 families in the Enterobacterales run -- 597 BGCs, 46% -- read as the most
+# elaborately decorated clusters in the set on the strength of a degradation
+# operon. ELABORATION deliberately excludes it.
+#
+# Not a sign the cluster is catabolic-only. Operons carrying both arms are known:
+# the organism can build phosphonate cell-wall structures or express the catabolic
+# arm to scavenge environmental phosphonates for phosphorus, and in these families
+# pepM and Ppd sit immediately upstream of phnG.
+#
+# Measured on Enterobacterales: 19 of the 20 families carrying 4+ of these
+# components are exactly the families BRANCH_POINT_PREDICTION could not call
+# ("unknown (Ppd, no third enzyme found)", 595 of 597 BGCs). The predictor walks
+# downstream of Ppd looking for a biosynthetic third enzyme and meets the lyase
+# operon instead.
+#
+# PhnK and PhnL are the complex's ABC ATPase subunits and carry PF00005, which is
+# already TRANSPORT. Left there: the accession genuinely is an ABC transporter
+# domain, and moving it would reclassify every real transporter in the run.
+CATABOLISM = {
+    'PF06754': 'PhnG',              # C-P lyase subunit
+    'PF05845': 'PhnH',
+    'PF05861': 'PhnI',
+    'PF06007': 'PhnJ',              # the radical-SAM C-P lyase itself
+    'PF01979': 'Amidohydro_1',      # PhnM
+    'PF07969': 'Amidohydro_3',      # PhnM
+    'PF00625': 'Guanylate_kin',     # PhnN, ribose 1,5-bisphosphokinase
+    'PF12706': 'Lactamase_B_2',     # PhnP
+    'PF13238': 'AAA_18',
+}
+
 PRIMARY_METABOLISM = {
     'PF00464': 'SHMT',                # serine hydroxymethyltransferase (one-carbon)
     # OPEN QUESTION. Semialdhyde_dh is the one entry here whose position argues against
@@ -189,6 +223,7 @@ PRIMARY_METABOLISM = {
 CATEGORIES = {
     'core': CORE, 'tailoring': TAILORING, 'lipid': LIPID,
     'transport': TRANSPORT, 'regulation': REGULATION, 'mobile': MOBILE,
+    'catabolism': CATABOLISM,
     'primary metabolism': PRIMARY_METABOLISM,
 }
 
