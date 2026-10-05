@@ -12,6 +12,7 @@ import sqlite3
 
 from utils.constants import load_coupling_classes, COUPLING_COLORS, KCB_THRESHOLDS
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
+from bgc_coupling_annotation import AMBIGUOUS_MARGIN
 from utils.gene_diagram import generate_gene_svg
 from viz.report_assets import MAX_PANES
 
@@ -287,6 +288,15 @@ def _build_gcf_support_section(gcf_support_rows):
                 warrant a look.
             </p>
             <p style="color: #666; font-size: 0.9em; margin-bottom: 12px; max-width: 74ch;">
+                Where a region carries <strong>more than one</strong> coupling-class
+                marker, the call goes to whichever candidate is more similar to its own
+                class's references. A <strong>&#9888; ambiguous</strong> flag means that
+                comparison could not separate them &mdash; within
+                {AMBIGUOUS_MARGIN:.0f} points, or both inside the superfamily background
+                &mdash; so the call fell back to marker precedence. Those are the ones to
+                check by hand.
+            </p>
+            <p style="color: #666; font-size: 0.9em; margin-bottom: 12px; max-width: 74ch;">
                 <strong>Read it against the reference named.</strong> Enzymes of
                 <em>different</em> classes score 26.7–29.7% against each other, so at or
                 below ~30% an identity carries no class information. Above that there is no
@@ -527,6 +537,7 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
         with open(coupling_support_path) as f:
             lines = [ln for ln in f if not ln.startswith('#')]
         per_gcf = defaultdict(list)
+        ambiguous = defaultdict(list)
         n_refs = {}
         ref_of = {}
         for row in csv.DictReader(lines, delimiter='\t'):
@@ -538,6 +549,8 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             except ValueError:
                 continue
             n_refs[fid] = row.get('assigned_n_refs', '?')
+            if (row.get('call_confidence') or '').startswith('AMBIGUOUS'):
+                ambiguous[fid].append(row.get('candidate_classes', ''))
             org = row.get('assigned_ref_organism', '') or ''
             ref = row.get('assigned_ref', '') or '—'
             # Binomials are italicised by convention; the gene name is not
@@ -561,6 +574,21 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             # GCF ever fell in the 50-90% band, and the 90% mark simply tracked
             # whether a class happened to have a same-genus reference.
             note = ('at superfamily background' if med <= BACKGROUND_CEILING_PCT else '')
+            # The flag a reader acts on: this family contains BGCs where two
+            # candidate coupling enzymes could not be separated on reference
+            # identity, so the call fell back to the marker priority order.
+            amb = ambiguous.get(fid)
+            if amb:
+                alts = sorted({c for a in amb for c in a.split('+')} - {cls})
+                note = (f'<strong style="color:#9a6b0f;" title="Two candidate '
+                        f'coupling enzymes scored within {AMBIGUOUS_MARGIN:.0f} points, '
+                        f'or inside the superfamily background. The call fell back to '
+                        f'the marker priority order — check this one by hand.">'
+                        f'&#9888; {len(amb)} ambiguous</strong>'
+                        + (f' <span style="color:#777;">(vs {", ".join(alts)})</span>'
+                           if alts else '')
+                        + (f'<br><span style="color:#999;font-size:.9em;">{note}</span>'
+                           if note else ''))
             bg = ' style="background:#fafafa;"' if i % 2 else ''
             td = 'padding: 7px 12px; border-bottom: 1px solid #eee;'
             rows_html.append(

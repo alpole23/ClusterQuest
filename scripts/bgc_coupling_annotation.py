@@ -50,7 +50,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import itol
-from utils.coupling_confidence import load_references, support, percent_identity
+from utils.coupling_confidence import (load_references, support, percent_identity,
+                                        BACKGROUND_CEILING_PCT)
 from utils.antismash_parser import (build_json_index, cds_in_segments, find_region_feature,
                                     genome_from_gbk_path, parse_bgc_label,
                                     parse_location_segments)
@@ -70,12 +71,25 @@ CLASSES = [
 CLASS_COLORS = {cid: color for cid, _, color in CLASSES}
 
 
+# Below this many points the top two coupling candidates are indistinguishable
+# and the legacy priority order decides instead. Measured on Enterobacterales:
+# of 253 regions carrying two scoreable candidates the margin is a median 13.7
+# points and only 2 fall under 5, so this is a guard against a coin-flip rather
+# than a knob that moves calls. Flagged in the support file either way, because a
+# close call is exactly what someone should look at by hand.
+AMBIGUOUS_MARGIN = 5.0
+
+
 def classify_bgc(json_path, contig_id, region_num):
     """Classify a BGC's coupling enzyme, and return the evidence behind the call.
 
-    Returns (class_id, deciding_marker, marker_seqs) where marker_seqs maps every
-    marker seen in the region to the protein sequences carrying it — including
-    `PEP_mutase`, so callers can score pepM divergence without a second pass.
+    Returns (class_id, deciding_marker, marker_seqs, candidates).
+
+    `marker_seqs` maps every marker seen in the region to the protein sequences
+    carrying it, including `PEP_mutase`, so callers can score pepM divergence
+    without a second pass. `candidates` is every (class, marker) the region has
+    evidence for, in the legacy priority order; the class returned here is the
+    first of them, and the caller re-decides on reference identity where it can.
     """
     """
     Open an antiSMASH JSON, find the record matching contig_id and region_num,
@@ -89,6 +103,88 @@ def classify_bgc(json_path, contig_id, region_num):
             data = json.load(f)
     except Exception:
         return 'Unknown', None, {}
+
+    for rec in data['records']:
+        if contig_id not in rec.get('id', ''):
+            continue
+
+        # Find the matching phosphonate region
+        region_match = find_region_feature(rec, region_num, product_filter='phosphonate')
+        if region_match is None:
+            continue
+
+        # Segments, not a single (start, end): an origin-spanning region is a genuine
+        # join of two disjoint intervals. The first pair alone drops the second segment
+        # — which is where the coupling enzyme sat in all 5 such Pantoea BGCs, leaving
+        # them misclassified `Unknown` — while (min_start, max_end) invents a span
+        # covering most of the replicon.
+        region_segs = parse_location_segments(region_match.get('location', ''))
+
+        # Collect biosynthetic rule hits and SMCOG annotations from CDSes in region
+        rule_hits = set()
+        smcog_hits = set()
+        # marker -> protein sequences carrying it, so the CDS that drives the call can
+        # be scored against the characterised references afterwards
+        marker_seqs = {}
+
+        for feat in rec.get('features', []):
+            if feat.get('type') != 'CDS':
+                continue
+            # Filter to CDSes overlapping any segment of the region
+            if not cds_in_segments(feat, region_segs):
+                continue
+            quals = feat.get('qualifiers', {})
+            translation = (quals.get('translation') or [''])[0]
+            for gf in quals.get('gene_functions', []):
+                m = re.search(r'(SMCOG\d+)', gf)
+                if m:
+                    smcog_hits.add(m.group(1))
+                    if translation:
+                        marker_seqs.setdefault(m.group(1), []).append(translation)
+            for sd in quals.get('sec_met_domain', []):
+                # e.g. "Fe-ADH (E-value: ...)"
+                domain_name = sd.split('(')[0].strip()
+                rule_hits.add(domain_name)
+                if translation:
+                    marker_seqs.setdefault(domain_name, []).append(translation)
+            # Also parse rule-based-clusters from gene_functions
+            for gf in quals.get('gene_functions', []):
+                if 'rule-based-clusters' in gf:
+                    # extract domain name after the last ':'
+                    parts = gf.split(':')
+                    if len(parts) >= 3:
+                        rule_hits.add(parts[-1].strip())
+
+        # Every class the region has evidence for, with the marker that found it.
+        # Returning only the first used to discard the rest: 268 of 1,303 regions
+        # here carry two or more, so "the coupling enzyme" was being decided by a
+        # hand-ordered list with nothing recorded about what it ruled out.
+        cands = []
+        if 'SMCOG1271' in smcog_hits:
+            cands.append(('Synthase', 'SMCOG1271'))
+        if 'SMCOG1055' in smcog_hits:
+            cands.append(('Decarboxylase', 'SMCOG1055'))
+        elif 'TPP_enzyme_C' in rule_hits or 'TPP_enzyme_M' in rule_hits:
+            # TPP_enzyme_C alone is sufficient for a decarboxylase: some ThDP
+            # enzymes are too divergent to score against the SMCOG1055 HMM but
+            # still carry the domain in antiSMASH's rule-based scan.
+            marker = 'TPP_enzyme_C' if 'TPP_enzyme_C' in rule_hits else 'TPP_enzyme_M'
+            cands.append(('Decarboxylase', marker))
+        if 'Fe-ADH' in rule_hits:
+            cands.append(('Reductase', 'Fe-ADH'))
+        if 'SMCOG1019' in smcog_hits:
+            # Aminotran_1_2 / PF00155, the AAT superfamily PalB belongs to.
+            # SMCOG1013 (Aminotran_3, fold type IV) was used until 2026-08-25 and
+            # is a different enzyme class; it called 6 Pantoea BGCs Transaminase
+            # where only 1 carries SMCOG1019.
+            cands.append(('Transaminase', 'SMCOG1019'))
+        if not cands:
+            return 'Unknown', None, marker_seqs, []
+        return cands[0][0], cands[0][1], marker_seqs, cands
+
+    return 'Unknown', None, {}, []
+
+
 
     for rec in data['records']:
         if contig_id not in rec.get('id', ''):
@@ -209,11 +305,28 @@ def write_support_tsv(support_rows, outpath):
         header = ['bgc', 'assigned_class', 'deciding_marker', 'protein_len',
                   'assigned_pct_id', 'assigned_ref', 'assigned_ref_organism',
                   'assigned_n_refs', 'runner_up', 'margin',
+                  'candidate_classes', 'candidate_margin', 'call_confidence',
                   'pepm_pct_id', 'pepm_ref', 'pepm_len']
         header += [f'pct_id_{c}' for c in classes]
         f.write('\t'.join(header) + '\n')
         for label in sorted(support_rows):
-            cls, marker, plen, sup, pepm_pid, pepm_ref, pepm_len = support_rows[label]
+            (cls, marker, plen, sup, pepm_pid, pepm_ref, pepm_len,
+             amb) = support_rows[label]
+            amb_margin, amb_runner, amb_classes = amb
+            # The flag a reader acts on. "ambiguous" means two candidate coupling
+            # enzymes scored within AMBIGUOUS_MARGIN of each other and the call fell
+            # back to the priority order -- look at it by hand. "resolved" means the
+            # region carried more than one marker and identity settled it.
+            if amb_margin is None:
+                verdict, margin_txt = ('single marker' if len(amb_classes) < 2
+                                       else 'unscored'), '-'
+            elif amb_margin < AMBIGUOUS_MARGIN:
+                verdict, margin_txt = 'AMBIGUOUS', f'{amb_margin:.1f}'
+            elif float(own.get('pct_id', 0.0)) <= BACKGROUND_CEILING_PCT:
+                # Decided, but on numbers inside the background band.
+                verdict, margin_txt = 'AMBIGUOUS (background)', f'{amb_margin:.1f}'
+            else:
+                verdict, margin_txt = 'resolved', f'{amb_margin:.1f}'
             own = sup.get(cls, {})
             others = sorted(((c, v['pct_id']) for c, v in sup.items() if c != cls),
                             key=lambda x: -x[1])
@@ -223,6 +336,7 @@ def write_support_tsv(support_rows, outpath):
                    str(own.get('best_ref_organism', '-') or '-'),
                    str(own.get('n_refs', 0)), runner,
                    f"{own.get('pct_id', 0.0) - runner_pid:.1f}",
+                   '+'.join(amb_classes) or '-', margin_txt, verdict,
                    f"{pepm_pid:.1f}", pepm_ref, str(pepm_len)]
             row += [f"{sup[c]['pct_id']:.1f}" for c in classes]
             f.write('\t'.join(row) + '\n')
@@ -288,6 +402,7 @@ def main():
     print(f'Classifying coupling enzymes for {len(metadata)} BGCs...')
     classifications = {}
     support_rows = {}
+    ambiguity = {}
     # Reference support is advisory metadata for manual review — see
     # utils/coupling_confidence. Absent references simply skip it.
     ref_path = args.reference_faa
@@ -312,22 +427,57 @@ def main():
         contig_id, region_num = parse_bgc_label(label)
 
         if genome and genome in json_index:
-            cls, marker, marker_seqs = classify_bgc(json_index[genome], contig_id, region_num)
+            cls, marker, marker_seqs, cands = classify_bgc(
+                json_index[genome], contig_id, region_num)
         else:
             # Fall back: search all JSONs for a record matching contig_id
-            cls, marker, marker_seqs = 'Unknown', None, {}
+            cls, marker, marker_seqs, cands = 'Unknown', None, {}, []
             for gen, jpath in json_index.items():
-                c, mk, ms = classify_bgc(jpath, contig_id, region_num)
+                c, mk, ms, cd = classify_bgc(jpath, contig_id, region_num)
                 if c != 'Unknown':
-                    cls, marker, marker_seqs = c, mk, ms
+                    cls, marker, marker_seqs, cands = c, mk, ms, cd
                     break
             if cls == 'Unknown':
                 missing_json += 1
 
+        # Where a region carries more than one class marker, decide on reference
+        # identity rather than the priority order. Each candidate is scored against
+        # its OWN class's references -- not one protein against all four, which
+        # measures which class that protein is in, a different question.
+        #
+        # On Enterobacterales this changes no call: across 253 regions with two
+        # scoreable candidates the identity winner IS the priority winner, every
+        # time, by a median 13.7 points. What it adds is the margin. Priority can
+        # only ever be right by construction and says nothing about how close the
+        # call was; identity reports its own confidence, and a 0.6-point margin and
+        # a 60-point margin are not the same situation.
+        margin, runner_up_cls = None, None
+        if references and len(cands) > 1:
+            scored = []
+            for c_cls, c_mk in cands:
+                seqs = marker_seqs.get(c_mk) or []
+                if not seqs:
+                    continue
+                pid = support(max(seqs, key=len), references).get(c_cls, {}).get('pct_id', 0.0)
+                scored.append((pid, c_cls, c_mk))
+            if len(scored) > 1:
+                scored.sort(key=lambda x: -x[0])
+                margin = round(scored[0][0] - scored[1][0], 1)
+                runner_up_cls = scored[1][1]
+                # Two floors, and both are needed. The MARGIN floor stops a rounding
+                # difference deciding between two close candidates. The ABSOLUTE
+                # floor stops identity deciding at all when the winner is inside the
+                # superfamily background -- characterised enzymes of different
+                # classes score 26.7-29.7% against each other, so a 29.9% "winner"
+                # over a 22.4% runner-up is a comparison between two non-hits.
+                # Without it this reassigned 3 BGCs on exactly that evidence.
+                if margin >= AMBIGUOUS_MARGIN and scored[0][0] > BACKGROUND_CEILING_PCT:
+                    cls, marker = scored[0][1], scored[0][2]
+
         classifications[label] = cls
+        ambiguity[label] = (margin, runner_up_cls, [c for c, _ in cands])
         if references and marker and marker_seqs.get(marker):
             # Score the CDS that drove the call against every characterised class.
-            # Advisory only — nothing here changes `cls`.
             seq = max(marker_seqs[marker], key=len)
             # pepM is the hallmark gene, present in every phosphonate BGC, so its
             # divergence is the natural second axis: how unusual is the scaffold gene,
@@ -341,7 +491,8 @@ def main():
                            default=(0.0, '-'))
                 pepm_pid, pepm_ref = round(best[0], 1), best[1]
             support_rows[label] = (cls, marker, len(seq), support(seq, references),
-                                   pepm_pid, pepm_ref, pepm_len)
+                                   pepm_pid, pepm_ref, pepm_len,
+                                   ambiguity.get(label, (None, None, [])))
 
     if missing_json:
         print(f'  Warning: {missing_json} BGCs could not be matched to an antiSMASH JSON')
