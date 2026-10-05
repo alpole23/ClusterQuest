@@ -1388,18 +1388,26 @@ def _consensus_diagram(fam, fam_rows, s):
         lo = min(int(r['scaffold_start']) for r in placed)
         hi = max(int(r['scaffold_end']) for r in placed)
 
+    # pepM and the coupling enzyme carry a label on the arrow. They are the two
+    # the reader is looking for -- the hallmark, and the enzyme that decides which
+    # pathway runs downstream -- and in a 40-gene region neither was findable
+    # without hovering over every arrow in turn.
+    MARKS = [('PF13714', 'pepM'), ('PF00682', 'synthase'), ('PF02775', 'Ppd'),
+             ('PF02776', 'Ppd'), ('PF00465', 'reductase'), ('PF00155', 'transaminase')]
     genes = []
     for r in sorted(placed, key=lambda r: int(r['scaffold_start'])):
         role = r.get('role') or 'other'
         prev = float(r['prevalence'] or 0)
         name = r['consensus_product']
+        accs = {a.split('.')[0].strip() for a in (r.get('domain_accessions') or '').split(';')}
+        mark = next((lbl for acc, lbl in MARKS if acc in accs), '')
         genes.append({
             'start': int(r['scaffold_start']), 'end': int(r['scaffold_end']),
             'strand': int(r.get('scaffold_strand') or 1),
             'color': _ROLE_STYLE.get(role, _ROLE_STYLE['other'])[0],
             'locus_tag': r.get('scaffold_locus') or '',
             'product': f'{name} — in {prev:.0%} of members ({role})',
-            'gene_name': '',
+            'gene_name': '', 'mark': mark,
         })
     svg = generate_gene_svg(genes, lo, hi, width=900, height=92)
 
@@ -1423,8 +1431,9 @@ def _consensus_diagram(fam, fam_rows, s):
                 Drawn on <code>{_html.escape(scaffold)}</code>, the member carrying the
                 most of this family&rsquo;s shared gene content &mdash;
                 {len(placed)} of {n_groups} genes{core_txt}.{note}
-                Arrows are coloured by role and show direction; hover for the gene
-                name and how many members carry it.
+                Arrows are coloured by role and show direction; <strong>pepM and the
+                coupling enzyme are labelled</strong>. Hover for the gene name and how
+                many members carry it.
             </p>
         </div>'''
 
