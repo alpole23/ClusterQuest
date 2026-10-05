@@ -25,7 +25,13 @@ from utils.gene_diagram import generate_gene_svg
 def load_kcb_lookup(tabulation_file):
     """Load KCB hit data from tabulation file into a lookup dict.
 
-    Returns: dict mapping (genome, region_name) -> {'kcb_hit': str, 'kcb_acc': str}
+    Returns: dict mapping (genome, region_name) ->
+    {'kcb_hit', 'kcb_acc', 'kcb_top_hit', 'kcb_top_acc', 'kcb_top_sim'}
+
+    Both the hit that cleared the KnownClusterBlast floor and the best hit
+    whatever its similarity. On phosphonate chemistry almost nothing clears the
+    floor, so reporting only the cleared hit makes a weak match and no match at
+    all look identical -- which is the whole question the novelty ranking asks.
 
     Note: Uses region_name (e.g., "40.1") as the unique identifier since it
     combines record_index and region number, avoiding collisions.
@@ -43,15 +49,15 @@ def load_kcb_lookup(tabulation_file):
                 # Use (genome, region_name) as key - region_name is unique within genome
                 key = (genome, str(region_name))
                 # Handle NaN values from pandas - convert to empty string
-                kcb_hit = row.get('KCB_hit', '')
-                kcb_acc = row.get('KCB_acc', '')
-                if pd.isna(kcb_hit):
-                    kcb_hit = ''
-                if pd.isna(kcb_acc):
-                    kcb_acc = ''
+                def _cell(col):
+                    v = row.get(col, '')
+                    return '' if pd.isna(v) else (str(v) if v else '')
+                kcb_hit, kcb_acc = _cell('KCB_hit'), _cell('KCB_acc')
                 kcb_lookup[key] = {
-                    'kcb_hit': str(kcb_hit) if kcb_hit else '',
-                    'kcb_acc': str(kcb_acc) if kcb_acc else ''
+                    'kcb_hit': kcb_hit, 'kcb_acc': kcb_acc,
+                    'kcb_top_hit': _cell('KCB_top_hit'),
+                    'kcb_top_acc': _cell('KCB_top_acc'),
+                    'kcb_top_sim': _cell('KCB_top_sim')
                 }
     except Exception as e:
         print(f"Warning: Could not load KCB data from {tabulation_file}: {e}")
@@ -333,7 +339,10 @@ def extract_gcf_representatives(bigscape_dir, antismash_dir, output_file, taxon=
                 'antismash_link': antismash_link,
                 'enhanced_analysis': enhanced_analysis,
                 'kcb_hit': kcb_hit,
-                'kcb_acc': kcb_acc
+                'kcb_acc': kcb_acc,
+                'kcb_top_hit': kcb_info.get('kcb_top_hit', ''),
+                'kcb_top_acc': kcb_info.get('kcb_top_acc', ''),
+                'kcb_top_sim': kcb_info.get('kcb_top_sim', ''),
             }
 
             gcfs.append(gcf_data)

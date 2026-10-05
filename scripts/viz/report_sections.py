@@ -247,8 +247,8 @@ def build_overview_stats(stats, kcb_stats, gcf_data, rarefaction_stats=None):
                    f"range 1–{stats.get('max_bgcs', 0)}"),
         _stat_tile(f"{kcb_stats.get('contig_edge_count', 0):,}", 'On a contig edge',
                    'possibly incomplete'),
-        _stat_tile(f"{kcb_stats.get('novel_bgc_count', 0):,}", 'No MIBiG match',
-                   'all appear under Novel BGCs'),
+        _stat_tile(f"{kcb_stats.get('novel_bgc_count', 0):,}", 'Below the MIBiG floor',
+                   'weak evidence of novelty for this chemistry'),
     ]
 
     diversity = []
@@ -921,8 +921,11 @@ def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None,
             branch[row['gcf']] = (row.get('branch_point', ''), row.get('support', ''))
     rep = {}
     for g in ((gcf_data or {}).get('gcfs') or []):
-        rep[str(g.get('family_id'))] = (g.get('organism') or '',
-                                        g.get('kcb_hit') or '', g.get('kcb_acc') or '')
+        rep[str(g.get('family_id'))] = {
+            'org': g.get('organism') or '',
+            'hit': g.get('kcb_hit') or '', 'acc': g.get('kcb_acc') or '',
+            'top': g.get('kcb_top_hit') or '', 'top_acc': g.get('kcb_top_acc') or '',
+            'sim': g.get('kcb_top_sim') or ''}
 
     rows = list(_csv.DictReader(_Path(ranking_path).open(), delimiter='\t'))
     if not rows:
@@ -1004,15 +1007,35 @@ def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None,
                 f'{_html.escape(short)}</span>')
 
     def known_cell(gcf):
-        _, hit, acc = rep.get(gcf, ('', '', ''))
+        """Best MIBiG hit WITH its similarity, cleared the floor or not.
+
+        "none" alone was the wrong answer to give here. On phosphonate chemistry
+        almost nothing clears the KnownClusterBlast floor, so a family at 24% and
+        a family with no hit at all both read "none" -- erasing the only gradient
+        the column has. The number is the point; the floor just decides the colour.
+        """
+        r = rep.get(gcf, {})
+        hit = r.get('hit') or r.get('top')
         if not hit:
-            return '<span class="tag-novel">none</span>'
-        txt = _html.escape(hit[:26] + ('…' if len(hit) > 26 else ''))
-        return (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
-                f'target="_blank" style="color:#1d6fa5;">{txt}</a>' if acc else txt)
+            return '<span class="tag-novel">no hit</span>'
+        cleared = bool(r.get('hit'))
+        acc = (r.get('acc') if cleared else r.get('top_acc')) or ''
+        txt = _html.escape(hit[:24] + ('…' if len(hit) > 24 else ''))
+        tone = '#1d6fa5' if cleared else '#6c757d'
+        link = (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
+                f'target="_blank" style="color:{tone};">{txt}</a>' if acc else txt)
+        try:
+            sim = f'{float(r.get("sim")):.0f}%'
+        except (TypeError, ValueError):
+            return link
+        style = ('color:#1d6fa5;font-weight:600;' if cleared else 'color:#999;')
+        tip = ('at or above the KnownClusterBlast floor' if cleared else
+               f'below the {KCB_THRESHOLDS["low"]}% floor — too weak to call this '
+               f'cluster known, but not nothing')
+        return f'{link} <span style="{style}" title="{tip}">{sim}</span>'
 
     def org_cell(gcf):
-        org = rep.get(gcf, ('', '', ''))[0]
+        org = rep.get(gcf, {}).get('org', '')
         return f'<em>{_html.escape(org)}</em>' if org else '<span style="color:#bbb;">—</span>'
 
     body = ''.join(

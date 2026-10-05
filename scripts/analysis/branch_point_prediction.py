@@ -17,9 +17,12 @@ different claims and must not read alike:
     weak homologue   the same at >= 25%
     class V transaminase / Fe-ADH with Ppd
                      domain-family evidence only, no usable sequence hit
-    unknown          Ppd present but the third enzyme is absent, or is a class I/II
-                     transaminase, which is NOT the aepZ family
-    not via PnAA     no Ppd, so neither route is open
+    neither          the cluster makes neither 2-AEP nor 2-HEP, with the reason
+                     named: "no PnAA formed" when there is no decarboxylase (the
+                     synthase and reductase routes never form PnAA, so the question
+                     does not arise), or "PnAA formed, no downstream enzyme" when
+                     Ppd is present but the third enzyme is absent or is a class
+                     I/II transaminase, which is NOT the aepZ family
 
 Sequence alone was tried first and called 18 of 19 families "none". The reference
 set is simply too thin: aepZ is the only characterised 2-AEP transaminase available,
@@ -221,6 +224,10 @@ OTHER_TRANSAMINASE = {'PF00155'}  # Aminotran_1_2, class I/II — NOT the aepZ f
 # region truncated at a contig edge should still be recognised.
 CP_LYASE = {'PF06754', 'PF05845', 'PF05861', 'PF06007', 'PF01979',
             'PF07969', 'PF00625', 'PF12706', 'PF13238'}
+
+# HMGL-like, the phosphonomethylmalate synthase route (FrbC/HvrC). Its presence
+# means phosphonopyruvate is consumed by the synthase, not decarboxylated.
+SYNTHASE_DOMS = {'PF00682'}
 HEP_REDUCTASE = {'PF00465', 'PF25137'}
 
 CARRIER_DOMS = {'PF00534', 'PF00535', 'PF13439', 'PF13579', 'PF00953'}
@@ -286,10 +293,23 @@ def main():
                 accs |= set(g['accessions'])
             has_ppd = has_ppd or bool(accs & PPD_DOMS)
 
+            # A synthase and a decarboxylase cannot both be acting on
+            # phosphonopyruvate: the synthase route goes to phosphonomethylmalate
+            # and never forms PnAA, so the 2-AEP / 2-HEP question does not arise.
+            # Where both markers are present the synthase wins, because
+            # TPP_enzyme_C is carried by every ThDP decarboxylase and is not
+            # specific to Ppd. On Enterobacterales this is 2 of 72 families, and
+            # GCF-25's "Ppd" is the run's only indolepyruvate decarboxylase --
+            # 37 of the other 40 TPP-carrying genes are annotated
+            # phosphonopyruvate decarboxylase, so the marker is good and this is
+            # the exception it cannot see.
+            if accs & SYNTHASE_DOMS:
+                has_ppd = False
+
             # Tiered, most specific first. The tier is part of the call, not a
             # footnote: "2-AEP by homology to aepZ" and "2-AEP route available on
             # domain evidence" are different claims and must not read alike.
-            call, pct, ref = 'not via PnAA', None, ''
+            call, pct, ref = 'neither \u2014 no PnAA formed', None, ''
             if has_ppd:
                 cand = ([(p, 'AEP', rf) for p, _, rf in hits.get('AEP', [])] +
                         [(p, 'HEP', rf) for p, _, rf in hits.get('HEP', [])])
@@ -339,7 +359,7 @@ def main():
                     # region that genuinely has only a class I/II transaminase,
                     # but it no longer asserts the aepZ family is absent -- it
                     # cannot know that from what it can see.
-                    call = 'unknown (Ppd + class I/II transaminase only)'
+                    call = 'neither \u2014 PnAA formed, only a class I/II transaminase'
                 elif len(accs & CP_LYASE) >= 4:
                     # Ppd with a C-P lyase operon downstream instead of a
                     # biosynthetic third enzyme. On Enterobacterales this is 19 of
@@ -353,7 +373,7 @@ def main():
                     # phosphorus.
                     call = 'catabolic arm (Ppd + C-P lyase operon)'
                 else:
-                    call = 'unknown (Ppd, no third enzyme found)'
+                    call = 'neither \u2014 PnAA formed, no downstream enzyme'
             calls.append(call)
             evid.append((pct, ref))
         top, n = collections.Counter(calls).most_common(1)[0]
