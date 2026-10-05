@@ -1,0 +1,31 @@
+{
+  "question": "A fresh BiG-SCAPE run on byte-identical inputs did not reproduce one component exactly. How much does clustering vary between runs, and does it affect any conclusion?",
+  "date": "2026-10-05",
+  "answer": "At most 2 of 659 members change family between any two runs -- 0.30%. Family counts, family sizes and singleton counts are fully reproducible. Nothing in the project's findings is affected. No fix needed; PYTHONHASHSEED=0 is already pinned and is doing its job on everything that matters.",
+
+  "design": "Connected component 5 of the Enterobacterales run -- 659 regions, the largest component -- clustered five times: the production run plus four fresh standalone runs on identical staged inputs. BiG-SCAPE 2.0.1, PYTHONHASHSEED=0, --alignment-mode auto --gcf-cutoffs 0.30 --include-singletons --classify category.",
+
+  "results": {
+    "families": "15 in every one of the five runs",
+    "largest_family": "126, 126, 126, 127, 126",
+    "singletons": "0 in every run",
+    "members_changing_family": "<=2 of 659 between any pair of runs (0.15-0.30%)",
+    "the_only_two_that_move": [
+      "Pectobacterium_cacticida_LMG_2720 (NZ_CM191264.1.region001)",
+      "Gibbsiella_quercinecans_Kew_122 (NZ_CM193038.1.region001)"
+    ],
+    "where_they_sit": "Both oscillate at the boundary of the 78/79-member Edwardsiella ictaluri family. Affinity propagation is choosing between two nearly equivalent exemplar assignments for the same two BGCs."
+  },
+
+  "two_metrics_that_overstate_this": {
+    "co_membership_pairs": "84-295 of 22,035 pairs differ between runs, 0.38-1.34%. Correct as a count but misleading as a statement of the problem: when ONE member moves between two families, the co-membership set of every member in both families changes, so a single mover inflates to ~200 pairs.",
+    "members_with_a_changed_neighbour_set": "56.6% of members. This counts having a changed NEIGHBOUR, not moving. Matching families across runs by best overlap first, and then counting members whose family differs, gives the real figure of 2."
+  },
+
+  "scale_dependence": "cc65 (171 regions) and cc33 (299 regions) reproduced BIT-FOR-BIT -- 0 merged, 0 split. Only cc5 at 659 regions varies. Consistent with affinity propagation having more nearly-equivalent exemplar choices as a component grows, so expect the bound to loosen somewhat above this scale; it has not been measured beyond 659.",
+
+  "what_this_settles": {
+    "GCF_27_and_GCF_18_20_are_real": "Both came from cc65 and cc33, which reproduce exactly, and both involve whole families rather than boundary members.",
+    "GCF_5_vs_GCF_6_is_retired": "It was flagged as possibly over-split on a margin of 0.009 against its neighbour. That is well inside this jitter. Not a finding."
+  }
+}
