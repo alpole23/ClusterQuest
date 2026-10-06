@@ -538,6 +538,7 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             lines = [ln for ln in f if not ln.startswith('#')]
         per_gcf = defaultdict(list)
         ambiguous = defaultdict(list)
+        weak = defaultdict(int)
         n_refs = {}
         ref_of = {}
         for row in csv.DictReader(lines, delimiter='\t'):
@@ -549,8 +550,10 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             except ValueError:
                 continue
             n_refs[fid] = row.get('assigned_n_refs', '?')
-            if (row.get('call_confidence') or '').startswith('AMBIGUOUS'):
+            if (row.get('decided_by') or '').startswith('AMBIGUOUS'):
                 ambiguous[fid].append(row.get('candidate_classes', ''))
+            if (row.get('evidence') or '').startswith('weak'):
+                weak[fid] += 1
             org = row.get('assigned_ref_organism', '') or ''
             ref = row.get('assigned_ref', '') or '—'
             # Binomials are italicised by convention; the gene name is not
@@ -577,6 +580,23 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             # The flag a reader acts on: this family contains BGCs where two
             # candidate coupling enzymes could not be separated on reference
             # identity, so the call fell back to the marker priority order.
+            # Identity at background on the chosen call. Separate from ambiguity:
+            # a family can have exactly one candidate per member, decided without
+            # contest, and still have no reference evidence that the call is right.
+            # 168 of the 187 Reductase BGCs in this run are of that kind -- Fe-ADH
+            # present, nothing competing, and 18.5% to VlpB, the class's only
+            # reference. Flagged, never overturned.
+            nweak = weak.get(fid, 0)
+            if nweak:
+                note = (f'<strong style="color:#8a5a0c;" title="The chosen coupling '
+                        f'enzyme scores at or below the superfamily background '
+                        f'(≤{BACKGROUND_CEILING_PCT:.0f}%) against its own class\'s '
+                        f'references. That is not evidence the call is wrong -- with '
+                        f'1-3 references per class a low score cannot separate wrong '
+                        f'class from novel variant -- but it is not evidence it is '
+                        f'right either.">&#9888; {nweak} weak evidence</strong>'
+                        + (f'<br><span style="color:#999;font-size:.9em;">{note}</span>'
+                           if note else ''))
             amb = ambiguous.get(fid)
             if amb:
                 alts = sorted({c for a in amb for c in a.split('+')} - {cls})
