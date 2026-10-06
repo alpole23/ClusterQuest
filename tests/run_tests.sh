@@ -172,6 +172,30 @@ else
     fail "compileall reported errors"
 fi
 
+# pyflakes, filtered to the findings that are bugs rather than tidiness.
+# compileall accepts a name used before it is assigned and check_undefined.py looks
+# at call targets, so neither catches it; a shipped `own_pid = float(own...)` placed
+# one line above `own = sup.get(...)` produced an empty support file and passed the
+# whole suite. pyflakes reports that as "undefined name", which is also what it calls
+# a genuine missing symbol -- both are real, so both fail.
+#
+# The other ~90 findings here are unused imports, unused locals and f-strings with no
+# placeholder. Those are worth knowing and are printed, but failing on them would
+# make this check noise that gets ignored, which is how the bug above shipped.
+PYFLAKES_FAIL='undefined name|referenced before assignment|may be undefined'
+if "$SYS_PY" -m pyflakes --version >/dev/null 2>&1; then
+    PF="$("$SYS_PY" -m pyflakes "$PROJECT_DIR/scripts" 2>&1 || true)"
+    PF_BAD="$(printf '%s\n' "$PF" | grep -E "$PYFLAKES_FAIL" || true)"
+    PF_N="$(printf '%s\n' "$PF" | grep -c . || true)"
+    if [ -z "$PF_BAD" ]; then
+        pass "pyflakes: no undefined names ($PF_N cosmetic findings)"
+    else
+        fail "pyflakes found undefined names:"; echo "$PF_BAD" | sed 's/^/      /'
+    fi
+else
+    skip "pyflakes" "not installed (pip install pyflakes)"
+fi
+
 UNDEF="$("$SYS_PY" "$PROJECT_DIR/tests/check_undefined.py" "$PROJECT_DIR/scripts")"
 if [ -z "$UNDEF" ]; then
     pass "no undefined function calls"
