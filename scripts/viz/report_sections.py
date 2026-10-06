@@ -12,6 +12,7 @@ import sqlite3
 
 from utils.constants import load_coupling_classes, COUPLING_COLORS, KCB_THRESHOLDS
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
+from bgc_coupling_annotation import AMBIGUOUS_MARGIN
 from utils.gene_diagram import generate_gene_svg
 from viz.report_assets import MAX_PANES
 
@@ -247,8 +248,8 @@ def build_overview_stats(stats, kcb_stats, gcf_data, rarefaction_stats=None):
                    f"range 1–{stats.get('max_bgcs', 0)}"),
         _stat_tile(f"{kcb_stats.get('contig_edge_count', 0):,}", 'On a contig edge',
                    'possibly incomplete'),
-        _stat_tile(f"{kcb_stats.get('novel_bgc_count', 0):,}", 'No MIBiG match',
-                   'all appear under Novel BGCs'),
+        _stat_tile(f"{kcb_stats.get('novel_bgc_count', 0):,}", 'Below the MIBiG floor',
+                   'weak evidence of novelty for this chemistry'),
     ]
 
     diversity = []
@@ -285,6 +286,15 @@ def _build_gcf_support_section(gcf_support_rows):
                 characterised reference of its class — advisory, not a verdict. A low value
                 may mean the call is wrong, or that the enzyme is a novel variant; both
                 warrant a look.
+            </p>
+            <p style="color: #666; font-size: 0.9em; margin-bottom: 12px; max-width: 74ch;">
+                Where a region carries <strong>more than one</strong> coupling-class
+                marker, the call goes to whichever candidate is more similar to its own
+                class's references. A <strong>&#9888; ambiguous</strong> flag means that
+                comparison could not separate them &mdash; within
+                {AMBIGUOUS_MARGIN:.0f} points, or both inside the superfamily background
+                &mdash; so the call fell back to marker precedence. Those are the ones to
+                check by hand.
             </p>
             <p style="color: #666; font-size: 0.9em; margin-bottom: 12px; max-width: 74ch;">
                 <strong>Read it against the reference named.</strong> Enzymes of
@@ -527,6 +537,8 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
         with open(coupling_support_path) as f:
             lines = [ln for ln in f if not ln.startswith('#')]
         per_gcf = defaultdict(list)
+        ambiguous = defaultdict(list)
+        weak = defaultdict(int)
         n_refs = {}
         ref_of = {}
         for row in csv.DictReader(lines, delimiter='\t'):
@@ -538,6 +550,10 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             except ValueError:
                 continue
             n_refs[fid] = row.get('assigned_n_refs', '?')
+            if (row.get('decided_by') or '').startswith('AMBIGUOUS'):
+                ambiguous[fid].append(row.get('candidate_classes', ''))
+            if (row.get('evidence') or '').startswith('weak'):
+                weak[fid] += 1
             org = row.get('assigned_ref_organism', '') or ''
             ref = row.get('assigned_ref', '') or '—'
             # Binomials are italicised by convention; the gene name is not
@@ -561,6 +577,38 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             # GCF ever fell in the 50-90% band, and the 90% mark simply tracked
             # whether a class happened to have a same-genus reference.
             note = ('at superfamily background' if med <= BACKGROUND_CEILING_PCT else '')
+            # The flag a reader acts on: this family contains BGCs where two
+            # candidate coupling enzymes could not be separated on reference
+            # identity, so the call fell back to the marker priority order.
+            # Identity at background on the chosen call. Separate from ambiguity:
+            # a family can have exactly one candidate per member, decided without
+            # contest, and still have no reference evidence that the call is right.
+            # 168 of the 187 Reductase BGCs in this run are of that kind -- Fe-ADH
+            # present, nothing competing, and 18.5% to VlpB, the class's only
+            # reference. Flagged, never overturned.
+            nweak = weak.get(fid, 0)
+            if nweak:
+                note = (f'<strong style="color:#8a5a0c;" title="The chosen coupling '
+                        f'enzyme scores at or below the superfamily background '
+                        f'(≤{BACKGROUND_CEILING_PCT:.0f}%) against its own class\'s '
+                        f'references. That is not evidence the call is wrong -- with '
+                        f'1-3 references per class a low score cannot separate wrong '
+                        f'class from novel variant -- but it is not evidence it is '
+                        f'right either.">&#9888; {nweak} weak evidence</strong>'
+                        + (f'<br><span style="color:#999;font-size:.9em;">{note}</span>'
+                           if note else ''))
+            amb = ambiguous.get(fid)
+            if amb:
+                alts = sorted({c for a in amb for c in a.split('+')} - {cls})
+                note = (f'<strong style="color:#9a6b0f;" title="Two candidate '
+                        f'coupling enzymes scored within {AMBIGUOUS_MARGIN:.0f} points, '
+                        f'or inside the superfamily background. The call fell back to '
+                        f'the marker priority order — check this one by hand.">'
+                        f'&#9888; {len(amb)} ambiguous</strong>'
+                        + (f' <span style="color:#777;">(vs {", ".join(alts)})</span>'
+                           if alts else '')
+                        + (f'<br><span style="color:#999;font-size:.9em;">{note}</span>'
+                           if note else ''))
             bg = ' style="background:#fafafa;"' if i % 2 else ''
             td = 'padding: 7px 12px; border-bottom: 1px solid #eee;'
             rows_html.append(
@@ -921,8 +969,11 @@ def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None,
             branch[row['gcf']] = (row.get('branch_point', ''), row.get('support', ''))
     rep = {}
     for g in ((gcf_data or {}).get('gcfs') or []):
-        rep[str(g.get('family_id'))] = (g.get('organism') or '',
-                                        g.get('kcb_hit') or '', g.get('kcb_acc') or '')
+        rep[str(g.get('family_id'))] = {
+            'org': g.get('organism') or '',
+            'hit': g.get('kcb_hit') or '', 'acc': g.get('kcb_acc') or '',
+            'top': g.get('kcb_top_hit') or '', 'top_acc': g.get('kcb_top_acc') or '',
+            'sim': g.get('kcb_top_sim') or ''}
 
     rows = list(_csv.DictReader(_Path(ranking_path).open(), delimiter='\t'))
     if not rows:
@@ -1004,15 +1055,35 @@ def build_priority_section(ranking_path, bioprofile_path=None, gcf_hrefs=None,
                 f'{_html.escape(short)}</span>')
 
     def known_cell(gcf):
-        _, hit, acc = rep.get(gcf, ('', '', ''))
+        """Best MIBiG hit WITH its similarity, cleared the floor or not.
+
+        "none" alone was the wrong answer to give here. On phosphonate chemistry
+        almost nothing clears the KnownClusterBlast floor, so a family at 24% and
+        a family with no hit at all both read "none" -- erasing the only gradient
+        the column has. The number is the point; the floor just decides the colour.
+        """
+        r = rep.get(gcf, {})
+        hit = r.get('hit') or r.get('top')
         if not hit:
-            return '<span class="tag-novel">none</span>'
-        txt = _html.escape(hit[:26] + ('…' if len(hit) > 26 else ''))
-        return (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
-                f'target="_blank" style="color:#1d6fa5;">{txt}</a>' if acc else txt)
+            return '<span class="tag-novel">no hit</span>'
+        cleared = bool(r.get('hit'))
+        acc = (r.get('acc') if cleared else r.get('top_acc')) or ''
+        txt = _html.escape(hit[:24] + ('…' if len(hit) > 24 else ''))
+        tone = '#1d6fa5' if cleared else '#6c757d'
+        link = (f'<a href="https://mibig.secondarymetabolites.org/repository/{acc}" '
+                f'target="_blank" style="color:{tone};">{txt}</a>' if acc else txt)
+        try:
+            sim = f'{float(r.get("sim")):.0f}%'
+        except (TypeError, ValueError):
+            return link
+        style = ('color:#1d6fa5;font-weight:600;' if cleared else 'color:#999;')
+        tip = ('at or above the KnownClusterBlast floor' if cleared else
+               f'below the {KCB_THRESHOLDS["low"]}% floor — too weak to call this '
+               f'cluster known, but not nothing')
+        return f'{link} <span style="{style}" title="{tip}">{sim}</span>'
 
     def org_cell(gcf):
-        org = rep.get(gcf, ('', '', ''))[0]
+        org = rep.get(gcf, {}).get('org', '')
         return f'<em>{_html.escape(org)}</em>' if org else '<span style="color:#bbb;">—</span>'
 
     body = ''.join(
@@ -1365,18 +1436,26 @@ def _consensus_diagram(fam, fam_rows, s):
         lo = min(int(r['scaffold_start']) for r in placed)
         hi = max(int(r['scaffold_end']) for r in placed)
 
+    # pepM and the coupling enzyme carry a label on the arrow. They are the two
+    # the reader is looking for -- the hallmark, and the enzyme that decides which
+    # pathway runs downstream -- and in a 40-gene region neither was findable
+    # without hovering over every arrow in turn.
+    MARKS = [('PF13714', 'pepM'), ('PF00682', 'synthase'), ('PF02775', 'Ppd'),
+             ('PF02776', 'Ppd'), ('PF00465', 'reductase'), ('PF00155', 'transaminase')]
     genes = []
     for r in sorted(placed, key=lambda r: int(r['scaffold_start'])):
         role = r.get('role') or 'other'
         prev = float(r['prevalence'] or 0)
         name = r['consensus_product']
+        accs = {a.split('.')[0].strip() for a in (r.get('domain_accessions') or '').split(';')}
+        mark = next((lbl for acc, lbl in MARKS if acc in accs), '')
         genes.append({
             'start': int(r['scaffold_start']), 'end': int(r['scaffold_end']),
             'strand': int(r.get('scaffold_strand') or 1),
             'color': _ROLE_STYLE.get(role, _ROLE_STYLE['other'])[0],
             'locus_tag': r.get('scaffold_locus') or '',
             'product': f'{name} — in {prev:.0%} of members ({role})',
-            'gene_name': '',
+            'gene_name': '', 'mark': mark,
         })
     svg = generate_gene_svg(genes, lo, hi, width=900, height=92)
 
@@ -1400,8 +1479,9 @@ def _consensus_diagram(fam, fam_rows, s):
                 Drawn on <code>{_html.escape(scaffold)}</code>, the member carrying the
                 most of this family&rsquo;s shared gene content &mdash;
                 {len(placed)} of {n_groups} genes{core_txt}.{note}
-                Arrows are coloured by role and show direction; hover for the gene
-                name and how many members carry it.
+                Arrows are coloured by role and show direction; <strong>pepM and the
+                coupling enzyme are labelled</strong>. Hover for the gene name and how
+                many members carry it.
             </p>
         </div>'''
 

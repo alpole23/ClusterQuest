@@ -93,11 +93,24 @@ def generate_gene_svg(genes, region_start, region_end, width=900, height=80):
                     f"{gene_end},{gene_y + half_height}"
                 )
 
+        # The two genes a reader is actually looking for: the pepM hallmark and the
+        # coupling enzyme that decides which pathway runs downstream. Everything
+        # else in a region is context, and in a 40-gene cluster neither was
+        # findable without reading every tooltip.
+        mark = gene.get('mark')
+        edge = '#111111' if mark else '#333'
+        lw = '1.8' if mark else '0.5'
         svg_parts.append(
-            f'<polygon points="{points}" fill="{color}" stroke="#333" stroke-width="0.5" opacity="0.9">'
+            f'<polygon points="{points}" fill="{color}" stroke="{edge}" '
+            f'stroke-width="{lw}" opacity="0.95">'
             f'<title>{tooltip}</title>'
             f'</polygon>'
         )
+        if mark:
+            cx = (gene_start + gene_end) / 2
+            svg_parts.append(
+                f'<text x="{cx}" y="{gene_y - arrow_height / 2 - 4}" font-size="8.5" '
+                f'font-weight="600" fill="#111" text-anchor="middle">{mark}</text>')
 
     svg_parts.append('</svg>')
     return ''.join(svg_parts)

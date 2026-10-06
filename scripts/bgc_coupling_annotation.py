@@ -41,6 +41,7 @@ The metadata JSON must be the output of bgc_pfam_tree.py or bgc_synteny_tree.py
 """
 
 import argparse
+import collections
 import json
 import os
 import re
@@ -50,7 +51,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import itol
-from utils.coupling_confidence import load_references, support, percent_identity
+from utils.coupling_confidence import (load_references, support, percent_identity,
+                                        BACKGROUND_CEILING_PCT)
 from utils.antismash_parser import (build_json_index, cds_in_segments, find_region_feature,
                                     genome_from_gbk_path, parse_bgc_label,
                                     parse_location_segments)
@@ -70,12 +72,68 @@ CLASSES = [
 CLASS_COLORS = {cid: color for cid, _, color in CLASSES}
 
 
+# Vocabulary per class, for reading the product name. NOT a keyword classifier:
+# an earlier attempt to classify on product text inverted on both lab-confirmed
+# clusters, because "serine hydroxymethyltransferase" matches `methyltransferase`.
+# This is used only two ways, both narrow.
+#
+# POSITIVE, and only for Decarboxylase: 95% of the 917 TPP-carrying CDS in the
+# Enterobacterales run are annotated "phosphonopyruvate decarboxylase" outright.
+# PGAP commits to the substrate for that enzyme, so the name is real evidence.
+#
+# NEGATIVE, for every class: a name that specifies a DIFFERENT reaction is a veto.
+# GCF-37's "decarboxylase" is annotated 3D-(3,5/4)-trihydroxycyclohexane-1,2-dione
+# acylhydrolase -- an inositol-catabolism enzyme that has no business being called
+# the coupling step. 7 of 917 Decarboxylase candidates are of that kind.
+#
+# A vague name is NOT evidence either way, and must not be penalised: phosphonomethyl-
+# malate synthase has no PGAP name at all, so its real instances read "homocitrate
+# synthase/isopropylmalate synthase family protein" or "beta/alpha barrel domain-
+# containing protein". Penalising vagueness would reject the true synthases.
+CLASS_VOCAB = {
+    'Synthase':      ('homocitrate', 'isopropylmalate', 'malate synthase', 'hmgl',
+                      'citramalate'),
+    'Decarboxylase': ('decarboxylase', 'thiamine pyrophosphate', 'thdp', 'pyruvate'),
+    'Reductase':     ('alcohol dehydrogenase', 'reductase', 'fe-adh', 'dehydrogenase'),
+    'Transaminase':  ('transaminase', 'aminotransferase'),
+}
+VAGUE_NAME = ('domain-containing protein', 'hypothetical', 'uncharacteri', 'duf',
+              'family protein', 'putative', 'unknown', 'barrel')
+
+
+def name_verdict(product, cls):
+    """'names-substrate' | 'consistent' | 'vague' | 'contradicts' for one product."""
+    p = (product or '').lower()
+    if not p:
+        return 'vague'
+    if 'phosphono' in p:
+        return 'names-substrate'
+    if any(w in p for w in CLASS_VOCAB.get(cls, ())):
+        return 'consistent'
+    if any(w in p for w in VAGUE_NAME):
+        return 'vague'
+    return 'contradicts'
+
+
+# Below this many points the top two coupling candidates are indistinguishable
+# and the legacy priority order decides instead. Measured on Enterobacterales:
+# of 253 regions carrying two scoreable candidates the margin is a median 13.7
+# points and only 2 fall under 5, so this is a guard against a coin-flip rather
+# than a knob that moves calls. Flagged in the support file either way, because a
+# close call is exactly what someone should look at by hand.
+AMBIGUOUS_MARGIN = 5.0
+
+
 def classify_bgc(json_path, contig_id, region_num):
     """Classify a BGC's coupling enzyme, and return the evidence behind the call.
 
-    Returns (class_id, deciding_marker, marker_seqs) where marker_seqs maps every
-    marker seen in the region to the protein sequences carrying it — including
-    `PEP_mutase`, so callers can score pepM divergence without a second pass.
+    Returns (class_id, deciding_marker, marker_seqs, candidates).
+
+    `marker_seqs` maps every marker seen in the region to the protein sequences
+    carrying it, including `PEP_mutase`, so callers can score pepM divergence
+    without a second pass. `candidates` is every (class, marker) the region has
+    evidence for, in the legacy priority order; the class returned here is the
+    first of them, and the caller re-decides on reference identity where it can.
     """
     """
     Open an antiSMASH JSON, find the record matching contig_id and region_num,
@@ -112,6 +170,11 @@ def classify_bgc(json_path, contig_id, region_num):
         # marker -> protein sequences carrying it, so the CDS that drives the call can
         # be scored against the characterised references afterwards
         marker_seqs = {}
+        # Per CDS, so a candidate is one GENE rather than one marker, and so the
+        # cascade can read its product name and its distance to pepM.
+        cds_markers = collections.defaultdict(set)
+        cds_product, cds_pos, cds_seq = {}, {}, {}
+        pepm_pos = None
 
         for feat in rec.get('features', []):
             if feat.get('type') != 'CDS':
@@ -121,16 +184,27 @@ def classify_bgc(json_path, contig_id, region_num):
                 continue
             quals = feat.get('qualifiers', {})
             translation = (quals.get('translation') or [''])[0]
+            tag = (quals.get('locus_tag') or ['?'])[0]
+            cds_product[tag] = (quals.get('product') or [''])[0]
+            if translation:
+                cds_seq[tag] = translation
+            _segs = parse_location_segments(feat.get('location', ''))
+            if _segs:
+                cds_pos[tag] = (min(a for a, _ in _segs) + max(b for _, b in _segs)) // 2
             for gf in quals.get('gene_functions', []):
                 m = re.search(r'(SMCOG\d+)', gf)
                 if m:
                     smcog_hits.add(m.group(1))
+                    cds_markers[tag].add(m.group(1))
                     if translation:
                         marker_seqs.setdefault(m.group(1), []).append(translation)
             for sd in quals.get('sec_met_domain', []):
                 # e.g. "Fe-ADH (E-value: ...)"
                 domain_name = sd.split('(')[0].strip()
                 rule_hits.add(domain_name)
+                cds_markers[tag].add(domain_name)
+                if domain_name in ('PEP_mutase', 'PEP_mutase_1'):
+                    pepm_pos = cds_pos.get(tag)
                 if translation:
                     marker_seqs.setdefault(domain_name, []).append(translation)
             # Also parse rule-based-clusters from gene_functions
@@ -140,44 +214,45 @@ def classify_bgc(json_path, contig_id, region_num):
                     parts = gf.split(':')
                     if len(parts) >= 3:
                         rule_hits.add(parts[-1].strip())
+                        cds_markers[tag].add(parts[-1].strip())
+                        if parts[-1].strip() in ('PEP_mutase', 'PEP_mutase_1'):
+                            pepm_pos = cds_pos.get(tag)
 
-        # Classification (checked in priority order)
-        if 'SMCOG1271' in smcog_hits:
-            return 'Synthase', 'SMCOG1271', marker_seqs
-        # TPP + NTP_transf_3 used to split off a 'Decarboxylase-Nucleotidyltransferase'
-        # class, on the theory that a cytidylyltransferase marked the CDP-activated
-        # phosphonolipid route. It came out inverted on both characterised clusters:
-        # P. ananatis LMG 5342 region 2 (confirmed phosphonolipid) carries no NTP_transf
-        # at all, while Winslowiella iniecta B149 (confirmed not a lipid) carries one.
-        # NTP transfer activates a substrate for any unfavourable step — it is generic
-        # chemistry, not a lipid signature. Both classes also scored against the same
-        # Ppd references, so their identity margin was always 0.0 and no amount of
-        # sequence evidence could have separated them. Merged back into Decarboxylase.
-        if 'SMCOG1055' in smcog_hits:
-            return 'Decarboxylase', 'SMCOG1055', marker_seqs
-        # Fallback: TPP_enzyme_C alone is sufficient evidence for a decarboxylase
-        # coupling enzyme. Some BGCs have ThDP enzymes too divergent to score against
-        # the SMCOG1055 HMM but still carry the TPP_enzyme_C domain in antiSMASH's
-        # rule-based scan (e.g. GCF-1, GCF-12 singletons in Pantoea).
-        if 'TPP_enzyme_C' in rule_hits or 'TPP_enzyme_M' in rule_hits:
-            return 'Decarboxylase', 'TPP_enzyme_C', marker_seqs
-        # Reductase after Ppd: some BGCs contain an unrelated Fe-ADH gene elsewhere
-        # in the antiSMASH region that would mask an SMCOG1055-annotated coupling enzyme.
-        # True Reductase BGCs (GCF4/9) carry Fe-ADH but no SMCOG1055.
-        if 'Fe-ADH' in rule_hits:
-            return 'Reductase', 'Fe-ADH', marker_seqs
-        # Transaminase (PalB-like). SMCOG1019 = Aminotran_1_2 / PF00155, the AAT
-        # superfamily (fold type I PLP) that PalB belongs to. This previously tested
-        # SMCOG1013 (Aminotran_3, fold type IV) — a different enzyme class entirely,
-        # which on Pantoea called 6 BGCs Transaminase where only 1 carries SMCOG1019.
-        # Reductase is still checked first: an unrelated Fe-ADH elsewhere in the region
-        # should not be overridden by an aminotransferase hit.
-        if 'SMCOG1019' in smcog_hits:
-            return 'Transaminase', 'SMCOG1019', marker_seqs
+        # Every class the region has evidence for, with the marker that found it.
+        # Returning only the first used to discard the rest: 268 of 1,303 regions
+        # here carry two or more, so "the coupling enzyme" was being decided by a
+        # hand-ordered list with nothing recorded about what it ruled out.
+        # One candidate per CDS, not per marker. A protein carrying both
+        # TPP_enzyme_C and Aminotran_1_2 is ONE enzyme and one candidate: counting
+        # it twice made 37 regions look like a Decarboxylase/Transaminase conflict
+        # when the two "candidates" were the same 2.4 kb gene 47 bp downstream of
+        # pepM, annotated phosphonopyruvate decarboxylase.
+        MARKER_CLASS = [('SMCOG1271', 'Synthase'), ('SMCOG1055', 'Decarboxylase'),
+                        ('TPP_enzyme_C', 'Decarboxylase'), ('TPP_enzyme_M', 'Decarboxylase'),
+                        ('Fe-ADH', 'Reductase'), ('SMCOG1019', 'Transaminase')]
+        cands = []
+        for tag, marks in cds_markers.items():
+            classes = [(mk, cl) for mk, cl in MARKER_CLASS if mk in marks]
+            if not classes:
+                continue
+            # A CDS with two markers takes the class its product name supports;
+            # failing that, marker precedence within the CDS.
+            prod = cds_product.get(tag, '')
+            named = [(mk, cl) for mk, cl in classes
+                     if name_verdict(prod, cl) in ('names-substrate', 'consistent')]
+            marker, cls = (named or classes)[0]
+            cands.append({'cls': cls, 'marker': marker, 'tag': tag, 'product': prod,
+                          'pos': cds_pos.get(tag), 'seq': cds_seq.get(tag, '')})
+        for c in cands:
+            c['kb'] = (abs(c['pos'] - pepm_pos) / 1000.0
+                       if c['pos'] is not None and pepm_pos is not None else None)
+        order = [c for _, c in MARKER_CLASS]
+        cands.sort(key=lambda c: order.index(c['cls']))
+        if not cands:
+            return 'Unknown', None, marker_seqs, []
+        return cands[0]['cls'], cands[0]['marker'], marker_seqs, cands
 
-        return 'Unknown', None, marker_seqs
-
-    return 'Unknown', None, {}
+    return 'Unknown', None, {}, []
 
 
 # ─── Build genome → antiSMASH JSON index ─────────────────────────────────────
@@ -206,15 +281,41 @@ def write_support_tsv(support_rows, outpath):
         f.write('# pct_id_<class> = percent identity to the closest reference of that class.\n')
         f.write('# Empirical poles on Pantoea: 93.8-100%% orthologue, 21.8-30.8%% superfamily\n')
         f.write('# background. Low support warrants manual review, NOT automatic rejection.\n')
+        f.write('# decided_by names the signal that chose the class; evidence is a separate\n')
+        f.write('# check on the chosen call, and "weak" means its identity is at background.\n')
         header = ['bgc', 'assigned_class', 'deciding_marker', 'protein_len',
                   'assigned_pct_id', 'assigned_ref', 'assigned_ref_organism',
                   'assigned_n_refs', 'runner_up', 'margin',
+                  'candidate_classes', 'kb_from_pepM', 'conservation', 'decided_by',
+                  'evidence',
                   'pepm_pct_id', 'pepm_ref', 'pepm_len']
         header += [f'pct_id_{c}' for c in classes]
         f.write('\t'.join(header) + '\n')
         for label in sorted(support_rows):
-            cls, marker, plen, sup, pepm_pid, pepm_ref, pepm_len = support_rows[label]
+            (cls, marker, plen, sup, pepm_pid, pepm_ref, pepm_len,
+             amb) = support_rows[label]
+            decided_by, amb_classes, kb, cons = amb
+            # Two independent columns, deliberately. `decided_by` names the signal
+            # that chose the class; `evidence` says whether the chosen call has any
+            # reference support. A single-candidate call is decided trivially and
+            # can still have no evidence behind it.
+            verdict = decided_by
+            margin_txt = f'{kb:.1f}' if kb is not None else '-'
+            cons_txt = f'{cons:.2f}' if cons is not None else '-'
+            # Reference identity as a confidence check on EVERY call, including the
+            # single-candidate ones. Those never face a tie-break, so without this
+            # the one signal that can say "this is not a coupling enzyme" is never
+            # consulted for them -- and 172 of them score at or below the
+            # superfamily background, 168 being Reductase at 18.5% to VlpB.
+            #
+            # It flags, it does not overturn. With 1-3 references per class a low
+            # score cannot separate "wrong class" from "novel variant unlike the one
+            # characterised example", and Reductase has exactly one reference, so a
+            # genuine Enterobacterales enzyme has nothing close to score against.
             own = sup.get(cls, {})
+            own_pid = float(own.get('pct_id', 0.0))
+            evidence = ('weak - at superfamily background'
+                        if own_pid <= BACKGROUND_CEILING_PCT else 'ok')
             others = sorted(((c, v['pct_id']) for c, v in sup.items() if c != cls),
                             key=lambda x: -x[1])
             runner, runner_pid = (others[0] if others else ('-', 0.0))
@@ -223,6 +324,8 @@ def write_support_tsv(support_rows, outpath):
                    str(own.get('best_ref_organism', '-') or '-'),
                    str(own.get('n_refs', 0)), runner,
                    f"{own.get('pct_id', 0.0) - runner_pid:.1f}",
+                   '+'.join(amb_classes) or '-', margin_txt, cons_txt, verdict,
+                   evidence,
                    f"{pepm_pid:.1f}", pepm_ref, str(pepm_len)]
             row += [f"{sup[c]['pct_id']:.1f}" for c in classes]
             f.write('\t'.join(row) + '\n')
@@ -288,6 +391,9 @@ def main():
     print(f'Classifying coupling enzymes for {len(metadata)} BGCs...')
     classifications = {}
     support_rows = {}
+    pending = {}
+    by_family = collections.defaultdict(list)
+    fid_of = {}
     # Reference support is advisory metadata for manual review — see
     # utils/coupling_confidence. Absent references simply skip it.
     ref_path = args.reference_faa
@@ -312,27 +418,120 @@ def main():
         contig_id, region_num = parse_bgc_label(label)
 
         if genome and genome in json_index:
-            cls, marker, marker_seqs = classify_bgc(json_index[genome], contig_id, region_num)
+            cls, marker, marker_seqs, cands = classify_bgc(
+                json_index[genome], contig_id, region_num)
         else:
             # Fall back: search all JSONs for a record matching contig_id
-            cls, marker, marker_seqs = 'Unknown', None, {}
+            cls, marker, marker_seqs, cands = 'Unknown', None, {}, []
             for gen, jpath in json_index.items():
-                c, mk, ms = classify_bgc(jpath, contig_id, region_num)
+                c, mk, ms, cd = classify_bgc(jpath, contig_id, region_num)
                 if c != 'Unknown':
-                    cls, marker, marker_seqs = c, mk, ms
+                    cls, marker, marker_seqs, cands = c, mk, ms, cd
                     break
             if cls == 'Unknown':
                 missing_json += 1
 
+        fams = bgc.get('families') or []
+        fid = fams[0].get('family_id') if fams else None
+        fid_of[label] = fid
+        by_family[fid].append(label)
+        pending[label] = dict(cls=cls, marker=marker, seqs=marker_seqs, cands=cands,
+                              fid=fid, ncds=bgc.get('n_domains', 0))
         classifications[label] = cls
-        if references and marker and marker_seqs.get(marker):
-            # Score the CDS that drove the call against every characterised class.
-            # Advisory only — nothing here changes `cls`.
-            seq = max(marker_seqs[marker], key=len)
-            # pepM is the hallmark gene, present in every phosphonate BGC, so its
-            # divergence is the natural second axis: how unusual is the scaffold gene,
-            # independently of how unusual the coupling chemistry is.
-            pepm_seqs = marker_seqs.get('PEP_mutase') or marker_seqs.get('PEP_mutase_1') or []
+    # ── Pass 2: rank each BGC's candidates ──────────────────────────────────
+    #
+    # The order is conservation, then distance, then identity, then marker
+    # precedence, with a name veto applied first. Each step is there because the
+    # one before it cannot decide every case, and each was calibrated on this run:
+    #
+    #   name veto     a product naming a DIFFERENT specific reaction is not the
+    #                 coupling enzyme. GCF-37's "decarboxylase" is annotated
+    #                 3D-(3,5/4)-trihydroxycyclohexane-1,2-dione acylhydrolase.
+    #                 A vague name is never penalised -- phosphonomethylmalate
+    #                 synthase has no PGAP name, so its real instances read
+    #                 "beta/alpha barrel domain-containing protein".
+    #   conservation  fraction of COMPLETE family members carrying the class.
+    #                 Fragments are excluded: a truncated region that stops after
+    #                 pepM has no information about the coupling enzyme, and
+    #                 counting it as a dissenting vote counts ignorance as
+    #                 disagreement. Ties on about half of multi-candidate regions.
+    #   distance      to pepM. In 1,016 regions carrying exactly one candidate the
+    #                 coupling enzyme is a median 1.2 kb away and 100% are within
+    #                 5 kb, so this is tightly calibrated. Breaks most ties.
+    #   identity      to the class's own characterised references. Last of the
+    #                 measured signals because the reference set is 1-3 proteins
+    #                 per class, so a class can lose for reasons about the
+    #                 reference set rather than the protein.
+    #   precedence    the legacy marker order, and the call is flagged.
+    med_cds = {}
+    for fid, labels in by_family.items():
+        n = sorted(len(pending[l]['cands']) and pending[l].get('ncds', 0) for l in labels)
+        med_cds[fid] = n[len(n) // 2] if n else 0
+    conservation = collections.defaultdict(lambda: collections.defaultdict(float))
+    for fid, labels in by_family.items():
+        full = [l for l in labels if pending[l].get('ncds', 0) >= 0.6 * med_cds[fid]] or labels
+        for c in ('Synthase', 'Decarboxylase', 'Reductase', 'Transaminase'):
+            hit = sum(1 for l in full if any(k['cls'] == c for k in pending[l]['cands']))
+            if hit:
+                conservation[fid][c] = hit / len(full)
+
+    for label, st in pending.items():
+        cands, fid = st['cands'], st['fid']
+        decided_by = 'single candidate' if len(cands) < 2 else None
+        if len(cands) > 1:
+            live = [c for c in cands
+                    if name_verdict(c['product'], c['cls']) != 'contradicts'] or cands
+            if len(live) < len(cands):
+                decided_by = 'product name (veto)'
+            # A product that NAMES THE PHOSPHONATE SUBSTRATE outranks one that does
+            # not. This is the step that was missing, and a lab-characterised
+            # cluster caught it: Winslowiella iniecta B149 has its explicitly
+            # annotated "phosphonopyruvate decarboxylase" 9.8 kb from pepM and a
+            # generic "pyridoxal phosphate-dependent aminotransferase" at 1.1 kb.
+            # Distance picks the aminotransferase and is wrong. 95% of the 917
+            # TPP-carrying CDS in this run are named for the substrate, so when one
+            # candidate has that name and another does not, the name decides.
+            named = [c for c in live
+                     if name_verdict(c['product'], c['cls']) == 'names-substrate']
+            if named and len(named) < len(live):
+                live, decided_by = named, 'product names the substrate'
+            if len(live) > 1:
+                cons = conservation.get(fid, {})
+                top = max(live, key=lambda c: cons.get(c['cls'], 0.0))
+                tied = [c for c in live
+                        if abs(cons.get(c['cls'], 0.0) - cons.get(top['cls'], 0.0)) < 1e-9]
+                if len(tied) == 1:
+                    live, decided_by = tied, 'conservation'
+                else:
+                    near = [c for c in tied if c['kb'] is not None]
+                    if near:
+                        best = min(near, key=lambda c: c['kb'])
+                        close = [c for c in near if c['kb'] - best['kb'] < 0.5]
+                        if len(close) == 1:
+                            live, decided_by = close, 'distance to pepM'
+                        else:
+                            live = close
+                    if decided_by is None and references and len(live) > 1:
+                        scored = [(support(c['seq'], references).get(c['cls'], {})
+                                   .get('pct_id', 0.0), c) for c in live if c['seq']]
+                        if len(scored) > 1:
+                            scored.sort(key=lambda x: -x[0])
+                            m = scored[0][0] - scored[1][0]
+                            if m >= AMBIGUOUS_MARGIN and scored[0][0] > BACKGROUND_CEILING_PCT:
+                                live, decided_by = [scored[0][1]], 'reference identity'
+            if decided_by is None:
+                decided_by = 'AMBIGUOUS (marker precedence)'
+            st['cls'], st['marker'] = live[0]['cls'], live[0]['marker']
+            st['chosen'] = live[0]
+        else:
+            st['chosen'] = cands[0] if cands else None
+        st['decided_by'] = decided_by or 'single candidate'
+        classifications[label] = st['cls']
+
+        chosen = st['chosen']
+        if references and chosen and chosen.get('seq'):
+            seqs = st['seqs']
+            pepm_seqs = seqs.get('PEP_mutase') or seqs.get('PEP_mutase_1') or []
             pepm_pid, pepm_ref, pepm_len = 0.0, '-', 0
             if pepm_seqs and pepm_references:
                 pseq = max(pepm_seqs, key=len)
@@ -340,8 +539,11 @@ def main():
                 best = max(((percent_identity(pseq, rs), rn) for rn, rs in pepm_references),
                            default=(0.0, '-'))
                 pepm_pid, pepm_ref = round(best[0], 1), best[1]
-            support_rows[label] = (cls, marker, len(seq), support(seq, references),
-                                   pepm_pid, pepm_ref, pepm_len)
+            support_rows[label] = (
+                st['cls'], st['marker'], len(chosen['seq']),
+                support(chosen['seq'], references), pepm_pid, pepm_ref, pepm_len,
+                (st['decided_by'], sorted({c['cls'] for c in cands}),
+                 chosen.get('kb'), conservation.get(fid, {}).get(st['cls'])))
 
     if missing_json:
         print(f'  Warning: {missing_json} BGCs could not be matched to an antiSMASH JSON')
