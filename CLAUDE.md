@@ -436,6 +436,33 @@ agreement is **100.00% at domain, phylum, class, order, family, genus and specie
 Worth watching rather than fixed: ~95 GB of scratch is per *concurrent* `GTDBTK_CLASSIFY`
 task, so two shards at once is ~190 GB.
 
+**Re-tested on the hard input, because RefSeq is the easy one** —
+`docs/comparisons/gtdbtk_ani_screen_genbank/`. RefSeq is curated, so 100% agreement there
+could have been an artefact. 450 GenBank genomes none of which the RefSeq run saw, 150 each
+at complete / scaffold / contig level (median contigs 2 / 107 / 60), including *Buchnera*
+endosymbionts and *Candidatus* Stammera:
+
+| | RefSeq · 2,530 | GenBank · 450 |
+|---|---:|---:|
+| fell through to pplacer | 9 (**0.4%**) | 24 (**5.3%**) |
+| ANI calls matching tree placement | 100% | **426 of 426** |
+| wall, screen on | 50 min | **44 min** |
+| wall, screen off | — | **143 min** |
+
+**GenBank genomes do miss the screen 13x more often**, and it concentrates in contig-level
+assemblies (11.3% against 4.0% complete; median 96 contigs among misses against 40 among
+matches). But a miss routes to tree placement automatically, so it costs time rather than
+accuracy — the screen is a fast path, not a substitute. Note the mechanism is *not*
+annotation quality: GTDB-Tk discards submitted annotation and runs prodigal itself. And it
+is not purely contiguity either, since scaffold-level fell through *least* of all (0.7%),
+which points at taxonomic novelty as a second factor.
+
+Two caveats kept in the record: 79 of the 426 matches are self-matches, because GTDB draws
+its references from GenBank (27 of the 450 collided by accession outright, and GTDB-Tk
+refuses to start until the queries are renamed — the pipeline avoids this by naming genomes
+after the organism); and the ground truth is GTDB-Tk's own tree placement, so this measures
+whether the fast path reproduces the slow path, not whether either is taxonomically right.
+
 `GTDBTK_CLASSIFY` is sharded (`gtdbtk_shard_size`, default 5,000). Each shard re-pays only
 the 23.2 CPU-min intercept, so 20 shards cost ~7.7 CPU-h on ~1,271 — **0.6%**, which makes
 the sharding cheap insurance rather than a gamble. Data:

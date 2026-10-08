@@ -1,0 +1,32 @@
+{
+  "question": "The ANI pre-screen classified 2,521 of 2,530 RefSeq genomes with 100% agreement against tree placement. Is that an artefact of RefSeq being curated? GenBank carries fragmented drafts, MAGs and uncultured lineages that RefSeq filters out -- would the screen fail there, justifying the hardcoded --skip_ani_screen?",
+  "date": "2026-10-08",
+  "answer": "GenBank genomes DO miss the screen far more often -- 5.3% against RefSeq's 0.4%, a 13x higher fall-through, concentrated in contig-level assemblies at 11.3%. But that costs time, not accuracy: GTDB-Tk routes a miss to tree placement automatically, and where ANI does decide it is exact. 426 of 426 ANI-decided genomes got the identical classification to the tree-placed ground truth, at every rank including species. The screen is a fast path, not a substitute, so --skip_ani_screen buys nothing.",
+
+  "the_mechanism_is_not_annotation": "The hypothesis was framed as GenBank genomes being less robustly annotated. GTDB-Tk discards submitted annotation entirely and calls genes itself with prodigal, so annotation quality cannot be the variable. What plausibly differs is assembly contiguity, completeness against min_perc_aa, taxonomic novelty, and the MAGs and contaminated submissions RefSeq rejects. The sample was built to stress those.",
+
+  "design": "450 GenBank Enterobacterales genomes, none in the RefSeq run's accession list: 150 each at complete / scaffold / contig assembly level, drawn with a fixed seed. Median contigs 2 / 107 / 60 and median N50 4,068 / 157 / 258 kb, so the drafts are genuinely fragmented. Pool included Buchnera aphidicola endosymbionts and Candidatus Stammera. Same 450 through `classify_wf` twice -- ANI screen on, then --skip_ani_screen for ground truth -- at the module's own parameters.",
+
+  "measured": {
+    "screen_on":  {"wall_min": 44,  "classified": 450, "ani_decided": 426, "to_markers": 24},
+    "screen_off": {"wall_min": 143, "classified": 450, "ani_decided": 0,   "to_markers": 450},
+    "speedup": "3.2x at 450 genomes. Both modes classified all 450; none left unclassified either way.",
+    "agreement_on_the_informative_set": "426 of 426 ANI-decided genomes identical to their tree-placed classification, full taxonomy string. The 24 fall-throughs went to pplacer in BOTH modes, so their agreement is trivial and is reported separately.",
+    "agreement_by_rank": "100.00% at domain, phylum, class, order, family, genus and species; 450 of 450 exact full-string over the whole set"
+  },
+
+  "fall_through_by_assembly_level": {
+    "complete": "6 of 150 (4.0%)",
+    "scaffold": "1 of 150 (0.7%)",
+    "contig":   "17 of 150 (11.3%)",
+    "contig_count_median": "96 among fall-throughs against 40 among matches",
+    "not_a_clean_contiguity_story": "If contiguity alone drove this, scaffold (107 contigs median) should sit between complete and contig rather than below both. It does not, so taxonomic novelty is likely a second factor -- the contig-level draws are enriched for uncultured and host-associated lineages. Contiguity should not be claimed as the sole mechanism on this data."
+  },
+
+  "two_things_that_would_flatter_the_result_if_left_out": {
+    "self_matches": "79 of the 426 ANI matches are self-matches: the query IS a GTDB reference genome. GTDB draws its references from GenBank, so any GenBank sample overlaps the reference set by construction -- 27 of these 450 collided by accession id outright and GTDB-Tk refused to start until the queries were renamed. Excluding self-matches, 347 of 371 genuine queries matched (93.5%).",
+    "ground_truth_is_the_same_tool": "The comparison is ANI placement against tree placement, both from GTDB-Tk. It measures whether the fast path reproduces the slow path, not whether either is taxonomically correct. GTDB-Tk's own note applies to both: 'Tk classification mode is insufficient for publication of new taxonomic designations.'"
+  },
+
+  "recommendation": "Remove the hardcoded --skip_ani_screen at modules/phylogeny/gtdbtk.nf:33, or make it a parameter defaulting to off. Tested now on both the easy input (2,530 RefSeq) and the hard one (450 stratified GenBank drafts), it is 3.2-10x faster for provably identical taxonomy. Not applied here: it changes pipeline behaviour and belongs in a reviewed change."
+}
