@@ -4,6 +4,7 @@ include { CLUSTERING_STATS } from '../modules/clustering/clustering_stats'
 include { PARTITION_BGCS } from '../modules/clustering/partition_bgcs'
 include { BIGSCAPE_PARTITION } from '../modules/clustering/bigscape_partition'
 include { MERGE_BIGSCAPE } from '../modules/clustering/merge_bigscape'
+include { PARTITION_REFERENCE_DISTANCES } from '../modules/clustering/partition_reference_distances'
 include { BIGSCAPE_CENTERS } from '../modules/clustering/bigscape_centers'
 include { BIGSCAPE_REFERENCES } from '../modules/clustering/bigscape_references'
 include { EXTRACT_GCF_REPRESENTATIVES } from '../modules/clustering/extract_gcf_representatives'
@@ -36,10 +37,13 @@ workflow CLUSTERING {
 
             if (params.bigscape_partition) {
                 // Split by pepM identity so no single BiG-SCAPE job goes
-                // quadratic. Verified to rebuild the identical GCF network
-                // (ARI 1.0000); see CLAUDE.md. The partitioner falls back to one
-                // partition below params.bigscape_partition_min, so enabling this
-                // on a small taxon costs only the pepM alignment.
+                // quadratic. Verified network-neutral at the natural cut: at 1,302
+                // BGCs 3 of 1,302 members move, the same 3 two UNPARTITIONED runs
+                // move. That holds only while no component is force-chunked --
+                // see docs/comparisons/bigscape_partition_equivalence/ and the cap
+                // note in nextflow.config. The partitioner falls back to one
+                // partition below params.bigscape_partition_threshold, so enabling
+                // this on a small taxon costs only the pepM alignment.
                 PARTITION_BGCS(taxon, antismash_results, pfam_db_ch,
                                Utils.scriptsHash(projectDir,
                                    ['clustering/partition_bgcs.py', 'utils']))
@@ -49,8 +53,16 @@ workflow CLUSTERING {
                     .map { row -> tuple(row.partition, file(row.gbk)) }
                     .groupTuple()
 
+                // A run without references stages a placeholder file, and
+                // BIGSCAPE_PARTITION's guard then emits no reference database.
+                def ref_dir = params.bigscape_reference_dir
+                def have_refs = ref_dir && file(ref_dir).exists()
+                def ref_dir_f = have_refs ? file(ref_dir) : file('NO_REFERENCE_DIR')
+                def ref_ver = have_refs ? Utils.dirHash(ref_dir) : 'none'
+
                 BIGSCAPE_PARTITION(taxon, partition_ch, pfam_db_ch,
-                                   PARTITION_BGCS.out.partitions)
+                                   PARTITION_BGCS.out.partitions,
+                                   ref_dir_f, ref_ver)
                 MERGE_BIGSCAPE(taxon,
                                BIGSCAPE_PARTITION.out.db.collect(),
                                PARTITION_BGCS.out.partitions,
@@ -58,6 +70,22 @@ workflow CLUSTERING {
                                    ['clustering/merge_bigscape_dbs.py']))
                 bigscape_db_ch  = MERGE_BIGSCAPE.out.bigscape_db
                 bigscape_dir_ch = MERGE_BIGSCAPE.out.bigscape_dir
+
+                // The comparing already happened, once per partition, inside
+                // BIGSCAPE_PARTITION. This only reads those databases and joins each
+                // pair to the family the merged run assigned.
+                if (have_refs) {
+                    PARTITION_REFERENCE_DISTANCES(
+                        taxon,
+                        BIGSCAPE_PARTITION.out.refdb.collect(),
+                        bigscape_db_ch,
+                        ref_dir_f,
+                        ref_ver,
+                        Utils.scriptsHash(projectDir,
+                            ['clustering/reference_distances.py']))
+                    reference_distances_ch = PARTITION_REFERENCE_DISTANCES.out.distances
+                    reference_summary_ch   = PARTITION_REFERENCE_DISTANCES.out.summary
+                }
             } else {
                 BIGSCAPE(taxon, antismash_results, pfam_db_ch)
                 bigscape_db_ch  = BIGSCAPE.out.bigscape_db
@@ -65,24 +93,23 @@ workflow CLUSTERING {
             }
 
             // Distance to the characterised reference clusters, measured on a copy of
-            // the database so the published clustering stays dataset-only. Skipped on
-            // the partitioned path: a merged database holds only within-partition
-            // distances, so this pass would compute every cross-partition pair that
-            // partitioning exists to avoid.
+            // the database so the published clustering stays dataset-only.
+            //
+            // The partitioned path does this above instead, per partition and before
+            // the merge: BiG-SCAPE computes only the pairs absent from the distance
+            // table, so a pass over the merged database would compute every
+            // cross-partition query pair -- the n^2 that partitioning exists to avoid.
+            // Per partition it costs refs x partition size, summing to the same
+            // refs x N this monolithic pass does.
             def reference_dir = params.bigscape_reference_dir
-            if (reference_dir && file(reference_dir).exists()) {
-                if (params.bigscape_partition) {
-                    log.warn "Reference distances are not measured on the partitioned path; " +
-                             "unset --bigscape_partition to measure them."
-                } else {
-                    BIGSCAPE_REFERENCES(taxon, bigscape_db_ch, antismash_results, pfam_db_ch,
-                                        file(reference_dir),
-                                        Utils.dirHash(reference_dir),
-                                        Utils.scriptsHash(projectDir,
-                                            ['clustering/reference_distances.py']))
-                    reference_distances_ch = BIGSCAPE_REFERENCES.out.distances
-                    reference_summary_ch   = BIGSCAPE_REFERENCES.out.summary
-                }
+            if (reference_dir && file(reference_dir).exists() && !params.bigscape_partition) {
+                BIGSCAPE_REFERENCES(taxon, bigscape_db_ch, antismash_results, pfam_db_ch,
+                                    file(reference_dir),
+                                    Utils.dirHash(reference_dir),
+                                    Utils.scriptsHash(projectDir,
+                                        ['clustering/reference_distances.py']))
+                reference_distances_ch = BIGSCAPE_REFERENCES.out.distances
+                reference_summary_ch   = BIGSCAPE_REFERENCES.out.summary
             }
 
             // Only partitioned runs have an incomplete distance table, so only

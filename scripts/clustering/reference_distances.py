@@ -12,6 +12,21 @@ and when a reference is byte-identical to one of the query BGCs it silently drop
 reference and keeps the query — logged at INFO and easy to miss. Hashing finds the
 reference either way, and that case is reported as an exact match rather than lost.
 
+**Takes one or more pass databases.** Unpartitioned there is one, a copy of the
+finished clustering database. Partitioned there is one per partition, because a
+reference pass over the MERGED database would compute every cross-partition query
+pair -- BiG-SCAPE's PartialRecordPairGenerator yields exactly the pairs absent from
+the distance table, and a merged table is missing precisely those. Per partition it
+computes only reference x member, summing to the same reference x N a monolithic
+pass would do, with no cross-partition pairs. Rows from every pass are concatenated.
+
+**Families are joined on (genome, region), not on record id.** Unpartitioned the two
+are interchangeable because the pass database is a byte copy of the main one. They
+are NOT interchangeable on the partitioned path: merge_bigscape_dbs.py offsets record
+ids per partition, so a partition's record 7 is not the merged database's record 7,
+and joining on the id would attach each distance to an unrelated family. The path
+pair is stable across both.
+
 Emits:
   --distances  one row per reference x BGC pair, with the BiG-SCAPE components
   --summary    per-GCF nearest reference, and per-reference nearest GCF
@@ -48,8 +63,9 @@ def region_of(gbk_path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--pass-db', type=Path, required=True,
-                    help='database from the reference pass (queries + references)')
+    ap.add_argument('--pass-db', type=Path, required=True, nargs='+',
+                    help='database(s) from the reference pass (queries + references). '
+                         'One unpartitioned; one per partition otherwise.')
     ap.add_argument('--main-db', type=Path, required=True,
                     help='the run\'s own clustering database, for GCF assignments')
     ap.add_argument('--reference-dir', type=Path, required=True)
@@ -64,72 +80,81 @@ def main():
     if not refs:
         sys.exit(f'{a.reference_dir}: no .gbk references')
 
-    con = sqlite3.connect(a.pass_db)
-    con.row_factory = sqlite3.Row
-
-    # gbk id -> reference name, for the references present in this database
-    ref_gbk, dropped = {}, {}
-    for row in con.execute('SELECT id, path, hash FROM gbk'):
-        name = refs.get(row['hash'])
-        if name is None:
-            continue
-        ref_gbk[row['id']] = name
-        # A reference whose path is not in the reference directory is one BiG-SCAPE
-        # deduplicated against an identical query: the query record IS that cluster.
-        if Path(row['path']).parent.resolve() != a.reference_dir.resolve():
-            dropped[name] = row['path']
-    missing = sorted(set(refs.values()) - set(ref_gbk.values()))
-
-    # The main run's family per region record. The pass database is a copy, so record
-    # ids are the same on both sides and can be joined directly.
+    # The main run's family per region, keyed on (genome, region). See the module
+    # docstring: record ids are NOT comparable between a partition database and the
+    # merged one, and this pair is.
     main = sqlite3.connect(a.main_db)
-    family = {}
-    for rec_id, fam in main.execute(
-            """SELECT brf.record_id, brf.family_id FROM bgc_record_family brf
+    family, family_size = {}, defaultdict(int)
+    for path, fam in main.execute(
+            """SELECT g.path, brf.family_id FROM bgc_record_family brf
+               JOIN bgc_record br ON br.id = brf.record_id
+               JOIN gbk g ON g.id = br.gbk_id
                JOIN family f ON f.id = brf.family_id
-               WHERE f.cutoff = ?""", (a.cutoff,)):
-        family[rec_id] = fam
-    family_size = defaultdict(int)
-    for fam in family.values():
+               WHERE f.cutoff = ? AND br.record_type = 'region'""", (a.cutoff,)):
+        family[(genome_of(path), region_of(path))] = fam
         family_size[fam] += 1
+    main.close()
 
-    rows = []
-    for r in con.execute(
-            """SELECT d.record_a_id AS a_id, d.record_b_id AS b_id, d.distance, d.jaccard,
-                      d.adjacency, d.dss, ga.id AS ga_id, gb.id AS gb_id,
-                      ga.path AS a_path, gb.path AS b_path
-               FROM distance d
-               JOIN bgc_record ra ON ra.id = d.record_a_id JOIN gbk ga ON ga.id = ra.gbk_id
-               JOIN bgc_record rb ON rb.id = d.record_b_id JOIN gbk gb ON gb.id = rb.gbk_id
-               WHERE ra.record_type = 'region' AND rb.record_type = 'region'"""):
-        a_ref, b_ref = r['ga_id'] in ref_gbk, r['gb_id'] in ref_gbk
-        if a_ref == b_ref:
-            continue  # query-query, or reference-reference: neither is asked for here
-        ref_name = ref_gbk[r['ga_id'] if a_ref else r['gb_id']]
-        q_path = r['b_path'] if a_ref else r['a_path']
-        q_id = r['b_id'] if a_ref else r['a_id']
-        rows.append({
-            'reference': ref_name,
-            'genome': genome_of(q_path),
-            'region': region_of(q_path),
-            'family_id': family.get(q_id, ''),
-            'distance': round(r['distance'], 4),
-            'jaccard': round(r['jaccard'], 4),
-            'adjacency': round(r['adjacency'], 4),
-            'dss': round(r['dss'], 4),
-        })
+    rows, loaded, dropped, per_db = [], set(), {}, []
+    for db_path in a.pass_db:
+        con = sqlite3.connect(db_path)
+        con.row_factory = sqlite3.Row
+
+        # gbk id -> reference name, for the references present in THIS database
+        ref_gbk = {}
+        for row in con.execute('SELECT id, path, hash FROM gbk'):
+            name = refs.get(row['hash'])
+            if name is None:
+                continue
+            ref_gbk[row['id']] = name
+            loaded.add(name)
+            # A reference whose path is not in the reference directory is one
+            # BiG-SCAPE deduplicated against an identical query: the query record IS
+            # that cluster.
+            if Path(row['path']).parent.resolve() != a.reference_dir.resolve():
+                dropped[name] = row['path']
+
+        before = len(rows)
+        for r in con.execute(
+                """SELECT d.distance, d.jaccard, d.adjacency, d.dss,
+                          ga.id AS ga_id, gb.id AS gb_id,
+                          ga.path AS a_path, gb.path AS b_path
+                   FROM distance d
+                   JOIN bgc_record ra ON ra.id = d.record_a_id
+                   JOIN gbk ga ON ga.id = ra.gbk_id
+                   JOIN bgc_record rb ON rb.id = d.record_b_id
+                   JOIN gbk gb ON gb.id = rb.gbk_id
+                   WHERE ra.record_type = 'region' AND rb.record_type = 'region'"""):
+            a_ref, b_ref = r['ga_id'] in ref_gbk, r['gb_id'] in ref_gbk
+            if a_ref == b_ref:
+                continue  # query-query or reference-reference: neither is asked for
+            ref_name = ref_gbk[r['ga_id'] if a_ref else r['gb_id']]
+            q_path = r['b_path'] if a_ref else r['a_path']
+            key = (genome_of(q_path), region_of(q_path))
+            rows.append({
+                'reference': ref_name,
+                'genome': key[0],
+                'region': key[1],
+                'family_id': family.get(key, ''),
+                'distance': round(r['distance'], 4),
+                'jaccard': round(r['jaccard'], 4),
+                'adjacency': round(r['adjacency'], 4),
+                'dss': round(r['dss'], 4),
+            })
+        per_db.append((Path(db_path).name, len(rows) - before))
+        con.close()
 
     # A deduplicated reference has no pairs of its own: the query it matched carries
     # them. Record the identity so the summary can still name the family it belongs to.
     for name, path in dropped.items():
-        rec = con.execute("SELECT br.id FROM bgc_record br JOIN gbk g ON g.id = br.gbk_id "
-                          "WHERE g.path = ? AND br.record_type = 'region'",
-                          (path,)).fetchone()
+        key = (genome_of(path), region_of(path))
         rows.append({
-            'reference': name, 'genome': genome_of(path), 'region': region_of(path),
-            'family_id': family.get(rec['id'], '') if rec else '',
+            'reference': name, 'genome': key[0], 'region': key[1],
+            'family_id': family.get(key, ''),
             'distance': 0.0, 'jaccard': 1.0, 'adjacency': 1.0, 'dss': 1.0,
         })
+
+    missing = sorted(set(refs.values()) - loaded)
 
     rows.sort(key=lambda r: (r['reference'], r['distance']))
     cols = ['reference', 'genome', 'region', 'family_id', 'distance', 'jaccard',
@@ -157,7 +182,7 @@ def main():
         mine = [r for r in rows if r['reference'] == name]
         best = min(mine, key=lambda r: r['distance']) if mine else None
         per_reference[name] = {
-            'loaded': name in ref_gbk.values(),
+            'loaded': name in loaded,
             'identical_to_query': dropped.get(name),
             'nearest_distance': best['distance'] if best else None,
             'nearest_genome': best['genome'] if best else None,
@@ -178,7 +203,11 @@ def main():
     }
     a.summary.write_text(json.dumps(summary, indent=2) + '\n')
 
-    print(f'{len(rows)} reference-BGC pairs over {len(ref_gbk)} loaded references')
+    print(f'{len(rows)} reference-BGC pairs over {len(loaded)} loaded references '
+          f'from {len(a.pass_db)} pass database(s)')
+    if len(per_db) > 1:
+        for name, n in per_db:
+            print(f'  {name}: {n} pairs')
     if dropped:
         print(f'identical to a query BGC (BiG-SCAPE dropped the file): '
               f'{", ".join(sorted(dropped))}')
