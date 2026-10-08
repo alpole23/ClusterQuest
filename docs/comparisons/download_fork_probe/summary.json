@@ -1,0 +1,36 @@
+{
+  "question": "download_max_forks = 2 was set from a download-only probe over WiFi and recorded as 'a saturated link'. The machine is now wired. Does more concurrency help, and what does GenBank-scale fetching actually cost?",
+  "date": "2026-10-08",
+  "answer": "Throughput is LINK-limited, not concurrency-limited. From 2 to 12 forks the bandwidth moves 22.4 -> 24.7 MB/s, a 10% gain for 6x the concurrency, and batches start failing at 8. At 16 it collapses to 6.6 MB/s with 5 of 6 batches lost. So the old conclusion -- more forks gain nothing -- was right; the rate was not. Set to 4, the fastest level with zero failures.",
+
+  "design": "The COMBINED fetch+screen stage, which is what FETCH_RENAME_SCREEN does: `datasets download --include gbff --assembly-source GenBank --exclude-atypical`, unzip, then pepm_prescreen.py. A download-only probe overstates throughput because the screen runs inline before the next batch starts. 6 batches of 25 per fork level, each level on its own disjoint slice of 4,000 cold GenBank accessions excluded from the RefSeq run's accession list, so nothing is served warm.",
+
+  "measured": {
+    "columns": "forks, genomes retrieved, wall_s, genomes/min, MB, MB/s, failed batches",
+    "rows": [
+      [2,  150, 29.0, 310.4, 648,  22.36, 0],
+      [4,  148, 15.7, 566.0, 360,  22.96, 0],
+      [8,  117, 57.0, 123.2, 1371, 24.06, 1],
+      [12, 82,  52.5, 93.8,  1296, 24.70, 1],
+      [16, 25,  62.7, 23.9,  415,  6.62,  5]
+    ]
+  },
+
+  "read_MB_per_s_not_genomes_per_min": "Each level drew a different slice and genome size varies 2.4-16 MB across them, so genomes/min mostly reports slice composition: forks=4 looks 1.8x faster than forks=2 on genomes/min while being 3% faster on bandwidth. MB/s is slice-independent and is the number to compare.",
+
+  "what_changed_versus_the_old_probe": {
+    "old": "33.5 MB/s, 159 genomes/min, peaked at forks=2, download only, over WiFi (2026-09-23)",
+    "new": "22-25 MB/s across forks 2-12, fetch+screen combined, wired (2026-10-08)",
+    "not_a_regression": "The two are not comparable: this one carries the pepM screen inline, which the old one did not. The comparison that matters is against what the RefSeq run actually ACHIEVED -- 70.4 genomes/min sustained over 43 h, implying ~4.7 MB/s. Wired at the same forks=2 is ~5x that."
+  },
+
+  "genbank_projection": {
+    "basis": "3.38 MB/genome, from the two zero-failure levels only (298 genomes, 1,008 MB)",
+    "at_23_MB_per_s": "~408 genomes/min -> ~55 h for 1,345,672 genomes",
+    "at_the_refseq_runs_rate": "~83 genomes/min -> ~269 h (11.2 days)",
+    "so": "wired turns the fetch+screen stage from ~11 days into ~2.3 days, and that improvement comes from the link, not from the fork setting",
+    "caveat": "The probe drew --assembly-level complete accessions, which biases toward larger, better-assembled genomes than GenBank as a whole. Treat 55 h as an estimate with the sampling bias unmeasured, not as a measurement."
+  },
+
+  "failures": "0 at forks 2 and 4, 1 at 8 and 12, 5 of 6 at 16. The probe has no retry logic; the real process retries a bad batch three times inline and then falls back to one accession at a time, so in production these cost wall-clock rather than genomes. The trend is still a reason not to raise the setting."
+}

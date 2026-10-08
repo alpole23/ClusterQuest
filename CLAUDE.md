@@ -12,11 +12,48 @@ conda activate nextflow    # Activate conda environment before running
 
 ```bash
 nextflow run main.nf --taxon "Pantoea ananatis"           # Full pipeline
-nextflow run main.nf -resume                               # Resume previous run
 nextflow run main.nf --workflow download --taxon "Streptomyces coelicolor"
 nextflow run main.nf --clustering bigscape                 # With clustering
 nextflow run main.nf -profile slurm                        # HPC execution
 ```
+
+## Operational traps
+
+Four ways to lose a run that look like nothing is wrong. Every one of these was hit.
+
+**Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
+`--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
+Groovy** — so `--run_gtdbtk false` *enables* what it appears to disable. This is the
+failure `validateParameters()` exists to catch. When it fires it reports the type error on
+the one bad param and then `False schema always fails` against **every** other param; read
+the first line, not the cascade, and never comment the call out to get past it.
+
+```bash
+echo '{"taxon":"Enterobacterales","bigscape_partition":true}' > run.json
+nextflow run main.nf -params-file run.json
+```
+
+**`-resume` by session UUID, not run name.** `-resume <run-name>` silently resumed a
+different session — a `-preview` test — reporting 0 cache hits and starting to re-download
+all 150,690 genomes. `nextflow log` gives the UUID; resuming with it hit 6,089 cached
+tasks.
+
+**To prove two config branches differ, compare `-with-dag`, not the log.** Under
+`-preview` nothing executes, and `.nextflow.log` lists every *defined* process on both
+paths, so it cannot discriminate. `-preview` does check process call arity — a dropped
+argument gives `Incorrect number of call arguments, expected 6 but received 5` — so it is a
+real check of wiring, just not of branching.
+
+**Run the test suite with `JAVA_HOME` set, or 5 checks FAIL rather than skip.** The
+file-staging tests shell out to Nextflow; without it they look like real failures.
+
+```bash
+JAVA_HOME=~/miniconda3/envs/nextflow PATH="$PATH:$HOME/miniconda3/envs/nextflow/bin" \
+  bash tests/run_tests.sh      # 25 passed, 0 failed
+```
+
+Append rather than prepend, or the conda `python3` shadows the system one and the pyflakes
+check skips.
 
 ## Cross-Taxon Result Reuse
 
@@ -847,14 +884,22 @@ Version information is output to `results/pipeline_info/software_versions.json`.
 The interactive HTML report (`bgc_report.html`) includes:
 
 ### Tabs
-The report uses 7 tabs:
-- **Overview**: Summary statistics grid, rarefaction curve, pipeline resource usage (collapsible) and software versions
-- **Phylogeny**: NCBI taxonomy tree + GTDB-Tk phylogenetic tree and BGC distribution
-- **Genomes**: Searchable genome table with links to individual genome pages
-- **Gene cluster families**: seven sub-panes — consensus gene content, biosynthetic phylogeny (the coupling enzyme class table), BiG-SCAPE clustering statistics, coupling enzyme support by GCF, family representatives, and the family-centre tree
-- **Pipeline Info**: resource usage, **BiG-SCAPE partitioning feasibility**, software versions
-- **Novel BGCs**: BGC regions without KnownClusterBlast matches
-- **KCB Hits**: Known cluster matches grouped by MIBiG entry
+The report is a **navigation rail of 5 groups over 11 panes**, built by
+`build_tabbed_nav(groups)` in `viz/report_sections.py`. One pane per section; a pane with
+no HTML is dropped, and a group left empty by that is dropped too, so a run without
+clustering shows fewer entries rather than entries opening onto nothing.
+
+| group | panes |
+|---|---|
+| **Overview** | Summary (stat tiles, KCB mapping, rarefaction curve) · Pipeline & resources |
+| **BGCs** | GCF characterisation · All detected regions |
+| **Gene cluster families** | Consensus gene content · Biosynthetic phylogeny (class key + family-centre tree) · BiG-SCAPE statistics · Coupling enzyme support |
+| **Phylogeny** | Taxonomic distribution · GCF distribution across taxa |
+| **Genomes** | Genomes |
+
+Pane numbering runs across the whole report, not per group, because the CSS rule pairing
+`#tabN` with `#contentN` is what reveals a pane. **Nothing may depend on a particular N** —
+which sections a run emits decides them.
 
 ### The All-BGCs Tree Was Removed
 
@@ -887,17 +932,16 @@ It is kept as a standalone tool and now counts substituted distances, warns, and
 refuses above 5% — which is exactly the protection an ad-hoc run against a merged
 partitioned database needs.
 
-### Report Tabs
+### Adding a pane
 
-Eight, in this order: Overview, Phylogeny, Genomes, GCF Analysis, **GCF Trees**,
-Novel BGCs, KCB Hits, Pipeline. Tabs are pure CSS radio buttons, so adding one
-means an `#tabN:checked ~ #contentN` rule in `viz/report_assets.py` alongside the
-markup — there is no JavaScript involved in tab switching.
+Pass another `(label, html)` to the right group in `build_tabbed_nav`. Switching is
+**pure CSS radio buttons** — `#tabN:checked ~ #contentN` in `viz/report_assets.py` — with
+no JavaScript, so `MAX_PANES` there is a real ceiling and panes beyond it are refused
+rather than silently dropped.
 
-The GCF Trees tab holds the family-centre tree. The
-coupling-enzyme class table stays in GCF Analysis: the tree figures carry their
-own colour legends, and the table is a classification reference rather than a
-tree legend.
+The family-centre tree sits with **Biosynthetic phylogeny** rather than in a pane of its
+own: branch colours on the tree *are* the classes in the key, and splitting them put a
+legend in one pane and the figure it explains in another.
 
 ### The GTDB-Tk Tree Is Not Drawn in the Report
 
@@ -994,13 +1038,23 @@ matching the simulated bias. Note the denominator change moved the slope ratio (
 92.0%) but left Chao2 unchanged (85.8%): Chao2 depends on the incidence distribution
 rather than the axis length, which is a further reason to prefer it.
 
-### GCF Visualization
-- Shows representative BGCs for each Gene Cluster Family
-- Includes gene arrows with functional annotations
-- Color-coded by gene function (core biosynthetic, transport, regulatory, etc.)
-- Links to antiSMASH results for detailed analysis (paths relative to `main_analysis_results/{taxon}/`)
-- Displays KCB hit or "Potentially Novel" designation for each GCF representative
-- Novel BGCs tab shows GCF family assignment when clustering is enabled
+### Per-family pages, and why there is only one gene diagram
+
+Each family gets `gcf/GCF-<id>.html` — representative metadata, its gene diagram, and the
+consensus gene content across every member. `GCF characterisation` links to it.
+
+**The "Family representatives" pane was removed.** It answered the same question as
+Consensus gene content, and worse. Both draw **one real member** as arrows — they differ
+only in which member: BiG-SCAPE's exemplar against the member carrying the greatest summed
+prevalence (`_consensus_diagram` picks the latter deliberately; "rather than synthesise a
+layout that exists nowhere, the arrows are one real member's"). The consensus one is chosen
+on the question being asked and carries prevalence bands, cassette boundaries, role
+colouring and the full gene table beside it.
+
+Not a size decision — the pane was 34 KB of a 6.68 MB report and held no diagrams itself,
+only cards linking out. The representative stays reachable two ways: its own per-family
+page, and the region accession in `GCF characterisation`, which links to the antiSMASH
+page (paths relative to `main_analysis_results/{taxon}/`).
 
 ### GCF Biosynthetic Tree
 - `GCF_BIOSYNTHETIC_TREE` runs **before** `VISUALIZE_RESULTS` — its PNG output is passed as `gcf_tree_png` input to create an explicit Nextflow data dependency
@@ -1595,13 +1649,34 @@ content changes -- an identical rewrite still moves `last-modified` and still mi
 
 ### Enterobacterales feasibility (measured 2026-09-25)
 
-| | RefSeq · 150,690 | GenBank · 1,257,000 |
+| | RefSeq · 150,690 | GenBank · ~1,345,000 |
 |---|---:|---:|
-| total wall | **~2-3 d** | ~76 d |
-| disk retained | ~50 GB | 2.4 TB (of 647 GB free) |
-| BiG-SCAPE RAM, partitioned | a few GB | 133 GB (of 56) |
+| total wall | **43.1 h, measured** | fetch+screen ~2.3 d wired *(was ~11 d)* |
+| disk | **150 GB peak, measured** | 12 TB drive available |
+| BiG-SCAPE RAM | **19 GB of 56, measured** | depends on BGC yield — see below |
 
-**RefSeq is feasible on this box; GenBank is not, on three independent counts.**
+**RefSeq ran. GenBank's three original blockers have each moved**, and the table above is
+kept only to show by how much. Each number in the right-hand column is now either measured
+or openly unknown:
+
+- **Wall time.** The ~76 d figure assumed the download rate of a throttled WiFi link. Wired,
+  the fetch+screen stage probes at 22-25 MB/s — about 5x what the RefSeq run actually
+  sustained — putting 1.35 M genomes near **55 h**. See
+  `docs/comparisons/download_fork_probe/`. More fork concurrency does *not* help: 6x the
+  forks buys 10% of the bandwidth and starts losing batches.
+- **Disk.** The 2.4 TB estimate assumed retaining every download. The screen now runs inside
+  `FETCH_RENAME_SCREEN`, so rejected genomes are never written and transient disk is
+  `maxForks x batch x ~8.7 MB`. RefSeq's measured 150 GB peak was dominated by one
+  `GTDBTK_CLASSIFY` task (111 GB, 95 GB of it pplacer scratch), which is set by GTDB's
+  reference data rather than genome count.
+- **BiG-SCAPE memory.** The 133 GB figure came from scaling BGC count with genome count.
+  That scaling is the thing to distrust: the pepM screen retained **0.87%** of RefSeq
+  (1,309 of 150,690), and 114,532 of those assemblies are *E. coli*, Salmonella and
+  Klebsiella — which prior lab work puts at fewer than 10 BGC-positive between them.
+  GenBank's extra ~1.2 M genomes are overwhelmingly more of those same clinical isolates,
+  so the BGC yield could be close to RefSeq's 1,303 rather than 8x it. **Unknown until
+  measured, and it does not gate starting**: clustering is the last stage, so the screen
+  reports the real count before BiG-SCAPE runs.
 
 **Run 2026-09-27 and measured: 43.1 h, 104.2 CPU-h, 0 failures.** The ~2-3 day estimate
 held. Retention came in at 0.87% against the 1.7-2.9% modelled, so the clade-aware model
