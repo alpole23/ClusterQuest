@@ -176,7 +176,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             ('Pipeline & resources',      pipeline_tab),
         ]),
         ('BGCs', [
-            ('Novelty assessment',        priority_section),
+            ('GCF characterisation',      priority_section),
             ('All detected regions',      regions_section),
         ]),
         ('Gene cluster families', [
