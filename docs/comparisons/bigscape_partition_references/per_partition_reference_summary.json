@@ -1,0 +1,582 @@
+{
+  "cutoff": 0.3,
+  "references": {
+    "BGC0000806_phosphonoglycans_Glycomyces": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.5428,
+      "nearest_genome": "Lonsdalea_populi_CFCC_12252",
+      "nearest_family": 10,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000807_phosphonoglycans_Stackebrandtia": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.5575,
+      "nearest_genome": "Lonsdalea_populi_CFCC_12252",
+      "nearest_family": 10,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000897_dehydrophos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4402,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000904_FR900098": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4304,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000926_rhizocticin_A": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.3847,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000937_fosfazinomycin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4345,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0000938_fosfomycin_Sfradiae": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.5403,
+      "nearest_genome": "Lonsdalea_populi_CFCC_12252",
+      "nearest_family": 10,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0001411_polysaccharideB_Bfragilis_2AEP": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.5631,
+      "nearest_genome": "Lonsdalea_populi_CFCC_12252",
+      "nearest_family": 10,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0001739_phosphonoacetic_acid": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4073,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0001859_fosfomycin_Psyringae": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.3685,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0002036_dehydrofosmidomycin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4327,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "BGC0002670_fosfonochlorin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.5158,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "argolaphos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4281,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "bialaphos": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4041,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "pantaphos_LMG5342": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.0,
+      "nearest_genome": "Pantoea_ananatis_20PA0260",
+      "nearest_family": 52,
+      "bgcs_within_cutoff": 235
+    },
+    "phosphinothricin_PTT": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4106,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    },
+    "phosphonothrixin": {
+      "loaded": true,
+      "identical_to_query": null,
+      "nearest_distance": 0.4545,
+      "nearest_genome": "Rahnella_aceris_F57b",
+      "nearest_family": 18,
+      "bgcs_within_cutoff": 0
+    }
+  },
+  "references_not_loaded": [],
+  "families": {
+    "1": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.66,
+      "members": 28,
+      "members_within_cutoff": {}
+    },
+    "10": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.367,
+      "members": 30,
+      "members_within_cutoff": {}
+    },
+    "11": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8904,
+      "members": 39,
+      "members_within_cutoff": {}
+    },
+    "12": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8894,
+      "members": 53,
+      "members_within_cutoff": {}
+    },
+    "13": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8902,
+      "members": 78,
+      "members_within_cutoff": {}
+    },
+    "14": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.7849,
+      "members": 7,
+      "members_within_cutoff": {}
+    },
+    "15": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8332,
+      "members": 7,
+      "members_within_cutoff": {}
+    },
+    "16": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8555,
+      "members": 3,
+      "members_within_cutoff": {}
+    },
+    "17": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.7913,
+      "members": 55,
+      "members_within_cutoff": {}
+    },
+    "18": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.3685,
+      "members": 39,
+      "members_within_cutoff": {}
+    },
+    "19": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.7147,
+      "members": 30,
+      "members_within_cutoff": {}
+    },
+    "2": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.7002,
+      "members": 127,
+      "members_within_cutoff": {}
+    },
+    "20": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8288,
+      "members": 22,
+      "members_within_cutoff": {}
+    },
+    "21": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8019,
+      "members": 17,
+      "members_within_cutoff": {}
+    },
+    "22": {
+      "nearest_reference": "BGC0000897_dehydrophos",
+      "distance": 0.872,
+      "members": 6,
+      "members_within_cutoff": {}
+    },
+    "23": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.853,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "24": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8849,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "25": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8238,
+      "members": 16,
+      "members_within_cutoff": {}
+    },
+    "26": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.853,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "27": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.8731,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "28": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.6488,
+      "members": 6,
+      "members_within_cutoff": {}
+    },
+    "29": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.7472,
+      "members": 22,
+      "members_within_cutoff": {}
+    },
+    "3": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8121,
+      "members": 38,
+      "members_within_cutoff": {}
+    },
+    "30": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.7602,
+      "members": 7,
+      "members_within_cutoff": {}
+    },
+    "31": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8869,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "32": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.864,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "33": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8494,
+      "members": 4,
+      "members_within_cutoff": {}
+    },
+    "34": {
+      "nearest_reference": "BGC0000926_rhizocticin_A",
+      "distance": 0.9363,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "35": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.7507,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "36": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9487,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "37": {
+      "nearest_reference": "BGC0000938_fosfomycin_Sfradiae",
+      "distance": 0.86,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "38": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.893,
+      "members": 3,
+      "members_within_cutoff": {}
+    },
+    "39": {
+      "nearest_reference": "BGC0000938_fosfomycin_Sfradiae",
+      "distance": 0.8479,
+      "members": 4,
+      "members_within_cutoff": {}
+    },
+    "4": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.644,
+      "members": 100,
+      "members_within_cutoff": {}
+    },
+    "40": {
+      "nearest_reference": "BGC0000897_dehydrophos",
+      "distance": 0.9287,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "41": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8922,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "42": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.9449,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "43": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.7602,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "44": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.9438,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "45": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.9034,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "46": {
+      "nearest_reference": "phosphinothricin_PTT",
+      "distance": 0.8898,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "47": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.913,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "48": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8808,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "49": {
+      "nearest_reference": "phosphonothrixin",
+      "distance": 0.8865,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "5": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.6242,
+      "members": 31,
+      "members_within_cutoff": {}
+    },
+    "50": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.9117,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "51": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.9478,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "52": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.0,
+      "members": 186,
+      "members_within_cutoff": {
+        "pantaphos_LMG5342": 186
+      }
+    },
+    "53": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.0196,
+      "members": 28,
+      "members_within_cutoff": {
+        "pantaphos_LMG5342": 28
+      }
+    },
+    "54": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.199,
+      "members": 21,
+      "members_within_cutoff": {
+        "pantaphos_LMG5342": 21
+      }
+    },
+    "55": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.548,
+      "members": 8,
+      "members_within_cutoff": {}
+    },
+    "56": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.3804,
+      "members": 30,
+      "members_within_cutoff": {}
+    },
+    "57": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.4894,
+      "members": 17,
+      "members_within_cutoff": {}
+    },
+    "58": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.4669,
+      "members": 9,
+      "members_within_cutoff": {}
+    },
+    "59": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.5322,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "6": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.6208,
+      "members": 49,
+      "members_within_cutoff": {}
+    },
+    "60": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.6703,
+      "members": 3,
+      "members_within_cutoff": {}
+    },
+    "61": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.6266,
+      "members": 18,
+      "members_within_cutoff": {}
+    },
+    "62": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.63,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "63": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.6288,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "64": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.6584,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "65": {
+      "nearest_reference": "BGC0001859_fosfomycin_Psyringae",
+      "distance": 0.6795,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "66": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.6314,
+      "members": 16,
+      "members_within_cutoff": {}
+    },
+    "67": {
+      "nearest_reference": "pantaphos_LMG5342",
+      "distance": 0.8167,
+      "members": 5,
+      "members_within_cutoff": {}
+    },
+    "68": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.9288,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "69": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.9288,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "7": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.6996,
+      "members": 28,
+      "members_within_cutoff": {}
+    },
+    "70": {
+      "nearest_reference": "argolaphos",
+      "distance": 0.8673,
+      "members": 1,
+      "members_within_cutoff": {}
+    },
+    "71": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.8749,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "72": {
+      "nearest_reference": "BGC0002670_fosfonochlorin",
+      "distance": 0.9382,
+      "members": 2,
+      "members_within_cutoff": {}
+    },
+    "8": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.699,
+      "members": 24,
+      "members_within_cutoff": {}
+    },
+    "9": {
+      "nearest_reference": "BGC0002036_dehydrofosmidomycin",
+      "distance": 0.7804,
+      "members": 20,
+      "members_within_cutoff": {}
+    }
+  }
+}

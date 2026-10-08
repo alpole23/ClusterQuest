@@ -2301,10 +2301,33 @@ fetch script strips MIBiG's partial region and rebuilds via `make_reference_bgc.
 already writes the whole chain. And BiG-SCAPE only ingests `.gbk` filenames containing
 "cluster" or "region", so `BGC0000897.gbk` would have been skipped SILENTLY.
 
-**Not wired on the partitioned path.** A merged partition database holds only
-within-partition distances, so this pass would compute every cross-partition pair that
-partitioning exists to avoid. The subworkflow warns and skips; measuring references there
-means running the pass per partition.
+**Measured per partition on the partitioned path, 2026-10-07** —
+`docs/comparisons/bigscape_partition_references/`. A pass over the MERGED database would
+compute every cross-partition query pair, because `PartialRecordPairGenerator` yields
+exactly the pairs absent from the distance table and a merged table is missing precisely
+those: ~34 M at a 2-way split of 11,700 BGCs against the ~199 k wanted. So the pass runs
+inside `BIGSCAPE_PARTITION`, after the clean pass and on a copy of that partition's
+database, where each database is already complete within itself — refs x partition size,
+summing to the same refs x N the monolithic pass does. `PARTITION_REFERENCE_DISTANCES`
+then reads them with the merged database for the family labels.
+
+**It agrees with the monolithic pass where it matters and beats it where it does not.**
+Identical coverage, 22,151 pairs both ways with none measured by only one side. **Nothing
+below distance 0.7 moves at all** — 234 pairs inside the cutoff, 23 at 0.3-0.5, 118 at
+0.5-0.7, zero differences in all of them. All 2,354 disagreements sit at 0.7-1.0, among
+pairs sharing almost nothing, which is where the documented order-dependence lives.
+
+One pair crosses the cutoff, and the monolithic figure is the wrong one: a GCF-22 member
+with **jaccard 1.0 to the pantaphos reference** — an identical domain set — that the
+monolithic run scored 0.8944 (jaccard 0.1111, adjacency 0.0). Per partition it reads
+0.1653. The monolithic load order oriented that pair so the extended comparison found no
+common subsequence. **The pantaphos family therefore reads 186 of 186 within cutoff, not
+185 of 186**; the odd one out was this artefact.
+
+`reference_distances.py` now takes several `--pass-db` and joins families on
+`(genome, region)` rather than `record_id`, because `merge_bigscape_dbs.py` offsets record
+ids per partition. Verified byte-identical to the published monolithic output on the
+unpartitioned path before any module changed.
 
 **References are matched by content hash, not path.** BiG-SCAPE deduplicates input on the
 sha256 of the file — read as *text*, so a CRLF file does not hash as its raw bytes — and
