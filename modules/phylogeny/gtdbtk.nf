@@ -30,7 +30,12 @@ process GTDBTK_CLASSIFY {
     script:
     def cpus = params.gtdbtk_cpus ?: task.cpus ?: 8  // Use dedicated param, fallback to task.cpus
     def pplacer_cpus = params.gtdbtk_pplacer_cpus ?: 1  // pplacer is memory-heavy, use 1 by default
-    def skip_ani = "--skip_ani_screen"
+    // Skipping the ANI pre-screen sends EVERY genome through
+    // markers -> align -> pplacer. Measured on 450 stratified GenBank drafts:
+    // 143 min against 44 with the screen on, for identical taxonomy (426 of 426
+    // ANI-decided genomes matched their tree-placed classification at every rank).
+    // See docs/comparisons/gtdbtk_ani_screen_genbank/.
+    def skip_ani = params.gtdbtk_skip_ani_screen ? "--skip_ani_screen" : ""
     def min_perc_aa = params.gtdbtk_min_perc_aa ?: 10
     """
     echo "=============================================="
