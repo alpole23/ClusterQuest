@@ -1,0 +1,43 @@
+{
+  "question": "GTDBTK_CLASSIFY used 95 GB of pplacer scratch at 1,309 genomes and reported peak_rss 97 GB on a 56 GB box. Does that scale with genome count, and will it survive a GenBank-scale run?",
+  "date": "2026-10-08",
+  "answer": "It does not scale with genome count, and the 95 GB is a floor rather than a function of the input: this run placed SIX genomes and still hit 93.5 GB. Real RAM peaks at ~42 GB during skani's sketch of GTDB's reference set, also input-independent. Neither is a GenBank risk. The finding that matters is separate: the pipeline hardcodes --skip_ani_screen, which forfeits a 10x speedup for identical taxonomy.",
+
+  "design": "2,530 real genome FASTAs -- every distinct .fna the RefSeq run produced, no duplicates -- against GTDB r226, `classify_wf --cpus 8 --pplacer_cpus 1 --min_perc_aa 10 --scratch_dir`, matching the module's parameters. Total PSS summed across the process tree every 20 s, plus scratch and output directory sizes. 50 min wall, exit 0, zero errors in the log.",
+
+  "two_resource_regimes_not_one": {
+    "skani_ANI_screen": {
+      "when": "t=0-1158 s",
+      "peak_PSS": "41.7 GB over 11 processes at t=449 s",
+      "system_RAM_then": "38 of 56 GB used, swap untouched, scratch 0",
+      "what_sets_it": "sketching GTDB's 143,614 REFERENCE genomes. Independent of how many genomes are submitted.",
+      "verdict": "this is the genuine memory ceiling, and it is ~42 GB at any input size"
+    },
+    "pplacer": {
+      "when": "t=1158 s onward",
+      "peak_scratch": "93.5 GB on disk",
+      "system_RAM_then": "3 of 56 GB used",
+      "peak_PSS": "54.2 GB -- but BELOW the 93.5 GB scratch, because PSS counts only the resident part of the mapping",
+      "what_sets_it": "the class-level reference tree, memory-mapped via --scratch_dir. The log says so: 'Using a scratch file for pplacer allocations. This decreases memory usage and performance.'",
+      "verdict": "disk, not RAM, and ~95 GB whether you place 6 genomes or 1,309"
+    }
+  },
+
+  "the_97_GB_peak_rss_was_never_real": "Nextflow's peak_rss sums RSS across the process tree at each sample, double-counting pages shared between pplacer's workers and counting the file-backed scratch mapping as memory. 97 GB on a 56 GB box should have been read as an instrument error rather than a measurement. The same trap, in the opposite direction, applies to /usr/bin/time -f %M, which reports the max of any ONE process -- see bigscape_partition_equivalence/.",
+
+  "the_pipeline_skips_the_ANI_screen_for_no_recorded_reason": {
+    "code": "modules/phylogeny/gtdbtk.nf:33 -- `def skip_ani = \"--skip_ani_screen\"`, hardcoded, not a param, no comment",
+    "cost_of_skipping": "every genome goes markers -> align -> pplacer. The RefSeq run: 1,309 genomes, 4 h 47 m.",
+    "with_the_screen_on": "2,521 of 2,530 genomes classified by ANI; 9 reach marker identification and 6 reach pplacer. 50 min for nearly twice the genomes.",
+    "does_it_give_the_same_answer": "YES, exactly. Against the RefSeq run's tree-based classifications over the 1,261 genomes in both: 100.00% agreement at domain, phylum, class, order, family, genus AND species. Full-string agreement 1,257 of 1,261 (99.68%); the 4 differences are ranks present on one side only, not conflicting calls.",
+    "recommendation": "Remove the flag, or make it a parameter defaulting to off. Caveat worth stating: ANI assignment and tree placement are different procedures, and GTDB-Tk's own note -- 'Tk classification mode is insufficient for publication of new taxonomic designations' -- applies to both. For placing known organisms into GTDB taxonomy, which is all this pipeline does with it, they agree completely here."
+  },
+
+  "what_this_means_for_a_genbank_run": {
+    "RAM": "~42 GB peak, set by the reference data. Fits 56 GB with ~14 GB spare. Does not grow with genome count.",
+    "disk": "~95 GB of scratch per concurrent GTDBTK_CLASSIFY task. One shard at gtdbtk_shard_size=5000 is 95 GB; TWO CONCURRENT SHARDS WOULD BE ~190 GB, which is the thing to watch if the screen-positive count ever exceeds the shard size.",
+    "time": "the stage stops being a bottleneck entirely if the ANI screen is enabled"
+  },
+
+  "caveat": "Only 6 genomes reached pplacer here, so this does not measure whether scratch grows when MANY genomes are placed. It establishes the floor, which is what the 95 GB figure turned out to be, and it establishes that the floor is paid whenever pplacer runs at all."
+}

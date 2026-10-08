@@ -406,6 +406,36 @@ had assumed — so the million-genome total moves from 22,868 to roughly 24,100 
 Peak memory is set by the reference data, not by genome count (55.7 vs 56.3 GB), and sits
 close enough to this box's 56 GB that the figures may be memory-bound.
 
+**Measured properly at 2,530 genomes, 2026-10-08** — `docs/comparisons/gtdbtk_headroom/`.
+There are two regimes and conflating them is what made this look dangerous:
+
+| | peak | set by | system RAM then |
+|---|---|---|---|
+| skani ANI screen | **41.7 GB PSS** | sketching GTDB's 143,614 *reference* genomes | 38 of 56 GB |
+| pplacer | **93.5 GB of disk scratch** | the class-level reference tree, memory-mapped | **3 of 56 GB** |
+
+Neither scales with input: this run placed **six** genomes and still hit 93.5 GB, so the
+RefSeq run's 95 GB was a floor rather than a function of its 1,309 genomes. `--scratch_dir`
+is doing exactly what it advertises — the log says "decreases memory usage and
+performance" — so the pplacer figure is a disk cost, not a memory one.
+
+**The 97 GB `peak_rss` the RefSeq run reported was never real.** Nextflow sums RSS across
+the process tree, double-counting pages shared between pplacer's workers and counting the
+file-backed scratch mapping as memory. 97 GB on a 56 GB box should read as an instrument
+error. The mirror-image trap is `/usr/bin/time -f %M`, which reports the max of any ONE
+process — see the BiG-SCAPE memory note.
+
+**`--skip_ani_screen` is hardcoded at `modules/phylogeny/gtdbtk.nf:33`**, with no parameter
+and no comment, and it costs an order of magnitude for nothing. With the screen on, 2,521
+of 2,530 genomes are classified by ANI, 9 reach marker identification and 6 reach pplacer:
+**50 min against the RefSeq run's 4 h 47 m for half as many genomes.** And the answer is
+identical — against that run's tree-based classifications over the 1,261 genomes in both,
+agreement is **100.00% at domain, phylum, class, order, family, genus and species**
+(full-string 1,257 of 1,261; the 4 differences are ranks present on one side only).
+
+Worth watching rather than fixed: ~95 GB of scratch is per *concurrent* `GTDBTK_CLASSIFY`
+task, so two shards at once is ~190 GB.
+
 `GTDBTK_CLASSIFY` is sharded (`gtdbtk_shard_size`, default 5,000). Each shard re-pays only
 the 23.2 CPU-min intercept, so 20 shards cost ~7.7 CPU-h on ~1,271 — **0.6%**, which makes
 the sharding cheap insurance rather than a gamble. Data:
