@@ -1966,6 +1966,20 @@ took 93 s against 191 s (2.1x). Modelling the fixed cost against the quadratic t
 the crossover near **10,000-12,000 BGCs**, hence the default. Below it, partitioning costs
 time and buys nothing, because memory is not yet a constraint either.
 
+**Verified equivalent at 1,302 BGCs, 2026-10-07** — `docs/comparisons/bigscape_partition_equivalence/`.
+The 185-518 BGC runs below showed zero disagreement; at 1,302 the honest comparison needs a
+control, because BiG-SCAPE no longer reproduces itself exactly at that size. Partitioned
+against monolithic: 72 families both sides, largest 186 both, **3 of 1,302 members move**.
+Monolithic against a second monolithic run: the **same 3**, and slightly more co-membership
+churn (Jaccard 0.9945 against the partitioned run's 0.9960). Partitioning is inside
+BiG-SCAPE's own noise floor. Two of the three movers are the two that
+`bigscape_reproducibility/` independently named at 659 regions.
+
+**Force-chunking breaks it, and that is the real hazard.** With the cap at 400, the natural
+942-BGC component was cut into 400/400/142: **4,605 co-membership pairs split, 2,264 merged,
+7 families invented, Jaccard 0.852**. The partitioner's `WARNING: N component(s) exceeded
+--max_partition_size` should be read as invalidating the run's families, not as advisory.
+
 **The cap should follow the memory allocation, not a guess**, so it is derived by
 inverting the measured fit `GB = 1.14 + 1.29e-7*n^2` against `task.memory`:
 
@@ -1982,6 +1996,52 @@ Those are at 85% of the allocation, not 100%, because **the fit is being extrapo
 past its data**: it was measured to 10,000 BGCs, and 128 GB implies ~31,000 — a 3.1x reach,
 4.4x at 256 GB. The margin costs ~8% of the cap and buys ~19 GB of headroom at 128 GB,
 against an OOM kill that discards hours of clustering.
+
+**That table is too permissive for real data, because the fit was measured on replicated
+BGCs.** `bench_bigscape_scaling.py` copies a 333-BGC pool to reach 10,000, and its docstring
+flags family counts as distorted while asserting memory is faithful — that is the part that
+does not hold, because duplicate domain content is cheap to hold. Measured on 1,302
+*genuinely distinct* BGCs:
+
+| n | measured | `1.14 + 1.29e-7*n^2` |
+|---:|---:|---:|
+| 150 | 1.82 GB | 1.14 |
+| 600 | 1.98 | 1.19 |
+| 1,300 | 2.64 | 1.36 |
+
+giving `GB = 1.81 + 4.87e-7*n^2` (R²=0.998), **3.8x steeper**.
+
+**And every one of those numbers is still low, because `/usr/bin/time -f %M` is the wrong
+instrument.** `%M` is `ru_maxrss`, which for a parent plus waited-for children reports the
+max of any ONE process, never the sum — and BiG-SCAPE on 8 cores runs 11. Re-measured with
+total PSS summed across the process tree, sampled every second (`bsmem/scale_pss.sh`; PSS
+not RSS, so each shared page is divided by its sharers and the shared Pfam data is counted
+once):
+
+| n | tree PSS | `%M` single process | ratio | wall |
+|---:|---:|---:|---:|---:|
+| 150 | 2.84 GB | 1.82 GB | 1.56x | 43 s |
+| 300 | 2.91 | 1.87 | 1.55x | 79 s |
+| 600 | 2.99 | 1.98 | 1.51x | 136 s |
+| 900 | 3.57 | 2.20 | 1.63x | 209 s |
+| 1,300 | 4.37 | 2.64 | 1.65x | 336 s |
+
+The ratio is not constant — it drifts up with n — so the curve is fitted directly rather
+than rescaled: **`GB = 2.78 + 9.34e-7*n^2`, R²=0.988**.
+
+| n | projected | | RAM | safe cap at 85% |
+|---:|---:|---|----:|----:|
+| 5,000 | 26.1 GB | | 32 GB | 5,113 BGCs |
+| 8,000 | 62.5 GB | | 56 GB | **6,928** |
+| 11,707 | **130.7 GB** | | 64 GB | 7,435 |
+| | | | 128 GB | 10,656 |
+
+So the derivation returns **18,977 at 56 GB where the honest answer is ~6,900** — 2.7x too
+permissive. The operational consequence is concrete: **an ~11,700-BGC GenBank run would see
+partitioning silently not fire, then need ~131 GB on a 56 GB box.** At the correct cap it
+splits two ways, milder than the 942-of-1,302 split validated above. Set
+`bigscape_partition_max_size` explicitly at that scale. Caveat: 1,302 → 11,707 is a 9x reach
+in n, and the quadratic term is only 36% of the total at the largest measured point.
 
 **To run smaller partitions, lower the memory allocation**, which moves the cap and the
 request together. `bigscape_partition_max_size` is a safety valve for when the derivation
@@ -2208,7 +2268,27 @@ own floor, which is a weak instrument reporting an absence.
 luminmycin/glidobactin NRPS/PKS cluster, its pepM is there because a pantaphos-like BGC
 sits adjacent in the deposit unnoticed by its authors. That also explains why
 luminmycin/glidobactin was KCB's best hit on 236 of 334 Erwiniaceae regions -- not noise,
-the unannounced phosphonate cluster inside it. BGC0001411 is KEPT: MIBiG calls it
+the unannounced phosphonate cluster inside it.
+
+Confirmed gene by gene on Enterobacterales, from the KCB detail for GCF-22's
+representative (`Pantoea_ananatis_19-20`, `NZ_JALKIQ010000056.1_c1.txt`). All six BLAST
+hits land on consecutive `PluTT01m_09595`-`09620` loci and all six are pantaphos genes:
+
+| query gene | annotation | % id |
+|---|---|---:|
+| P1423_RS23855 | phosphoenolpyruvate mutase | 68 |
+| P1423_RS23860 | LLM class flavin-dependent oxidoreductase | 63 |
+| P1423_RS23865 | homocitrate/isopropylmalate synthase | 75 |
+| P1423_RS23870 | 3-isopropylmalate dehydratase, large subunit | 68 |
+| P1423_RS23875 | LeuD/DmdB oxidoreductase, small subunit | 59 |
+| P1423_RS23880 | class I SAM-dependent methyltransferase | 49 |
+
+**So the 15% "similarity" KCB reports for the pantaphos family is a dilution artefact, not
+a weak hit.** Six genes match at 49-75%, but similarity is computed over the whole deposit,
+most of which is the adjacent NRPS/PKS that has nothing to do with phosphonates. Read any
+KCB percentage against a composite MIBiG entry as a statement about the entry's boundaries
+rather than about the query -- and never as the inverse of the BiG-SCAPE distance to the
+same chemistry, which puts this family at 0.0000. BGC0001411 is KEPT: MIBiG calls it
 "polysaccharide B" but it is the 2-AEP phosphonolipid, the same chemistry as LMG 5342
 region 2. The two sit **0.9633 apart** -- shared head-group chemistry does not make
 clusters similar when the machinery around it differs.

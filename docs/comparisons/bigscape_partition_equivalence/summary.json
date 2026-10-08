@@ -1,0 +1,95 @@
+{
+  "question": "Does BiG-SCAPE partitioning change the GCF network? CLAUDE.md and nextflow.config both claimed 'ARI 1.0000', but that was measured at 185-518 BGCs and the GenBank run would be ~11,700.",
+  "date": "2026-10-07",
+  "answer": "No, at the natural pepM-identity cut: 69 of 72 families reproduce exactly and the 3 members that move are the SAME 3 that move between two unpartitioned runs of the same input. A monolithic replicate disagrees MORE with the baseline than the partitioned run does. But the claim is NOT unconditional -- when --max_partition_size force-chunks an oversized component, the network degrades badly. The cap, not partitioning, is the hazard.",
+  "design": "1,302 Enterobacterales region GenBanks, the full set from the RefSeq run. Three arms, all BiG-SCAPE 2.0.1 with PYTHONHASHSEED=0, --alignment-mode auto --gcf-cutoffs 0.30 --include-singletons --classify category --cores 8. Arm A monolithic. Arm B partition_bgcs.py --threshold 0.60 then per-partition BiG-SCAPE then merge_bigscape_dbs.py. Arm C a second monolithic run, byte-identical inputs, as the reproducibility control. Compared by CO-MEMBERSHIP, never by family label, since family.id is an AUTOINCREMENT recording write order.",
+  "why_the_control_is_the_whole_point": "Without it, 'partitioned differs from monolithic by 0.4%' reads as damage caused by partitioning. The control shows an unpartitioned re-run differs by 0.55% -- more. Partitioning is inside BiG-SCAPE's own noise floor, so the comparison can only ever be made against that floor, not against zero.",
+  "arms": {
+    "cap_1000_natural": {
+      "partitions": "8 -- 942, 299, 32, 16, 5, 4, 2, 2. No component exceeded the cap, so nothing was force-chunked.",
+      "families": "72 vs 72, largest 186 vs 186, singletons 16 vs 16",
+      "members_moving": "3 of 1,302 (0.23%)",
+      "co_membership": "85 split, 91 merged of 44,234; Jaccard 0.996029",
+      "cross_partition_pairs_among_the_85": 2,
+      "note": "All three movers sit in partition 0 alongside every one of their original family-mates, so no boundary separated them."
+    },
+    "monolithic_replicate_CONTROL": {
+      "families": "72 vs 72, largest 186 vs 186, singletons 16 vs 16",
+      "members_moving": "3 of 1,302 (0.23%) -- the same 3",
+      "co_membership": "85 split, 160 merged of 44,234; Jaccard 0.994481"
+    },
+    "cap_400_force_chunked": {
+      "partitions": "10 -- the 942-BGC component was chunked into 400/400/142",
+      "families": "72 vs 79, singletons 16 vs 20",
+      "co_membership": "4,605 split, 2,264 merged; Jaccard 0.852273",
+      "verdict": "Partitioning is NOT network-neutral when a real component is cut. The partitioner already prints 'WARNING: N component(s) exceeded --max_partition_size and were chunked; this can split a real family' -- that warning should be read as run-invalidating, not advisory."
+    }
+  },
+  "the_three_movers": {
+    "families": "monolithic families 3 (54 members), 4 (31) and 30 (3); each loses exactly one member",
+    "identical_in_both_comparisons": "set difference is empty in both directions -- no family is unstable only when partitioned, and none only on a plain re-run",
+    "regions": [
+      "NZ_CM191264.1.region001 (Pectobacterium cacticida LMG 2720)",
+      "NZ_CM193038.1.region001 (Gibbsiella quercinecans Kew 122)",
+      "NZ_CBLG010000320.1.region001"
+    ],
+    "corroborates_the_earlier_record": "bigscape_reproducibility/ independently identified the first two as 'the only two that move' in a 659-region component. The third appears at this larger scale, consistent with that record's prediction that the bound loosens as components grow."
+  },
+  "read_members_not_pairs": "85 co-membership pairs from 3 movers is the inflation bigscape_reproducibility/ warned about: when one member leaves a 54-member family, all 53 of its pairs break. Jaccard is reported here for comparability between arms, but 3 of 1,302 members is the honest statement, and it matches that record's <=0.30% bound.",
+  "PYTHONHASHSEED_is_not_the_whole_story": "Both monolithic arms ran with PYTHONHASHSEED=0 and still disagreed. The pin fixes GBK load order and therefore pair orientation, which is what it was added for, but it does not make affinity propagation's exemplar choice deterministic for members sitting between two nearly equivalent families.",
+  "what_to_do": {
+    "partitioning_for_the_GenBank_run": "Safe, provided no component is force-chunked.",
+    "do_not_let_the_cap_derive_itself": "bigscape_partition_max_size = 0 inverts GB = 1.14 + 1.29e-7*n^2, which is wrong twice over: it was measured on REPLICATED BGCs (bench_bigscape_scaling.py copies a 333-BGC pool, where duplicate domain content is cheap), and with /usr/bin/time -f %M, which reports one process rather than the tree. Directly measured, GB = 2.78 + 9.34e-7*n^2, so a monolithic 11,707-BGC job needs ~131 GB and the safe cap at 56 GB is ~6,900 BGCs, not the 18,977 the derivation returns. That cap puts the GenBank run at a 2-way split -- milder than the 942-of-1,302 split validated here, so the equivalence result covers it.",
+    "memory_extrapolation_caveat": "1,302 -> 11,707 is a 9x reach in n. The two fits bracket the answer at 19-68 GB; neither is measured there."
+  },
+  "memory_measurement": {
+    "method": "Total PSS summed across the BiG-SCAPE process tree, sampled every second at five sizes (bsmem/scale_pss.sh). PSS divides each shared page by its number of sharers, so summing across a fork-based worker pool counts the shared Pfam data once.",
+    "why_the_old_numbers_were_low": "/usr/bin/time -f %M is ru_maxrss, which for a parent plus waited-for children reports the max of any ONE process, never the sum. BiG-SCAPE on 8 cores runs 11 processes.",
+    "measured": {
+      "150": {
+        "tree_gb": 2.84,
+        "single_gb": 1.82,
+        "ratio": 1.56,
+        "wall_s": 43
+      },
+      "300": {
+        "tree_gb": 2.91,
+        "single_gb": 1.87,
+        "ratio": 1.55,
+        "wall_s": 79
+      },
+      "600": {
+        "tree_gb": 2.99,
+        "single_gb": 1.98,
+        "ratio": 1.51,
+        "wall_s": 136
+      },
+      "900": {
+        "tree_gb": 3.57,
+        "single_gb": 2.2,
+        "ratio": 1.63,
+        "wall_s": 209
+      },
+      "1300": {
+        "tree_gb": 4.37,
+        "single_gb": 2.64,
+        "ratio": 1.65,
+        "wall_s": 336
+      }
+    },
+    "the_ratio_is_not_constant": "1.51-1.65x, drifting up with n, so the curve is fitted directly on tree PSS rather than rescaled from the %M points. An earlier single-point rescale by 1.69x gave 3.06 + 8.22e-7*n^2 and a 56 GB cap of 7,361 \u2014 6% off.",
+    "fit": "GB = 2.78 + 9.34e-7*n^2, R2=0.988",
+    "projections": {
+      "5,000 BGCs": "26.1 GB",
+      "8,000": "62.5 GB",
+      "11,707": "130.7 GB"
+    },
+    "safe_caps_at_85pct": {
+      "32 GB": 5113,
+      "56 GB": 6928,
+      "64 GB": 7435,
+      "128 GB": 10656
+    },
+    "caveat": "1,302 -> 11,707 is a 9x reach in n, and the quadratic term is only 36% of the total at the largest measured size, so the extrapolation leans on it heavily."
+  }
+}
