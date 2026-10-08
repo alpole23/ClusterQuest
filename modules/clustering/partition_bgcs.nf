@@ -2,8 +2,10 @@
  * Assign BGCs to BiG-SCAPE partitions by pepM sequence identity.
  *
  * BiG-SCAPE memory is quadratic in BGC count above ~4,000 (~1.9 TB at 121,000).
- * Splitting on pepM identity first rebuilds the identical GCF network — ARI
- * 1.0000 on three independent sets — with the largest job at ~84 GB.
+ * Splitting on pepM identity first rebuilds the same GCF network — ARI 1.0000 on
+ * three independent sets at 185-518 BGCs, and 3 of 1,302 members moving at 1,302,
+ * which is what two unpartitioned runs of that input also move. Largest job
+ * ~84 GB. Holds only while no component is force-chunked.
  *
  * Runs before BIGSCAPE, so it reads pepM out of the region GenBanks via
  * hmmsearch rather than from a clustering database that does not exist yet.

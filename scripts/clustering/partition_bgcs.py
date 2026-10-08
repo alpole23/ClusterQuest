@@ -4,8 +4,15 @@
 BiG-SCAPE compares every BGC against every other and its memory goes quadratic
 above ~4,000 BGCs — `GB = 1.14 + 1.29e-7*n^2`, so ~1.9 TB at the 121,000 BGCs a
 million genomes would yield. Splitting the input first by pepM identity brings
-the largest job to ~84 GB while rebuilding the identical GCF network
-(ARI 1.0000 on three independent sets; see CLAUDE.md).
+the largest job to ~84 GB while rebuilding the same GCF network (ARI 1.0000 on
+three independent sets at 185-518 BGCs; at 1,302 BGCs 3 of 1,302 members move,
+the same 3 an unpartitioned re-run moves). That equivalence depends on no
+component being force-chunked — see `--max_partition_size` below and
+docs/comparisons/bigscape_partition_equivalence/.
+
+Note the fit above was measured on *replicated* BGCs and is 3.8x too shallow for
+genuinely distinct ones; the real curve on 1,302 distinct BGCs is
+`GB = 1.81 + 4.87e-7*n^2`. The derived cap is correspondingly too permissive.
 
 This runs *before* BiG-SCAPE, so unlike `analysis/pepm_all_by_all.py` it cannot
 read pepM sequences out of the clustering database — there is none yet. It

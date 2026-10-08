@@ -180,8 +180,8 @@
         },
         "download_max_forks": {
             "type": "integer",
-            "description": "Concurrent fetch tasks. MEASURED, not guessed: probed against NCBI on 2026-09-23 at 1/2/4/8, throughput peaked at 2 (33.5 MB/s, 159 genomes/min) and DECLINED above it, with zero failures at any level. That is a saturated link, not server th",
-            "default": 2,
+            "description": "Concurrent fetch tasks. MEASURED on the COMBINED fetch+screen stage, which is what this process actually does \u2014 a download-only probe overstates it, because the pepM screen runs inline before the next batch starts. Re-probed wired on 2026-1",
+            "default": 4,
             "x-group": "Download Genome Options"
         },
         "gtdb_release": {
@@ -224,6 +224,12 @@
             "type": "integer",
             "description": "see gtdbtkShardSize() in subworkflows/helpers.nf",
             "default": 5000,
+            "x-group": "GTDB-TK Phylogeny Options"
+        },
+        "gtdbtk_skip_ani_screen": {
+            "type": "boolean",
+            "description": "Skip GTDB-Tk's ANI pre-screen, sending every genome through the full markers -> align -> pplacer path. OFF, because the screen is a fast lane rather than a substitute: a genome without a close GTDB reference still takes the long path, so a ",
+            "default": false,
             "x-group": "GTDB-TK Phylogeny Options"
         },
         "input_genomes": {
