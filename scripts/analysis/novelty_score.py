@@ -29,16 +29,28 @@ essentially uncorrelated (Spearman rho = -0.17), and isolation is not a family-s
 artefact (singletons mean 0.490, multi-member families 0.505, singletons spanning
 the full range).
 
-Three axes, deliberately kept apart:
+**The composite priority score has been withdrawn.** It was ISOLATION x EVIDENCE,
+with isolation zeroed whenever a family's coupling enzyme matched a reference at
+>=60% identity, and both halves turned out to be unsound on this data:
 
-  DISTANCE   isolation in BiG-SCAPE space, zeroed when the family's chemistry is
-             already characterised
-  EVIDENCE   how confident we are the family is real, not an assembly artefact
-  REACH      how easy it would be to obtain a strain (reported, not ranked on)
+  the gate      CHARACTERISED_PCT = 60 was chosen because measured identities were
+                "bimodal with nothing between 45.4% and 93.8%" -- true of Erwiniaceae,
+                not of Enterobacterales, where they run 18.5-100% with the widest gap
+                at 75-94%. Five families sit at 64-75%, inside the supposedly empty
+                zone, and were zeroed out of follow-up while no characterised CLUSTER
+                sits within the family cutoff of any of them (0.38-0.63 away).
+  isolation     a within-run measurement, so it says whether anything else in THIS
+                dataset resembles the family -- not whether the family is novel. It is
+                not comparable between runs of different scope, and adding genomes can
+                only lower it.
 
-Rank on DISTANCE x EVIDENCE. They multiply rather than add because both are
-necessary: a maximally divergent single truncated region is not a lead, and adding
-would let novelty compensate for having no evidence behind it.
+What remains is a table of per-family facts, emitted one row per family and sorted by
+family id. Isolation and reference identity are still computed and published, each on
+its own terms; nothing multiplies them into a rank. Revisit a composite only with
+runs broad enough to calibrate one against.
+
+  EVIDENCE is still reported -- how confident we are the family is real rather than an
+  assembly artefact -- because it qualifies every other column on the row.
 """
 import argparse, collections, csv, json, math, re, sys
 from pathlib import Path
@@ -52,10 +64,12 @@ _VERSION = re.compile(r'\.\d+$')
 def bare_accession(acc):
     return _VERSION.sub('', acc)
 
-# Identity above which a reference counts as characterising the family's chemistry.
-# The exact value is unimportant and that is the point: measured identities are
-# bimodal with NOTHING between 45.4% and 93.8%, so any threshold in that gap gives
-# identical results. This is a robust separator, not a tuned one.
+# Identity above which a reference is LABELLED as characterising the family's
+# chemistry. It gates nothing -- see the module docstring. The value was chosen when
+# identities looked bimodal with nothing between 45.4% and 93.8%, which held on
+# Erwiniaceae and does not hold here: Enterobacterales runs 18.5-100% with its widest
+# gap at 75-94%, and five families sit at 64-75%. So treat the label as advisory and
+# read `reference_pct_id` itself.
 CHARACTERISED_PCT = 60.0
 # Evidence weights: independent observation dominates, structural integrity next.
 W_GENOMES, W_GENERA, W_INTACT, W_CLASS = 0.35, 0.25, 0.30, 0.10
@@ -83,13 +97,25 @@ def load(reps_path, tab_path, sup_path):
 
 
 def isolation_by_family(db_path, cutoff):
-    """{family_id: median nearest-cross-family BiG-SCAPE distance}.
+    """{family_id: median nearest-cross-family BiG-SCAPE distance}, or None.
 
     BiG-SCAPE writes the complete all-pairs matrix, so this needs no extra compute:
     55,278 rows for 333 regions. For each member we take the smallest distance to any
     region *outside* its family, then the MEDIAN of those over the family -- median
     rather than min so one atypical member cannot make a family look connected, and
     not max so one cannot make it look isolated.
+
+    **A member with no cross-family distance recorded is dropped, not scored 1.0.**
+    It used to be initialised to 1.0 and left there, which is a sentinel wearing the
+    costume of a measurement: 1.0 is the most isolated a family can look. That is
+    harmless unpartitioned, where the matrix is complete -- measured on 1,302
+    Enterobacterales regions, 0 of 1,302 members lack a cross-family pair. On a
+    PARTITIONED run the merged table holds only within-partition distances, so a
+    member whose nearest other family sits in another partition has none: 25 of 1,302
+    members, inflating 61 members by a median 0.356, and taking four families to a
+    flat 1.000 when the true maximum across all 72 is 0.668. Dropping them reports
+    the median over what was actually measured, and a family with nothing measured
+    returns None, which `score()` already handles as "no distances".
     """
     import sqlite3
     db = sqlite3.connect(db_path)
@@ -99,20 +125,36 @@ def isolation_by_family(db_path, cutoff):
     if not fam_of:
         db.close()
         return {}
-    nearest = {r: 1.0 for r in fam_of}
+    nearest = {}
     for a, b, d in db.execute("SELECT record_a_id, record_b_id, distance FROM distance"):
         fa, fb = fam_of.get(a), fam_of.get(b)
         if fa is None or fb is None or fa == fb:
             continue
-        if d < nearest[a]:
-            nearest[a] = d
-        if d < nearest[b]:
-            nearest[b] = d
+        for rec in (a, b):
+            if d < nearest.get(rec, 2.0):
+                nearest[rec] = d
     db.close()
     per = collections.defaultdict(list)
+    missing = collections.Counter()
     for rec, fid in fam_of.items():
-        per[fid].append(nearest[rec])
-    return {fid: median(v) for fid, v in per.items()}
+        if rec in nearest:
+            per[fid].append(nearest[rec])
+        else:
+            missing[fid] += 1
+    total_missing = sum(missing.values())
+    if total_missing:
+        # Loud, because the usual cause is a partitioned run whose merged distance
+        # table is incomplete by design, and the symptom is families that look novel.
+        print(f'warning: {total_missing} of {len(fam_of)} members have no '
+              f'cross-family distance and are excluded from isolation; '
+              f'{sum(1 for f in per if not per[f]) + len(set(missing) - set(per))} '
+              f'famil(ies) have none at all. On a partitioned run this is expected '
+              f'-- the merged table holds only within-partition pairs.',
+              file=sys.stderr)
+    out = {fid: median(v) for fid, v in per.items() if v}
+    for fid in missing:
+        out.setdefault(fid, None)
+    return out
 
 
 def num(v, default=None):
@@ -138,7 +180,12 @@ def build(reps, tab, sup):
     fam = collections.defaultdict(lambda: {
         'n': 0, 'genomes': set(), 'genera': set(), 'intact': 0, 'seen': 0,
         'd_coupling': [], 'd_pepm': [], 'classes': collections.Counter(),
-        'ref_pct': [], 'ref_org': collections.Counter()})
+        'ref_pct': [], 'ref_org': collections.Counter(),
+        # Which reference produced the identity. The report shows "75.3% (HvrC)";
+        # without the name a reader cannot tell a Pantoea match from a Streptomyces
+        # one, and four of the five families at 64-75% match HvrC while the fifth
+        # matches FrbC.
+        'ref_name': collections.Counter()})
 
     for key, v in reps['bgc_to_gcf'].items():
         f = fam[v['family_id']]
@@ -161,6 +208,8 @@ def build(reps, tab, sup):
                 f['ref_pct'].append(a)
                 if s.get('assigned_ref_organism'):
                     f['ref_org'][s['assigned_ref_organism']] += 1
+                if s.get('assigned_ref'):
+                    f['ref_name'][s['assigned_ref']] += 1
             f['classes'][s.get('assigned_class', 'Unknown')] += 1
     return fam
 
@@ -170,27 +219,15 @@ def median(xs, default=0.0):
 
 
 def score(f, isolation):
-    """(distance, evidence, priority, ...) for one family.
+    """(evidence, divergences, reference facts) for one family.
 
-    DISTANCE is isolation, gated by whether the chemistry is already characterised.
-    A family sitting 100% identical to HvrC is pantaphos: isolated or not, it is a
-    solved cluster and scores zero. Below the gap it is not characterised at any
-    useful resolution and isolation carries the signal alone.
-
-    Note what this fixes beyond the bias. The previous version could not rank a
-    family whose coupling enzyme matched no known class at all -- it had no distance
-    to compute, so those families went to an unranked bucket. Isolation needs no
-    reference, so they rank normally now; on Erwiniaceae the single MOST isolated
-    family in the run (GCF-16, isolation 0.861) was one of them.
+    No composite: see the module docstring. `characterised` is still returned, as a
+    LABEL on the reference-identity column rather than a gate on anything -- a reader
+    seeing 100% to HvrC should be told that means pantaphos, but it must not silently
+    erase the family's isolation.
     """
-    intact = f['intact'] / f['seen'] if f['seen'] else 0.0
-    if isolation is None:
-        # No clustering distances for this family: nothing honest to rank on.
-        return None, None, None, None, None, intact, '(no distances)'
-
     best_ref = max(f['ref_pct']) if f['ref_pct'] else None
     characterised = best_ref is not None and best_ref >= CHARACTERISED_PCT
-    distance = 0.0 if characterised else isolation
 
     d_c = median(f['d_coupling']) if f['d_coupling'] else None
     d_p = median(f['d_pepm']) if f['d_pepm'] else None
@@ -205,9 +242,9 @@ def score(f, isolation):
     evidence = (W_GENOMES * t_genomes + W_GENERA * t_genera +
                 W_INTACT * t_intact + W_CLASS * t_class)
 
-    return (distance, evidence, distance * evidence, d_c, d_p, t_intact,
-            top[0][0] if top else '-', best_ref,
+    return (evidence, d_c, d_p, t_intact, top[0][0] if top else '-', best_ref,
             f['ref_org'].most_common(1)[0][0] if f['ref_org'] else '',
+            f['ref_name'].most_common(1)[0][0] if f['ref_name'] else '',
             characterised)
 
 
@@ -231,64 +268,56 @@ def main():
         print(f'warning: no families at cutoff {a.cutoff} in {a.bigscape_db}; '
               f'nothing can be ranked', file=sys.stderr)
 
-    rows, unclassified = [], []
+    rows = []
     for fid, f in fam.items():
-        (dist, ev, pri, d_c, d_p, intact, cls,
-         best_ref, ref_org, characterised) = score(f, iso.get(fid))
-        rec = dict(gcf=fid, members=f['n'], genomes=len(f['genomes']),
-                   genera=len(f['genera']), intact=round(intact, 3),
-                   coupling_class=cls)
-        if pri is None:
-            rec.update(priority='', distance='', isolation='', evidence='',
-                       status='no distances', reference_pct_id='',
-                       reference_organism='', reference_status='',
-                       coupling_divergence='', pepm_divergence='')
-            unclassified.append(rec)
+        (ev, d_c, d_p, intact, cls, best_ref,
+         ref_org, ref_name, characterised) = score(f, iso.get(fid))
+        # Reference columns are CONTEXT. The organism is there so a reader can see at
+        # a glance that a 23% identity means "the only reference is a Streptomyces",
+        # not "novel chemistry".
+        if best_ref is None:
+            ref_status = 'none for this class'
+        elif characterised:
+            ref_status = 'characterised'
         else:
-            # Reference columns are published as CONTEXT, not as ranking terms. The
-            # organism is there so a reader can see at a glance that a 23% identity
-            # means "the only reference is a Streptomyces", not "novel chemistry".
-            if best_ref is None:
-                ref_status = 'none for this class'
-            elif characterised:
-                ref_status = 'characterised'
-            else:
-                ref_status = 'distant only'
-            rec.update(priority=round(pri, 4), distance=round(dist, 4),
-                       isolation=round(iso.get(fid, 0.0), 4),
-                       evidence=round(ev, 4), status='ranked',
-                       reference_pct_id=round(best_ref, 1) if best_ref is not None else '',
-                       reference_organism=ref_org, reference_status=ref_status,
-                       coupling_divergence=round(d_c, 4) if d_c is not None else '',
-                       pepm_divergence=round(d_p, 4) if d_p is not None else '')
-            rows.append(rec)
+            ref_status = 'distant only'
+        # None, not 0.0: a family with no cross-family distance measured has no
+        # isolation, and 0 would read as "sits on top of another family".
+        isolation = iso.get(fid)
+        rows.append(dict(
+            gcf=fid, members=f['n'], genomes=len(f['genomes']),
+            genera=len(f['genera']), intact=round(intact, 3), coupling_class=cls,
+            isolation='' if isolation is None else round(isolation, 4),
+            evidence=round(ev, 4),
+            status='measured' if isolation is not None else 'no distances',
+            reference_pct_id=round(best_ref, 1) if best_ref is not None else '',
+            reference_name=ref_name, reference_organism=ref_org,
+            reference_status=ref_status,
+            coupling_divergence=round(d_c, 4) if d_c is not None else '',
+            pepm_divergence=round(d_p, 4) if d_p is not None else ''))
 
-    rows.sort(key=lambda r: -r['priority'])
-    unclassified.sort(key=lambda r: -r['members'])
+    # By family id. There is no score to sort on, and the report sorts client-side.
+    rows.sort(key=lambda r: int(r['gcf']) if str(r['gcf']).isdigit() else 0)
 
-    cols = ['rank', 'gcf', 'status', 'priority', 'distance', 'isolation', 'evidence',
-            'members', 'genomes', 'genera', 'intact', 'coupling_class',
-            'reference_status', 'reference_pct_id', 'reference_organism',
-            'coupling_divergence', 'pepm_divergence']
+    cols = ['gcf', 'status', 'isolation', 'evidence', 'members', 'genomes', 'genera',
+            'intact', 'coupling_class', 'reference_status', 'reference_pct_id',
+            'reference_name', 'reference_organism', 'coupling_divergence',
+            'pepm_divergence']
     with open(a.out, 'w', newline='') as fh:
         w = csv.DictWriter(fh, fieldnames=cols, delimiter='\t', extrasaction='ignore')
         w.writeheader()
-        # Unclassifiable families lead the file: they are not ranked, and burying them
-        # under a score they do not have is how they would get overlooked.
-        for r in unclassified:
-            w.writerow({**r, 'rank': ''})
-        for i, r in enumerate(rows, 1):
-            w.writerow({**r, 'rank': i})
+        w.writerows(rows)
 
-    print(f'{len(rows)} families ranked, {len(unclassified)} unclassifiable')
-    if rows:
-        t = rows[0]
-        print(f'  top: GCF-{t["gcf"]} priority {t["priority"]:.3f} '
-              f'(distance {t["distance"]:.2f} x evidence {t["evidence"]:.2f}), '
-              f'{t["members"]} members, {t["coupling_class"]}')
-    for r in unclassified:
-        print(f'  unclassifiable: GCF-{r["gcf"]}, {r["members"]} members '
-              f'across {r["genomes"]} genomes')
+    no_iso = [r for r in rows if r['status'] != 'measured']
+    print(f'{len(rows)} families, {len(rows) - len(no_iso)} with isolation measured')
+    if no_iso:
+        print(f'  no cross-family distances: '
+              f'{", ".join(f"GCF-{r['gcf']}" for r in no_iso)}')
+    far = sorted((r for r in rows if r['isolation'] != ''),
+                 key=lambda r: -r['isolation'])[:3]
+    for r in far:
+        print(f'  most isolated: GCF-{r["gcf"]} {r["isolation"]:.3f}, '
+              f'{r["members"]} members, {r["coupling_class"]}')
     return 0
 
 

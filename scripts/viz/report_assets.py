@@ -311,7 +311,7 @@ REPORT_CSS = REPORT_CSS.replace(
     ',\n'.join(f'        #tab{i}:checked ~ #content{i}' for i in range(1, MAX_PANES + 1)))
 
 REPORT_JS = """\
-        // Jump from the priority table to the family's row in the master table.
+        // Jump from the GCF Characterisation table to the family's row in the master table.
         // Defined here, not in viz/clustering.py, because the caller and the target
         // live in different sections: clustering.py's <script> is only emitted when
         // there are families to render, so a handler defined there is undefined

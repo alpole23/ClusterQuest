@@ -48,7 +48,7 @@ from viz.report_sections import (build_bigscape_stats_section,
                                  build_no_clustering_notice, build_gcf_trees_tab,
                                  build_consensus_clusters_section,
                                  consensus_blocks_by_family, build_tabbed_nav,
-                                 build_priority_section, build_novelty_intro,
+                                 build_gcf_characterisation_section,
                                  build_all_regions_section, build_pipeline_tab)
 
 
@@ -66,13 +66,14 @@ def embed_image(svg_path=None, png_path=None):
 
 
 def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
-                         bigscape_stats_html='', gcf_visualization_html='',
+                         bigscape_stats_html='',
                          phylo_tree_generated=False, genome_table=None,
                          resource_usage_html='', phylo_tree_data=None, gcf_data=None, taxonomy_map=None,
                          versions_data=None, rarefaction_stats=None,
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
                          gcf_tree_mime='image/png',
                          gcf_heatmap_b64=None, novelty_ranking=None,
+                         reference_summary=None,
                          bioprofile_path=None,
                          consensus_clusters=None, transfer_summary=None,
                          coupling_table_rows=None, gcf_classes=None,
@@ -141,9 +142,9 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # coupling_table_rows and would otherwise interpolate a literal "None".
     # Region count for the collapsed listing's summary line.
     n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
-    priority_html    = build_priority_section(novelty_ranking, bioprofile_path,
-                                              gcf_hrefs, branch_point_path, gcf_data)
-    priority_section = (build_novelty_intro() + priority_html) if priority_html else ''
+    priority_section = build_gcf_characterisation_section(
+        novelty_ranking, bioprofile_path, gcf_hrefs, branch_point_path, gcf_data,
+        reference_summary)
     regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
     consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary,
                                                         gcf_hrefs, per_cds_path)
@@ -155,7 +156,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     # A run without --clustering bigscape has none of the family sections at all, and
     # the group would vanish from the rail with no explanation. One pane says why.
-    if not (bigscape_stats_section or gcf_visualization_html or consensus_html):
+    if not (bigscape_stats_section or consensus_html):
         phylogeny_key = build_no_clustering_notice()
 
     # The rail, and the panes it switches between. Order here is the order on the
@@ -186,7 +187,17 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             ('Biosynthetic phylogeny',    phylogeny_key + gcf_trees_tab),
             ('BiG-SCAPE statistics',      bigscape_stats_section),
             ('Coupling enzyme support',   support_section),
-            ('Family representatives',    gcf_visualization_html),
+            # 'Family representatives' is gone: it answered the same question as
+            # Consensus gene content, which answers it better. Both present ONE REAL
+            # MEMBER -- they differ only in which member (BiG-SCAPE's exemplar against
+            # the member carrying the greatest summed prevalence) -- and the consensus
+            # one is chosen on the question being asked and carries prevalence bands,
+            # cassette boundaries, role colouring and the full gene table beside it.
+            #
+            # Not for size: the pane was 34 KB of 6.68 MB and held no diagrams itself,
+            # only cards linking out. The representative's own diagram lives on the
+            # per-family page under gcf/, which is unchanged, and GCF Characterisation
+            # links each family's region straight to its antiSMASH page.
         ]),
         ('Phylogeny', [
             ('Taxonomic distribution',    f'''            <h3>Taxonomic Distribution of BGCs</h3>
@@ -303,6 +314,9 @@ def main():
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--novelty_ranking', type=Path, help='novelty_ranking.tsv from NOVELTY_SCORE')
+    parser.add_argument('--reference_summary', type=Path,
+                        help='reference_summary.json from BIGSCAPE_REFERENCES; absent on '
+                             'a partitioned run, where that pass is skipped')
     parser.add_argument('--biosynthetic_profile', type=Path,
                         help='biosynthetic_profile.tsv from BIOSYNTHETIC_PROFILE: filtered domain content per family, and which splits are not biosynthetic')
     parser.add_argument('--branch_point', type=Path,
@@ -414,7 +428,6 @@ def main():
     # Generate GCF visualization HTML and load GCF data for overview.
     # Each family's detail goes to its own page under gcf/ and the report carries a
     # master table of families linking to them; inlining all of it cost ~1 MB.
-    gcf_visualization_html = ''
     gcf_data_dict = None
     gcf_hrefs = {}
     if args.gcf_data and args.gcf_data.exists():
@@ -429,8 +442,6 @@ def main():
                              novelty_path=args.novelty_ranking,
                              branch_point_path=args.branch_point))
         print(f"  {len(gcf_hrefs)} per-family pages written to gcf/")
-        gcf_visualization_html, _ = generate_gcf_visualization_html(
-            str(args.gcf_data), args.taxon, hrefs=gcf_hrefs)
         # Also load as dict for overview sections
         try:
             with open(args.gcf_data, 'r') as f:
@@ -508,7 +519,7 @@ def main():
     if args.counts or args.tabulation:
         print(f"Generating HTML report...")
         generate_html_report(args.outdir, args.taxon, table_header, table_rows, stats, tree_html,
-                            bigscape_stats_html, gcf_visualization_html,
+                            bigscape_stats_html,
                             phylo_tree_generated,
                             genome_table, resource_usage_html, phylo_tree_data,
                             taxonomy_genome_json=taxonomy_genome_json,
@@ -523,6 +534,7 @@ def main():
                             gcf_tree_mime=gcf_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
                             novelty_ranking=args.novelty_ranking,
+                            reference_summary=args.reference_summary,
                             bioprofile_path=args.biosynthetic_profile,
                             consensus_clusters=args.consensus_clusters,
                             transfer_summary=args.transfer_summary,

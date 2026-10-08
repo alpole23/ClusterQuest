@@ -202,6 +202,7 @@ workflow BGC_ANALYSIS {
                 coupling_annotation_ch,
                 coupling_support_ch,
                 novelty_ch,
+                CLUSTERING.out.reference_summary,
                 branch_point_ch,
                 bioprofile_ch,
                 consensus_ch,

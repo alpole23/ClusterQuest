@@ -23,6 +23,9 @@ process VISUALIZE_RESULTS {
     path coupling_annotation
     path coupling_support
     path novelty_ranking
+    // Absent on a partitioned run: BIGSCAPE_REFERENCES is skipped there, so the
+    // characterised-cluster column renders as "not measured" rather than a miss.
+    path reference_summary
     path branch_point
     path biosynthetic_profile
     path consensus_clusters
@@ -67,6 +70,7 @@ process VISUALIZE_RESULTS {
     def coupling_annotation_arg = Utils.optArg('--coupling_annotation', coupling_annotation)
     def coupling_support_arg    = Utils.optArg('--coupling_support',    coupling_support)
     def novelty_arg             = Utils.optArg('--novelty_ranking',     novelty_ranking)
+    def reference_summary_arg   = Utils.optArg('--reference_summary',   reference_summary)
     def branch_point_arg        = Utils.optArg('--branch_point',        branch_point)
     def bioprofile_arg          = Utils.optArg('--biosynthetic_profile', biosynthetic_profile)
     def consensus_arg           = Utils.optArg('--consensus_clusters', consensus_clusters)
@@ -76,7 +80,7 @@ process VISUALIZE_RESULTS {
     def mibig_arg     = params.bigscape_mibig_version ? "--mibig_included" : ""
     def skip_tree_arg = params.skip_tree ? "--skip_tree" : ""
     """
-    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${branch_point_arg} ${bioprofile_arg} \\
+    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${reference_summary_arg} ${branch_point_arg} ${bioprofile_arg} \\
         ${consensus_arg} ${per_cds_arg} \\
         ${transfer_summary_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
     """

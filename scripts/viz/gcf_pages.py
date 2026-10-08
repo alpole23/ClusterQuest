@@ -52,7 +52,7 @@ def create_gcf_pages(outdir, taxon, cards, consensus_blocks=None, meta=None):
     cards             {family_id: representative-cluster HTML} from viz.clustering
     consensus_blocks  {family_id: consensus-table HTML} from viz.report_sections
     meta              {family_id: {members, genomes, product, organism, coupling_class,
-                                   branch_point, priority_rank, kcb_hit, ...}}
+                                   branch_point, isolation, kcb_hit, ...}}
     """
     consensus_blocks = consensus_blocks or {}
     meta = meta or {}
@@ -68,7 +68,7 @@ def create_gcf_pages(outdir, taxon, cards, consensus_blocks=None, meta=None):
         facts = []
         for key, label in (('members', 'BGCs'), ('genomes', 'Genomes'), ('genera', 'Genera'),
                            ('coupling_class', 'Coupling class'), ('branch_point', 'Secondary branch point'),
-                           ('priority_rank', 'Priority rank'), ('isolation', 'Isolation')):
+                           ('isolation', 'Isolation in this run')):
             v = m.get(key)
             if v not in (None, '', '-'):
                 facts.append(f'<div class="fact"><div class="k">{label}</div>'
@@ -131,7 +131,7 @@ def family_meta(gcf_data_file=None, novelty_path=None, transfer_summary=None,
         except Exception as exc:
             print(f'Warning: GCF metadata unavailable: {exc}')
 
-    for path, cols in ((novelty_path, {'gcf': 'gcf', 'rank': 'priority_rank',
+    for path, cols in ((novelty_path, {'gcf': 'gcf',
                                        'isolation': 'isolation', 'genomes': 'genomes',
                                        'genera': 'genera', 'coupling_class': 'coupling_class'}),
                        (branch_point_path, {'gcf': 'gcf', 'branch_point': 'branch_point'})):
