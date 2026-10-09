@@ -1166,6 +1166,95 @@ while being dead. Every section builder is now imported from `viz/`:
 - Uses GTDB-Tk taxonomy when available, falls back to NCBI taxonomy
 - Phylogenetic tree files available in `results/gtdbtk_results/` for external viewers (iTOL, FigTree)
 
+## Coupling enzyme assignment
+
+Every phosphonate BGC has a pepM; what it *makes* is decided by the enzyme that consumes
+phosphonopyruvate next. `bgc_coupling_annotation.py` calls that from antiSMASH SMCOG and
+domain markers, which are broad by design, so a region often carries more than one
+candidate CDS and the cascade below picks between them. **Advisory, not a verdict** —
+characterised phosphonate coupling enzymes are scarce.
+
+`classify_bgc` returns `(cls, marker, marker_seqs, cands)`; each candidate carries its
+class, marker, locus tag, product name, position, translation and distance from pepM. A
+two-pass `main` collects every region first, because step 3 needs the whole family.
+
+**The order is deliberate and was set by what each signal can and cannot know.**
+Measured on Enterobacterales, 1,273 region-level decisions:
+
+| | signal | decisions | share |
+|---|---|---:|---:|
+| 0 | only one candidate | 1,005 | 78.9% |
+| 1 | product name **vetoes** a candidate that contradicts its class | 4 | 0.3% |
+| 2 | product **names the phosphonate substrate** | 230 | 18.1% |
+| 3 | **conservation** — which class the rest of the family carries | 33 | 2.6% |
+| 4 | distance to pepM | 1 | 0.1% |
+| 5 | reference identity, needs margin ≥ 5% and > background | 0 | 0% |
+| — | unresolved (`AMBIGUOUS`, falls back to marker precedence) | 0 | 0% |
+
+**Why the name outranks distance.** *Winslowiella iniecta* B149 — lab-characterised —
+has its explicitly annotated "phosphonopyruvate decarboxylase" 9.8 kb from pepM and a
+generic "pyridoxal phosphate-dependent aminotransferase" at 1.1 kb. Distance picks the
+aminotransferase and is wrong. 95% of the 917 TPP-carrying CDS in the run are named for
+the substrate, so a name that identifies it beats one that does not.
+
+**Why conservation outranks distance and identity.** BiG-SCAPE clusters homologous BGCs,
+so what the rest of the family carries is evidence about this member. Conservation counts
+only members with ≥60% of the family's median CDS count, so a truncated region cannot vote.
+
+**Reference identity is last, and never fires.** `support()` scores one protein against
+four reference sets; the set is 7 proteins, 6 of them *Streptomyces*. Cross-class
+characterised enzymes score 26.7–29.7%, so `BACKGROUND_CEILING_PCT = 30.0` is the floor
+below which a match means nothing. With that floor and `AMBIGUOUS_MARGIN = 5.0` it decided
+nothing here — kept because it costs nothing and would fire on a better-referenced clade.
+
+**48 decisions are flagged low-margin** so a reader can find the ones worth checking by
+hand. `decided_by` and `evidence` are separate columns on purpose: the first names the
+signal that chose the class, the second says how good that evidence is.
+
+### Branch point
+
+`analysis/branch_point_prediction.py` asks which intermediate a pathway proceeds through.
+The calls name the answer rather than which search failed:
+
+| call | families |
+|---|---:|
+| neither — no PnAA formed | 32 |
+| catabolic arm (Ppd + C-P lyase operon) | 19 |
+| 2-AEP (homologue) | 12 |
+| neither — PnAA formed, no downstream enzyme | 3 |
+| neither — PnAA formed, only a class I/II transaminase | 2 |
+| 2-HEP (homologue / weak homologue) | 3 |
+| 2-AEP (class V transaminase, no profile hit) | 1 |
+
+**The synthase gate.** `SYNTHASE_DOMS = {'PF00682'}`; when present, `has_ppd` is forced
+false. A synthase consumes phosphonopyruvate to phosphonomethylmalate and never forms
+phosphonoacetaldehyde, so the 2-AEP/2-HEP question does not arise. The predictor used to
+fire on `TPP_enzyme_C`, which every ThDP decarboxylase carries — in GCF-25 that sat on the
+run's only indolepyruvate decarboxylase. Two families affected; afterwards every
+Decarboxylase family takes the PnAA route and no Synthase, Reductase or Transaminase family
+does, against two contradictions before.
+
+**`catabolism` is a role, not a contaminant.** Known operons carry both biosynthetic and
+catabolic phosphonate genes, so the C-P lyase operon *phnGHIJKLMNP* gets its own role in
+`utils/domain_functions.py` (`CATABOLISM`, 9 Pfams: PF06754, PF05845, PF05861, PF06007,
+PF01979, PF07969, PF00625, PF12706, PF13238). It is registered in `CATEGORIES` and
+**excluded from `ELABORATION`** — scavenging phosphorus is not tailoring a product. A
+family needs ≥4 of the 9 to be called catabolic.
+
+### Which families to trust
+
+Measured, not assumed — `docs/comparisons/family_cohesion/`. Of 44 families with ≥4
+members, **41 are sound, 3 flagged**: 2 chimeric, 1 wrongly split. **GCF-27 is the worst**
+at cohesion 0.10 across 21 sub-clusters, which is why it turns up as "nearest" to 11 of 17
+characterised references — a grab-bag is near everything.
+
+**The pantaphos families are three, and that is real** —
+`docs/comparisons/pantaphos_three_families/`. All three carry the same biosynthetic
+cassette and split on flanking chromosomal context, which differs by genus and which
+BiG-SCAPE weighs. Separately, two of them have cross-family pepM identity 0.975 against
+0.974 *within* one of them, and internal distance 0.190 against external 0.134 — those two
+should be merged, and are kept apart only because GCF numbering is BiG-SCAPE's.
+
 ## Post-Pipeline BGC Analysis Scripts
 
 These standalone scripts (in `scripts/`) perform additional analyses after the main pipeline completes. They operate on the BiG-SCAPE SQLite database and antiSMASH outputs.
