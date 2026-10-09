@@ -115,7 +115,7 @@ def main():
             'name': name,
             'regions': region_files(antismash),
             'families': families(dbs[0], a.cutoff) if dbs else {},
-            'novelty': read_tsv(a.results / 'main_analysis_results' / name / 'novelty_ranking.tsv'),
+            'novelty': read_tsv(a.results / 'main_analysis_results' / name / 'gcf_characterisation.tsv'),
             'genomes_screened': len(list(antismash.glob('*/'))),
         }
 

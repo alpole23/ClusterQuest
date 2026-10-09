@@ -3,7 +3,7 @@ include { TABULATE_REGIONS } from '../modules/analysis/tabulate_regions'
 include { AGGREGATE_TAXONOMY } from '../modules/analysis/aggregate_taxonomy'
 include { VISUALIZE_RESULTS } from '../modules/visualization/visualize_results'
 include { GCF_BIOSYNTHETIC_TREE } from '../modules/visualization/gcf_biosynthetic_tree'
-include { NOVELTY_SCORE } from '../modules/analysis/novelty_score'
+include { GCF_CHARACTERISATION } from '../modules/analysis/gcf_characterisation'
 include { GCF_ANNOTATION_TRANSFER } from '../modules/analysis/gcf_annotation_transfer'
 include { BRANCH_POINT_PREDICTION } from '../modules/analysis/branch_point_prediction'
 include { BIOSYNTHETIC_PROFILE } from '../modules/analysis/biosynthetic_profile'
@@ -85,7 +85,7 @@ workflow BGC_ANALYSIS {
             gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
-            novelty_ch              = placeholder('NO_NOVELTY')
+            characterisation_ch              = placeholder('NO_CHARACTERISATION')
             branch_point_ch            = placeholder('NO_BRANCH_POINT')
             bioprofile_ch              = placeholder('NO_BIOPROFILE')
             consensus_ch            = placeholder('NO_CONSENSUS')
@@ -171,15 +171,15 @@ workflow BGC_ANALYSIS {
 
                 // Needs the coupling support, so it runs after the tree rather than
                 // beside the clustering that produced the families.
-                NOVELTY_SCORE(
+                GCF_CHARACTERISATION(
                     taxon,
                     CLUSTERING.out.gcf_data,
                     tabulation_ch,
                     GCF_BIOSYNTHETIC_TREE.out.coupling_support,
                     CLUSTERING.out.bigscape_db,
-                    Utils.scriptsHash(projectDir, ['analysis/novelty_score.py'])
+                    Utils.scriptsHash(projectDir, ['analysis/gcf_characterisation.py'])
                 )
-                novelty_ch = NOVELTY_SCORE.out.ranking.ifEmpty(file('NO_NOVELTY'))
+                characterisation_ch = GCF_CHARACTERISATION.out.ranking.ifEmpty(file('NO_CHARACTERISATION'))
             }
 
             VISUALIZE_RESULTS(
@@ -201,7 +201,7 @@ workflow BGC_ANALYSIS {
                 gcf_heatmap_svg_ch,
                 coupling_annotation_ch,
                 coupling_support_ch,
-                novelty_ch,
+                characterisation_ch,
                 CLUSTERING.out.reference_summary,
                 branch_point_ch,
                 bioprofile_ch,

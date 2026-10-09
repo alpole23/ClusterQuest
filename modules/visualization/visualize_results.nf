@@ -22,7 +22,7 @@ process VISUALIZE_RESULTS {
     path gcf_heatmap_svg
     path coupling_annotation
     path coupling_support
-    path novelty_ranking
+    path gcf_characterisation
     // Absent on a partitioned run: BIGSCAPE_REFERENCES is skipped there, so the
     // characterised-cluster column renders as "not measured" rather than a miss.
     path reference_summary
@@ -69,7 +69,7 @@ process VISUALIZE_RESULTS {
     def pepm_json_arg           = Utils.optArg('--pepm_json',           pepm_json)
     def coupling_annotation_arg = Utils.optArg('--coupling_annotation', coupling_annotation)
     def coupling_support_arg    = Utils.optArg('--coupling_support',    coupling_support)
-    def novelty_arg             = Utils.optArg('--novelty_ranking',     novelty_ranking)
+    def novelty_arg             = Utils.optArg('--gcf_characterisation',     gcf_characterisation)
     def reference_summary_arg   = Utils.optArg('--reference_summary',   reference_summary)
     def branch_point_arg        = Utils.optArg('--branch_point',        branch_point)
     def bioprofile_arg          = Utils.optArg('--biosynthetic_profile', biosynthetic_profile)

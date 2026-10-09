@@ -208,10 +208,10 @@ Reports are deterministic: the same inputs and database pins produce the same HT
 
 ### Novelty score
 
-`NOVELTY_SCORE` ranks GCFs as `priority = distance × evidence`, where distance is
+`GCF_CHARACTERISATION` ranks GCFs as `priority = distance × evidence`, where distance is
 0.7 × coupling-enzyme divergence + 0.3 × pepM divergence, and evidence weights genome
 count, genus spread, region intactness, and class. The components are published
-alongside the composite in `novelty_ranking.tsv` and shown in the report, so a ranking
+alongside the composite in `gcf_characterisation.tsv` and shown in the report, so a ranking
 can be argued with rather than taken on faith. Families with no coupling data go in a
 separate unranked bucket instead of defaulting to zero distance.
 
@@ -250,7 +250,7 @@ results/
 └── main_analysis_results/{taxon}/
     ├── bgc_report.html                 # ← the report
     ├── genomes/                        # Per-genome pages (required by the report)
-    ├── novelty_ranking.tsv             # GCF priority + components
+    ├── gcf_characterisation.tsv             # GCF priority + components
     ├── region_counts.tsv               # BGC counts per genome
     ├── region_tabulation.tsv           # Per-region detail
     ├── rarefaction_curve.png

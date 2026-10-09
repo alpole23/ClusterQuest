@@ -108,7 +108,7 @@ stage(PHYLO_X, Y['split'], BW, BH, C['phylo'], 'PHYLOGENY',
 stage(CLUST_X, Y['split'], BW, BH, C['cluster'], 'CLUSTERING',
       'BiG-SCAPE  ·  Pfam 38.2', 'optional pepM partitioning', title_size=12)
 
-stage(SX, Y['score'], SW, SH, C['score'], 'GCF ANALYSIS  +  NOVELTY_SCORE',
+stage(SX, Y['score'], SW, SH, C['score'], 'GCF ANALYSIS  +  GCF_CHARACTERISATION',
       'coupling enzyme classes  ·  pepM all-by-all',
       'priority = distance × evidence', title_size=12)
 
@@ -123,7 +123,7 @@ output(OX, Y['screen'], OW, OH, 'Screening verdicts', 'prescreen_results/')
 output(OX, Y['as_'], OW, OH, 'BGC regions', 'antismash_results/')
 output(OX, Y['split'], OW, OH, 'Gene cluster families', 'bigscape_results/')
 output(LX, Y['split'], LW, OH, 'Placement', 'gtdbtk_results/')
-output(OX, Y['score'], OW, OH, 'Ranked families', 'novelty_ranking.tsv')
+output(OX, Y['score'], OW, OH, 'Ranked families', 'gcf_characterisation.tsv')
 output(OX, Y['viz'], OW, OH, 'Report', 'bgc_report.html')
 
 # ─── Flow ───────────────────────────────────────────────────────────────────

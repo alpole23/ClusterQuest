@@ -17,11 +17,11 @@
  * rather than fitted — there is no set of leads-that-panned-out to fit against, and a
  * lone number would launder that judgement into something that looks measured.
  */
-process NOVELTY_SCORE {
+process GCF_CHARACTERISATION {
     tag "$taxon"
     label 'process_low'
     publishDir "${params.outdir}/main_analysis_results/${Utils.sanitizeTaxon(params.taxon)}",
-        mode: params.publish_mode, pattern: 'novelty_ranking.tsv'
+        mode: params.publish_mode, pattern: 'gcf_characterisation.tsv'
 
     input:
     val taxon
@@ -36,16 +36,16 @@ process NOVELTY_SCORE {
     val scripts_version
 
     output:
-    path "novelty_ranking.tsv", emit: ranking, optional: true
+    path "gcf_characterisation.tsv", emit: ranking, optional: true
 
     script:
     """
-    python ${projectDir}/scripts/analysis/novelty_score.py \\
+    python ${projectDir}/scripts/analysis/gcf_characterisation.py \\
         --gcf_representatives ${gcf_representatives} \\
         --tabulation ${tabulation} \\
         --coupling_support ${coupling_support} \\
         --bigscape_db ${bigscape_db} \\
         --cutoff ${(params.bigscape_cutoffs.toString().split(',')[0]).trim()} \\
-        --out novelty_ranking.tsv
+        --out gcf_characterisation.tsv
     """
 }

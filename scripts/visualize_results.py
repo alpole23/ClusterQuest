@@ -72,7 +72,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          versions_data=None, rarefaction_stats=None,
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
                          gcf_tree_mime='image/png',
-                         gcf_heatmap_b64=None, novelty_ranking=None,
+                         gcf_heatmap_b64=None, gcf_characterisation=None,
                          reference_summary=None,
                          bioprofile_path=None,
                          consensus_clusters=None, transfer_summary=None,
@@ -143,7 +143,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # Region count for the collapsed listing's summary line.
     n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
     priority_section = build_gcf_characterisation_section(
-        novelty_ranking, bioprofile_path, gcf_hrefs, branch_point_path, gcf_data,
+        gcf_characterisation, bioprofile_path, gcf_hrefs, branch_point_path, gcf_data,
         reference_summary)
     regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
     consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary,
@@ -313,7 +313,7 @@ def main():
     parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
-    parser.add_argument('--novelty_ranking', type=Path, help='novelty_ranking.tsv from NOVELTY_SCORE')
+    parser.add_argument('--gcf_characterisation', type=Path, help='gcf_characterisation.tsv from GCF_CHARACTERISATION')
     parser.add_argument('--reference_summary', type=Path,
                         help='reference_summary.json from BIGSCAPE_REFERENCES; absent on '
                              'a partitioned run, where that pass is skipped')
@@ -439,7 +439,7 @@ def main():
                                                         args.transfer_summary,
                                                         args.per_cds),
             meta=family_meta(gcf_data_file=args.gcf_data,
-                             novelty_path=args.novelty_ranking,
+                             novelty_path=args.gcf_characterisation,
                              branch_point_path=args.branch_point))
         print(f"  {len(gcf_hrefs)} per-family pages written to gcf/")
         # Also load as dict for overview sections
@@ -533,7 +533,7 @@ def main():
                             gcf_tree_b64=gcf_tree_b64,
                             gcf_tree_mime=gcf_tree_mime,
                             gcf_heatmap_b64=gcf_heatmap_b64,
-                            novelty_ranking=args.novelty_ranking,
+                            gcf_characterisation=args.gcf_characterisation,
                             reference_summary=args.reference_summary,
                             bioprofile_path=args.biosynthetic_profile,
                             consensus_clusters=args.consensus_clusters,

@@ -2594,10 +2594,16 @@ identical runs, so GCF representatives were unstable before this. Even pinned, c
 the genome set permutes load order again — like GCF ids, far distances are comparable
 only within one run.
 
-### `NOVELTY_SCORE` — ranking families for laboratory follow-up
+### `GCF_CHARACTERISATION` — per-family facts (was `NOVELTY_SCORE`)
 
-`priority = distance x evidence`. They multiply because both are necessary: a maximally
-divergent single truncated region is not a lead.
+**The composite score is withdrawn, and the process and its output are renamed**
+(`gcf_characterisation.py`, `gcf_characterisation.tsv`) because they no longer rank
+anything. What follows is the history of how the ranking was built and then taken apart;
+the withdrawal note at the end of this section says why, and the report section it feeds is
+documented under *HTML Report Features*.
+
+It *was* `priority = distance x evidence`, multiplied because both are necessary: a
+maximally divergent single truncated region is not a lead.
 
 **The distance axis was reference-biased, and the bias was the whole signal.** The first
 version measured identity to the 7 characterised references. Six of those are
@@ -2648,6 +2654,33 @@ identical results** — robust, not tuned.
 | 1 | **1** | 9 | Reductase; was top on VlpB distance alone |
 | 9 | 3 | 11 | Reductase |
 | 2 | 17 | 18 | pantaphos — `characterised`, distance zeroed, correctly at the bottom |
+
+**Then both halves failed on Enterobacterales, and the composite was withdrawn.**
+
+The gate: `CHARACTERISED_PCT = 60` was chosen because the identities above are bimodal
+with nothing between 45.4% and 93.8%, so any threshold in the gap gives identical results.
+That gap is an *Erwiniaceae* property. Enterobacterales runs **18.5-100% with its widest
+gap at 75-94%**, and five families sit at 64-75% — inside the zone assumed empty. All five
+were zeroed out of follow-up while **no characterised cluster sits within the family cutoff
+of any of them** (0.38-0.63 away). Four match HvrC, GCF-17 matches FrbC.
+
+Isolation: a within-run quantity. It says whether anything else in *this dataset* resembles
+the family, not whether the family is novel, and adding genomes can only lower it — so it
+is not comparable between runs of different scope.
+
+Both inputs are still computed and published, each on its own terms, and the report shows
+them as independent columns. Nothing multiplies them. `CHARACTERISED_PCT` now only
+*labels* `reference_status`; it gates nothing. Revisit a composite when there are runs
+broad enough to calibrate one against.
+
+**Isolation also stopped reporting a sentinel as a measurement.** `nearest` was
+initialised to 1.0 and left there when a member had no cross-family distance — and 1.0 is
+the most isolated a family can look. Harmless unpartitioned, where 0 of 1,302
+Enterobacterales members lack a pair. On a **partitioned** run the merged table holds only
+within-partition distances, so 25 of 1,302 have none: 61 members inflated by a median
+0.356, and **four families taken to a flat 1.000 against a true maximum of 0.668 across all
+72**. Those members are now excluded and a family with none reports no isolation, which
+`score()` already handled.
 
 GCF-11 rising from 12th to 3rd is worth noting: the lab picked that cluster for
 characterisation on independent grounds, and the unbiased axis agrees with them where

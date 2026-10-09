@@ -923,7 +923,7 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
     calibrated on an identity gap that does not exist in Enterobacterales, and zeroed
     five families whose CLUSTERS sit 0.38-0.63 from anything characterised; isolation
     is a within-run quantity that is not comparable between runs of different scope.
-    Both inputs are still shown, each on its own terms. See novelty_score.py.
+    Both inputs are still shown, each on its own terms. See gcf_characterisation.py.
 
     Two measures of "is this already known" sit side by side because they disagree,
     and in opposite units:
