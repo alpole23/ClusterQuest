@@ -39,7 +39,7 @@
   "PYTHONHASHSEED_is_not_the_whole_story": "Both monolithic arms ran with PYTHONHASHSEED=0 and still disagreed. The pin fixes GBK load order and therefore pair orientation, which is what it was added for, but it does not make affinity propagation's exemplar choice deterministic for members sitting between two nearly equivalent families.",
   "what_to_do": {
     "partitioning_for_the_GenBank_run": "Safe, provided no component is force-chunked.",
-    "do_not_let_the_cap_derive_itself": "bigscape_partition_max_size = 0 inverts GB = 1.14 + 1.29e-7*n^2, which is wrong twice over: it was measured on REPLICATED BGCs (bench_bigscape_scaling.py copies a 333-BGC pool, where duplicate domain content is cheap), and with /usr/bin/time -f %M, which reports one process rather than the tree. Directly measured, GB = 2.78 + 9.34e-7*n^2, so a monolithic 11,707-BGC job needs ~131 GB and the safe cap at 56 GB is ~6,900 BGCs, not the 18,977 the derivation returns. That cap puts the GenBank run at a 2-way split -- milder than the 942-of-1,302 split validated here, so the equivalence result covers it.",
+    "do_not_let_the_cap_derive_itself": "The derivation inverts GB = 1.14 + 1.29e-7*n^2, which understates by the 1.58x instrument factor. Corrected, the safe cap at 56 GB is ~15,000 against the 18,977 it returns -- 27% high, worth setting explicitly for a run near the cap but not dangerous. An ~11,700-BGC run needs ~30 GB and does not need partitioning. See RETRACTION_2026_10_08.",
     "memory_extrapolation_caveat": "1,302 -> 11,707 is a 9x reach in n. The two fits bracket the answer at 19-68 GB; neither is measured there."
   },
   "memory_measurement": {
@@ -90,6 +90,7 @@
       "64 GB": 7435,
       "128 GB": 10656
     },
-    "caveat": "1,302 -> 11,707 is a 9x reach in n, and the quadratic term is only 36% of the total at the largest measured size, so the extrapolation leans on it heavily."
+    "caveat": "1,302 -> 11,707 is a 9x reach in n, and the quadratic term is only 36% of the total at the largest measured size, so the extrapolation leans on it heavily.",
+    "RETRACTION_2026_10_08": "The fit in `fit` below (2.78 + 9.34e-7*n^2) is an OVER-CORRECTION and must not be used for extrapolation. It comes from 150-1,300 BGCs where the quadratic term is only 36% of the signal; extrapolating it to 121,000 is 93x in n^2, against a published benchmark that reaches 10,000 BGCs -- 1.62 GB at 333 rising to 14.21 GB at 10,000, the quadratic in full view. That benchmark is better founded and was dismissed too readily. Two confounds were conflated: the tree-PSS/ru_maxrss ratio is REAL and stable at 1.58x (1.51-1.65 over five sizes), but BGC replication is NOT -- at n=333 the pool is 1.0x, no replication at all, and distinct BGCs still read 1.16x, the same as at n=600 with a 1.8x pool, so that is dataset variance. The defensible curve is the published fit x 1.58: GB = 1.80 + 2.04e-7*n^2 -> ~30 GB at 11,707 BGCs (fits 56 GB WITHOUT partitioning) and ~3.0 TB rather than 1.8 TB at 121,000. Safe cap at 56 GB is ~15,000, not ~6,900."
   }
 }

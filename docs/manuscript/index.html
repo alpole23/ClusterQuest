@@ -434,9 +434,14 @@ pepM, which is why two prior validations passed over this.</p>
 <h3><span class="num">2.5</span>Clustering at scale trades runtime for memory</h3>
 
 <p>BiG-SCAPE's all-pairs comparison is quadratic in both time and memory. Measured to 10,000
-BGCs, peak resident memory fits <span class="mono">GB = 1.14 + 1.29 × 10⁻⁷ n²</span>,
-projecting ~1,890 GB at the ~121,000 BGCs a million genomes would yield — a machine most
-groups do not have. Partitioning on pepM identity bounds this, at a cost (Figure 4).</p>
+BGCs, peak memory fits <span class="mono">GB = 1.80 + 2.04 × 10⁻⁷ n²</span>,
+projecting ~3.0 TB at the ~121,000 BGCs a million genomes would yield — a machine most
+groups do not have. The coefficient is the benchmark's <span class="mono">ru_maxrss</span>
+fit scaled by 1.58: BiG-SCAPE runs eleven processes and
+<span class="mono">ru_maxrss</span> reports only the largest, so summing resident set size
+across the process tree — counting each shared page once, by its proportional share —
+gives 1.58× the recorded figure, stably across five sizes. Partitioning on pepM identity
+bounds this, at a cost (Figure 4).</p>
 
 <figure>
   <img src="fig4.svg" alt="Three panels: BiG-SCAPE wall time with and without partitioning at three scales; peak memory versus BGC count with measured points and fitted curves; and gene cluster family counts showing no change.">
@@ -444,7 +449,13 @@ groups do not have. Partitioning on pepM identity bounds this, at a cost (Figure
   <strong>A</strong>, partitioning is 1.7–3.7× <em>slower</em> at every scale measured,
   because each partition re-pays the fixed profile-loading cost. <strong>B</strong>, peak
   memory; the fit is drawn solid over its measured range and dashed where extrapolated.
-  <strong>C</strong>, family counts are identical, ARI 1.0000, zero families split or merged.
+  Points and curve are the benchmark's <code>ru_maxrss</code> scaled by 1.58, the measured
+  ratio of total process-tree PSS to single-process RSS — BiG-SCAPE runs eleven processes
+  and <code>ru_maxrss</code> reports only the largest, so the raw figures are a lower bound.
+  <strong>C</strong>, family counts are identical, ARI 1.0000, zero families split or merged
+  at the natural pepM cut. Forcing a split of a component larger than the per-partition cap
+  does break real families — at 1,302 BGCs, 4,605 co-membership pairs broken and 7
+  families invented — so that cap is a safety valve, not a tuning knob.
   All three scales were measured at antiSMASH's own 5 kb flank; re-run at the 10 kb default
   the <em>Erwiniaceae</em> counts are 22 rather than 19, and the result is unchanged — 22
   families either way, 18,568 co-membership pairs either way, ARI 1.0000.</figcaption>

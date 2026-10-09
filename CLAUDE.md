@@ -2218,6 +2218,1832 @@ past its data**: it was measured to 10,000 BGCs, and 128 GB implies ~31,000 — 
 4.4x at 256 GB. The margin costs ~8% of the cap and buys ~19 GB of headroom at 128 GB,
 against an OOM kill that discards hours of clustering.
 
+**That table understates, and the cause is the instrument rather than the data.**
+`bench_bigscape_scaling.py` copies a 333-BGC pool to reach 10,000, and its docstring flags
+family counts as distorted while asserting memory is faithful. Replication turns out *not*
+to be the problem: at n=333 the pool is 1.0x — no replication at all — and distinct BGCs
+read 1.16x, the same as at n=600 with a 1.8x pool, so that difference is dataset variance.
+
+**The instrument was wrong, by 1.58x — not the 7x an earlier version of this note
+claimed.** `/usr/bin/time -f %M` is `ru_maxrss`, which for a parent plus waited-for children
+reports the max of any ONE process, and BiG-SCAPE runs 11. Re-measured as total PSS summed
+across the process tree (`bsmem/scale_pss.sh`):
+
+| n | tree PSS | `%M` single process | ratio |
+|---:|---:|---:|---:|
+| 150 | 2.84 GB | 1.82 GB | 1.56x |
+| 600 | 2.99 | 1.98 | 1.51x |
+| 1,300 | 4.37 | 2.64 | 1.65x |
+
+Stable at **1.58x**, so the honest curve is the published fit times that ratio:
+**`GB = 1.80 + 2.04e-7*n^2`**.
+
+| n | corrected | published fit | | RAM | safe cap at 85% |
+|---:|---:|---:|---|----:|----:|
+| 5,000 | 7 GB | 4 GB | | 32 GB | 11,163 |
+| 11,707 | **30 GB** | 19 GB | | 56 GB | **14,990** |
+| 121,000 | **3.0 TB** | 1.8 TB | | 128 GB | 22,912 |
+
+So the derivation returns 18,977 at 56 GB where ~15,000 is honest — 27% high, worth setting
+`bigscape_partition_max_size` explicitly for a run near the cap, but not dangerous. **An
+~11,700-BGC GenBank run needs ~30 GB and fits this box without partitioning at all.**
+
+**Retracted, 2026-10-08.** An earlier version of this section fitted a quadratic over
+150–1,300 BGCs — `2.78 + 9.34e-7*n^2` — and read off 131 GB at 11,707 and a safe cap of
+~6,900. Over that range the quadratic term is only 36% of the signal, and extrapolating it
+to 121,000 is 93x in n², against a benchmark that reaches 10,000 BGCs where the quadratic is
+in full view (1.62 GB at 333 rising to 14.21 GB). The benchmark is the better-founded curve
+and was dismissed too readily. That version also blamed BGC *replication*, which the data
+does not support: at n=333 the pool is 1.0x — no replication at all — and distinct BGCs
+still read 1.16x, the same as at n=600 with a 1.8x pool. That ratio is dataset variance.
+Only the instrument correction survives.
+
+
+Worth watching rather than fixed: ~95 GB of scratch is per *concurrent* `GTDBTK_CLASSIFY`
+task, so two shards at once is ~190 GB.
+
+**Re-tested on the hard input, because RefSeq is the easy one** —
+`docs/comparisons/gtdbtk_ani_screen_genbank/`. RefSeq is curated, so 100% agreement there
+could have been an artefact. 450 GenBank genomes none of which the RefSeq run saw, 150 each
+at complete / scaffold / contig level (median contigs 2 / 107 / 60), including *Buchnera*
+endosymbionts and *Candidatus* Stammera:
+
+| | RefSeq · 2,530 | GenBank · 450 |
+|---|---:|---:|
+| fell through to pplacer | 9 (**0.4%**) | 24 (**5.3%**) |
+| ANI calls matching tree placement | 100% | **426 of 426** |
+| wall, screen on | 50 min | **44 min** |
+| wall, screen off | — | **143 min** |
+
+**GenBank genomes do miss the screen 13x more often**, and it concentrates in contig-level
+assemblies (11.3% against 4.0% complete; median 96 contigs among misses against 40 among
+matches). But a miss routes to tree placement automatically, so it costs time rather than
+accuracy — the screen is a fast path, not a substitute. Note the mechanism is *not*
+annotation quality: GTDB-Tk discards submitted annotation and runs prodigal itself. And it
+is not purely contiguity either, since scaffold-level fell through *least* of all (0.7%),
+which points at taxonomic novelty as a second factor.
+
+Two caveats kept in the record: 79 of the 426 matches are self-matches, because GTDB draws
+its references from GenBank (27 of the 450 collided by accession outright, and GTDB-Tk
+refuses to start until the queries are renamed — the pipeline avoids this by naming genomes
+after the organism); and the ground truth is GTDB-Tk's own tree placement, so this measures
+whether the fast path reproduces the slow path, not whether either is taxonomically right.
+
+`GTDBTK_CLASSIFY` is sharded (`gtdbtk_shard_size`, default 5,000). Each shard re-pays only
+the 23.2 CPU-min intercept, so 20 shards cost ~7.7 CPU-h on ~1,271 — **0.6%**, which makes
+the sharding cheap insurance rather than a gamble. Data:
+`docs/comparisons/gtdbtk_scaling/`.
+
+**What the order actually contains.** Only pantaphos falls inside the 0.30 cutoff
+(234 BGCs). The other 16 references sit **0.37-0.43** away, against 0.62-0.89 on
+Erwiniaceae — so Enterobacterales holds chemistry markedly closer to the characterised
+record, just not inside the family cutoff. 1,069 of 1,303 BGCs are not within 0.30 of any
+characterised cluster. Branch points: not via PnAA 30, unknown (Ppd, no third enzyme) 24,
+2-AEP 13, 2-HEP 3.
+
+**The 640-genome pilot's singletons were dereplication, confirmed.** That pilot gave 40
+GCFs from 50 BGCs, 34 of them singletons, and an early reading took it for high diversity.
+One genome per species means a family can only form where different species share a
+cluster. At full depth the same order gives 72 families from 1,303 BGCs, largest 186, only
+16 singletons. **Never read family structure off a dereplicated set.**
+
+### Paper figures (`scripts/figures/`, output in `docs/figures/`)
+
+Four figures, each regenerating with one command and no live run directory:
+
+| script | manuscript | shows |
+|---|---|---|
+| `fig1_window_x_recovery.py` | Figure 1 | LMG 5342's two clusters at 2x2 window x recovery |
+| `fig1_orf_recovery.py` | Figure 2 | ORF recovery across clades + a gain distribution |
+| `fig2_prescreen.py` | Figure 3 | pre-screen CPU saving and detection neutrality |
+| `fig3_partitioning.py` | Figure 4 | BiG-SCAPE partitioning: runtime, memory, families |
+
+**Inputs are committed, and that was not free.** Figures 1 and 2 read region GenBanks
+that used to come from six A/B run directories under `results_*/`, which is gitignored and
+was 177 GB — so the manuscript's "every figure regenerates from committed data" was false
+until `docs/comparisons/figure_inputs/` was extracted (2.5 MB: the 14 GenBanks the panels
+draw, plus 717 per-region gene gains as a table). `gain_distribution()` reads that table
+and never globs: only the drawn regions are committed, so a glob would return a PARTIAL
+distribution and draw a wrong panel with no error. `--rebuild-gains` refreshes it from a
+live run.
+
+**Measured and projected must not look alike.** Figure 3 carries Enterobacterales at 32x,
+which is the panel's strongest point and also the only one whose without-screen arm was
+never run (150,690 antiSMASH runs, ~3,365 CPU-h). It is drawn hatched and captioned
+"PROJECTED, not run" rather than filled like the four measured pairs.
+
+**Check the render, not just the exit code.** Adding that point produced a figure whose
+headline still said "up to 9x" and which placed the most dilute taxon at the right-hand
+end of a panel ordered by prevalence lowest-first. Both were obvious on sight and
+invisible in the script.
+
+Output is byte-deterministic across processes — `utils/plotting` pins `svg.hashsalt` and
+`canonicalise_svg` rewrites clip-path ids. The committed SVGs were found stale once,
+produced by older script versions and never refreshed; regenerate all four after touching
+any of them.
+
+### Measured: BiG-SCAPE scaling (2026-08-30)
+
+`scripts/bench_bigscape_scaling.py`, ten sizes from 333 to 10,000 BGCs, built by
+replicating real Erwiniaceae region GBKs with unique identities (BiG-SCAPE dedupes on the
+sha256 of raw file bytes).
+
+| BGCs | comparisons | wall | CPU-s | us/pair | peak RSS | db | B/pair |
+|-----:|------------:|-----:|------:|--------:|---------:|---:|-------:|
+| 333 | 55,278 | 45.1 s | 277 | 816 | 1.62 GB | 15 MB | 267 |
+| 1,000 | 499,500 | 148.1 s | 911 | 297 | 2.01 GB | 75 MB | 151 |
+| 2,000 | 1,999,000 | 350.4 s | 2,217 | 175 | 2.54 GB | 242 MB | 121 |
+| 4,000 | 7,998,000 | 991.3 s | 6,077 | 124 | 3.40 GB | 856 MB | 107 |
+| 6,000 | 17,997,000 | 32.4 m | 11,148 | 108 | 5.68 GB | 1.86 GB | 103 |
+| 8,000 | 31,996,000 | 55.4 m | 18,729 | 104 | 9.08 GB | 3.25 GB | 102 |
+| 10,000 | 49,995,000 | 85.6 m | 28,535 | 103 | 14.21 GB | 5.06 GB | 101 |
+
+**Comparisons are all-pairs at every size** — the `distance` table holds exactly n(n-1)/2
+rows, n^2.000, no pruning. That is the check the benchmark rests on; if it ever stops
+holding, the curve is measuring something else.
+
+**CPU: ~1,090 CPU-h at 121,000 BGCs, about $54.** Cost per comparison falls 816 -> 103 us
+and has flattened; the local exponent climbs 1.05 -> 1.89 and is converging on 2. Fit
+`cpu_s = 1643 + 2.68e-4*n^2` on the top four sizes (worst residual 2.4%). The harness also
+prints a power-law fit (n^1.241, R2=0.99) — **do not extrapolate that one**, it understates
+by 10x. An earlier 21,000 CPU-h estimate overstated by 20x for the mirror reason: it scaled
+the whole 333-BGC runtime quadratically, fixed Pfam and database cost included.
+
+**Memory is the wall, and it is invisible below 4,000 BGCs.** Peak RSS looks flat across
+the first seven sizes (1.62 -> 3.40 GB) and an earlier draft concluded memory was not a
+constraint. It was measured over a range where the growth had not started. The local
+exponent runs 0.11 -> 0.29 -> 0.59 -> 1.27 -> 1.63 -> **2.01**: above ~4,000 BGCs it is
+exactly quadratic. Fit `GB = 1.14 + 1.29e-7*n^2` gives **~1.9 TB at 121,000 BGCs**, 4.3 TB
+at *Pantoea*-level BGC yield.
+
+| RAM budget | largest single BiG-SCAPE job |
+|-----------:|-----------------------------:|
+| 48 GB (`process_high` label) | 19,100 BGCs |
+| 64 GB (SLURM `withName: BIGSCAPE`) | 22,100 BGCs |
+| 128 GB | 31,400 BGCs |
+| 1 TB | 89,100 BGCs |
+
+So a million genomes cannot be clustered in one pass. Partition by BGC class, or
+pre-cluster, before that point. **The 64 GB SLURM override caps the pipeline at ~22,000
+BGCs** — roughly 180,000 genomes at Erwiniaceae-level prevalence, which is where this will
+first bite.
+
+**Database: ~0.74 TB at 121,000 BGCs.** Bytes per comparison converged to 101, so 7.3
+billion rows in one SQLite file (16.9 billion / 1.71 TB at the higher yield). Real, but a
+smaller problem than the RAM.
+
+One trap: BiG-SCAPE shells out to `fasttree` for its GCF trees. Nextflow supplies it via
+the activated conda env; invoking the binary by path does not, and the run dies *after*
+computing every distance. The harness prepends the executable's own bin to `PATH`.
+
+**antiSMASH cost tracks base pairs, not genome count.** Per-genome cost *fell* 98.0 →
+80.4 CPU-s when the taxon widened, because Erwiniaceae drags in 213 *Buchnera*
+endosymbionts at ~0.6 Mb. Smallest to largest bin is a 6.2x runtime spread (6.9 s vs
+42.6 s). Do not carry either figure to an arbitrary genome set without checking size
+distribution.
+
+**GTDB-Tk does not need 104 GB.** Nextflow's `peak_rss` reads ~104 GB and is an artefact:
+it sums RSS across pplacer's forked children, which all map the same reference database,
+and it did not move between the two runs (104.3 → 104.0 GB) despite 59% more queries.
+A 30-second sampler over the Erwiniaceae run measured the truth — largest single process
+**pplacer at 47.0 GB**, peak system memory in use **19.2 GB**, minimum available 37.6 GB,
+peak swap 2.0 GB. Most of pplacer's 47 GB is file-backed `mmap`, reclaimable under cgroup
+pressure. The SLURM profile still requests 128 GB as deliberate insurance (an OOM kill
+costs a 90-minute task and its queue slot; the over-request costs ~$0.05) — but note it
+tips the billed dimension from cores to memory at 8 cores. Verify with `sacct -o MaxRSS`
+before paying that premium across sharded jobs.
+
+**Storage, complete accounting (Erwiniaceae, 2,758 genomes).** Earlier figures counted
+only `antismash_results/` and understated peak by 6.7x. `publishDir` used `mode: 'copy'`,
+so `work/` held a second copy of everything.
+
+| | GB | MB/genome |
+|---|---:|---:|
+| `results/ncbi_dataset` (raw download) | 24.0 | 8.91 |
+| `results/renamed_genomes` | 24.0 | 8.91 |
+| `results/antismash_results` | 21.0 | 7.79 |
+| `results/` other | 0.4 | 0.13 |
+| `work/` (download, rename, antiSMASH, GTDB-Tk) | 70.7 | 26.25 |
+| **peak during a run** | **140.0** | **51.99** |
+
+Every genome's sequence was stored **four times** — raw in `work/`, raw published, renamed
+in `work/`, renamed published — 35.3 MB/genome, 68% of all storage. Two changes on
+2026-08-30 address it:
+
+- **`params.publish_mode = 'link'`** (was a hardcoded `mode: 'copy'` in all 17 modules).
+  Hard links mean a published file and its `work/` counterpart share an inode, so
+  `results/` costs no extra disk. Verified: the published copy survives
+  `nextflow clean -f`, the inode's link count simply drops to 1. Needs `outdir` and
+  `workDir` on one filesystem — set `'copy'` if they are not, or if anything edits
+  published files in place, since a write through a hard link also rewrites the cached
+  task output and corrupts `-resume`.
+- **The download no longer publishes the genomes**, only the metadata that `main.nf`'s
+  `bgc_analysis` entry reads. The `*.gbff` payload was republished by the renaming step
+  anyway.
+
+Together: ~52 -> ~16 MB/genome peak, and the 1M-genome projection goes 49.6 TB -> ~16 TB.
+
+**Superseded downward again on 2026-09-24.** That 16 MB/genome was every downloaded
+genome. Screening now happens inside the fetch, so at Erwiniaceae's 11% retention the
+other 89% are never written: ~2 TB at a million genomes rather than 16, and peak stops
+tracking taxon size at all. See "Batched download" below.
+
+Two Nextflow traps found doing this, both verified against the real output declarations:
+`publishDir`'s `pattern:` publishes **nothing at all** when any output is declared with a
+`**` glob, and a directory output (`path "ncbi_dataset/"`) is published as a single item
+that `saveAs` cannot filter inside — so the fix needed `saveAs` returning null *and*
+removal of the directory output, which was emitted but never consumed.
+
+**antiSMASH output after `--no-zip-output` / `--no-summary-gbk`:** 24.63 -> 8.55 MB per
+genome, **-65.3%**, measured like-for-like on 40 genomes present in both runs. I/O did not
+improve — ~3.2 GB per genome of small-file read+write is the shared-filesystem risk.
+
+**Projected to 1M genomes** at UIUC internal rates (`max(cores x $1.19, GB x $0.08)`
+per day, storage $8.75/TB/month): antiSMASH ~25,000 CPU-h / $1,240; GTDB-Tk in 50k
+batches 563 CPU-h / $30; BiG-SCAPE ~1,090 CPU-h / $54 (measured, above); storage ~16 TB
+with hard links and the raw-download publish dropped, plus 0.74 TB of BiG-SCAPE
+database / $145 per month. Compute is not the constraint
+at ~$1,320 — BiG-SCAPE's ~1.9 TB memory requirement is, and it forces partitioning.
+
+## Module & Script Organization
+
+```
+main.nf                 # Parameter validation + entry point (~140 lines)
+nextflow.config         # Parameters and SLURM profile
+
+tests/                  # Test suite — run with: bash tests/run_tests.sh
+├── run_tests.sh        # Entry point; runs everything in a scratch dir
+├── test_utils.nf       # Utils.groovy helpers (optArg, isValidInput, sanitizeTaxon)
+├── test_batching.nf    # Batched per-genome processes end to end
+├── make_fixtures.py    # Synthetic genomes (incl. one corrupt) + fake reuse results
+└── check_undefined.py  # Static scan for calls to undefined/unimported names
+
+subworkflows/           # Workflow composition (one file per subworkflow)
+├── helpers.nf          # placeholder(), clusteringEnabled(), batchSize() — included like processes
+├── download_genomes.nf # DOWNLOAD_GENOMES
+├── antismash_analysis.nf # ANTISMASH_ANALYSIS (with reuse)
+├── clustering.nf       # CLUSTERING
+├── phylogeny.nf        # PHYLOGENY (with reuse)
+└── bgc_analysis.nf     # BGC_ANALYSIS (composes the four above)
+
+assets/
+└── reference_sequences/
+    ├── reference_pepM.faa             # 7 PEP mutase references (Tree A anchors)
+    └── reference_coupling_enzymes.faa # 7 coupling enzyme references (Tree B anchors)
+
+conf/
+├── conda.config        # Centralized conda environments by process
+└── labels.config       # Process labels (resource allocations, error handling)
+
+lib/
+└── Utils.groovy        # Shared Groovy utilities (sanitizeTaxon, antismashParamsHash, buildReusePath)
+
+modules/
+├── databases/          # Database download processes (antiSMASH, GTDB-Tk, Pfam, etc.)
+├── genome/             # Genome processing (NCBI download, rename, GenBank→FASTA)
+├── analysis/           # BGC analysis (antiSMASH, counting, tabulation, reuse)
+├── clustering/         # BiG-SCAPE clustering and stats extraction
+├── phylogeny/          # GTDB-Tk classification (with reuse support)
+├── visualization/      # HTML report generation
+└── utilities/          # Version collection
+
+scripts/
+├── utils/              # Shared Python utilities
+│   ├── constants.py      # BGC_COLORS (comprehensive ~110-entry palette), GENE_COLORS, KCB_THRESHOLDS,
+│   │                     # COUPLING_COLORS, COUPLING_ORDER, LEGACY_CLASS_NAMES, GCF_PALETTE,
+│   │                     # DOMAIN_NAMES + domain_name(accession),
+│   │                     # load_coupling_classes(path, region_only=False)
+│   ├── tree_building.py  # build_nj_tree(labels, dm_rows) — shared NJ tree construction
+│   ├── tree_layout.py    # Cladogram layout/drawing (linear + circular) for Bio.Phylo trees
+│   ├── bigscape_db.py    # BiG-SCAPE SQLite queries (BGC records, families, domains)
+│   ├── itol.py           # iTOL dataset writers (colorstrip, binary, simplebar, text)
+│   ├── bgc_labels.py     # label_from_path, make_labels_unique
+│   ├── colors.py         # family_color, genus_color
+│   ├── gene_diagram.py   # Gene arrow SVG generation
+│   ├── parsers.py        # Duration, memory, timestamp parsing; format_bytes(v, precision=1)
+│   ├── trace.py          # Nextflow trace aggregation + resource/Gantt HTML (single implementation;
+│   │                     # re-exported by viz/ for convenience)
+│   ├── plotting.py       # Deterministic matplotlib output: pins svg.hashsalt + Agg backend,
+│   │                     # exports SVG_METADATA for timestamp-free savefig
+│   └── antismash_parser.py  # antiSMASH JSON parsing + BGC label/region helpers
+├── viz/                # Visualization modules — every report section lives here;
+│   │                     # visualize_results.py only orchestrates them
+│   ├── charts.py         # KCB pie charts, BGC color utilities
+│   ├── tree_viz.py       # Prunes the GTDB-Tk tree to the analysed genomes (Bio.Phylo)
+│   ├── tables.py         # Genome tables, summary statistics, distribution table
+│   ├── clustering.py     # BiG-SCAPE stats + GCF representative HTML
+│   ├── taxonomy.py       # Interactive taxonomy tree
+│   ├── distribution.py   # GCF × genus heatmap, genus-specific / widespread tables
+│   ├── genome_pages.py   # Per-genome HTML pages
+│   ├── rarefaction.py    # GCF rarefaction curve
+│   ├── report_assets.py  # REPORT_CSS / REPORT_JS for bgc_report.html
+│   └── report_sections.py # _build_* section builders + build_coupling_table_rows
+├── taxonomy/           # Taxonomy processing scripts
+├── genome/             # Genome processing scripts
+├── clustering/         # Clustering statistics and GCF representative extraction
+├── analysis/           # BGC counting and tabulation
+├── phylogeny/          # GTDB-Tk result filtering
+├── bgc_coupling_tree.py  # Coupling enzyme NJ trees (Tree A: pepM, Tree B: per-class)
+└── visualize_results.py  # Main visualization entry point
+```
+
+### Workflow Structure
+
+The pipeline uses DSL2 subworkflows for modularity. Parameters in `nextflow.config` are organized to mirror this structure.
+
+```
+workflow (entry point)
+│
+├── DOWNLOAD_GENOMES          # Download and prepare genomes from NCBI
+│   ├── NCBI_FETCH_METADATA   # taxon -> accessions + metadata, NO payload (3.7 kB/genome)
+│   ├── CREATE_NAME_MAP
+│   ├── PEPM_MAKEDB
+│   ├── FETCH_RENAME_SCREEN   # per batch: fetch, rename, screen, keep survivors
+│   └── EXTRACT_TAXONOMY
+│
+└── BGC_ANALYSIS              # Main analysis pipeline
+    │
+    ├── ANTISMASH_ANALYSIS    # BGC detection (with reuse support)
+    │   ├── CHECK_ANTISMASH_REUSE
+    │   ├── ANTISMASH
+    │   └── COPY_ANTISMASH_RESULT
+    │
+    ├── Region Analysis       # BGC statistics
+    │   ├── COUNT_REGIONS
+    │   ├── TABULATE_REGIONS
+    │   └── AGGREGATE_TAXONOMY
+    │
+    ├── CLUSTERING            # GCF clustering
+    │   ├── BIGSCAPE
+    │   ├── EXTRACT_CLUSTERING_STATS
+    │   └── EXTRACT_GCF_REPRESENTATIVES
+    │
+    ├── PHYLOGENY             # GTDB-Tk (with reuse support)
+    │   ├── CHECK_GTDBTK_REUSE
+    │   ├── GTDBTK_CLASSIFY
+    │   └── FILTER_GTDBTK_RESULTS
+    │
+    ├── GCF_BIOSYNTHETIC_TREE # GCF biosynthetic NJ tree (when bigscape enabled, runs before visualization)
+    │                         # Also outputs phosphonate_itol_coupling.txt (coupling annotation)
+    │
+    ├── BRANCH_POINT_PREDICTION # 2-AEP vs 2-HEP per family, by profile HMM (after CLUSTERING)
+    ├── BIOSYNTHETIC_PROFILE    # per-family filtered domain profile; flags non-chemical family splits
+    │                           # Both need family membership only, so they run concurrently
+    │
+    └── VISUALIZE_RESULTS     # HTML report generation (receives GCF tree PNG + coupling annotation,
+                              # the branch-point call and the biosynthetic profile)
+```
+
+**Running a single stage:**
+
+```bash
+# Run only download
+nextflow run main.nf --workflow download --taxon "Pantoea"
+
+# Run full pipeline (default)
+nextflow run main.nf --taxon "Pantoea"
+```
+
+Note: Nextflow 26's strict parser rejects `-entry <WORKFLOW>`; select the stage with
+`--workflow` instead.
+
+### Process Labels
+
+Processes use labels for resource allocation and error handling:
+
+| Label | CPUs | Memory | Description |
+|-------|------|--------|-------------|
+| `process_local` | 1 | 1 GB | Runs on head node |
+| `process_low` | 1 | 2 GB | Light scripts |
+| `process_medium` | 4 | 8 GB | Visualization, GCF trees |
+| `process_high` | 8 | 32 GB | BiG-SCAPE |
+| `process_high_memory` | 8 | 128 GB | GTDB-Tk pplacer |
+
+Per-process override in `conf/labels.config`:
+
+| Process | CPUs | Memory | Rationale |
+|---------|------|--------|-----------|
+| `ANTISMASH` | 2 | 6 GB × attempt | Measured over 950 genomes: %cpu p99 = 145% (never 2 full cores), peak RSS p99 = 4.7 GB. Escalates once on an OOM kill, then skips the genome. |
+
+Error handling labels:
+- `tolerant`: Individual failures don't stop pipeline (per-genome processes)
+- `retry_on_error`: Retry on transient errors (network downloads)
+
+### Cache Invalidation: Nextflow Hashes Source, Not Rendered Script
+
+**Nextflow hashes the *unevaluated* script block plus the declared input values.
+It never hashes the rendered command.** Interpolating a value into the script
+body therefore does not invalidate anything.
+
+Measured on Nextflow 26.04 with a two-process probe:
+
+| Where the changed value lives | Task re-runs? |
+|---|---|
+| Interpolated into the `script:` body | **No** — `cached=1` |
+| Declared as a `val` input | **Yes** — `completed=1` |
+
+This matters because scripts are invoked as `python ${projectDir}/scripts/foo.py`
+— an interpolated path, not a declared input — so Nextflow cannot see the Python
+file at all. `Utils.scriptsHash` exists to close that gap, but it was embedded as
+a `# scripts-version:` **comment inside the script block**, which lands on the
+wrong side of the table above. It invalidated nothing.
+
+The consequence is silent: `-resume` reuses output produced by Python code that
+has since changed, with no error and no warning. Found when a partitioned run
+failed with `KeyError: 'genome'` because `PARTITION_BGCS` served a manifest built
+by the previous version of `partition_bgcs.py` — the digest had changed from
+`8cc0a42b6b97` to `cc4bf61ea8c5` and the task was reused regardless.
+
+**The fix is to pass the digest as a `val` input**, as `PARTITION_BGCS` now does:
+
+```groovy
+// module
+input:
+val scripts_version
+
+// call site
+PARTITION_BGCS(taxon, antismash_results, pfam_db_ch,
+               Utils.scriptsHash(projectDir,
+                   ['clustering/partition_bgcs.py', 'utils']))
+```
+
+`ANTISMASH` was never affected: it already passes `antismash_version` and
+`antismash_params_hash` as `val` inputs, which is the pattern that works.
+
+**All 17 processes now take the digest as a `val` input.** The last two —
+`create_name_map` and `rename_genomes_parallel` — were deferred because they sit
+upstream of antiSMASH and converting them invalidates every antiSMASH task
+(~2,807, ~6 h). They were converted once that cache had been cleared for other
+reasons, when the re-run was already unavoidable and the conversion therefore
+free.
+
+`tests/check_script_deps.py` **rejects** the `# scripts-version:` comment spelling
+outright, so it cannot reappear silently. It reads the digest only from the call
+site.
+
+`CHECK_GTDBTK_REUSE` needs no digest at all: it declares `cache false`. Its
+sibling `FILTER_GTDBTK_RESULTS` in the same file is the process that runs Python,
+and that is where the digest belongs — a reminder that one `.nf` file can hold
+more than one process.
+
+## Reference Database Versions
+
+**Databases are pinned, and the pins are recorded in the output.** Every database
+downloads through `storeDir`, which skips the process whenever its output path already
+exists. An unpinned URL therefore tracks nothing: `releases/latest/` and
+`current_release/` resolve exactly once, on the first run ever, and are never
+re-checked. This pipeline classified against a **2026-01-23 NCBI taxdump for seven
+months** that way, with no record anywhere of which version produced any result.
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `gtdb_release` | `226` | GTDB-Tk enforces `MIN_REF_DATA_VERSION`; 2.6.1 wants r226. **Bump the `gtdbtk` conda pin before bumping this.** |
+| `pfam_release` | `38.2` | Current as of 2026-08 |
+| `taxdump_date` | `2026-08-01` | NCBI *monthly archive* (`taxdump_archive/taxdmp_<date>.zip`), not the live `taxdump.tar.gz`, which is rewritten daily and would pin itself to whatever day you first ran |
+| `check_db_updates` | `true` | Warn when upstream moves past a pin. One HTTP request per database at startup; set `false` for offline runs |
+
+antiSMASH is not listed because its databases ship keyed to the tool release, so the
+conda pin on `antismash` already pins them.
+
+At startup the run prints what it is classifying against:
+
+```
+Reference databases:
+  GTDB     226  <- upstream now 232; edit params.gtdb_release to upgrade
+  Pfam     38.2  (current)
+  taxdump  2026-08-01  (current)
+```
+
+`lib/DbVersions.groovy` does the check. It **never fails a run and never changes what is
+downloaded** — an offline machine still runs, and every failure path returns null. The
+pins are also written into `software_versions.json` as `db_gtdb_release`,
+`db_pfam_release` and `db_taxdump_date`, so a published result can say what it was
+produced against.
+
+**Do not upgrade casually.** Two runs on different GTDB releases are not directly
+comparable — genera get reclassified between releases, which moves the taxonomy tree and
+the per-clade BGC prevalence the whole analysis rests on. Changing a pin changes the
+`storeDir` output path, which is what triggers the fresh download; for GTDB that is
+~140 GB.
+
+**Release numbers are not sequential counters.** GTDB has run 202, 207, 214, 220, 226,
+232 — r226 is one release behind r232, not six.
+
+**A new `--outdir` re-downloads all 153 GB.** `storeDir` is
+`${params.outdir}/databases`, and it skips a download only when that exact path
+exists — so an A/B comparison, which by definition uses a second outdir, pays for
+GTDB-Tk (139 GB), antiSMASH (9.4), Pfam (4.5) and TaxonKit (0.5) all over again:
+~77 minutes before any analysis, and another chance to stall. A comparison run died
+that way, the antiSMASH fetch hanging until Nextflow reported `process hasn't
+exited`. Link them first:
+
+```bash
+mkdir -p results_new/databases
+ln -s "$(readlink -f results/databases)"/* results_new/databases/
+```
+
+Always safe: the databases are pinned above and identical across runs by
+construction. A **normal single-outdir user never meets this** — results are already
+namespaced by taxon inside one outdir, so ten taxa download the databases once. It is
+the comparison workflow that pays, which is why this is a documented step rather than
+a parameter. See `docs/comparisons/README.md`.
+
+## Software Versions
+
+Versions are dynamically collected from installed tools. Most use `--version` flag, but TaxonKit uses `version` subcommand.
+
+| Tool | Conda Spec | Purpose |
+|------|------------|---------|
+| antiSMASH | bioconda::antismash | BGC detection |
+| BiG-SCAPE | bioconda::bigscape | GCF clustering |
+| GTDB-Tk | bioconda::gtdbtk | Phylogenetic placement |
+| TaxonKit | bioconda::taxonkit | Taxonomy processing |
+| HMMER | bioconda::hmmer | Coupling enzyme HMM alignment and search |
+
+Version information is output to `results/pipeline_info/software_versions.json`.
+
+## HTML Report Features
+
+The interactive HTML report (`bgc_report.html`) includes:
+
+### Tabs
+The report is a **navigation rail of 5 groups over 11 panes**, built by
+`build_tabbed_nav(groups)` in `viz/report_sections.py`. One pane per section; a pane with
+no HTML is dropped, and a group left empty by that is dropped too, so a run without
+clustering shows fewer entries rather than entries opening onto nothing.
+
+| group | panes |
+|---|---|
+| **Overview** | Summary (stat tiles, KCB mapping, rarefaction curve) · Pipeline & resources |
+| **BGCs** | GCF characterisation · All detected regions |
+| **Gene cluster families** | Consensus gene content · Biosynthetic phylogeny (class key + family-centre tree) · BiG-SCAPE statistics · Coupling enzyme support |
+| **Phylogeny** | Taxonomic distribution · GCF distribution across taxa |
+| **Genomes** | Genomes |
+
+Pane numbering runs across the whole report, not per group, because the CSS rule pairing
+`#tabN` with `#contentN` is what reveals a pane. **Nothing may depend on a particular N** —
+which sections a run emits decides them.
+
+### The All-BGCs Tree Was Removed
+
+The report used to carry a global all-BGCs circular tree beside the family-centre
+tree. It is gone, on both partitioned and unpartitioned runs.
+
+**On a partitioned run it was quietly wrong.** `bgc_all_bgcs_tree.py` fills
+unmeasured pairs with a constant:
+
+```python
+row.append(distances.get(key, 1.0))
+```
+
+The merged `distance` table holds only within-partition comparisons by design, so
+on Erwiniaceae 23,712 of 55,278 pairs — **42.9%** — were that constant, with no
+warning printed (unlike `bgc_gcf_tree.py`, which reports its missing pairs). This
+is the same failure that `BIGSCAPE_CENTERS` was built to fix for the GCF tree; the
+all-BGCs tree never got the equivalent treatment.
+
+It was still valid unpartitioned, where BiG-SCAPE measures every pair, so gating
+it on `params.bigscape_partition` was an option. It was removed outright instead,
+so that a figure means the same thing in every run mode.
+
+What replaces it is the **family-centre tree**, whose every centre-to-centre
+distance is measured via `BIGSCAPE_CENTERS`, so it means the same thing in both
+run modes.
+
+`scripts/bgc_all_bgcs_tree.py` has no caller since `PARTITION_TREES` was removed.
+It is kept as a standalone tool and now counts substituted distances, warns, and
+refuses above 5% — which is exactly the protection an ad-hoc run against a merged
+partitioned database needs.
+
+### Adding a pane
+
+Pass another `(label, html)` to the right group in `build_tabbed_nav`. Switching is
+**pure CSS radio buttons** — `#tabN:checked ~ #contentN` in `viz/report_assets.py` — with
+no JavaScript, so `MAX_PANES` there is a real ceiling and panes beyond it are refused
+rather than silently dropped.
+
+The family-centre tree sits with **Biosynthetic phylogeny** rather than in a pane of its
+own: branch colours on the tree *are* the classes in the key, and splitting them put a
+legend in one pane and the figure it explains in another.
+
+### The GTDB-Tk Tree Is Not Drawn in the Report
+
+`prepare_phylo_tree_for_js` prunes the GTDB-Tk tree to the analysed genomes and writes
+`pruned_phylo_tree.nwk`, which is the useful output — it opens in iTOL, FigTree or
+Dendroscope. Its returned dict reaches the report generator, but **nothing renders it**:
+there is no tree renderer in `REPORT_JS`. The Phylogeny tab is titled for the GCF
+distribution it actually shows and points at the Newick files.
+
+Adding a rendered tree means writing a renderer, not re-enabling one. `tree_viz.py` was
+cut from 1,137 lines to 220 on 2026-08-28; the three circular-tree plotters it used to
+hold were dead (exported from `viz/__init__`, called from nowhere) and
+`plot_circular_phylogenetic_tree` timed out after two minutes on a real GTDB-Tk tree
+because it drove a hand-rolled Newick parser rather than Bio.Phylo. That parser is gone
+too — it survived only as an `except` fallback, unreachable in practice since biopython
+is a hard dependency of every environment that runs this code. The Bio.Phylo path prunes
+20,051 terminals to 285 in about two seconds.
+
+### The Taxonomy Tree Summarises; It Does Not Embed Genomes
+
+The tree exists to answer "how much of this clade carries a BGC" at each rank. Two things
+worked against that.
+
+**The prevalence figure was computed and discarded.** `genomes_with_bgcs` was read from the
+node stats and never rendered; the headline number was `avg 0.18`, an average over every
+genome including the many with none — the same distortion that made "avg BGCs/genome 0.2"
+useless on the Overview. Nodes now lead with `285 of 1735 genomes (16.4%)`, then total
+BGCs, then a per-BGC-positive average.
+
+**The per-species genome tables were a second copy of the Genomes tab** — 1,735 genome
+links, 351 tables, roughly 90% of the tree's 657 KB. They are kept, because they are
+useful, but rendered from a JSON payload on first expand rather than inlined.
+`renderTaxonomyGenomes()` in `viz/report_assets.py` mirrors `render_genome_list()` in
+`viz/taxonomy.py`, including the `greenBg`/`redFont` thresholds — **change both together.**
+
+Note the tree is collapsed on load by a `DOMContentLoaded` handler that hides every
+`.node-children` except the first, so inspecting the static HTML is misleading: it shows
+the pre-JavaScript state.
+
+Measured on Pantoea: tree block 657,575 to 306,829 chars, inline tables 351 to 0, inline
+genome links 1,735 to 0, payload 73 KB for all 1,735 genomes.
+
+For a single-genus run the upper ranks are redundant — domain through family all report
+the same 285 of 1,735, because every genome sits in all of them. The tree earns its keep
+at broader scope, where those ranks differentiate.
+
+### The Genome Table Renders From JSON
+
+Fully rendered, 1,735 genome rows were 612 KB — the largest single element in the report
+— parsed and painted on load although almost nobody scrolls past the first screenful.
+
+`viz/tables.generate_genome_table_html` now returns a dict: `initial_rows` (the first
+`INITIAL_GENOME_ROWS`, currently 100, rendered as HTML) and `data_json` (all rows as a
+compact array-of-arrays, not objects — repeating six keys 1,735 times is pure overhead).
+The page carries the array in a `<script type="application/json">` island and renders
+rows from it on demand.
+
+**Search runs over the array, not the DOM**, so it still covers every genome. That is the
+point rather than a side effect: `ATCC 35400` and `GCA_963520565.1` each match exactly one
+genome, and neither is in the first 100 rows — a DOM-based filter over a truncated table
+would silently find nothing.
+
+`renderGenomeRows()` in `viz/report_assets.py` mirrors `_genome_row_html()` in
+`viz/tables.py`; **change both together**. A test asserts the server-rendered first row and
+the JS-rendered equivalent are identical.
+
+Measured on Pantoea: Genomes panel 612,422 to 194,518 chars, rows in the DOM 1,735 to 100,
+whole report 3.62 to 3.23 MB.
+
+### Rarefaction Curve
+- Shows GCF discovery saturation across sampled genomes
+- Generated from BiG-SCAPE SQLite database (`{taxon}.db`), plus `region_counts.tsv`
+- **Coverage is reported as Chao2**, the incidence-based asymptotic richness estimator
+  (`chao2()` in `viz/rarefaction.py`): `S_est = S_obs + ((m-1)/m)·Q1²/(2·Q2)`, with Q1/Q2
+  the GCFs seen in exactly one/two genomes. Coverage = `S_obs/S_est`. The report shows
+  S_obs, S_est, coverage, and Q1/Q2
+- The older `saturation` value — a ratio of the curve's early slope to its late slope —
+  is still returned and plotted for continuity, but it is **not** a calibrated coverage
+  estimate. Benchmarked against known ground truth it is directionally right and accurate
+  when genuinely saturated, but optimistic when undersampled (reported 71% against 61%
+  true; 39% against 19% true). Cite Chao2, not this
+- **The x-axis is every analysed genome, not just BGC-carrying ones.** Genomes with no
+  phosphonate BGC produce no region GBK, so they never reach the BiG-SCAPE DB — the
+  denominator has to come from `region_counts.tsv`, passed as `--counts`. Without it the
+  function falls back to BGC-positive genomes only and labels the axis and report text
+  accordingly instead of silently overstating coverage
+- Resampling is seeded (`--seed`, default 0) — see the reproducibility note in Known Issues
+
+**Measured on *P. ananatis* (343 genomes, 2026-08-25):** 192 genomes (56.0%) carry a
+phosphonate BGC, giving 225 regions in 6 GCFs with incidence 180/23/16/4/1/1. Chao2
+estimates 7.00 families → 85.8% coverage (Q1=2, Q2=0, so the no-doubleton branch fires).
+The slope-ratio saturation reads 92-97% on the same data — a 6-11 point overstatement,
+matching the simulated bias. Note the denominator change moved the slope ratio (96.8% →
+92.0%) but left Chao2 unchanged (85.8%): Chao2 depends on the incidence distribution
+rather than the axis length, which is a further reason to prefer it.
+
+### Per-family pages, and why there is only one gene diagram
+
+Each family gets `gcf/GCF-<id>.html` — representative metadata, its gene diagram, and the
+consensus gene content across every member. `GCF characterisation` links to it.
+
+**The "Family representatives" pane was removed.** It answered the same question as
+Consensus gene content, and worse. Both draw **one real member** as arrows — they differ
+only in which member: BiG-SCAPE's exemplar against the member carrying the greatest summed
+prevalence (`_consensus_diagram` picks the latter deliberately; "rather than synthesise a
+layout that exists nowhere, the arrows are one real member's"). The consensus one is chosen
+on the question being asked and carries prevalence bands, cassette boundaries, role
+colouring and the full gene table beside it.
+
+Not a size decision — the pane was 34 KB of a 6.68 MB report and held no diagrams itself,
+only cards linking out. The representative stays reachable two ways: its own per-family
+page, and the region accession in `GCF characterisation`, which links to the antiSMASH
+page (paths relative to `main_analysis_results/{taxon}/`).
+
+### GCF Biosynthetic Tree
+- `GCF_BIOSYNTHETIC_TREE` runs **before** `VISUALIZE_RESULTS` — its PNG output is passed as `gcf_tree_png` input to create an explicit Nextflow data dependency
+- The tree PNG is embedded as base64 in `bgc_report.html`, making the report self-contained
+- Published copies also exist in `gcf_heatmap/` for standalone use
+- `conf/conda.config` uses `withName: 'GCF_BIOSYNTHETIC_TREE'` for the conda environment
+- Also outputs `phosphonate_itol_coupling.txt` (coupling enzyme class colorstrip) and
+  `phosphonate_coupling_support.tsv` (reference support per assignment), both passed to `VISUALIZE_RESULTS`
+
+### Dynamic Coupling Enzyme Class Table
+- The coupling enzyme table in the GCF Analysis tab is built dynamically at report-generation time — not hardcoded
+- `build_coupling_table_rows()` in `viz/report_sections.py` queries the BiG-SCAPE SQLite DB to determine the dominant coupling class per GCF family, so the table remains accurate regardless of GCF family ID shifts between runs
+- Input: `phosphonate_itol_coupling.txt` (from `GCF_BIOSYNTHETIC_TREE`) + BiG-SCAPE DB
+- `load_coupling_classes(path, region_only=False)` is the shared parser for this file, defined in `utils/constants.py` and imported by all scripts that read the iTOL coupling colorstrip
+
+### `generate_html_report` Structure
+
+`scripts/visualize_results.py` is an orchestrator (~555 lines, two functions:
+`generate_html_report` and `main`). It parses arguments, calls the section builders in
+`viz/`, and assembles the page.
+
+**Report content belongs in a `viz/` module, not here.** The file previously grew to
+3,300 lines by keeping its own copies of functions that also existed in `viz/`; because
+nothing imported the `viz/` versions, the two drifted apart and the package looked live
+while being dead. Every section builder is now imported from `viz/`:
+
+| Import from | Provides |
+|-------------|----------|
+| `viz.tables` | genome table, summary statistics, BGC distribution table |
+| `viz.clustering` | BiG-SCAPE statistics, GCF representative visualisation |
+| `viz.taxonomy` | interactive taxonomy tree |
+| `viz.tree_viz` | `prepare_phylo_tree_for_js` (+ the Newick parse/prune helpers behind it) |
+| `viz.distribution` | GCF × genus heatmap, genus-specific and widespread tables |
+| `viz.genome_pages` | per-genome HTML pages |
+| `viz.rarefaction` | rarefaction curve |
+| `viz.report_assets` | `REPORT_CSS`, `REPORT_JS` |
+| `viz.report_sections` | `_build_*` blocks, `build_coupling_table_rows` |
+| `utils.trace` | trace aggregation + resource-usage HTML |
+
+- CSS and JS live in `viz/report_assets.py` as the module-level string constants `REPORT_CSS` / `REPORT_JS` (plain strings, not f-strings, so braces need no escaping)
+- Five helper functions in `viz/report_sections.py` handle the large content blocks, keeping `generate_html_report` to ~260 lines:
+  - `_build_kcb_content(kcb_stats, taxon_clean, gcf_data)` → `{kcb_mapping_section, novel_bgcs_tab_content, kcb_hits_tab_content}`
+  - `_build_bigscape_overview_cards(gcf_data)` → overview grid HTML
+  - `_build_bigscape_section_html(bigscape_stats_html, gcf_visualization_html, taxon_clean)` → GCF Analysis tab section
+  - `_build_versions_html(versions_data)` → software versions table
+  - `_build_rarefaction_section(rarefaction_stats)` → rarefaction curve block
+
+### BGC Distribution Analysis
+- GCF × Genus heatmap showing BGC distribution across taxonomic groups
+- Genus-specific GCFs table (potential taxon markers)
+- Widespread GCFs table (found in 5+ genera, conserved or HGT)
+- Uses GTDB-Tk taxonomy when available, falls back to NCBI taxonomy
+- Phylogenetic tree files available in `results/gtdbtk_results/` for external viewers (iTOL, FigTree)
+
+## Coupling enzyme assignment
+
+Every phosphonate BGC has a pepM; what it *makes* is decided by the enzyme that consumes
+phosphonopyruvate next. `bgc_coupling_annotation.py` calls that from antiSMASH SMCOG and
+domain markers, which are broad by design, so a region often carries more than one
+candidate CDS and the cascade below picks between them. **Advisory, not a verdict** —
+characterised phosphonate coupling enzymes are scarce.
+
+`classify_bgc` returns `(cls, marker, marker_seqs, cands)`; each candidate carries its
+class, marker, locus tag, product name, position, translation and distance from pepM. A
+two-pass `main` collects every region first, because step 3 needs the whole family.
+
+**The order is deliberate and was set by what each signal can and cannot know.**
+Measured on Enterobacterales, 1,273 region-level decisions:
+
+| | signal | decisions | share |
+|---|---|---:|---:|
+| 0 | only one candidate | 1,005 | 78.9% |
+| 1 | product name **vetoes** a candidate that contradicts its class | 4 | 0.3% |
+| 2 | product **names the phosphonate substrate** | 230 | 18.1% |
+| 3 | **conservation** — which class the rest of the family carries | 33 | 2.6% |
+| 4 | distance to pepM | 1 | 0.1% |
+| 5 | reference identity, needs margin ≥ 5% and > background | 0 | 0% |
+| — | unresolved (`AMBIGUOUS`, falls back to marker precedence) | 0 | 0% |
+
+**Why the name outranks distance.** *Winslowiella iniecta* B149 — lab-characterised —
+has its explicitly annotated "phosphonopyruvate decarboxylase" 9.8 kb from pepM and a
+generic "pyridoxal phosphate-dependent aminotransferase" at 1.1 kb. Distance picks the
+aminotransferase and is wrong. 95% of the 917 TPP-carrying CDS in the run are named for
+the substrate, so a name that identifies it beats one that does not.
+
+**Why conservation outranks distance and identity.** BiG-SCAPE clusters homologous BGCs,
+so what the rest of the family carries is evidence about this member. Conservation counts
+only members with ≥60% of the family's median CDS count, so a truncated region cannot vote.
+
+**Reference identity is last, and never fires.** `support()` scores one protein against
+four reference sets; the set is 7 proteins, 6 of them *Streptomyces*. Cross-class
+characterised enzymes score 26.7–29.7%, so `BACKGROUND_CEILING_PCT = 30.0` is the floor
+below which a match means nothing. With that floor and `AMBIGUOUS_MARGIN = 5.0` it decided
+nothing here — kept because it costs nothing and would fire on a better-referenced clade.
+
+**48 decisions are flagged low-margin** so a reader can find the ones worth checking by
+hand. `decided_by` and `evidence` are separate columns on purpose: the first names the
+signal that chose the class, the second says how good that evidence is.
+
+### Branch point
+
+`analysis/branch_point_prediction.py` asks which intermediate a pathway proceeds through.
+The calls name the answer rather than which search failed:
+
+| call | families |
+|---|---:|
+| neither — no PnAA formed | 32 |
+| catabolic arm (Ppd + C-P lyase operon) | 19 |
+| 2-AEP (homologue) | 12 |
+| neither — PnAA formed, no downstream enzyme | 3 |
+| neither — PnAA formed, only a class I/II transaminase | 2 |
+| 2-HEP (homologue / weak homologue) | 3 |
+| 2-AEP (class V transaminase, no profile hit) | 1 |
+
+**The synthase gate.** `SYNTHASE_DOMS = {'PF00682'}`; when present, `has_ppd` is forced
+false. A synthase consumes phosphonopyruvate to phosphonomethylmalate and never forms
+phosphonoacetaldehyde, so the 2-AEP/2-HEP question does not arise. The predictor used to
+fire on `TPP_enzyme_C`, which every ThDP decarboxylase carries — in GCF-25 that sat on the
+run's only indolepyruvate decarboxylase. Two families affected; afterwards every
+Decarboxylase family takes the PnAA route and no Synthase, Reductase or Transaminase family
+does, against two contradictions before.
+
+**`catabolism` is a role, not a contaminant.** Known operons carry both biosynthetic and
+catabolic phosphonate genes, so the C-P lyase operon *phnGHIJKLMNP* gets its own role in
+`utils/domain_functions.py` (`CATABOLISM`, 9 Pfams: PF06754, PF05845, PF05861, PF06007,
+PF01979, PF07969, PF00625, PF12706, PF13238). It is registered in `CATEGORIES` and
+**excluded from `ELABORATION`** — scavenging phosphorus is not tailoring a product. A
+family needs ≥4 of the 9 to be called catabolic.
+
+### Which families to trust
+
+Measured, not assumed — `docs/comparisons/family_cohesion/`. Of 44 families with ≥4
+members, **41 are sound, 3 flagged**: 2 chimeric, 1 wrongly split. **GCF-27 is the worst**
+at cohesion 0.10 across 21 sub-clusters, which is why it turns up as "nearest" to 11 of 17
+characterised references — a grab-bag is near everything.
+
+**The pantaphos families are three, and that is real** —
+`docs/comparisons/pantaphos_three_families/`. All three carry the same biosynthetic
+cassette and split on flanking chromosomal context, which differs by genus and which
+BiG-SCAPE weighs. Separately, two of them have cross-family pepM identity 0.975 against
+0.974 *within* one of them, and internal distance 0.190 against external 0.134 — those two
+should be merged, and are kept apart only because GCF numbering is BiG-SCAPE's.
+
+## Post-Pipeline BGC Analysis Scripts
+
+These standalone scripts (in `scripts/`) perform additional analyses after the main pipeline completes. They operate on the BiG-SCAPE SQLite database and antiSMASH outputs.
+
+**Shared building blocks** — extend these rather than re-implementing per script:
+
+| Module | Provides | Used by |
+|--------|----------|---------|
+| `utils/bigscape_db.py` | `connect`, `fetch_bgc_records`, `fetch_families`, `fetch_domain_set`, `fetch_best_domain_per_cds`, `record_metadata` | pfam / synteny / architecture trees |
+| `utils/itol.py` | `write_dataset` plus `write_colorstrip` / `write_binary` / `write_simplebar` / `write_text`, `simple_legend`, `dataset_path` | every script that emits iTOL files |
+| `utils/tree_layout.py` | `assign_layout`, `max_depth`, `draw_cladogram` and their circular counterparts | gcf / all-BGCs trees |
+| `utils/tree_building.py` | `build_nj_tree(labels, dm_rows)` | all NJ trees |
+| `utils/antismash_parser.py` | JSON loading, `build_json_index`, `parse_bgc_label`, `parse_location_bounds`, `find_region_feature`, `region_bounds`, `cds_in_region` | coupling annotation / coupling trees |
+| `utils/constants.py` | palettes, `DOMAIN_NAMES` + `domain_name(accession)`, `load_coupling_classes` | synteny / architecture trees, every coupling script |
+| `utils/trace.py` | `parse_timestamp`, `aggregate_trace_by_process`, `generate_resource_usage_html`, `generate_gantt_chart_html` | HTML report |
+| `utils/plotting.py` | `SVG_METADATA`; pins `svg.hashsalt` and the Agg backend on import | every script that writes an SVG |
+
+`bgc_all_bgcs_tree.py` and `bgc_gcf_tree.py` still query SQLite directly — they read the
+`distance` table and family centers, which the shared query set does not cover.
+
+### `scripts/prune_antismash_results.py` — reclaim antiSMASH disk
+
+At 1,735 genomes `antismash_results/` was 41.8 GB, and a BGC-negative genome's directory
+is the same size as a BGC-positive one (~23 MB either way). The bulk is not regions:
+
+| file | size | note |
+|------|------|------|
+| `{genome}.gbk` | 8.6 MB | annotated genome |
+| `{genome}.json` | 6.7 MB | **required by `CHECK_ANTISMASH_REUSE`** |
+| `{genome}.zip` | 5.6 MB | archive of the very same directory |
+| `js`/`images`/`css` | 708 KB | byte-identical in every genome's directory |
+
+So the largest *safe* win is not deleting BGC-negative genomes — it is dropping the
+redundant `.zip` from every directory, which loses nothing.
+
+| tier | frees (Pantoea) | reuse still works? |
+|------|-----------------|--------------------|
+| `archives` | 9.9 GB (24%) | yes — lossless |
+| `strip` (default) | 25.4 GB (61%) | **yes** |
+| `purge` | more | **no** — antiSMASH re-runs on those genomes |
+
+`strip` keeps `{genome}.json` and `.antismash_meta` for BGC-negative genomes, which is
+exactly what `CHECK_ANTISMASH_REUSE` tests for, so `--reuse_antismash_from` still skips
+them. `purge` deletes the directory outright: for a low-prevalence taxon that forfeits
+most of the compute bill on any later reuse run.
+
+Dry-run by default; `--apply` deletes. It refuses to `--apply` while a Nextflow run is
+active (exit 2), because pruning published output races with `publishDir`.
+
+**It prunes only the published copy.** `publishDir` uses `mode: 'copy'`, so `work/` holds
+another copy of every result and accumulates one per run — a single genome was found in
+`work/` twice plus `results/` once, three copies of 22 MB. Reclaim those with
+`nextflow clean -f` once you no longer need `-resume`.
+
+**Not a pipeline stage, deliberately.** `publishDir` re-publishes from `work/` on
+`-resume`, silently undoing a prune, and a stage that deletes published output races with
+other processes still publishing. It is a post-run tool, like the other `bgc_*.py`
+scripts.
+
+### `scripts/bgc_pfam_tree.py` — Jaccard-distance NJ tree of BGCs
+
+Builds a Neighbor-Joining tree based on Pfam domain presence/absence (Jaccard distance).
+
+```bash
+python scripts/bgc_pfam_tree.py \
+    --db results/bigscape_results/Pantoea/Pantoea.db \
+    --bgc_type phosphonate \
+    --outdir results/bgc_trees/Pantoea
+    [--family_id 2]    # Optional: restrict to a single GCF
+```
+
+Outputs: `_pfam_tree.nwk`, `_jaccard_distances.tsv`, `_domain_matrix.tsv`, `_metadata.json`
+
+### `scripts/bgc_synteny_tree.py` — LCS-based gene-order tree
+
+Builds a tree based on ordered domain sequences (one domain per CDS, sorted by genomic position). Uses normalized LCS distance. **Note:** Can be confused by strand orientation.
+
+```bash
+python scripts/bgc_synteny_tree.py \
+    --db results/bigscape_results/Pantoea/Pantoea.db \
+    --bgc_type phosphonate \
+    --outdir results/bgc_trees/Pantoea/GCF2_synteny \
+    [--family_id 2]
+```
+
+Outputs: `_synteny_tree.nwk`, `_domain_sequences.tsv`, `_lcs_distances.tsv`, `_metadata.json`
+
+### `scripts/bgc_architecture_tree.py` — Architecture deduplication tree
+
+Groups BGCs by exact domain multiset (orientation-independent), then builds a generalized Jaccard NJ tree of the unique architectures. Best for within-GCF comparison.
+
+```bash
+python scripts/bgc_architecture_tree.py \
+    --db results/bigscape_results/Pantoea/Pantoea.db \
+    --bgc_type phosphonate \
+    --family_id 2 \
+    --outdir results/bgc_trees/Pantoea/GCF2_arch
+```
+
+Outputs: NJ tree + five iTOL annotation files (count bar, domain binary, genus colorstrip, arch label, genome list).
+
+Architecture labels: `arch_001_n138` (arch rank, count). GCF2 phosphonate → 205 BGCs → 21 unique architectures; arch_001 (n=138) is the dominant core.
+
+### `scripts/bgc_coupling_annotation.py` — iTOL coupling enzyme colorstrip
+
+Classifies each phosphonate BGC by the coupling enzyme acting on phosphonopyruvate (the branching step immediately downstream of PEP mutase). Reads antiSMASH JSON files for rich SMCOG and rule-based-cluster annotations, then outputs an iTOL DATASET_COLORSTRIP file.
+
+```bash
+python scripts/bgc_coupling_annotation.py \
+    --antismash_dir results/antismash_results/Pantoea \
+    --metadata results/bgc_trees/Pantoea/phosphonate_metadata.json \
+    --outfile results/bgc_trees/Pantoea/phosphonate_itol_coupling.txt \
+    --bgc_type phosphonate
+```
+
+**⚠️ The GCF numbers below are run-specific and will not match your output.**
+Counts are also from that older run. For reference, the Pantoea genus run of
+2026-08-25 (1,735 genomes, 320 regions) gave: Synthase 236, Reductase 29,
+Decarboxylase 49 (27 of which were then split off as a separate
+Decarboxylase-Nucleotidyltransferase class — see below), Transaminase 6,
+Unknown 0 — the zero being the segment-based membership fix.
+`family.id` in the BiG-SCAPE database is an `INTEGER PRIMARY KEY AUTOINCREMENT` — it
+records the order families happened to be written, not a stable biological identity.
+It shifts between runs, between taxa, and whenever the genome set changes: the table
+below is from a Pantoea run with at least 8 families, while a *P. ananatis* run
+(2026-08-25, 343 genomes) produced only 6. Treat the **class → pathway → marker**
+columns as the durable content and the GCF column as an example. Within a single run
+`family.center_id` is a better handle, since it points at the BGC record serving as
+the family center rather than at write order.
+
+The rendered report does not have this problem: `build_coupling_table_rows()` re-derives
+the dominant coupling class per family from the database at report time, so the HTML
+table self-corrects. Only the hard-coded numbers in this file go stale.
+
+**Coupling enzyme classes detected (Pantoea, n=1212 BGCs):**
+
+| Class | Marker | Pathway | GCF | Count |
+|-------|--------|---------|-----|-------|
+| FrbC | SMCOG1271 (HMGL-like) | → phosphonomethylmalate → phosphinothricin-type | GCF-2/3 | 920 |
+| Fe-ADH | Fe-ADH rule | → phosphonolactate (reductase route) | GCF-4/6 | 112 |
+| Ppd | SMCOG1055 (ThDP) or TPP_enzyme_C | → 2-phosphonoacetaldehyde → 2-AEP | GCF-1/5/8 | 156 |
+| PalB | SMCOG1019 (Aminotran_1_2/PF00155) | → phosphonoalanine | GCF-7 | 20 |
+| Unknown | — | — | — | 4 |
+
+**Region boundary reading:** CDS scanning is limited to the region feature's extent, read
+with `parse_location_bounds(..., span=False)` — the first coordinate pair only. This is
+deliberately narrower than what `bgc_coupling_tree.py` uses (see Known Issues); widening
+it reclassifies BGCs whose region feature has a compound location.
+
+**Key insights:**
+- Classification maps almost perfectly onto BiG-SCAPE GCF families — coupling enzyme type is the primary determinant of GCF membership.
+- The `Fe-ADH` rule-based marker (iron-containing alcohol dehydrogenase / 2-Hacid_dh_C) is antiSMASH's marker for the phosphonopyruvate reductase (→ phosphonolactate) pathway.
+- AEP-pathway BGCs (GCF-1/8 in that run) use Ppd as coupling enzyme regardless of tailoring enzymes downstream.
+
+**The Decarboxylase-Nucleotidyltransferase class was removed on 2026-09-11.** From
+2026-08 to 2026-09 a fifth class split off the decarboxylases on `TPP_enzyme_C` plus an
+`NTP_transf_3`/`NTP_transf_2` hit, on the theory that a cytidylyltransferase in the BGC
+marked the CDP-activated phosphonolipid route. Checked against the two clusters whose
+chemistry is known from lab work, it came out **inverted**:
+
+| Cluster | Lab truth | Class assigned | Margin |
+|---|---|---|---|
+| *P. ananatis* LMG 5342 `HE617160.1.region002` | phosphonolipid | Decarboxylase | 0.0 |
+| *Winslowiella iniecta* B149 `JRXF01000012.1.region001` | **not** a lipid | Decarb-Nucleotidyltransferase | 0.0 |
+
+The confirmed lipid carries no NTP_transf at all — several of its biosynthetic CDS are
+unannotated in that assembly, so the marker simply is not visible — while the confirmed
+non-lipid carries one, activating a substrate for some other energetically unfavourable
+step. NTP transfer is generic activation chemistry, not a lipid signature.
+
+The margin is structural, not incidental: both classes scored against the same DhpF /
+Fom2 / Ppd reference set (via the `_SHARED_REFS` mechanism, now also gone), so percent
+identity was identical for both by construction and `margin` was always exactly 0.0. No
+amount of added sequence evidence could have separated them.
+
+`LEGACY_CLASS_NAMES` in `utils/constants.py` still maps the old `TPP+NTP` and `Ppd-CDP`
+spellings, now onto `Decarboxylase`, so annotation files from those runs still load.
+
+**Predicting phosphonolipid vs. small molecule: the failures were measurement, the
+open question is real.** Four signals were tried — coupling class, `NTP_transf_3` copy
+number, CDP-alcohol phosphatidyltransferase proximity, and TIGRFAM — and none separated
+the two characterised examples. **All four were measured on a cluster the pipeline could
+not see.** *P. ananatis* LMG 5342's 2012 deposit annotates 6 of its 15 genes, and
+antiSMASH runs gene finding only on records with ZERO CDS, so the other 9 — including
+the class-V transaminase and both CDP-alcohol phosphatidyltransferases — were invisible
+to every metric built on top. See `RECOVER_ORFS`.
+
+With the genes restored the question is still open, but for a better reason. The two
+clusters are now **nearly identical in domain content**:
+
+| | LMG 5342 r2 (**lipid**) | *Winslowiella* B149 (**not** lipid) |
+|---|---:|---:|
+| aepZ-family transaminase (PF00266) | 1 | 2 |
+| NTP_transf_3 (PF12804) | 1 | 1 |
+| CDP-alcohol phosphatidyltransferase (PF01066) | **2** | 1 |
+| pepM / Ppd | 1 / 1 | 1 / 1 |
+
+Copy number is the only domain-level difference, and at one example per class that is
+not signal. So whatever distinguishes them is **not visible in Pfam content** — the
+acceptor specificity of the CDP-alcohol phosphatidyltransferase, substrate availability
+and regulation are the places left to look.
+
+Note what this means for the original hypothesis that NTP_transf plus a CDP-alcohol
+phosphatidyltransferase marks a phosphonolipid: it is **supported** by the confirmed
+lipid, which carries both. It is simply not discriminating. It was rejected three times
+on evidence that could not see those genes at all.
+
+**PalB detection was corrected on 2026-08-25.** It previously used SMCOG1013
+(Aminotran_3, fold type IV PLP), which is a different aminotransferase class from
+PalB — an AAT superfamily enzyme (fold type I PLP), annotated Aminotran_1_2 / PF00155
+/ SMCOG1019. The marker is now SMCOG1019 in both `bgc_coupling_annotation.py` and
+`bgc_coupling_tree.py`'s `CLASS_MARKERS`.
+
+**Measured impact on the Pantoea genus run: 5 of 6 Transaminase calls were false
+positives.** Counts went Transaminase 6 → 1, Unknown 0 → 5; no other class moved. The
+one surviving call is `CEUYZP010000005.1.region001` (*Pantoea* sp. E956-1_S3, locus
+`ctg5_2`), annotated `SMCOG1019: aminotransferase`. The five reclassified BGCs carry
+an Aminotran_3 enzyme that is not the coupling enzyme, so `Unknown` is the honest
+label; the coupling enzyme trees are the way to resolve what they actually are.
+
+Note `PF00155` never appears literally in antiSMASH JSON — it writes the domain *name*
+`Aminotran_1_2`. That domain was tested as an additional fallback and made no
+difference to the outcome (the five reclassified BGCs do not carry it), so it was left
+out: `Aminotran_1_2` hits 82 of 313 phosphonate regions and is too promiscuous to use
+as a coupling-enzyme marker on its own.
+
+The remaining caveat from the original note still stands: coupling enzymes are not
+always adjacent to pepM (the phosphonoalamide BGC places PalB far from it). Region
+membership is now segment-based, so the whole region is scanned regardless of distance.
+
+**Note on PalA:** PalA (phosphonopyruvate hydrolase, a phosphonate degradation/resistance gene) does not confound the classification — all GCF types show clear biosynthetic markers.
+
+### `scripts/bgc_coupling_tree.py` — Coupling enzyme phylogenetic trees
+
+Builds FastTree ML trees (LG model) for pepM (Tree A) and per-class coupling enzymes (Tree B), with characterized reference sequences as phylogenetic anchors. **Standalone only — no longer a pipeline stage** (removed 2026-08-27; see "Why There Is No pepM Tree"). Consumes `phosphonate_metadata.json` and `phosphonate_itol_coupling.txt` from `GCF_BIOSYNTHETIC_TREE`, and uses `load_coupling_classes` from `utils/constants.py`. `hmmer` and `fasttree` are no longer in any pipeline conda environment, so install them yourself and pass `--hmmbuild`/`--hmmalign`/`--hmmsearch`/`--fasttree`. Use it to place an individual ambiguous enzyme phylogenetically — something the scalar reference-support score cannot do.
+
+**HMM strategy (4 steps per class):**
+1. `hmmbuild` from a single seed reference → initial HMM
+2. `hmmalign` all references to initial HMM → aligned references
+3. `hmmbuild` from aligned references → refined HMM
+4. `hmmalign` refs + query sequences → final alignment → FastTree ML tree (LG model)
+
+**Sequence extraction (annotation-first with HMM fallback):**
+- Primary: antiSMASH annotation markers (SMCOG/domain hits from `gene_functions` / `sec_met_domain`) — zero extra compute, already in JSON
+- Fallback: for any BGCs the annotation missed, extract all CDS from the region and run `hmmsearch` against the class reference HMM; select the highest-scoring hit per BGC
+- This handles divergent sequences that escape SMCOG thresholds (ThDP decarboxylases that carry `TPP_enzyme_C` but not `SMCOG1055`)
+
+**CLASS_MARKERS — extraction markers per class:**
+
+| Class | Marker type | Marker | Rationale |
+|-------|-------------|--------|-----------|
+| Synthase (FrbC-like) | smcog | SMCOG1271 | HMGL-like phosphonomethylmalate synthase |
+| Decarboxylase (Ppd-like) | domain | TPP_enzyme_C | Divergent ThDP decarboxylases carry this but not SMCOG1055 |
+| Reductase (VlpB-like) | domain | Fe-ADH | Phosphonopyruvate reductase (iron-containing ADH) |
+| Transaminase (PalB-like) | smcog | SMCOG1019 | Aminotran_1_2/PF00155, AAT superfamily (corrected 2026-08-25) |
+
+**Tree outputs per class:** `{class}_tree.nwk` + four iTOL annotation files (coupling class colorstrip, GCF colorstrip, source colorstrip, organism text labels).
+
+**Reference sequences** (`assets/reference_sequences/`):
+
+| FASTA ID | Protein | Function | Source |
+|----------|---------|----------|--------|
+| `BGC0000904\|ABB90393\|FrbD` | FrbD | PEP mutase | *Streptomyces rubellomurinus* (FR-900098) |
+| `BGC0000904\|ABB90392\|FrbC` | FrbC | phosphonomethylmalate synthase | *Streptomyces rubellomurinus* |
+| `BGC0000897\|ACZ13456\|DhpE` | DhpE | PEP mutase | *Streptomyces luridus* (Dehydrophos) |
+| `BGC0000897\|ACZ13457\|DhpF` | DhpF | phosphonopyruvate decarboxylase | *Streptomyces luridus* |
+| `BGC0000938\|ACG70831\|Fom1` | Fom1 | PEP mutase | *Streptomyces fradiae* (Fosfomycin) |
+| `BGC0000938\|ACG70832\|Fom2` | Fom2 | phosphonopyruvate decarboxylase | *Streptomyces fradiae* |
+| `BGC0000806\|AHL24479\|PepM` | PepM | PEP mutase | *Glycomyces* sp. NRRL B-16210 |
+| `BGC0000806\|AHL24480\|Ppd` | Ppd | phosphonopyruvate decarboxylase | *Glycomyces* sp. |
+| `Phosphonoalamide_BGC\|WP_030764868\|PnaD` | PnaD | PEP mutase | *Streptomyces* sp. NRRL B-2790 |
+| `Phosphonoalamide_BGC\|WP_051781701\|PnaA` | PnaA | phosphonopyruvate transaminase | *Streptomyces* sp. NRRL B-2790 |
+| `Valinophos_BGC\|WP_031174023\|VlpA` | VlpA | PEP mutase | *Streptomyces durhamensis* NRRL B-3309 |
+| `Valinophos_BGC\|WP_063765859\|VlpB` | VlpB | phosphonopyruvate reductase | *Streptomyces durhamensis* |
+| `Pantaphos_BGC\|WP_013027161\|HvrA` | HvrA | PEP mutase | *Pantoea ananatis* LMG 5342 |
+| `Pantaphos_BGC\|WP_013027159\|HvrC` | HvrC | phosphonomethylmalate synthase | *Pantoea ananatis* LMG 5342 |
+
+**PalB-like detection uses SMCOG1019** (Aminotran_1_2 / PF00155, AAT superfamily,
+fold type I PLP) as of 2026-08-25. It previously used SMCOG1013 (Aminotran_3, fold
+type IV) — see the correction note above.
+
+**Standalone usage:**
+```bash
+python scripts/bgc_coupling_tree.py \
+    --antismash_dir  results/antismash_results/Pantoea \
+    --metadata       results/main_analysis_results/Pantoea/gcf_heatmap/phosphonate_metadata.json \
+    --coupling_annotation <itol_coupling_colorstrip.txt> \
+    --ref_pepm_faa   assets/reference_sequences/reference_pepM.faa \
+    --ref_coupling_faa assets/reference_sequences/reference_coupling_enzymes.faa \
+    --outdir         results/main_analysis_results/Pantoea/coupling_enzyme_trees \
+    --hmmbuild       $(which hmmbuild) \
+    --hmmalign       $(which hmmalign) \
+    --hmmsearch      $(which hmmsearch) \
+    --fasttree       $(which FastTree) \
+    --tree           both    # "A", "B", or "both"
+```
+
+### `scripts/bgc_gcf_heatmap.py` — GCF × Species presence/absence heatmap
+
+Generates a heatmap of GCF membership across organism groups, with a GTDB-Tk phylogenetic tree as column ordering and a Jaccard/complete-linkage row dendrogram matching BiG-SCAPE's clustering algorithm. Uses `load_coupling_classes` from `utils/constants.py`.
+
+```bash
+python scripts/bgc_gcf_heatmap.py \
+    --metadata            results/bgc_trees/Pantoea/phosphonate_metadata.json \
+    --coupling_annotation results/bgc_trees/Pantoea/phosphonate_itol_coupling.txt \
+    --gtdbtk_tree         results/gtdbtk_results/Pantoea/gtdbtk_output/classify/gtdbtk.bac120.classify.tree.1.tree \
+    --gtdbtk_summary      results/gtdbtk_results/Pantoea/gtdbtk_output/gtdbtk.bac120.summary.tsv \
+    --outdir              results/bgc_trees/Pantoea
+```
+
+- **Data source**: Only region-level BGC records with GCF assignments at `cutoff=0.3` (303 phosphonate BGCs; sub-records like cand_cluster/protocluster are excluded)
+- **True singletons**: Single-member GCFs (size=1), not unassigned records
+- **Row dendrogram**: `scipy.spatial.distance.pdist(metric='jaccard')` + `linkage(method='complete')` — matches BiG-SCAPE's clustering algorithm
+- **Column tree**: GTDB-Tk phylogenetic tree pruned to representative genomes per organism group, rendered as a cladogram
+- **Outputs**: `gcf_species_heatmap.png` and `.svg`
+
+### `scripts/bgc_itol_annotations.py` — iTOL annotation files
+
+Generates iTOL annotation files from bgc_pfam_tree.py or bgc_synteny_tree.py outputs.
+
+```bash
+python scripts/bgc_itol_annotations.py \
+    --treedir results/bgc_trees/Pantoea \
+    --bgc_type phosphonate
+```
+
+Outputs: `_itol_gcf.txt` (color strip), `_itol_domains.txt` (binary), `_itol_domaincount.txt` (bar chart).
+
+### Key Pfam accessions for phosphonate BGCs
+
+Verified from antiSMASH clusterhmmer output on Pantoea phosphonate clusters:
+
+| Pfam | Name | Function |
+|------|------|----------|
+| PF13714 | PEP_mutase | PEP mutase (pepM/aepX) — hallmark gene |
+| PF00296 | HMGL-like (HEPD) | 2-hydroxyethylphosphonate dioxygenase |
+| PF00682 | FrbC-like (PmmS) | Phosphonomethylmalate synthase (HMGL superfamily) |
+| PF02775 | ThDP_C | Phosphonopyruvate decarboxylase |
+| PF00266 | Aminotrans_V | 2-AEP transaminase |
+| PF13649 | Radical_SAM | Radical C–P chemistry |
+
+**Note on HMGL annotation:** AntiSMASH/BiG-SCAPE annotates phosphonomethylmalate synthase as `PF00682 (HMGL-like)` because it structurally belongs to the HMGL superfamily. The antiSMASH JSON provides richer context via `gene_functions: biosynthetic-additional (smcogs) SMCOG1271: 2-isopropylmalate synthase` and `sec_met_domain: HMGL-like`. BiG-SCAPE only stores the Pfam accession and bit score — no SMCOG or functional description.
+
+### Data Sources
+
+- BiG-SCAPE DB `hsp` table: Pfam accession + bit_score per CDS (populated by antiSMASH clusterhmmer)
+- AntiSMASH JSON: richer annotations including `gene_functions`, `sec_met_domain` (SMCOG hits, TIGRFAM), and `product`
+- Domain sequences in TSV come from the BiG-SCAPE DB (best Pfam hit per CDS, ordered by `nt_start`)
+
+## Development Notes
+
+### Configuration
+
+- **Conda environments**: Defined centrally in `conf/conda.config` (not in individual modules)
+- **Resource labels**: Defined in `conf/labels.config`, applied via process labels in modules
+- **SLURM overrides**: Profile-specific adjustments in `nextflow.config`
+
+### Utilities
+
+- `Utils.sanitizeTaxon(name)`: Sanitize taxon for filesystem paths (removes special chars)
+- `Utils.antismashParamsHash(params)`: Generate MD5 hash of antiSMASH parameters for reuse tracking
+- `Utils.buildReusePath(params, projectDir, tool, taxon, subPath)`: Build absolute path for result reuse
+- `Utils.isValidInput(input)`: Check if input is valid (not a placeholder)
+- `Utils.optArg(flag, input)`: Build `"--flag path"` for a real input, `""` for a placeholder — use this instead of comparing against a specific `NO_*` name, which silently passes the sentinel through when the names drift apart
+
+Workflow-level helpers live in `subworkflows/helpers.nf` and are included like processes
+(`include { placeholder } from './helpers'`), since Nextflow functions are file-scoped:
+
+- `placeholder(name)`: Value channel holding a sentinel file for an optional input
+- `clusteringEnabled(method)`: `params.clustering == method`
+- `batchSize()`: `params.task_batch_size` coerced to Integer
+
+### Module Guidelines
+
+- Use `publishDir` for outputs, `storeDir` for database downloads
+- Use appropriate labels: `process_low`, `process_medium`, `process_high`, `process_high_memory`
+- Use `tolerant` label for per-genome processes where individual failures are acceptable
+- antiSMASH uses `cache 'lenient'` for directory inputs
+- COLLECT_VERSIONS searches `work/conda/` for installed tool versions
+- BiG-SCAPE database (`bigscape_db`) is passed explicitly through pipeline for rarefaction curve generation
+- Build optional arguments with `Utils.optArg('--flag', input)` rather than comparing a
+  staged file against a specific sentinel name. Placeholders are only guaranteed to start
+  with `NO_`; hardcoding `!= 'NO_FILE'` passes the sentinel through as a real path once
+  the workflow emits a differently-named one
+
+### Testing
+
+```bash
+bash tests/run_tests.sh          # full suite (~1 min)
+TEST_SCRATCH=/tmp/t bash tests/run_tests.sh   # keep the scratch dir for debugging
+BATCH_SIZE=2 bash tests/run_tests.sh          # exercise a different batch size
+```
+
+Everything runs in a scratch directory, never in `results/`, so a test run cannot
+truncate `pipeline_info/`. The suite covers:
+
+- `Utils` helpers — `optArg` across real/placeholder/list/empty/null inputs, `isValidInput`, `sanitizeTaxon`, and that `batchSize()` yields a real Integer (`collate()` silently fails otherwise)
+- Batched per-genome processes — assembly-ID pairing across a batch, one output per genome after `.flatten()`, a corrupt genome skipped without losing its batch, and reuse-copy fidelity for hidden and nested files
+- Static checks — every script compiles, and `check_undefined.py` finds calls to names that are never defined or imported (this is what surfaced the phylo-fallback `NameError`)
+- `check_screen_flags.py` — the pepM screen is invoked from two modules (`PEPM_PRESCREEN`
+  for `--input_genomes`, `FETCH_RENAME_SCREEN` for downloaded genomes). Both call the same
+  script so the algorithm cannot drift, but the FLAGS can: the fused call site was written
+  without `--threads` and `--diamond` and agreed with the other only by coincidence
+  (`process_medium` is 4 CPUs, the script's `--threads` default is 4). Raise the label to
+  8 and one path silently uses half the threads. The check compares flag sets, not values
+  — the two legitimately differ in how they name inputs
+
+Notes on the runner: Nextflow derives `projectDir` from the entry script's location, so
+the test scripts are staged into the scratch dir with a `scripts/` symlink — otherwise
+modules would look for `tests/scripts/...`. GenBank→FASTA needs biopython; the runner
+borrows an interpreter that has it (system python or a cached conda env) and skips those
+two assertions if none is available.
+
+### Parameter validation: the schema is the contract
+
+`nextflow_schema.json` declares every parameter, and `main.nf` calls nf-schema's
+`validateParameters()` before anything else. Two silent failures become errors:
+
+| you type | before | now |
+|---|---|---|
+| `--taxn Pantoea` | runs *Erwiniaceae*, reports success | `* --taxn (Pantoea): False schema always fails` |
+| `--run_gtdbtk false` | **enables** GTDB-Tk | `Value is [string] but should be [boolean]` |
+
+The second is the nastier one. A command-line param arrives as a **string**, and every
+non-empty string is true in Groovy, so `--run_gtdbtk false` reads as enabled. Measured on
+Nextflow 26.04.3: `--run_gtdbtk false` gives `String "false"` and takes the TRUE branch,
+while `-params-file {"run_gtdbtk": false}` gives `Boolean false`. Every gate here is
+`if (params.x)`, so it cost two real mistakes — a run that spent 373 CPU-min and 93 GB on
+GTDB-Tk after being told not to, and an A/B that would have screened both arms while
+reporting them as screen-on against screen-off. Nextflow does not catch either on its own,
+and `NXF_ENABLE_STRICT=true` does not change that.
+
+**Adding a param means adding it to the schema**, or the pipeline rejects it at runtime
+for everyone. `tests/check_schema.py` compares the schema against `nextflow config -flat`
+and fails on drift in either direction; `--write` regenerates it. The generator reads the
+param list from Nextflow rather than by parsing the config text — a regex missed one
+param, and because the same regex checked its own output the gap stayed invisible until
+a run failed.
+
+Three things worth knowing about the schema's shape. All 53 properties sit at the **root**,
+not in `$defs` groups: `additionalProperties` only sees properties declared in the same
+schema object, so an `allOf`/`$defs` layout rejects every grouped param instead of only
+unknown ones. And `"False schema always fails"` is what an unknown parameter looks like —
+the message comes from the JSON-schema library, and it names the offending flag. And a param
+whose documented "off" value is `null` needs `["integer","null"]` rather than the type its
+default implies — the generator cannot infer that from a default of `10`, so
+`antismash_phosphonate_neighbourhood` is listed in `NULLABLE` in `tests/check_schema.py`
+and `--write` preserves it. Without that, the one setting `nextflow.config` tells you to
+use would be rejected.
+
+Disabling something on the command line is no longer possible; use a params file:
+
+```bash
+echo '{ "run_gtdbtk": false, "pepm_prescreen": false }' > off.json
+nextflow run main.nf -params-file off.json --taxon "Pantoea ananatis"
+```
+
+### Task Batching
+
+Steps whose per-genome work is under a couple of seconds are batched — one job per
+genome is almost entirely scheduler overhead, and at 3M genomes the submission rate
+limit becomes the bottleneck rather than the compute.
+
+Batched processes: `FETCH_RENAME_SCREEN` (`params.download_batch_size`, default 25),
+`GENBANK_TO_FASTA`, `COPY_ANTISMASH_RESULT` (`params.task_batch_size`, default 100). `CHECK_ANTISMASH_REUSE` is not batched because
+it already runs with `executor 'local'`.
+
+When adding or changing a batched process:
+
+- **Flatten downstream.** A batched process emits one list per task; consumers that work
+  per genome need `.flatten()` (see `DOWNLOAD_GENOMES.out.renamed_genomes`)
+- **Keep failures per-genome.** The batch script must catch per-item errors and continue,
+  exiting non-zero only if every item failed — otherwise batching turns one bad genome
+  into 100 lost ones
+- **Watch for input name collisions.** NCBI names every genome `genomic.gbff`.
+  `RENAME_GENOMES` handled this by staging them as `genome?.gbff` and pairing staging
+  ORDER against an assembly-ID list, which needed a guard because order is fragile.
+  `FETCH_RENAME_SCREEN` reads each accession from the directory NCBI downloaded it into,
+  so there is no ordering to get wrong -- the hazard is structurally gone rather than
+  guarded
+- **`collate()` needs a real Integer.** Params given on the command line arrive as
+  strings, which silently fail to dispatch — always go through `batchSize()`
+
+### Batched download (`NCBI_FETCH_METADATA` + `FETCH_RENAME_SCREEN`)
+
+`NCBI_DATASETS_DOWNLOAD` was one task for the whole taxon: every genome resident in one
+work directory before anything downstream could run. At the 150,690 genomes of RefSeq
+Enterobacterales that is **1.3 TB**, and no amount of screening helps, because the screen
+cannot filter what has not finished downloading. The split is at a seam that already
+existed -- `datasets download --dehydrated` fetches metadata and a manifest, `rehydrate`
+fetches the payload:
+
+| stage | does | cost |
+|---|---|---|
+| `NCBI_FETCH_METADATA` | taxon -> accessions + metadata, no payload | 3.7 kB/genome |
+| `FETCH_RENAME_SCREEN` | per batch: fetch, rename, screen, keep survivors | one batch resident |
+
+Transient disk becomes `download_batch_size x download_max_forks x 8.7 MB`, ~440 MB at
+the defaults.
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `assembly_source` | `GenBank` | `RefSeq` is 8.3x smaller for Enterobacterales (150,690 against 1,257,000) and drops mostly redundant clinical isolates |
+| `assembly_reference_only` | `false` | NCBI's designated reference genome per species. Enterobacterales: 640. For measuring a clade before committing to it |
+| `download_batch_size` | 25 | sets transient disk AND the failure rate -- see below |
+| `download_max_forks` | 2 | measured, not guessed |
+
+**Concurrency above 2 is worse, not better.** Probed at 1/2/4/8 with zero failures at any
+level: 23.5, **33.5**, 29.0, 25.1 MB/s. Throughput peaks at 2 and declines -- a saturated
+link (~264 Mbit/s here), not server throttling. Batching therefore costs no wall time,
+because two fetches already saturate the connection.
+
+**NCBI returns an invalid zip for a share of requests, and the share grows with archive
+size.** A 30-minute soak found **8.1% of batch fetches failing**, flat across every
+5-minute bucket, all with
+
+    Downloading: d.zip  32.8MB invalid zip archive
+    Error: Internal error (invalid zip archive). Please try again
+
+The archive transfers in full and then fails NCBI's own validation. Three inline attempts
+each verified with `unzip -t` take 7.5% to ~0.04%. A **51-accession request (~130 MB)
+failed all six attempts of a real run and killed it**, while the same accessions fetched
+cleanly in 17-accession chunks minutes later -- hence 25 rather than the 200 this started
+at, and hence the per-accession fallback: a batch must exit non-zero only when *every*
+item failed.
+
+**Sustained throughput is ~98 genome-fetches/min, not the burst's 159.** Budget
+order-scale downloads at the sustained figure: 150,000 genomes is ~25 h.
+
+**Batch membership is assigned by `md5(accession) % n`, not by position.** Positional
+batching means one new NCBI deposit shifts every later genome into a different batch and
+the whole taxon re-downloads on `-resume`. Two bugs found doing this, both invisible at
+one batch: hand-rolling an unsigned int from the digest produced **negative** keys and
+~2x the intended batch count, and writing batch files with `createTempFile` gave each a
+fresh name and timestamp per run, so `-resume` missed all of them (`cached=4,
+completed=7`). Batch files now live at a stable path and are rewritten only when their
+content changes -- an identical rewrite still moves `last-modified` and still misses.
+
+### Enterobacterales feasibility (measured 2026-09-25)
+
+| | RefSeq · 150,690 | GenBank · ~1,345,000 |
+|---|---:|---:|
+| total wall | **43.1 h, measured** | fetch+screen ~2.3 d wired *(was ~11 d)* |
+| disk | **150 GB peak, measured** | 12 TB drive available |
+| BiG-SCAPE RAM | **19 GB of 56, measured** | depends on BGC yield — see below |
+
+**RefSeq ran. GenBank's three original blockers have each moved**, and the table above is
+kept only to show by how much. Each number in the right-hand column is now either measured
+or openly unknown:
+
+- **Wall time.** The ~76 d figure assumed the download rate of a throttled WiFi link. Wired,
+  the fetch+screen stage probes at 22-25 MB/s — about 5x what the RefSeq run actually
+  sustained — putting 1.35 M genomes near **55 h**. See
+  `docs/comparisons/download_fork_probe/`. More fork concurrency does *not* help: 6x the
+  forks buys 10% of the bandwidth and starts losing batches.
+- **Disk.** The 2.4 TB estimate assumed retaining every download. The screen now runs inside
+  `FETCH_RENAME_SCREEN`, so rejected genomes are never written and transient disk is
+  `maxForks x batch x ~8.7 MB`. RefSeq's measured 150 GB peak was dominated by one
+  `GTDBTK_CLASSIFY` task (111 GB, 95 GB of it pplacer scratch), which is set by GTDB's
+  reference data rather than genome count.
+- **BiG-SCAPE memory.** The 133 GB figure came from scaling BGC count with genome count.
+  That scaling is the thing to distrust: the pepM screen retained **0.87%** of RefSeq
+  (1,309 of 150,690), and 114,532 of those assemblies are *E. coli*, Salmonella and
+  Klebsiella — which prior lab work puts at fewer than 10 BGC-positive between them.
+  GenBank's extra ~1.2 M genomes are overwhelmingly more of those same clinical isolates,
+  so the BGC yield could be close to RefSeq's 1,303 rather than 8x it. **Unknown until
+  measured, and it does not gate starting**: clustering is the last stage, so the screen
+  reports the real count before BiG-SCAPE runs.
+
+**Run 2026-09-27 and measured: 43.1 h, 104.2 CPU-h, 0 failures.** The ~2-3 day estimate
+held. Retention came in at 0.87% against the 1.7-2.9% modelled, so the clade-aware model
+was right in shape and conservative in degree. Peak disk was 150 GB rather than the ~50 GB
+projected, because GTDB-Tk's scratch dominates it — see the benchmark section above.
+
+The projection was wrong until it was measured. Borrowing Erwiniaceae's rates -- 11%
+screen retention, 10.8% BGC-positive -- made GTDB-Tk look like a 7-day bottleneck, because
+it scales with BGC-POSITIVE genomes. Enterobacterales is **76% *E. coli*, *Salmonella* and
+*Klebsiella*** (114,532 of 150,690 RefSeq assemblies), clades known from prior lab work to
+carry fewer than 10 BGCs between them.
+
+A 640-genome pilot on the reference set measured it directly: 56 of 640 pass the screen
+(8.8%), 50 regions in 48 genomes, 40 GCFs. **That 8.8% does not transfer** -- the reference
+set is one genome per species, so it measures prevalence per SPECIES. Translating gives
+~2,700 genomes retained on full RefSeq. Data: `docs/comparisons/enterobacterales_pilot/`.
+
+One BGC in the pilot is pantaphos (*P. ananatis* PA13, distance 0.000); everything else
+sits 0.84-0.91 from any characterised cluster. Carriers are *Pectobacterium* (12),
+*Photorhabdus*, *Xenorhabdus*, *Brenneria*, *Lonsdalea* -- plant and insect pathogens, not
+the clinical bulk.
+
+**Do not read the 34 singletons as diversity.** 46 distinct species for 50 BGCs, so a
+family can only form where different species share a cluster. Pantaphos -- 186 members in
+Erwiniaceae -- is a singleton there, because those 186 are strains of one species.
+
+### pepM Pre-Screen (`--pepm_prescreen`)
+
+**Off by default.** It *removes* genomes from the analysis, so turn it on
+deliberately — the same posture as `--bigscape_partition`.
+
+Every phosphonate BGC carries a PEP mutase, so a genome without one cannot hold
+what this pipeline looks for. Establishing that costs **~0.9 CPU-s** against
+antiSMASH's **41.4**, which is what makes an order-scale run tractable.
+
+```
+FETCH_RENAME_SCREEN (fetches, renames AND screens) -> ANTISMASH   (only those that pass)
+```
+
+**The screen runs inside `FETCH_RENAME_SCREEN`, not as its own stage** (moved
+2026-09-23; that process was `RENAME_GENOMES` until the download was batched on 09-24).
+It used to filter the channel downstream, which scheduled correctly but kept every
+rejected genome on disk: on the Erwiniaceae verification run **24 GB of a 27 GB
+result directory was renamed genomes, and 2,464 of 2,771 were rejected and used for
+nothing**. Deleting them afterwards does not work -- `publishDir` re-publishes from
+`work/` on `-resume`, and pruning published output races with tasks still
+publishing, which is why `prune_antismash_results.py` refuses to run during a run.
+Screening inside the renaming task means a rejected genome is deleted *before* its
+output is declared, so it never reaches `publishDir` and `-resume` cannot resurrect
+it. Both outputs are `optional`: a batch in a phosphonate-poor clade can legitimately
+have zero survivors.
+
+Genomes supplied via `--input_genomes` never pass through `FETCH_RENAME_SCREEN`, so
+`ANTISMASH_ANALYSIS` keeps its own `PEPM_PRESCREEN` for that path. The
+`prescreened` flag threaded through `BGC_ANALYSIS` decides which one runs; it is a
+plain boolean because the answer is known when the DAG is built.
+
+**Two bugs this move surfaced, both worth knowing:**
+
+- The fused process inherited a python-only conda environment, so the screen could
+  not import biopython. `pepm_prescreen.py` caught that per genome, fell back to
+  "screening by DNA", found nothing, and reported **every genome as
+  pepM-negative** -- including *W. iniecta* B149, the known producer. It exited 0.
+  The script now `sys.exit`s on `ImportError`, because a missing module is a broken
+  environment rather than a bad genome and applies to the whole batch.
+- The staged inputs are themselves `*.gbff` (`genome1.gbff`, ...), so globbing
+  after renaming screened all 16 files of an 8-genome batch. Nextflow excludes
+  staged inputs from the *output* glob, which is why only the screen needed the
+  before/after diff it now uses.
+
+Verified on *Winslowiella* (8 genomes): B120 and B149 pass at bitscore 296.0, the
+other six score 54.3-54.7 against a cut of 100, and only the two survivors are
+published.
+
+```
+```
+
+**Two modes, one decision.** NCBI GenBank annotation is inconsistent — 794 of
+2,771 Erwiniaceae genomes (28.7%) carry no CDS translations at all:
+
+| genome | mode | cost |
+|---|---|---:|
+| annotated | `diamond blastp` over its proteins | 0.234 CPU-s |
+| unannotated | `diamond blastx` over its contigs | 2.030 CPU-s |
+
+Both search the same seven references at the same threshold. On the 341 genomes
+where both could run they agreed on **100.0%** of calls at bitscore 100 — same
+tool, same references, same cutoff, only the input representation differs. That is
+why this branch is safe where the others in this codebase were not: the two paths
+are verified to make identical decisions, rather than merely intended to.
+
+**blastp is 9.2x cheaper** (measured; an earlier estimate of 14x was optimistic),
+which takes the screen from 2.11 to 0.88 days at a million genomes.
+
+**Validated over all 2,771 Erwiniaceae genomes against the real BGC calls:**
+
+| | |
+|---|---:|
+| sensitivity | **298 / 298** |
+| false positives | 8 of 2,473 |
+| retained | 306 (11.0%) |
+| true-positive bitscore | 154-552 |
+
+**The separation is wide but not absolute, and an earlier version of this table said
+otherwise.** It quoted "background bitscore <= 51", which cannot be true of the full
+validation: the 8 false positives *are* negatives scoring above the cut of 100. That
+figure came from a 60-genome unannotated sample (true positives 154-552, negatives
+topping out at 51) and was wrongly carried over as a property of all 2,473 negatives.
+
+Those 8 are not misfires. They are genomes carrying a credible PEP mutase with no
+assembled cluster around it — antiSMASH examines them and correctly reports nothing,
+which is the behaviour a screen should have at its margin. The bound that matters is
+the one on the other side: **no true positive scored below 154**, so the cut at 100 has
+54 points of headroom against a miss, which is the direction that loses data.
+
+A `--min_density` guard (500 proteins/Mb) routes partially-annotated genomes to
+blastx, closing the one failure mode the two modes do not share. Observed density
+was 576-1,015 with nothing below 500, so it costs nothing today.
+
+**A pseudogene-flagged pepM was invisible to the screen, and is no longer.** NCBI
+withholds `/translation` from any CDS it flags `/pseudo`, and `parse_genome` collected
+only CDS that had one — so a genome whose pepM is annotated `phosphoenolpyruvate mutase`
+*and* `/pseudo` reached diamond with no pepM in its protein set and scored **0.0**. Found
+on the held-out clade (below), where it cost 2 of 98 true positives; `--min_density` does
+not catch it, because both genomes run 726-763 CDS/Mb and density is a whole-genome proxy
+for a single-gene problem. Such a CDS is now translated from its own coordinates, internal
+stops kept as `X` rather than truncating, since a pseudogene spreads its signal across the
+frameshift. Erwiniaceae is unchanged in every field.
+
+### Held-out clade: *Bacteroides fragilis* (2026-09-19)
+
+Every earlier validation was on a clade the reference set draws from — Erwiniaceae
+supplies HvrA (1 of 7), the actinomycete set supplies the other 6 and contains the source
+strain of one, which self-matched at 828. **Bacteroidota supplies none**, and is held out
+in BGC space too: all 5 reference clusters sit 0.82-0.93 from their nearest *B. fragilis*
+BGC, none inside the 0.30 cutoff.
+
+136 genomes, ground truth from an unscreened arm: **98 BGC-positive (72%), 143 regions,
+19 GCFs**. After the pseudogene fix:
+
+| | |
+|---|---:|
+| sensitivity | **98 / 98** |
+| false positives | 2 of 38 |
+| true-positive bitscore | 342-567 |
+| top negative | 330 |
+
+**The classes separate completely** — any cut in (330, 342] gives 98/98 with zero false
+positives, where the actinomycete set had no such cut. The caveat is diversity rather
+than count: one species, true positives clustered at a modal 514, so 98 positives is not
+98 independent tests.
+
+At 72% BGC-positive the screen saves only 11% here (277.4 -> 247.3 CPU-min for a screen
+costing 3.6), against 6.5x on Erwiniaceae and 7.3x on the actinomycetes. **The saving is
+proportional to how dilute the taxon is**, and this clade was chosen to test sensitivity,
+not savings. Data: `docs/comparisons/pepm_prescreen/heldout_bacteroides/`.
+
+**Expanding the reference set made it worse.** Mining MIBiG by HMM added eight
+unique pepMs (15 total); sensitivity stayed at 298/298 while false positives rose
+from 8 to 67. Those extras are pepMs from fosfomycin and dehydrophos clusters,
+divergent enough to attract spurious matches without catching anything new. Note
+the curated seven include a *Pantoea* pepM (HvrA, Pantaphos), which favours this
+test set — the expansion is unproven rather than useless, and worth revisiting for
+a taxonomically distant clade.
+
+`prescreen_results/<taxon>/prescreen_*.tsv` records every genome with its mode,
+CDS density, best bitscore and verdict, so what was skipped is auditable rather
+than silent.
+
+### Validation Matrix (2026-09-09)
+
+Five configurations, all on Erwiniaceae, all reproducing the same GCF network.
+**Comparisons are by nucleotide sequence and co-membership, not by counts** —
+matching totals can hide a substitution.
+
+| Run | Genomes to antiSMASH | BGCs | Families | vs baseline |
+|---|---:|---:|---:|---|
+| screen off, unpartitioned *(baseline)* | 2,771 | 333 | 19 | — |
+| screen off, partitioned | 2,771 | 333 | 19 | ARI 1.0000 |
+| screen on, unpartitioned | **306** | 333 | 19 | ARI 1.0000 |
+| screen on, partitioned | **306** | 333 | 19 | ARI 1.0000 |
+| screen on + antiSMASH reuse (*P. ananatis*) | **0** | 225 / 225 | 6 | 0 lost, 0 extra |
+
+Every ARI comparison is over 23,995 co-membership pairs with **0 split and 0
+merged**. The screened runs recovered all 333 BGCs with **333/333 identical
+nucleotide sequences**, 5,845,237 bases either way.
+
+**antiSMASH output is not byte-reproducible.** BiG-SCAPE's `gbk.hash` differed on
+all 333 BGCs between two runs that were otherwise identical, because antiSMASH
+stamps `Run date` into every region GenBank. Compare `nt_seq`, never file hashes.
+
+**Reuse and the screen compound.** The *P. ananatis* run downloaded 343 genomes,
+screened 192 through, and ran antiSMASH **zero** times — every screened genome
+already had a result under Erwiniaceae. All 225 of its BGCs matched the
+Erwiniaceae subset base-for-base (3,526,555 bases). The screen filters
+`renamed_genomes` before the reuse branch, so both paths consume the narrowed set
+and there is no second code path to keep in step.
+
+The partitioned runs split 236/88/4/2/2/1 and `BIGSCAPE_CENTERS` measured
+**171 of 171** centre pairs, so the family-centre tree has a fully measured
+backbone in every configuration.
+
+### Wall Time at Scale: antiSMASH Batching and GTDB-Tk Sharding
+
+Elapsed time for a large run is set by two stages; everything else is under a day
+combined.
+
+| Stage | before | after | mechanism |
+|---|---:|---:|---|
+| antiSMASH | 34.7 d | 0.7 d submit / 2.4 d compute | 50-genome batches |
+| GTDB-Tk | up to 23 d | ~2.3 d at 10 shards | 5,000-genome shards |
+
+**antiSMASH was submission-bound, not compute-bound.** At one task per genome and 20
+submissions/min, a million genomes spends 34.7 days being *submitted* against 2.4 days
+computing. `params.antismash_batch_size` (default 50) puts submission at 0.7 days,
+comfortably under compute; larger batches buy nothing and only coarsen retry granularity.
+
+The batch loop **continues past a failed genome** rather than exiting. That mattered less
+when a failure cost one genome; batched, an aborting task would forfeit 50. The task exits
+non-zero only when *every* genome in the batch failed, which signals a broken environment
+(the conda startup race, a missing database) rather than bad input — and that is what the
+retry in `conf/labels.config` is for. `time` is raised to 8h since 50 genomes run
+sequentially.
+
+Results are written under `as_out/` so the output glob cannot match the staged database
+directory, and `saveAs` strips the prefix so the published layout is unchanged.
+
+**GTDB-Tk is sharded, and its tree is gone.** `classify_wf` still builds a tree internally
+— pplacer placement is how it classifies — but a per-shard tree spans a disjoint genome
+set, and N of them cannot be concatenated into one phylogeny. `MERGE_GTDBTK` concatenates
+the summaries instead, which is lossless (one independent row per genome) and is what
+every consumer actually reads. It fails if any genome appears in two shards, since that
+would silently inflate every per-clade count.
+
+Removing the tree touched more than the tree:
+
+- **The GCF x genus heatmap lost its phylogenetic column ordering, and it has been
+  restored from a better source.** The order used to come from the run's own pplacer
+  tree; it now comes from GTDB's *reference* phylogeny, shipped in the GTDB-Tk data
+  package at `pplacer/gtdb_r<rel>_bac120.refpkg/gtdb_r<rel>_bac120_decorated_unrooted.tree`.
+  That is curated, identical between runs, and independent of which genomes happened to
+  be sequenced — where a pplacer order could shift with the query set. See
+  `genus_tree_from_gtdb_reference()`.
+- **GTDB-Tk reuse would have broken silently.** `CHECK_GTDBTK_REUSE` required a tree file
+  to exist before returning REUSE; with no run producing one, every reuse would have
+  fallen back to a full re-run. It now checks the summary alone.
+- `prune_tree` in `filter_gtdbtk_results.py`, `--outgroup` / `params.gtdbtk_outgroup`, and
+  `prepare_phylo_tree_for_js` are all gone or orphaned — nothing produces a whole-set tree
+  to root, prune, or render. `viz/tree_viz.py` itself is retained but no longer imported
+  by `viz/__init__`.
+
+**Batching antiSMASH invalidates every cached antiSMASH task**: the process source and its
+input cardinality both change, so the first run after this costs a full re-analysis.
+
+### Report JavaScript Is Not Covered by the Python Checks
+
+`tests/check_undefined.py` parses Python with `ast`, but the report's JavaScript is
+Python *string data* — `REPORT_JS` in `viz/report_assets.py` plus inline fragments in
+`viz/clustering.py` and `visualize_results.py` — so `ast` sees opaque text. That blind
+spot shipped a Genomes-tab search box wired to `filterGenomes()`, a function defined
+nowhere: every keystroke threw a `ReferenceError` and filtered nothing, silently, for
+the life of the feature.
+
+`utils/report_lint.py` closes it. `check_report(html)` cross-references inline
+`on*="name(...)"` handlers against `function name(` definitions and returns readable
+problems. `visualize_results.py` calls it **before writing** the file and exits 1
+rather than emitting a report with dead handlers — verified: breaking a function name
+gives exit 1 and leaves any existing report untouched.
+
+The linter runs against the assembled HTML because that is the only point where all
+the JS fragments exist together; checking the Python sources individually would report
+false positives, since a handler defined in one fragment is called from another.
+
+`tests/check_report_js.py` self-tests the linter (7 cases) and optionally checks a
+report passed as an argument; it runs in `run_tests.sh`. Pointed at the pre-fix
+published report it correctly reports `filterGenomes()`.
+
+Only the undefined direction is checked. "Defined but never called" was tried and
+dropped as too noisy — `searchNorm` and `searchMatches` are invoked from other JS
+rather than from markup, and `filterKCBHits` is legitimately uncalled when the KCB tab
+has no hits to render a search box for.
+
+### Resuming a Run After Editing Scripts
+
+Two traps, both hit on 2026-08-25.
+
+**Editing a file under `scripts/` now invalidates the cache correctly** (fixed
+2026-08-25; it did not before). Modules invoke scripts as
+`python ${projectDir}/scripts/foo.py` — an interpolated path, not a declared `path`
+input — so Nextflow's task hash never saw them and `-resume` happily reused output
+built from code that had since changed. A *silent* wrong answer, the worst kind.
+
+Each script-running process now embeds a digest of the scripts it depends on:
+
+```groovy
+# scripts-version: ${Utils.scriptsHash(projectDir, ['visualize_results.py', 'utils', 'viz'])}
+```
+
+The script block's text is part of the task hash, so a changed digest re-runs the
+task. Dependencies are listed **per process**, not hashed as one tree: a whole-tree
+digest would make the genome-fetching step depend on plotting code, and since it feeds
+antiSMASH, editing a chart would invalidate 1,735 antiSMASH tasks. Measured: editing
+`viz/rarefaction.py` changes the `VISUALIZE_RESULTS` digest and leaves the fetch and
+`GCF_BIOSYNTHETIC_TREE` untouched.
+
+Note `path` inputs were tried first and rejected. A directory `path` input does **not**
+hash its contents — a process staging `scripts/` served stale output while reporting
+`cached=1` — and staging individual files breaks the scripts'
+`sys.path.insert(0, Path(__file__).parent)` imports.
+
+**When adding a process that runs a script**, add the marker and list its
+dependencies. `tests/check_script_deps.py` (in `run_tests.sh`) fails if a declared
+list stops covering a script's real imports.
+
+**`-resume <run-name>` can silently fall back to the wrong session.** The task hash
+begins with the session UUID, so resuming the wrong session misses every entry and
+the pipeline starts from scratch — including the NCBI download. A name that fails to
+resolve does not error; it quietly resumes the most recent session, which is easily a
+3-second `-preview`. Resume by **UUID**, taken from `.nextflow/history` (column 6):
+
+```bash
+awk -F'\t' '{print $3, $6}' .nextflow/history   # run name -> session UUID
+nextflow run main.nf -resume <uuid> --taxon "Pantoea"
+```
+
+Confirm it bound before letting it run: `-dump-hashes` prints the session UUID as the
+first hash entry, and the summary line should report a large `cached=` count. If you
+see `cached=0` and `NCBI_DATASETS_DOWNLOAD` starting, kill it — the resume missed.
+
+**`bash tests/run_tests.sh` poisons a bare `-resume`.** The schema tests run
+`nextflow run main.nf -preview` three times, and the batching tests add two more
+sessions, so a completed test run leaves five entries on top of `.nextflow/history`.
+A bare `-resume` afterwards binds to a preview — which executes nothing, so it caches
+nothing — and silently restarts from the first uncached stage. This is not theoretical:
+it cost hours of re-running here, with no error and no warning, and it is the reason to
+resume by UUID *every* time rather than only when you remember having run a preview.
+
+### BiG-SCAPE Partitioning (`--bigscape_partition`)
+
+**Off by default.** Validated at 185-518 BGCs, not at the scale that needs it, and never
+run on SLURM. Turn it on deliberately.
+
+```
+PARTITION_BGCS -> BIGSCAPE_PARTITION (one per partition) -> MERGE_BIGSCAPE -> CLUSTERING_STATS
+```
+
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `bigscape_partition` | `false` | Enables the partitioned path |
+| `bigscape_partition_identity` | `0.60` | 0.60-0.80 is the verified safe window; 0.90 splits real families |
+| `bigscape_partition_threshold` | `10000` | **Total BGCs in the run** — not base pairs, not a partition size — below which everything goes in one partition |
+| `bigscape_partition_max_size` | `0` | Largest partition, in BGCs. `0` derives it from the task's memory allocation. A **safety valve, not a tuning knob** |
+| `bigscape_partition_memory_margin` | `0.85` | Fraction of the allocation to budget when deriving the cap |
+
+**The threshold is a dataset-level switch, the cap is per-partition.** They are not a
+matched pair, which an earlier `_min`/`_max` naming wrongly implied.
+
+**Partitioning is a net loss at small scale**, which is what the threshold is for: every
+partition re-pays BiG-SCAPE's fixed Pfam-load cost. Measured on identical inputs, 185 BGCs
+took **30 s as one job against 112 s across 19 partitions** (3.7x slower), and 518 BGCs
+took 93 s against 191 s (2.1x). Modelling the fixed cost against the quadratic term puts
+the crossover near **10,000-12,000 BGCs**, hence the default. Below it, partitioning costs
+time and buys nothing, because memory is not yet a constraint either.
+
+**Verified equivalent at 1,302 BGCs, 2026-10-07** — `docs/comparisons/bigscape_partition_equivalence/`.
+The 185-518 BGC runs below showed zero disagreement; at 1,302 the honest comparison needs a
+control, because BiG-SCAPE no longer reproduces itself exactly at that size. Partitioned
+against monolithic: 72 families both sides, largest 186 both, **3 of 1,302 members move**.
+Monolithic against a second monolithic run: the **same 3**, and slightly more co-membership
+churn (Jaccard 0.9945 against the partitioned run's 0.9960). Partitioning is inside
+BiG-SCAPE's own noise floor. Two of the three movers are the two that
+`bigscape_reproducibility/` independently named at 659 regions.
+
+**Force-chunking breaks it, and that is the real hazard.** With the cap at 400, the natural
+942-BGC component was cut into 400/400/142: **4,605 co-membership pairs split, 2,264 merged,
+7 families invented, Jaccard 0.852**. The partitioner's `WARNING: N component(s) exceeded
+--max_partition_size` should be read as invalidating the run's families, not as advisory.
+
+**The cap should follow the memory allocation, not a guess**, so it is derived by
+inverting the measured fit `GB = 1.14 + 1.29e-7*n^2` against `task.memory`:
+
+| RAM | largest partition |
+|----:|------------------:|
+| 16 GB | 10,700 BGCs |
+| 32 GB | 15,500 |
+| 48 GB | 19,100 |
+| 64 GB | 22,100 |
+| 128 GB | 31,400 |
+| 256 GB | 44,400 |
+
+Those are at 85% of the allocation, not 100%, because **the fit is being extrapolated well
+past its data**: it was measured to 10,000 BGCs, and 128 GB implies ~31,000 — a 3.1x reach,
+4.4x at 256 GB. The margin costs ~8% of the cap and buys ~19 GB of headroom at 128 GB,
+against an OOM kill that discards hours of clustering.
+
 **That table is too permissive for real data, because the fit was measured on replicated
 BGCs.** `bench_bigscape_scaling.py` copies a 333-BGC pool to reach 10,000, and its docstring
 flags family counts as distorted while asserting memory is faithful — that is the part that

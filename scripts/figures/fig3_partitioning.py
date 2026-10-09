@@ -5,13 +5,23 @@ The honest claim, and the one the data supports: partitioning does NOT make
 clustering faster at any scale we have measured -- it is 1.7-3.7x SLOWER,
 because every partition re-pays BiG-SCAPE's fixed Pfam-load cost. What it buys
 is memory, and memory is the wall: at the ~121,000 BGCs a million genomes
-yields, one job needs ~1.9 TB, which is not a machine most groups have. It buys
-that without touching the answer -- ARI 1.0000, identical family counts.
+yields, one job needs ~3.0 TB, which is not a machine most groups have. It buys
+that without changing the clustering: family counts are identical and, at the
+scales where BiG-SCAPE reproduces itself exactly, so is every membership.
+
+Two caveats the panels carry. The memory points are `ru_maxrss` from the scaling
+benchmark, which reports one process of eleven, so the curve is scaled by the
+measured 1.58x tree-PSS ratio. And the equivalence holds at the NATURAL pepM cut:
+force-chunking a component that exceeds --max_partition_size splits real families,
+measured at 1,302 BGCs as 4,605 co-membership pairs broken and 7 families invented.
 
 Sources, all measured and committed:
   docs/benchmark_data/bigscape_scaling.tsv       peak RSS and CPU vs BGC count
   docs/benchmark_data/bigscape_fit.json          the fits
   docs/benchmark_data/partition_check_*.json     ARI and family counts
+  docs/comparisons/bigscape_partition_equivalence/   the 1.58x ratio; equivalence
+                                                     at 1,302 BGCs against a
+                                                     replicate-run control
   CLAUDE.md "BiG-SCAPE Partitioning"             the paired runtimes
 
 Usage:
@@ -28,8 +38,22 @@ from figure_style import (AFTER, BEFORE, ACCENT, FAINT, GOOD, INK,
 ROOT = Path(__file__).resolve().parent.parent.parent
 BENCH = ROOT / 'docs' / 'benchmark_data'
 
-# Measured peak-RSS fit from the scaling benchmark (CLAUDE.md, BiG-SCAPE scaling).
-MEM_INTERCEPT, MEM_COEFF = 1.14, 1.29e-7
+# Measured peak-RSS fit from the scaling benchmark, times the instrument correction.
+#
+# The benchmark recorded `/usr/bin/time -f %M`, which is ru_maxrss: for a parent plus
+# waited-for children it reports the max of any ONE process, and BiG-SCAPE runs 11. Total
+# PSS summed across the process tree -- which divides each shared page by its sharers, so
+# the shared Pfam data is counted once -- is 1.58x higher, stable at 1.51-1.65 over five
+# sizes (docs/comparisons/bigscape_partition_equivalence/memory_scaling_pss.tsv). The
+# published points are a lower bound and the curve is scaled to match what the machine
+# actually holds.
+#
+# NOT corrected for BGC replication. The benchmark replicates a 333-BGC pool, which looked
+# like it should make memory cheap, but the data says otherwise: at n=333 the pool is 1.0x
+# -- no replication at all -- and distinct BGCs read 1.16x, the same as at n=600 with a
+# 1.8x pool. That is dataset variance, so applying it would be fitting noise.
+MEM_RSS_TO_PSS = 1.58
+MEM_INTERCEPT, MEM_COEFF = 1.14 * MEM_RSS_TO_PSS, 1.29e-7 * MEM_RSS_TO_PSS
 
 # Paired runtimes: (label, BGCs, one-job seconds, partitioned seconds, partitions).
 # One-job figures for 185 and 518 are from the partitioning benchmark; 333 is the
@@ -73,7 +97,11 @@ def load_measured_memory():
     with open(BENCH / 'bigscape_scaling.tsv') as fh:
         for r in csv.DictReader(fh, delimiter='\t'):
             if r.get('exit') == '0':
-                rows.append((int(r['bgcs']), float(r['max_rss_gb'])))
+                # Scaled to tree PSS, like the fit: the column is ru_maxrss, which
+                # reports one process of eleven. Plotting raw %M against a corrected
+                # curve would draw a fit that misses its own points.
+                rows.append((int(r['bgcs']),
+                             float(r['max_rss_gb']) * MEM_RSS_TO_PSS))
     return sorted(rows)
 
 
@@ -108,7 +136,8 @@ def panel_runtime(ax):
 def panel_memory(ax, measured):
     ns = [n for n, _ in measured]
     gbs = [gb for _, gb in measured]
-    ax.plot(ns, gbs, 'o', color=INK, ms=4.5, label='measured peak RSS', zorder=5)
+    ax.plot(ns, gbs, 'o', color=INK, ms=4.5,
+            label=f'measured peak memory (%M x {MEM_RSS_TO_PSS})', zorder=5)
 
     # The quadratic was fitted on 1,500-4,000 BGCs and only describes the regime
     # where growth has started -- below ~4,000 peak RSS looks flat and the fit
