@@ -10,6 +10,7 @@ timestamp, so re-running gives byte-identical files.
 python scripts/figures/fig1_orf_recovery.py --outdir docs/figures
 python scripts/figures/fig2_prescreen.py    --outdir docs/figures
 python scripts/figures/fig3_partitioning.py --outdir docs/figures
+python scripts/figures/fig5_architecture.py --outdir docs/figures   # 2 figures
 ```
 
 ## Figure 1 — window x recovery (`fig1_window_x_recovery.py`)
@@ -113,15 +114,76 @@ evidence — so it is stated in words instead.
 
 The honest framing, and the one the data supports: partitioning is **1.7–3.7×
 slower** at every scale measured, because each partition re-pays BiG-SCAPE's
-fixed Pfam-load cost. What it buys is memory — ~1,890 GB in one job at the
-121,000 BGCs a million genomes yields, against ~84 GB for the largest partition
-— and it buys that without changing a single cluster assignment (ARI 1.0000,
-identical family counts, 0 split and 0 merged).
+fixed Pfam-load cost. What it buys is memory — **~3.0 TB** in one job at the
+121,000 BGCs a million genomes yields, against ~84 GB for the largest partition.
+
+**The memory figures carry a 1.58× correction, applied 2026-10-08.** The
+benchmark recorded `/usr/bin/time -f %M`, which is `ru_maxrss`: for a parent plus
+waited-for children it reports the max of any ONE process, and BiG-SCAPE runs
+eleven. Summing PSS across the process tree is 1.58× higher, stable at
+1.51–1.65 over five sizes, so both the plotted points and the fit are scaled by
+it — scaling only the curve left it floating above its own data at a 63.5%
+residual. See `docs/comparisons/bigscape_partition_equivalence/`.
+
+**Panel C's equivalence is conditional**, and the caption says so. At the natural
+pepM cut the family counts are identical and ARI is 1.0000; forcing a split of a
+component larger than `bigscape_partition_max_size` breaks real families —
+measured at 1,302 BGCs as 4,605 co-membership pairs broken and 7 families
+invented. The cap is a safety valve, not a tuning knob.
 
 Panel B draws the memory fit **solid over its measured range and dashed where it
 is extrapolated**. The quadratic was fitted on 1,500–4,000 BGCs; below ~4,000
-peak RSS looks flat and the fit does not describe it, and 121,000 is a 12×
+peak memory looks flat and the fit does not describe it, and 121,000 is a 12×
 reach. The figure must not read as 12× more measurement than exists.
+
+## Figure 5 — the three mechanisms, and S1 — full architecture (`fig5_architecture.py`)
+
+One generator, two figures, so they cannot drift:
+
+| file | role | contents |
+|---|---|---|
+| `fig5_mechanisms` | main body | three panels, one per mechanism |
+| `figS1_architecture` | supplemental | the stage spine, artefacts and CPU strip, plus the same three mechanisms |
+
+Every number is read from `docs/comparisons/enterobacterales_refseq/summary.json`
+at render time, so the figures cannot drift from the run that produced them.
+
+**The architecture has one defining fact and one surprise**, and both figures
+carry them. The funnel: 150,690 genomes → 1,309 pass the pepM screen (0.87%)
+→ 1,303 regions → 72 families, so 99.1% is discarded before anything expensive
+runs. The inversion: fetch-and-screen is 40.4% of CPU over 6,028 tasks while
+BiG-SCAPE — quadratic in both time and memory — is 0.7%. Moving and filtering
+data costs more than analysing it at this prevalence, which is why the screen is
+the architecture rather than an optimisation.
+
+**The CPU strip is proportional and the stage boxes are not.** A 0.9% stage
+cannot be drawn as a box with a label in it, so correspondence is carried by
+colour — each stage box takes a tinted band in its segment's hue — and the
+caption says the widths are measured shares while the boxes are not to scale.
+
+### Layout constraints worth knowing before editing
+
+These are recorded as comments in the generator too, because each cost a round of
+rework:
+
+- `box()` draws with `boxstyle pad=0.012`, so the visible edge is outside the rect
+  the caller passes. Arrows are `zorder=2` against boxes at `3`, so an arrow
+  ending on the rect has its head drawn **under** the box. `arrow()` trims both
+  ends in data units to clear it; `FancyArrowPatch`'s `shrinkA`/`shrinkB` are in
+  points and these panels differ 3× in physical width, so a point value that
+  works in one gouges a hole in the other.
+- **Above `rad` ≈ 0.87, matplotlib draws an arc in two pieces** with a visible gap
+  in the middle. Measured by rasterising the patch and counting runs of coloured
+  columns: 1 run at 0.86, 2 runs with a 29 px hole at 0.88. The path stays inside
+  the axes, so it is a curvature artefact rather than clipping.
+- `fit_text()` wraps to the box and then shrinks until matplotlib's own
+  measurement of the rendered extent fits. Hand-tuned font sizes do not survive
+  the first edit to a string — the first draft had five labels overflowing into
+  their neighbours.
+- `aspect_rad()` corrects curvature for a panel's aspect ratio (these run 1.12 and
+  2.59). Useful in general, but **not** used for the feedback arc: clearing a card
+  is a data-space requirement that does not shrink when curvature is corrected for
+  a wide panel, so correcting it drove the arc straight through the card.
 
 ## Figure formats
 
