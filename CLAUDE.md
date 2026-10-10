@@ -19,7 +19,7 @@ nextflow run main.nf -profile slurm                        # HPC execution
 
 ## Operational traps
 
-Four ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Five ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -54,6 +54,40 @@ JAVA_HOME=~/miniconda3/envs/nextflow PATH="$PATH:$HOME/miniconda3/envs/nextflow/
 
 Append rather than prepend, or the conda `python3` shadows the system one and the pyflakes
 check skips.
+
+**Changing `-w` re-solves every conda environment, so pin transitive dependencies.**
+Nextflow caches conda environments *inside the work directory*. Point `-w` somewhere new
+and all of them are solved again from scratch — and a spec that names no version resolves
+to whatever is newest **on the day it is solved**, not what it resolved to last time.
+
+`conf/conda.config` pins `pyhmmer<0.11` and `sqlalchemy<2.1` on the BiG-SCAPE specs for
+exactly this reason. Both are compatibility fixes, not preferences. The sqlalchemy one was
+found the hard way: moving to a new drive re-solved the environment, the same spec hash
+gave **2.0.52 in the old work directory and 2.1.4 in the new one**, and 2.1 removed the
+implicit-execute path BiG-SCAPE 2.0.1 calls at `data/sqlite.py:303`:
+
+```
+sqlalchemy.exc.ObjectNotExecutableError: Not an executable object
+```
+
+That kills `BIGSCAPE` *after* fetch, screen, recovery and antiSMASH have all run — about
+20 hours into a GenBank-scale run. Verified fixed: the pinned spec solved fresh resolves to
+2.0.54 and clusters normally.
+
+`conda.cacheDir` now points at `~/.clusterquest/conda` rather than living under `-w`, so
+environments are solved once and reused across runs, work directories and drives. Override
+with `NXF_CONDA_CACHEDIR`. **Do not move it back under the work directory** — that restores
+the trap for every unpinned dependency in the pipeline, not just this one.
+
+When adding a tool to `conf/conda.config`, assume its transitive dependencies are unpinned
+until shown otherwise.
+
+**A smoke run on a small taxon is worth the ten minutes.** This was caught by a 58-genome
+*Brenneria* run set up to check something else entirely — that `storeDir` still found the
+databases after they moved to a new drive. That check passed trivially, byte-identical and
+no re-download; the bug it found was one nobody had predicted. *Brenneria* is a good
+choice: 58 RefSeq genomes of which 25 are BGC-positive, so every downstream stage actually
+executes rather than stopping at an empty screen.
 
 ## Cross-Taxon Result Reuse
 
