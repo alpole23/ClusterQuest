@@ -111,9 +111,19 @@ process ANTISMASH {
     # Set antiSMASH database location
     export ANTISMASH_DB_PATH=\$(readlink -f ${antismash_db})
 
-    # Create symlink for compatibility
+    # antiSMASH looks here regardless of --databases, so point it at the staged copy.
+    #
+    # -n matters. Without it, `ln -sf TARGET LINK` DEREFERENCES a LINK that already
+    # points at a directory and creates TARGET's basename INSIDE it, rather than
+    # replacing the link. Since this link points at the database directory, the
+    # second run of this process wrote a self-referential
+    #     <dbdir>/antismash -> <dbdir>
+    # into storeDir-managed state that the pipeline treats as immutable. Harmless to
+    # antiSMASH, but it is a symlink loop: anything walking the tree with links
+    # followed (`find -L`, `cp -L`, `tar --dereference`, a backup of the drive)
+    # recurses forever.
     mkdir -p ~/.local/share
-    ln -sf \$ANTISMASH_DB_PATH ~/.local/share/antismash
+    ln -sfn \$ANTISMASH_DB_PATH ~/.local/share/antismash
 
     mkdir -p as_out
     OK=0
