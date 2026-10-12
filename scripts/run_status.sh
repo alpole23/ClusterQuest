@@ -38,19 +38,27 @@ grep -E '^\[PROCESS' "$LOG" 2>/dev/null | strip | tail -4
 # reporting `failed=0`, so the exit codes on disk are checked rather than the
 # summary line. 143 = SIGTERM, 137 = SIGKILL, 1 = ordinary failure.
 #
-# Scoped to this run's lifetime, because a work directory is reused across runs and
-# keeps every previous task. An earlier smoke run's BiG-SCAPE failure from the day
-# before showed up here as a live fault, which is the sort of false alarm that
-# teaches you to ignore the check.
-echo "--- task exits (non-zero only, this run) ---"
-if [ -n "$NF_PID" ]; then
-    SINCE=$(ps -o lstart= -p "$NF_PID" | sed 's/^ *//')
+# Read from the TRACE, not by walking the work directory. An earlier version ran
+# `find work -maxdepth 3 -name .exitcode` and stat'd every task directory, which is
+# O(tasks) against a disk the run itself is saturating: at 5,685 tasks it took over
+# seven minutes and would only get worse, so the monitoring degraded exactly as the
+# run grew big enough to need it. The trace is one sequential read, is maintained by
+# Nextflow, and covers EVERY task rather than those a timestamp filter happened to
+# keep -- which also retires the stale-task problem the filter existed for, since a
+# previous run's tasks are not in this run's trace at all.
+echo "--- task failures (from the trace) ---"
+TRACE="$ROOT/results/pipeline_info/Enterobacterales/pipeline_trace.tsv"
+if [ -f "$TRACE" ]; then
+    awk -F'\t' 'NR>1 {
+        n++
+        if ($4 != "COMPLETED" && $4 != "CACHED") { bad++; if (bad<=5) print "  " $4 "  exit " $5 "  " $3 }
+        if ($5 != "0" && $5 != "-" && $5 != "")  { nz++;  if (nz<=5)  print "  exit " $5 "  " $3 }
+    } END {
+        printf "  %d tasks, %d not complete, %d non-zero exit\n", n, bad, nz
+    }' "$TRACE"
 else
-    SINCE=$(date -d '24 hours ago' 2>/dev/null) || SINCE='24 hours ago'
+    echo "  (no trace at $TRACE)"
 fi
-find "$ROOT/work" -maxdepth 3 -name .exitcode -newermt "$SINCE" -exec sh -c \
-    'c=$(cat "$1"); [ "$c" != 0 ] && echo "  exit $c  $(dirname "$1")"' _ {} \; 2>/dev/null | head -10
-echo "  (nothing above = all tasks exited 0 since $SINCE)"
 
 echo "--- errors in log ---"
 grep -iE 'ERROR|Exception|hasn.t exited|Terminated' "$LOG" 2>/dev/null | strip | head -5
