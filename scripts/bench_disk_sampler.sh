@@ -6,7 +6,7 @@
 # while the run is happening, so it has to be sampled. Every projection of it so
 # far has been component arithmetic; this is the observation.
 #
-#   bash scripts/bench_disk_sampler.sh <outdir> <logfile> [interval_s] [workdir] [taxon]
+#   bash scripts/bench_disk_sampler.sh <outdir> <logfile> [interval_s] [workdir] [taxon] [batch_size]
 #
 # Three things here were wrong in the version that produced the RefSeq benchmark,
 # and all three failed by reporting a plausible number rather than an error.
@@ -26,6 +26,7 @@
 # samples taken here before this argument existed.
 set -u
 OUT=${1:?outdir}; LOG=${2:?logfile}; IV=${3:-60}; WORK=${4:-work}; TAXON=${5:-}
+BATCH=${6:-25}   # download_batch_size, for converting batch count to genome count
 [ -d "$OUT" ]  || { echo "outdir not found: $OUT" >&2; exit 1; }
 [ -d "$WORK" ] || { echo "workdir not found: $WORK" >&2; exit 1; }
 if [ -z "$TAXON" ]; then
@@ -41,20 +42,24 @@ fi
 PRESCREEN="$OUT/prescreen_results/$TAXON"
 RENAMED="$OUT/ncbi_genomes/$TAXON"
 
-printf 'epoch\telapsed_s\tfree_gb\tout_gb\twork_gb\tmem_used_gb\tmem_avail_gb\tswap_used_gb\ttasks\tgenomes_screened\tgenomes_kept\n' > "$LOG"
+printf 'epoch\telapsed_s\tfree_gb\tfs_used_gb\tmem_used_gb\tmem_avail_gb\tswap_used_gb\tbatches\tgenomes_screened\tgenomes_kept\n' > "$LOG"
 START=$(date +%s)
 while true; do
     now=$(date +%s)
     free_gb=$(df -BG --output=avail "$OUT" | tail -1 | tr -dc '0-9')
-    out_gb=$(du -sBG --exclude=databases "$OUT" 2>/dev/null | cut -f1 | tr -dc '0-9')
-    work_gb=$(du -sBG --exclude=conda "$WORK" 2>/dev/null | cut -f1 | tr -dc '0-9')
+    # df, not du: whole-filesystem numbers are O(1) where `du` is O(files). Note this
+    # is the WHOLE filesystem including the ~163 GB of reference databases, which is
+    # why the column is named fs_used_gb and not out_gb -- it is not comparable to the
+    # du-based out_gb in samples taken before 2026-10-12. Peak disk is still
+    # recoverable from it, as a delta against the first row rather than an absolute.
+    fs_used_gb=$(df -BG --output=used "$OUT" | tail -1 | tr -dc '0-9')
     read -r used avail < <(free -g | awk '/^Mem:/{print $3, $7}')
     swap=$(free -g | awk '/^Swap:/{print $3}')
-    tasks=$(find "$WORK" -maxdepth 3 -name '.command.begin' 2>/dev/null | wc -l)
-    screened=$(cat $PRESCREEN/prescreen_*.tsv 2>/dev/null | grep -cve '^genome' || true)
-    kept=$(find $RENAMED -name '*.gbff' 2>/dev/null | wc -l)
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-        "$now" "$((now-START))" "${free_gb:-0}" "${out_gb:-0}" "${work_gb:-0}" \
+    tasks=$(ls $PRESCREEN 2>/dev/null | wc -l)
+    screened=$(( tasks * BATCH ))
+    kept=$(ls $RENAMED/renamed_genomes 2>/dev/null | wc -l)
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$now" "$((now-START))" "${free_gb:-0}" "${fs_used_gb:-0}" \
         "${used:-0}" "${avail:-0}" "${swap:-0}" "$tasks" "${screened:-0}" "${kept:-0}" >> "$LOG"
     sleep "$IV"
 done
