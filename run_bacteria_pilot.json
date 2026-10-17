@@ -1,0 +1,6 @@
+{
+  "taxon": "Bacteria",
+  "assembly_source": "RefSeq",
+  "assembly_reference_only": true,
+  "outdir": "/mnt/bigdisk/clusterquest/results"
+}
