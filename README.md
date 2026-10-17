@@ -298,9 +298,39 @@ Reuse compounds with the pre-screen: a *P. ananatis* run downloaded 343 genomes,
 bash tests/run_tests.sh
 ```
 
-Twelve checks: Nextflow-level tests for `Utils` helpers and the batched per-genome
-processes (including a corrupt genome and reuse-copy fidelity), plus Python-level
-compile, undefined-call, script-dependency, and report-JS-handler checks.
+**25 checks, about a minute.** Run it before trusting a change.
+
+What makes it worth having here is that this pipeline's dangerous failures do not crash —
+they produce plausible wrong numbers. A crash is easy: you see it and fix it. Every
+failure mode below was hit for real, and each one looked like success at the time.
+
+| what it checks | what goes wrong without it |
+|---|---|
+| **Helper functions** — turning a taxon into a safe path, telling a real input from a placeholder | `batchSize()` returned the *string* `"4"` where an Integer was needed, and `collate()` silently stopped batching. No error |
+| **Batching, end to end** — 8 genomes in, 8 out; hidden and nested files copied | A single corrupt download used to take its whole 50-genome batch down with it |
+| **Batching is reproducible** — the same genomes land in the same batches every run | Otherwise `-resume` after an interruption re-downloads the entire taxon instead of resuming. One check deliberately does it *wrong* and confirms the test notices — a check that cannot fail is not checking anything |
+| **Filename pairing** — names like `Pantoea_GCA_963520565.1` | `Path.stem` eats the `.1` off accession-style names, and two genomes become one |
+| **Static analysis** — everything compiles, no call to a function that does not exist | A search box in the HTML report was wired to a function nobody had written. Every keystroke failed silently, for the life of the feature |
+| **Parameter validation** — typos and booleans | `--taxn` used to run the default taxon and report success. Worse, `"false"` is truthy in Groovy, so `--run_gtdbtk false` *enabled* GTDB-Tk — once burning 6 CPU-hours and 93 GB doing work it had been told to skip |
+| **Screen flag consistency** — the pepM screen is invoked from two modules | Both call the same script, so the algorithm cannot drift, but the flags can. One call site was written without `--threads` and agreed with the other only by coincidence |
+
+The suite does not check that the biology is right; nothing automatic can. It checks that
+the plumbing still does what it claims, so that a reported family count came from the
+analysis running as specified rather than from a silent misconfiguration that looked fine.
+
+Everything runs in a scratch directory, never in `results/`, so a test run cannot truncate
+`pipeline_info/`. Set `JAVA_HOME` or five checks **fail rather than skip** — they shell out
+to Nextflow:
+
+```bash
+JAVA_HOME=~/miniconda3/envs/nextflow PATH="$PATH:$HOME/miniconda3/envs/nextflow/bin" \
+  bash tests/run_tests.sh
+```
+
+Append to `PATH` rather than prepending, or the conda `python3` shadows the system one and
+the pyflakes check skips. Note the suite runs `nextflow run -preview` several times, which
+leaves sessions on top of `.nextflow/history` — so resume by **UUID** afterwards, never a
+bare `-resume`, which would bind to a preview that executed nothing.
 
 `check_script_deps.py` is worth knowing about. Modules invoke their Python as
 `python ${projectDir}/scripts/foo.py` — an interpolated path, not a declared input — so
