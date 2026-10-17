@@ -535,10 +535,17 @@ and never globs: only the drawn regions are committed, so a glob would return a 
 distribution and draw a wrong panel with no error. `--rebuild-gains` refreshes it from a
 live run.
 
-**Measured and projected must not look alike.** Figure 3 carries Enterobacterales at 32x,
+**Measured and projected must not look alike.** Figure 3 carries Enterobacterales at 46x,
 which is the panel's strongest point and also the only one whose without-screen arm was
-never run (150,690 antiSMASH runs, ~3,365 CPU-h). It is drawn hatched and captioned
+never run (1,349,507 antiSMASH runs, ~30,100 CPU-h). It is drawn hatched and captioned
 "PROJECTED, not run" rather than filled like the four measured pairs.
+
+**That point moved from RefSeq to GenBank on 2026-10-17**, and the way it moved is the
+lesson. Retention fell 0.84% -> 0.11% at 8.9x the input, but the saving only went 32x ->
+46x, because the screened arm's cost is dominated by the fetch (589 of 649 CPU-h). The
+screen saves antiSMASH time, not download time -- so do NOT scale this ratio from a
+retention ratio, which is the error made when first estimating this update (~290x, wrong
+by 6x).
 
 **Check the render, not just the exit code.** Adding that point produced a figure whose
 headline still said "up to 9x" and which placed the most dilute taxon at the right-hand
@@ -2361,10 +2368,17 @@ and never globs: only the drawn regions are committed, so a glob would return a 
 distribution and draw a wrong panel with no error. `--rebuild-gains` refreshes it from a
 live run.
 
-**Measured and projected must not look alike.** Figure 3 carries Enterobacterales at 32x,
+**Measured and projected must not look alike.** Figure 3 carries Enterobacterales at 46x,
 which is the panel's strongest point and also the only one whose without-screen arm was
-never run (150,690 antiSMASH runs, ~3,365 CPU-h). It is drawn hatched and captioned
+never run (1,349,507 antiSMASH runs, ~30,100 CPU-h). It is drawn hatched and captioned
 "PROJECTED, not run" rather than filled like the four measured pairs.
+
+**That point moved from RefSeq to GenBank on 2026-10-17**, and the way it moved is the
+lesson. Retention fell 0.84% -> 0.11% at 8.9x the input, but the saving only went 32x ->
+46x, because the screened arm's cost is dominated by the fetch (589 of 649 CPU-h). The
+screen saves antiSMASH time, not download time -- so do NOT scale this ratio from a
+retention ratio, which is the error made when first estimating this update (~290x, wrong
+by 6x).
 
 **Check the render, not just the exit code.** Adding that point produced a figure whose
 headline still said "up to 9x" and which placed the most dilute taxon at the right-hand

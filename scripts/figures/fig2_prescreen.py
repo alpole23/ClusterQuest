@@ -50,11 +50,23 @@ COST = [
 ]
 
 # Enterobacterales is kept OUT of COST and drawn separately, because one of its two
-# bars would be projected. 150,690 genomes measured WITH the screen at 104.2 CPU-h;
-# the without-screen arm is 150,690 antiSMASH runs, ~3,365 CPU-h, which was not spent
-# and will not be. Putting a projected bar beside four measured pairs would read as a
-# fifth measurement. It is annotated instead, on the same axes, marked as projected.
-ENTERO = ('Enterobacterales\n150,690 genomes\n0.84% positive', 201874.0, 6252.0)
+# bars would be projected. The screened arm is measured: 1,349,507 GenBank genomes, the
+# whole run 649 CPU-h. The without-screen arm is 1,349,507 antiSMASH runs at the 80.4
+# CPU-s/genome this project measures, ~30,100 CPU-h, which was not spent and will not be.
+# Putting a projected bar beside four measured pairs would read as a fifth measurement.
+# It is annotated instead, on the same axes, marked as projected.
+#
+# Updated 2026-10-17 from the RefSeq run (150,690 genomes, 0.84% positive, 32x) to the
+# GenBank run at 8.9x the input. The claim gets stronger but NOT in proportion to the
+# retention difference: retention fell 0.84% -> 0.11%, yet the saving only goes 32x ->
+# 46x, because the screened arm's cost is dominated by FETCH_RENAME_SCREEN (589 of
+# 649 CPU-h). The screen saves antiSMASH time; it does not save download time.
+#
+# CPU-minutes. 649 CPU-h is actual consumption (realtime x %cpu), matching how the
+# RefSeq baseline was derived -- the allocation-based figure reads 755 CPU-h and is not
+# comparable, because cpus/task changed from 4 to 1 mid-run. See
+# docs/comparisons/enterobacterales_genbank/PREDICTIONS.md.
+ENTERO = ('Enterobacterales\n1,349,507 genomes\n0.11% positive', 1808119.0, 38940.0)
 
 # (clade, regions found with the screen OFF, with it ON). The Bacteroides pair is
 # the pre-fix number; see PSEUDO_NOTE.
@@ -68,7 +80,7 @@ BACT_FIXED = 143
 
 def panel_cost(ax):
     # Enterobacterales goes FIRST, not last: the panel is ordered by prevalence,
-    # lowest first, and at 0.84% positive it is the most dilute taxon measured.
+    # lowest first, and at 0.11% positive it is the most dilute taxon measured.
     # Appending it would have broken the ordering the panel's whole claim rests on.
     lab_e, eoff, eon = ENTERO
     w = 0.36
@@ -148,7 +160,7 @@ def main():
     for ax, letter in zip(axes, 'AB'):
         panel_label(ax, letter, dx=-0.13, dy=1.19)
 
-    fig.suptitle('The pepM pre-screen removes up to 32× the compute '
+    fig.suptitle('The pepM pre-screen removes up to 46× the compute '
                  'without removing a single BGC',
                  fontsize=11.5, fontweight='bold', y=1.01)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
