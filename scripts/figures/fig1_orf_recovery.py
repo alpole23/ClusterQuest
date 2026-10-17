@@ -206,20 +206,52 @@ def draw_track(ax, genes, span, y, height=0.30, head=0.30):
                                  edgecolor=edge, lw=lw, zorder=3))
 
 
+LABEL_FS = 7.0
+
+
 def annotate_labels(ax, genes, y, span, above=True):
-    """Name the genes that carry the argument, staggered so they do not collide."""
-    labelled = sorted((g for g in genes if g['label']),
-                      key=lambda g: g['start'])
-    # Three tiers, and each label nudged off its gene only as far as needed:
-    # at two tiers "MFS transporter" and "NTP transferase" overlapped outright.
-    for i, g in enumerate(labelled):
+    """Name the genes that carry the argument, staggered so they do not collide.
+
+    Tiers are assigned by MEASURED text width, not by position in the list. The
+    previous version cycled `i % 3`, which staggers neighbours but says nothing
+    about labels three apart: in panel C "homoaconitase" collided with "GNAT family
+    N-acetyltransferase" and "monooxygenase" with "LeuD (small subunit)", both
+    unreadable at print size and both invisible in the data. Here each label is
+    rendered once to measure its extent, converted to data units, and dropped into
+    the lowest tier whose occupied span it clears.
+    """
+    labelled = sorted((g for g in genes if g['label']), key=lambda g: g['start'])
+    if not labelled:
+        return
+    fig = ax.figure
+    fig.canvas.draw()                      # a renderer is needed to measure text
+    rend = fig.canvas.get_renderer()
+    inv = ax.transData.inverted()
+    pad = span * 0.006
+
+    tier_right = []                        # rightmost x consumed, per tier
+    for g in labelled:
         mid = (g['start'] + g['end']) / 2
-        tier = i % 3
-        dy = (0.40 + tier * 0.30) * (1 if above else -1)
+        probe = ax.text(mid, y, g['label'], fontsize=LABEL_FS, ha='center')
+        bb = probe.get_window_extent(renderer=rend)
+        probe.remove()
+        (x0, _), (x1, _) = inv.transform((bb.x0, bb.y0)), inv.transform((bb.x1, bb.y1))
+        half = abs(x1 - x0) / 2
+        lo, hi = mid - half - pad, mid + half + pad
+
+        tier = 0
+        while tier < len(tier_right) and tier_right[tier] > lo:
+            tier += 1
+        if tier == len(tier_right):
+            tier_right.append(hi)
+        else:
+            tier_right[tier] = hi
+
+        dy = (0.40 + tier * 0.26) * (1 if above else -1)
         ax.annotate(g['label'], xy=(mid, y + (0.16 if above else -0.16)),
                     xytext=(mid, y + dy),
                     ha='center', va='bottom' if above else 'top',
-                    fontsize=7.0,
+                    fontsize=LABEL_FS,
                     color=ACCENT if g['recovered'] else FAINT,
                     fontweight='bold' if g['recovered'] else 'normal',
                     arrowprops=dict(arrowstyle='-', lw=0.6,
@@ -233,6 +265,14 @@ def draw_clade(ax, title, before_path, after_path, transferred=None):
 
     draw_track(ax, before, span_b, y=1.0)
     draw_track(ax, after, span_a, y=0.0)
+
+    # Limits BEFORE annotate_labels, not after. The labeller measures rendered text
+    # and converts display units back to data units, so it needs the final
+    # data<->display transform; measuring against default limits and then setting
+    # them rescaled every width it had computed, and labels still collided.
+    ax.set_xlim(-span * 0.20, span * 1.22)
+    ax.set_ylim(-1.55, 1.75)
+
     annotate_labels(ax, after, y=0.0, span=span, above=False)
 
     n_rec = sum(1 for g in after if g['recovered'])
@@ -248,8 +288,6 @@ def draw_clade(ax, title, before_path, after_path, transferred=None):
     ax.text(span * 1.02, 0.5, f'+{n_rec} genes\nrecovered{tail}',
             ha='left', va='center', fontsize=8.5, color=GOOD, fontweight='bold')
 
-    ax.set_xlim(-span * 0.20, span * 1.22)
-    ax.set_ylim(-1.55, 1.75)
     ax.set_yticks([])
     ax.set_xticks([0, span / 2, span])
     ax.set_xticklabels(['0', f'{span / 2000:.0f} kb', f'{span / 1000:.0f} kb'],

@@ -1072,13 +1072,13 @@ z
     </g>
    </g>
    <g id="patch_62">
-    <path d="M 519.580457 159.195741 
-Q 519.580457 154.057292 519.580457 148.918843 
+    <path d="M 519.580457 157.991638 
+Q 519.580457 153.454512 519.580457 148.917387 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_5">
     <!-- pepM -->
-    <g style="fill: #6d7683" transform="translate(509.963113 168.515143) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(509.963113 167.309482) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-4d" d="M 628 4666 
 L 1569 4666 
@@ -3148,13 +3148,13 @@ z
     </g>
    </g>
    <g id="patch_125">
-    <path d="M 374.657873 311.25331 
-Q 374.657873 306.114861 374.657873 300.976412 
+    <path d="M 374.657873 310.049207 
+Q 374.657873 305.512081 374.657873 300.974956 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_15">
     <!-- pepM -->
-    <g style="fill: #6d7683" transform="translate(365.04053 320.572713) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(365.04053 319.367051) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-70"/>
      <use xlink:href="#DejaVuSans-65" transform="translate(63.476562 0)"/>
      <use xlink:href="#DejaVuSans-70" transform="translate(125 0)"/>
@@ -3162,13 +3162,13 @@ Q 374.657873 306.114861 374.657873 300.976412
     </g>
    </g>
    <g id="patch_126">
-    <path d="M 413.417301 320.296445 
-Q 413.417301 310.637544 413.417301 300.978642 
+    <path d="M 413.417301 302.211192 
+Q 413.417301 301.593798 413.417301 300.976405 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_16">
     <!-- Ppd -->
-    <g style="fill: #6d7683" transform="translate(406.863004 329.615173) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(406.863004 311.530252) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-50" d="M 1259 4147 
 L 1259 2394 
@@ -3198,13 +3198,13 @@ z
     </g>
    </g>
    <g id="patch_127">
-    <path d="M 426.515842 302.211192 
-Q 426.515842 301.593798 426.515842 300.976405 
+    <path d="M 426.515842 310.049207 
+Q 426.515842 305.512081 426.515842 300.974956 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_17">
     <!-- AEP transaminase -->
-    <g style="fill: #8d3a2c" transform="translate(390.777561 311.530252) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(390.777561 319.367051) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-Bold-50" d="M 588 4666 
 L 2584 4666 
@@ -3247,13 +3247,13 @@ z
     </g>
    </g>
    <g id="patch_128">
-    <path d="M 469.536996 311.25331 
-Q 469.536996 306.114861 469.536996 300.976412 
+    <path d="M 469.536996 302.211192 
+Q 469.536996 301.593798 469.536996 300.976405 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_18">
     <!-- phosphocholine CT -->
-    <g style="fill: #8d3a2c" transform="translate(432.240121 320.572713) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(432.240121 311.530252) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-Bold-70" d="M 1656 506 
 L 1656 -1331 
@@ -3324,13 +3324,13 @@ z
     </g>
    </g>
    <g id="patch_129">
-    <path d="M 502.119706 320.296445 
-Q 502.119706 310.637544 502.119706 300.978642 
+    <path d="M 502.119706 310.049207 
+Q 502.119706 305.512081 502.119706 300.974956 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_19">
     <!-- MFS transporter -->
-    <g style="fill: #8d3a2c" transform="translate(469.762752 329.615173) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(469.762752 319.367051) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-Bold-4d" d="M 588 4666 
 L 2119 4666 
@@ -3411,13 +3411,13 @@ z
     </g>
    </g>
    <g id="patch_130">
-    <path d="M 530.990813 302.211192 
-Q 530.990813 301.593798 530.990813 300.976405 
+    <path d="M 530.990813 317.884806 
+Q 530.990813 309.430471 530.990813 300.976136 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_20">
     <!-- CDP-alcohol PT -->
-    <g style="fill: #8d3a2c" transform="translate(501.251204 311.530252) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(501.251204 327.20385) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-Bold-44" d="M 1791 3756 
 L 1791 909 
@@ -3460,13 +3460,13 @@ z
     </g>
    </g>
    <g id="patch_131">
-    <path d="M 541.171604 311.25331 
-Q 541.171604 306.114861 541.171604 300.976412 
+    <path d="M 541.171604 325.72531 
+Q 541.171604 313.352105 541.171604 300.978901 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_21">
     <!-- NTP transferase -->
-    <g style="fill: #8d3a2c" transform="translate(509.294261 320.572713) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(509.294261 335.04065) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-Bold-4e"/>
      <use xlink:href="#DejaVuSans-Bold-54" transform="translate(83.691406 0)"/>
      <use xlink:href="#DejaVuSans-Bold-50" transform="translate(151.904297 0)"/>
@@ -3485,13 +3485,13 @@ Q 541.171604 306.114861 541.171604 300.976412
     </g>
    </g>
    <g id="patch_132">
-    <path d="M 568.851936 320.296445 
-Q 568.851936 310.637544 568.851936 300.978642 
+    <path d="M 568.851936 302.211192 
+Q 568.851936 301.593798 568.851936 300.976405 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_22">
     <!-- CDP-alcohol PT -->
-    <g style="fill: #8d3a2c" transform="translate(539.112326 329.615173) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(539.112326 311.530252) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-Bold-43"/>
      <use xlink:href="#DejaVuSans-Bold-44" transform="translate(73.388672 0)"/>
      <use xlink:href="#DejaVuSans-Bold-50" transform="translate(156.396484 0)"/>
@@ -4366,13 +4366,13 @@ z
     </g>
    </g>
    <g id="patch_180">
-    <path d="M 450.123677 463.310879 
-Q 450.123677 458.17243 450.123677 453.033981 
+    <path d="M 450.123677 454.268761 
+Q 450.123677 453.651367 450.123677 453.033974 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_32">
     <!-- pepM -->
-    <g style="fill: #6d7683" transform="translate(440.506333 472.630282) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(440.506333 463.587821) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-70"/>
      <use xlink:href="#DejaVuSans-65" transform="translate(63.476562 0)"/>
      <use xlink:href="#DejaVuSans-70" transform="translate(125 0)"/>
@@ -4380,13 +4380,13 @@ Q 450.123677 458.17243 450.123677 453.033981
     </g>
    </g>
    <g id="patch_181">
-    <path d="M 475.583027 472.354014 
-Q 475.583027 462.695113 475.583027 453.036211 
+    <path d="M 475.583027 462.106776 
+Q 475.583027 457.56965 475.583027 453.032525 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_33">
     <!-- monooxygenase -->
-    <g style="fill: #6d7683" transform="translate(446.781855 481.672742) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(446.781855 471.42462) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-78" d="M 3513 3500 
 L 2247 1797 
@@ -4420,13 +4420,13 @@ z
     </g>
    </g>
    <g id="patch_182">
-    <path d="M 499.908259 454.268761 
-Q 499.908259 453.651367 499.908259 453.033974 
+    <path d="M 499.908259 469.942375 
+Q 499.908259 461.48804 499.908259 453.033705 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_34">
     <!-- homoaconitate synthase -->
-    <g style="fill: #6d7683" transform="translate(456.616541 463.587821) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(456.616541 479.261419) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-68"/>
      <use xlink:href="#DejaVuSans-6f" transform="translate(63.378906 0)"/>
      <use xlink:href="#DejaVuSans-6d" transform="translate(124.560547 0)"/>
@@ -4452,13 +4452,13 @@ Q 499.908259 453.651367 499.908259 453.033974
     </g>
    </g>
    <g id="patch_183">
-    <path d="M 525.060232 463.310879 
-Q 525.060232 458.17243 525.060232 453.033981 
+    <path d="M 525.060232 454.268761 
+Q 525.060232 453.651367 525.060232 453.033974 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_35">
     <!-- LeuC  (large subunit) -->
-    <g style="fill: #6d7683" transform="translate(488.373122 472.630282) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(488.373122 463.587821) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-4c" d="M 628 4666 
 L 1259 4666 
@@ -4541,13 +4541,13 @@ z
     </g>
    </g>
    <g id="patch_184">
-    <path d="M 543.237911 472.354014 
-Q 543.237911 462.695113 543.237911 453.036211 
+    <path d="M 543.237911 477.782879 
+Q 543.237911 465.409674 543.237911 453.03647 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_36">
     <!-- LeuD  (small subunit) -->
-    <g style="fill: #8d3a2c" transform="translate(500.95463 481.672742) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(500.95463 487.098219) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-Bold-28" d="M 2413 -844 
 L 1484 -844 
@@ -4600,13 +4600,13 @@ z
     </g>
    </g>
    <g id="patch_185">
-    <path d="M 570.159954 454.267451 
-Q 570.159954 453.650308 570.159954 453.033164 
+    <path d="M 570.159954 485.618718 
+Q 570.159954 469.325252 570.159954 453.031787 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_37">
     <!-- GNAT family N-acetyltransferase  † -->
-    <g style="fill: #8d3a2c" transform="translate(501.573079 463.587821) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(501.573079 494.935018) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-Bold-2020" d="M 1069 4666 
 L 2100 4666 
@@ -4661,13 +4661,13 @@ z
     </g>
    </g>
    <g id="patch_186">
-    <path d="M 609.260513 463.310879 
-Q 609.260513 458.17243 609.260513 453.033981 
+    <path d="M 609.260513 454.268761 
+Q 609.260513 453.651367 609.260513 453.033974 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_38">
     <!-- MFS transporter  † -->
-    <g style="fill: #6d7683" transform="translate(577.215826 472.630282) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(577.215826 463.587821) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-46" d="M 628 4666 
 L 3309 4666 
@@ -4704,13 +4704,13 @@ z
     </g>
    </g>
    <g id="patch_187">
-    <path d="M 694.35113 472.354014 
-Q 694.35113 462.695113 694.35113 453.036211 
+    <path d="M 694.35113 462.106776 
+Q 694.35113 457.56965 694.35113 453.032525 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_39">
     <!-- carbamoyl-P synthase (ATP-grasp) -->
-    <g style="fill: #6d7683" transform="translate(634.321755 481.672742) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(634.321755 471.42462) scale(0.07 -0.07)">
      <defs>
       <path id="DejaVuSans-54" d="M -19 4666 
 L 3928 4666 
@@ -5752,13 +5752,13 @@ Q 245.165996 605.708936 245.165996 605.091543
     </g>
    </g>
    <g id="patch_251">
-    <path d="M 283.973144 615.368448 
-Q 283.973144 610.229999 283.973144 605.09155 
+    <path d="M 283.973144 614.164345 
+Q 283.973144 609.627219 283.973144 605.090094 
 " style="fill: none; stroke: #8d3a2c; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_49">
     <!-- ATP-grasp -->
-    <g style="fill: #8d3a2c" transform="translate(264.010019 624.633163) scale(0.07 -0.07)">
+    <g style="fill: #8d3a2c" transform="translate(264.010019 623.427502) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-Bold-41"/>
      <use xlink:href="#DejaVuSans-Bold-54" transform="translate(69.642578 0)"/>
      <use xlink:href="#DejaVuSans-Bold-50" transform="translate(137.855469 0)"/>
@@ -5771,13 +5771,13 @@ Q 283.973144 610.229999 283.973144 605.09155
     </g>
    </g>
    <g id="patch_252">
-    <path d="M 372.818912 624.411583 
-Q 372.818912 614.752682 372.818912 605.09378 
+    <path d="M 372.818912 606.32633 
+Q 372.818912 605.708936 372.818912 605.091543 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_50">
     <!-- pepM -->
-    <g style="fill: #6d7683" transform="translate(363.201569 633.730311) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(363.201569 615.64539) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-70"/>
      <use xlink:href="#DejaVuSans-65" transform="translate(63.476562 0)"/>
      <use xlink:href="#DejaVuSans-70" transform="translate(125 0)"/>
@@ -6662,26 +6662,26 @@ z
     </g>
    </g>
    <g id="patch_316">
-    <path d="M 474.843339 767.426017 
-Q 474.843339 762.287568 474.843339 757.149119 
+    <path d="M 474.843339 766.221914 
+Q 474.843339 761.684788 474.843339 757.147663 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_61">
     <!-- Ppd -->
-    <g style="fill: #6d7683" transform="translate(468.289042 776.74542) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(468.289042 775.539758) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-50"/>
      <use xlink:href="#DejaVuSans-70" transform="translate(60.302734 0)"/>
      <use xlink:href="#DejaVuSans-64" transform="translate(123.779297 0)"/>
     </g>
    </g>
    <g id="patch_317">
-    <path d="M 517.640235 776.469152 
-Q 517.640235 766.810251 517.640235 757.151349 
+    <path d="M 517.640235 774.057514 
+Q 517.640235 765.603178 517.640235 757.148843 
 " style="fill: none; stroke: #c9ced6; stroke-width: 0.6; stroke-linecap: round"/>
    </g>
    <g id="text_62">
     <!-- phosphocholine CT -->
-    <g style="fill: #6d7683" transform="translate(484.359063 785.78788) scale(0.07 -0.07)">
+    <g style="fill: #6d7683" transform="translate(484.359063 783.376557) scale(0.07 -0.07)">
      <use xlink:href="#DejaVuSans-70"/>
      <use xlink:href="#DejaVuSans-68" transform="translate(63.476562 0)"/>
      <use xlink:href="#DejaVuSans-6f" transform="translate(126.855469 0)"/>
