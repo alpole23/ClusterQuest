@@ -77,3 +77,105 @@ plausible number rather than an error: it measured `./work` and `df .` regardles
 that column read **0 for all 2,607 samples of the RefSeq run**; and the genome counters
 summed every taxon in the outdir, picking up a 58-genome smoke run. Treat the RefSeq
 `disk_samples.tsv` `tasks` column as absent, not as zero.
+
+---
+
+# Measured, 2026-10-17
+
+Run completed `[SUCCESS] completed=22856 failed=0 cached=31202`. The predictions above
+were registered on 2026-10-11 with the run 20 minutes in; nothing below has been
+back-edited into them.
+
+## Scorecard
+
+| quantity | predicted | **measured** | |
+|---|---|---:|---|
+| screen retention | 0.40–0.87% | **0.113%** | ✗ **3.5x below the floor** |
+| genomes to antiSMASH | 5,400–11,700 | **1,530** | ✗ follows from the above |
+| BGC regions | 1,300–11,700 | **1,476** | ✓ bottom of range |
+| total CPU-h | 630–920 | **~649** | ✓ |
+| peak disk | 150–250 GB | **330 GB** | ✗ **1.3x over** |
+| peak memory | ~42 GB | 8 GB system; 102 GB `peak_rss` on GTDB-Tk, which is the documented instrument artefact | ✓ in substance |
+| BiG-SCAPE RAM | 2–30 GB | **19 GB reported, 0.8 CPU-h** | ✓ |
+| partitioning needed? | no | **no** | ✓ |
+| task failures | 0 | **0** of 54,058, and 0 non-zero exits | ✓ |
+| binding constraint | CPU, not the link | **neither — per-task latency, then the USB HDD** | ✗ see below |
+
+## The two misses
+
+**Retention, 0.113% against a 0.40% floor.** The direction was right and argued for the
+right reason — GenBank's extra 1.2 M genomes are overwhelmingly the same clinical isolates
+that drove RefSeq to 0.87% — but the degree was underestimated by 3.5x. The estimate
+stabilised early and never moved: 0.154% at 11 k genomes screened, 0.115% at 500 k,
+0.113% at 1.35 M. Anyone sizing a clade like this should weight the clinical fraction far
+more heavily than the RefSeq rate suggests.
+
+**Peak disk, 330 GB against a 150–250 GB range.** The error is specific and avoidable:
+the projection assumed one `GTDBTK_CLASSIFY` task at ~95 GB of pplacer scratch. **Two
+shards ran concurrently**, and this repository's own benchmark notes already said "~95 GB
+of scratch is per *concurrent* task, so two shards at once is ~190 GB". The number was on
+the page and was not carried into the estimate.
+
+## The binding constraint was neither prediction
+
+The registered note said the hardwire had moved the bottleneck from the link to CPU. In
+fact **nothing was saturated**: at 12 concurrent fetch tasks the network ran ~11 MB/s of
+~56 available, disk 57.7% busy, CPU ~7 of 16 cores, memory 5 of 56 GB. The stage was
+latency-bound — each task waiting in sequence on NCBI round trips, then `sync`, then the
+corruption check, then diamond.
+
+Four tuning rounds followed, and three of the four hypotheses were wrong (raw bandwidth,
+fork count, the filesystem-wide `sync` — which was measured and exonerated). The real cap
+was `memory = 8 GB` inherited from `process_medium`: the local executor admits a task only
+while both cpus *and* memory remain free, so 56 GB of RAM pinned concurrency at **seven**
+tasks whatever `download_max_forks` said. Measured `peak_rss` was p50 0.23 GB, max 1.20 GB
+— 8.5x over-allocated. Fixing it gave 1.40x, after which the USB HDD saturated at 100%
+and became the real ceiling. See PR #11.
+
+## Per-stage cost
+
+Actual CPU (`realtime x %cpu`), matching how the RefSeq baseline was computed. Allocation-
+based figures (`realtime x cpus`) read 755 CPU-h and are **not** comparable, because the
+allocation changed mid-run from 4 cpus to 1.
+
+| stage | CPU-h | share | note |
+|---|---:|---:|---|
+| `FETCH_RENAME_SCREEN` | ~589 | 91% | scaled from 24,295 of 53,980 batches traced |
+| `ANTISMASH` | 37.0 | 5.7% | 31 batches of 50 |
+| `RECOVER_ORFS` | 19.3 | 3.0% | 8 batches of 200 |
+| `GTDBTK_CLASSIFY` | 1.8 | 0.3% | single shard; wall time ~3 h, almost all pplacer I/O wait |
+| `BIGSCAPE` | 0.8 | 0.1% | |
+
+**Caveat on the fetch figure:** trace files are written with `overwrite = true`, so each
+restart discarded the previous session's trace. Only 45% of fetch batches survive in the
+archived traces and the total is scaled from those. Archive `pipeline_trace.tsv` before
+every restart if a complete accounting matters.
+
+## Result
+
+| | **GenBank** | RefSeq (2026-09-27) |
+|---|---:|---:|
+| genomes offered | 1,349,507 | 150,690 |
+| retained | 1,530 (0.113%) | 1,309 (0.87%) |
+| BGC regions | **1,476** | 1,303 |
+| GCF families | **112** | 72 |
+| largest family | 186 | 186 |
+| singletons | 43 | 16 |
+| wall clock | ~60 h + 12 h outage | 43.1 h |
+
+**8.9x the input gave 13% more BGCs but 56% more families.** The clinical bulk contributes
+essentially nothing while the rare carriers are markedly more diverse than RefSeq showed —
+40 new families from 173 extra BGCs. The largest family is 186 in both runs: that is
+pantaphos, and RefSeq had already saturated it.
+
+Do not read the singleton count (16 -> 43) as diversity without checking cohesion. The
+dereplication argument that explained the 640-genome pilot does not apply here — this is
+full depth — but `family_cohesion/` is the way to confirm rather than assume.
+
+## Interruptions
+
+One unplanned reboot: Windows Update (`TrustedInstaller.exe`, "Operating System: Upgrade
+(Planned)") at 01:33 on 2026-10-14, with the run at 57.8%. Clean shutdown, no Event 41, no
+ext4 errors; the journal replayed in 51 s. Cost was ~12 h of wall clock — WSL does not
+auto-start — and roughly 100 in-flight genomes. All 31,187 completed batches resumed from
+cache. Updates were then paused until Nov 1.
