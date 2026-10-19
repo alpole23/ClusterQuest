@@ -154,14 +154,81 @@ pool to 447 MiB. On well-annotated input the term is fully exposed.
 still searches every genome against the whole pool, which still grows with N: 2.51 s
 against 1.18 M proteins, 45.15 s against 19.8 M — linear in pool size, N times over.
 
-So a whole-Bacteria run needs the pool bounded, not just the database cached. Options, in
-rough order of appeal, none of them measured yet:
+### Measured 2026-10-19: dereplication is NOT the answer, and neither is scoping
 
-- **Dereplicate the pool** (`diamond cluster`, `mmseqs linclust`). 19.8 M proteins drawn
-  from 4,193 genomes is enormously redundant, and the homology pass needs one
-  representative per protein family, not one per genome.
-- **Scope the pool** to a clade or GCF rather than the whole run.
-- **Cap it**, sampling representatives once it exceeds a size.
+Three measurements, in the order they were taken, each one killing the proposal before it.
+
+**1. Dereplicating the pool buys 1.37x.** `diamond linclust --approx-id 90` over the
+19,818,123-protein pool: **14,496,200 clusters**, a 27% reduction, for 880 s wall /
+1.6 CPU-h / 9.86 GB peak RSS.
+
+The reason is the input. The pilot ran `assembly_reference_only: true` -- ONE genome per
+species -- so the set is already dereplicated at the organism level, which is exactly the
+redundancy 90% clustering removes. The proposal was to collapse "the same protein from 400
+strains of one species" in a set containing no such strains. A full RefSeq run would be far
+more strain-redundant and would dereplicate better, but by how much is unmeasured, and what
+matters is redundancy among *retained* genomes rather than among all of them.
+
+**2. It does not saturate**, which was the hypothesis that would have justified it anyway:
+
+| genomes | clusters | new clusters per added genome |
+|---:|---:|---:|
+| 10 | 46,907 | 4,391 |
+| 100 | 439,542 | 4,610 |
+| 1,000 | 4,037,228 | 3,855 |
+| 2,000 | 7,633,160 | 3,457 |
+| 4,193 | 14,496,200 | **2,971** |
+
+A 4x increase in genomes drops the marginal cost only 23%. Every new species still brings
+~3,000 genuinely novel proteins at 90% identity, so on taxonomically diverse input the
+dereplicated pool stays essentially linear in N and the quadratic survives. A lower
+threshold might saturate, but 50% sits at the `MIN_PCT = 40.0` search floor and would be
+unsafe; 7.0% of multi-member clusters already carry disagreeing product names at 90%
+(160,338 of 2,282,841), and the representative's name is what lands in the recovered
+gene's GFF3 note.
+
+**3. Scoping the query to pepM neighbourhoods buys 11%.** A well-annotated 4.79 Mb genome
+emits **701,071 bp across 1,125 gaps -- 14.6% of itself**. Only genes near pepM can reach a
+region (rule core plus a 10 kb neighbourhood), so a +/-50 kb window should have cut the
+query ~46x. Measured against the full pool:
+
+| query | wall | CPU |
+|---|---:|---:|
+| 701 kb | 40.39 s | 118.8 CPU-s |
+| 15 kb (2.2%) | 35.98 s | 99.7 CPU-s |
+
+**blastx here is almost all fixed cost: ~99 CPU-s to load a 7.19 GB database, ~0.028
+CPU-s per kb of query.** Shrinking the query 46x touches the small term.
+
+### What the lever actually is: one blastx per BATCH, not per genome
+
+diamond pays that ~99 CPU-s once per invocation, and `modules/genome/recover_orfs.nf`
+invokes it once per genome -- 200 times a batch, against the same database. Concatenating
+every genome's gaps into one query and splitting the output by query id amortises the load
+across the batch instead of paying it 200 times.
+
+Query ids are already `{rid}|{start}-{end}` and carry the source record; prefixing the
+genome name makes them unambiguous across a batch. prodigal stays per-genome -- it is 2.4%
+of the cost and trains its model on the whole genome.
+
+Projected per genome, 4,193 retained:
+
+| | CPU-s/genome | pilot CPU-h |
+|---|---:|---:|
+| as originally written | 600.5 | 699 |
+| database built once (shipped) | 126 | 147 |
+| + one blastx per batch | ~23 | ~27 |
+| + pepM-window scoping on top | ~3.5 | ~4 |
+
+Note the ordering. Scoping alone is 11%; scoping *after* batching is worth ~6x, because
+once the fixed cost is amortised the marginal term is all that is left. That inversion is
+only visible once the fixed/marginal split is measured rather than assumed.
+
+**Caveat on those projections: the split is fitted on TWO points.** Two points cannot
+separate a fixed cost from a linear one -- this repo has made exactly that error before,
+with GTDB-Tk, where 8 and 64 genomes were used to argue O(1) and the two candidate models
+differed by 94x at a million. Take a third and fourth query size before building a plan on
+the batched figure.
 
 ## Fix
 
