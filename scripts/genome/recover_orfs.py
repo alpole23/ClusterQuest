@@ -208,6 +208,9 @@ def main():
     ap.add_argument('--genome', type=Path, required=True, help='GenBank to recover genes for')
     ap.add_argument('--out', type=Path, required=True, help='GFF3 to write')
     ap.add_argument('--pool', type=Path, help='protein FASTA for homology recovery')
+    ap.add_argument('--pool_db', type=Path,
+                    help='prebuilt DIAMOND database for --pool. Built here if omitted, '
+                         'which is correct but slow -- see the note in main().')
     ap.add_argument('--prodigal', default='prodigal')
     ap.add_argument('--diamond', default='diamond')
     ap.add_argument('--threads', type=int, default=2)
@@ -254,9 +257,25 @@ def main():
                     fh.write(f'>{rid}|{s}-{e}\n{str(rec.seq[s:e])}\n')
                     n += 1
         if n:
-            db = a.workdir / 'pool'
-            subprocess.run([a.diamond, 'makedb', '--in', str(a.pool), '-d', str(db), '--quiet'],
-                           check=True, capture_output=True)
+            # The database is identical for every genome in a run -- the pool is one
+            # gather step's single output -- so BUILD_PROTEIN_POOL builds it once and
+            # hands it over. Building it here instead was 52% of this script's wall
+            # time, the same 7.19 GB database rebuilt once per genome: 600.5 CPU-s per
+            # genome against 126, measured on the whole-Bacteria pilot's 19.8 M-protein
+            # pool. See docs/comparisons/recover_orfs_recalibration/.
+            #
+            # Note the gate above cannot save the work: `if n` only asks whether the
+            # genome has ONE unannotated stretch of MIN_GAP bp, and every bacterial
+            # genome has intergenic DNA at 300 bp. A pristine reference genome paid the
+            # full build to search a handful of small gaps.
+            #
+            # The fallback stays so the script still runs standalone against a bare
+            # FASTA, which is how it is used outside the pipeline.
+            db = a.pool_db
+            if db is None:
+                db = a.workdir / 'pool'
+                subprocess.run([a.diamond, 'makedb', '--in', str(a.pool), '-d', str(db),
+                                '--quiet'], check=True, capture_output=True)
             hom = homology_orfs(a.diamond, gf, db, a.threads, records)
 
     # Merge. Homology first so it claims contested DNA: its boundaries come from a real
