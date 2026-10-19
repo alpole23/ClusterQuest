@@ -29,6 +29,10 @@
  *
  * A gather step: every RECOVER_ORFS task waits on this one. It is cheap (concatenating
  * proteins out of a few hundred GenBanks) but it does serialise here.
+ *
+ * It also builds the DIAMOND database, which RECOVER_ORFS used to build once per GENOME
+ * over this same pool -- 52% of that stage's wall time spent rebuilding an identical
+ * 7.19 GB file, 200 times per batch. Here it is paid once per run.
  */
 process BUILD_PROTEIN_POOL {
     tag "$taxon"
@@ -44,13 +48,20 @@ process BUILD_PROTEIN_POOL {
     val scripts_version
 
     output:
-    path "protein_pool.faa", emit: pool
+    path "protein_pool.faa",  emit: pool
+    path "protein_pool.dmnd", emit: db
 
     script:
     """
     python ${projectDir}/scripts/genome/build_protein_pool.py \\
         --genomes ${genomes} \\
         --out protein_pool.faa
+
+    # --threads explicitly, unlike the per-genome call this replaces: diamond defaults
+    # to every core on the box, which under Nextflow meant 8 concurrent tasks each
+    # claiming 16 cores. Measured on a 6.89 GB pool: 84 s / 268 CPU-s at 4 threads
+    # against 59 s / 500 CPU-s at 16 -- the wall saving is not worth 1.9x the CPU.
+    diamond makedb --in protein_pool.faa -d protein_pool --threads ${task.cpus} --quiet
     """
 }
 
@@ -75,6 +86,7 @@ process RECOVER_ORFS {
     val taxon
     path genomes
     path protein_pool
+    path protein_pool_db
     val scripts_version
 
     output:
@@ -92,6 +104,7 @@ process RECOVER_ORFS {
             --genome "\$GENOME" \\
             --out "\${BASE}.gff3" \\
             --pool ${protein_pool} \\
+            --pool_db ${protein_pool_db} \\
             --prodigal \$(which prodigal) \\
             --diamond \$(which diamond) \\
             --threads ${task.cpus} \\
