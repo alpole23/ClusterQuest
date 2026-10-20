@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 # Status of a long ClusterQuest run: is it alive, where is it, is anything wrong.
 #
-#   bash scripts/run_status.sh [bigdisk_root]
+#   bash scripts/run_status.sh [bigdisk_root] [taxon] [run.log] [samples.tsv]
+#
+# Taxon, log and sample file all DEFAULT TO THE MOST RECENTLY MODIFIED ones rather
+# than to a fixed name. They used to be hardcoded to the Enterobacterales run, which
+# meant that during the 2026-10-19 Bacteria re-run this script reported that run's
+# PID beside Enterobacterales' stages, trace and disk samples -- 1,349,525 genomes
+# screened for a run that had screened 22,875. A status tool that mixes two runs is
+# worse than none, which is the same lesson as the pgrep note below.
 #
 # Written because the ad-hoc checks kept lying. `pgrep -f nextflow` matches the
 # shell that invokes it -- the pattern appears in that shell's own command line --
@@ -15,8 +22,25 @@
 # setsid can capture a transient wrapper rather than the process that outlives it.
 set -u
 ROOT=${1:-/mnt/bigdisk/clusterquest}
-LOG="$ROOT/run.log"
-SAMPLES="$ROOT/bench/disk_samples.tsv"
+newest() { ls -1t $1 2>/dev/null | head -1; }
+TAXON=${2:-}
+if [ -z "$TAXON" ]; then
+    T=$(newest "$ROOT/results/pipeline_info/*/pipeline_trace.tsv")
+    TAXON=$(basename "$(dirname "${T:-/none/unknown}")")
+fi
+# Newest log that is actually a PIPELINE log: every run prints [WORKDIR] at start,
+# where a sampler's or archiver's log never does. Picking purely by mtime chose the
+# trace archiver's and left the stage line blank.
+nf_log() {
+    for f in $(ls -1t $ROOT/*.log $ROOT/bench/*.log 2>/dev/null); do
+        grep -ql '\[WORKDIR\]' "$f" 2>/dev/null && { echo "$f"; return; }
+    done
+}
+LOG=${3:-$(nf_log)}
+SAMPLES=${4:-$(newest "$ROOT/bench/*disk*.tsv")}
+echo "run        taxon=$TAXON"
+echo "           log=${LOG:-none}"
+echo "           samples=${SAMPLES:-none}"
 strip() { tr -d '\r' | sed 's/\x1b\[[0-9;]*[A-Za-z]//g'; }
 
 NF_PID=$(ps -eo pid,cmd | grep '[n]extflow-.*-one\.jar run main\.nf' | awk '{print $1}' | head -1)
@@ -32,7 +56,11 @@ mountpoint -q "$ROOT" 2>/dev/null || mountpoint -q "$(dirname "$ROOT")" \
     && echo "mount      ok" || echo "mount      *** NOT MOUNTED ***"
 
 echo "--- stage ---"
-grep -E '^\[PROCESS' "$LOG" 2>/dev/null | strip | tail -4
+# grep -o, not an anchored line match: with -ansi-log false Nextflow concatenates
+# several records onto one line ("[skipping] Stored process > ...[PROCESS ab/cdef]
+# NAME (tag)"), so anchoring to ^ printed nothing while the run was progressing
+# normally -- a status tool silently reporting no stage.
+strip < "$LOG" 2>/dev/null | grep -oE '\[PROCESS [^]]*\] [A-Za-z_:]+( \([^)]*\))?' | tail -4
 
 # A time-limit kill writes exit 143 and Nextflow may abort the session while
 # reporting `failed=0`, so the exit codes on disk are checked rather than the
@@ -47,7 +75,7 @@ grep -E '^\[PROCESS' "$LOG" 2>/dev/null | strip | tail -4
 # keep -- which also retires the stale-task problem the filter existed for, since a
 # previous run's tasks are not in this run's trace at all.
 echo "--- task failures (from the trace) ---"
-TRACE="$ROOT/results/pipeline_info/Enterobacterales/pipeline_trace.tsv"
+TRACE="$ROOT/results/pipeline_info/$TAXON/pipeline_trace.tsv"
 if [ -f "$TRACE" ]; then
     awk -F'\t' 'NR>1 {
         n++
