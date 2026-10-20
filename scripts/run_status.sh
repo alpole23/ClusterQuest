@@ -74,6 +74,43 @@ strip < "$LOG" 2>/dev/null | grep -oE '\[PROCESS [^]]*\] [A-Za-z_:]+( \([^)]*\))
 # Nextflow, and covers EVERY task rather than those a timestamp filter happened to
 # keep -- which also retires the stale-task problem the filter existed for, since a
 # previous run's tasks are not in this run's trace at all.
+# Which task binaries are actually running. Reported here rather than left to an
+# ad-hoc `ps | grep` at the call site, because that grep has two independent traps.
+#
+# 1. It matches the invoking shell whenever the surrounding command line contains
+#    the bare pattern -- and it does the moment you write
+#    `antismash=$(ps -eo args= | grep -c antismash)`. The [x] bracket trick does
+#    NOT help, for the same reason it fails for pgrep (see the top of this file):
+#    the literal string is present elsewhere on the line. Excluding our own
+#    PROCESS GROUP fixes this; every subshell, ps and awk we spawn shares our pgid,
+#    while Nextflow's tasks sit under the java process in another.
+#
+# 2. Matching the command line OVER-counts, badly. Each Nextflow task runs a bash
+#    wrapper whose command line names every binary the task will invoke, so seven
+#    RECOVER_ORFS wrappers read as seven extra "diamond" AND seven "prodigal"
+#    processes -- measured 13 diamond and 7 prodigal against a true 6 and 0.
+#    So match `comm`, the executable basename, which a wrapper cannot fake.
+#
+# `comm` alone is not sufficient either: antiSMASH, BiG-SCAPE and GTDB-Tk are
+# python entry points, so all three report comm=python3.11. Those need comm AND a
+# path in the command line; diamond and prodigal are real binaries and need only comm.
+MYPG=$(ps -o pgid= -p $$ | tr -d ' ')
+count_proc() {
+    ps -eo pgid=,comm=,args= | awk -v pg="$MYPG" -v cpat="$1" -v apat="${2:-}" '
+        $1 + 0 == pg + 0  { next }
+        $2 !~ cpat        { next }
+        apat != "" && $0 !~ apat { next }
+        { n++ }
+        END { print n + 0 }'
+}
+echo "--- task processes ---"
+printf "  diamond %s   prodigal %s   antismash %s   bigscape %s   gtdbtk %s\n" \
+    "$(count_proc '^diamond$')" \
+    "$(count_proc '^prodigal$')" \
+    "$(count_proc '^python' '/bin/antismash')" \
+    "$(count_proc '^python' '[Bb]ig[Ss][Cc][Aa][Pp][Ee]')" \
+    "$(count_proc '^python' '/bin/gtdbtk')"
+
 echo "--- task failures (from the trace) ---"
 TRACE="$ROOT/results/pipeline_info/$TAXON/pipeline_trace.tsv"
 if [ -f "$TRACE" ]; then
