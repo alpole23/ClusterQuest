@@ -91,25 +91,26 @@ strip < "$LOG" 2>/dev/null | grep -oE '\[PROCESS [^]]*\] [A-Za-z_:]+( \([^)]*\))
 #    processes -- measured 13 diamond and 7 prodigal against a true 6 and 0.
 #    So match `comm`, the executable basename, which a wrapper cannot fake.
 #
-# `comm` alone is not sufficient either: antiSMASH, BiG-SCAPE and GTDB-Tk are
-# python entry points, so all three report comm=python3.11. Those need comm AND a
-# path in the command line; diamond and prodigal are real binaries and need only comm.
+# `comm` alone is not sufficient as a NAME match: a tool may report its own name
+# (antiSMASH reports comm=antismash despite a python shebang -- do not infer this
+# from the shebang, as a previous version of this comment wrongly did) or report
+# the interpreter. So match the tool's PATH in the command line, and exclude
+# shells, which is what the Nextflow wrappers are.
 MYPG=$(ps -o pgid= -p $$ | tr -d ' ')
 count_proc() {
-    ps -eo pgid=,comm=,args= | awk -v pg="$MYPG" -v cpat="$1" -v apat="${2:-}" '
-        $1 + 0 == pg + 0  { next }
-        $2 !~ cpat        { next }
-        apat != "" && $0 !~ apat { next }
-        { n++ }
+    ps -eo pgid=,comm=,args= | awk -v pg="$MYPG" -v pat="$1" '
+        $1 + 0 == pg + 0                               { next }
+        $2 ~ /^(bash|sh|dash|ps|awk|grep|sed|xargs)$/  { next }
+        $0 ~ pat                                       { n++ }
         END { print n + 0 }'
 }
 echo "--- task processes ---"
 printf "  diamond %s   prodigal %s   antismash %s   bigscape %s   gtdbtk %s\n" \
-    "$(count_proc '^diamond$')" \
-    "$(count_proc '^prodigal$')" \
-    "$(count_proc '^python' '/bin/antismash')" \
-    "$(count_proc '^python' '[Bb]ig[Ss][Cc][Aa][Pp][Ee]')" \
-    "$(count_proc '^python' '/bin/gtdbtk')"
+    "$(count_proc '/bin/diamond( |$)')" \
+    "$(count_proc '/bin/prodigal( |$)')" \
+    "$(count_proc '/bin/antismash( |$)')" \
+    "$(count_proc '/bin/bigscape( |$)')" \
+    "$(count_proc '/bin/gtdbtk( |$)')"
 
 echo "--- task failures (from the trace) ---"
 TRACE="$ROOT/results/pipeline_info/$TAXON/pipeline_trace.tsv"
