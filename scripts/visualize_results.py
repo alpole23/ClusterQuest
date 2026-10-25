@@ -72,7 +72,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
                          versions_data=None, rarefaction_stats=None,
                          gtdbtk_summary_path=None, gcf_tree_b64=None,
                          gcf_tree_mime='image/png',
-                         gcf_heatmap_b64=None, gcf_characterisation=None,
+                         gcf_characterisation=None,
                          reference_summary=None,
                          bioprofile_path=None,
                          consensus_clusters=None, transfer_summary=None,
@@ -119,7 +119,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     rarefaction_section = _build_rarefaction_section(rarefaction_stats)
 
     # Build BGC Distribution section HTML (replaces Tree View)
-    distribution_section = generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path, gcf_heatmap_b64=gcf_heatmap_b64)
+    distribution_section = generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path)
 
     # Use distribution_section for the "BGC Distribution" tab (replaces old tree view)
     tree_section = distribution_section  # Keep variable name for template compatibility
@@ -310,7 +310,6 @@ def main():
     parser.add_argument('--skip_tree', action='store_true', help='Skip phylogenetic tree visualization (useful for very large datasets)')
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
-    parser.add_argument('--gcf_heatmap_svg', type=Path, help='Path to GCF × species heatmap SVG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_characterisation', type=Path, help='gcf_characterisation.tsv from GCF_CHARACTERISATION')
@@ -482,7 +481,6 @@ def main():
     # self-contained file. SVG wins over PNG wherever both exist: it is vector,
     # and smaller once base64-encoded (1.8 MB PNG vs 972 KB SVG on Pantoea).
     gcf_tree_b64, gcf_tree_mime = embed_image(args.gcf_tree_svg, args.gcf_tree)
-    gcf_heatmap_b64, _ = embed_image(args.gcf_heatmap_svg)
 
     # pepM all-by-all: the figure goes in GCF Analysis, the partitioning table in
     # the pipeline-info block on Overview. Both are optional — the analysis is a
@@ -532,7 +530,6 @@ def main():
                             gtdbtk_summary_path=gtdbtk_summary_path,
                             gcf_tree_b64=gcf_tree_b64,
                             gcf_tree_mime=gcf_tree_mime,
-                            gcf_heatmap_b64=gcf_heatmap_b64,
                             gcf_characterisation=args.gcf_characterisation,
                             reference_summary=args.reference_summary,
                             bioprofile_path=args.biosynthetic_profile,

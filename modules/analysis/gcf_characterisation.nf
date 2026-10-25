@@ -29,6 +29,9 @@ process GCF_CHARACTERISATION {
     path tabulation
     path coupling_support
     path bigscape_db
+    // Optional: adds the gtdb_* taxonomy columns. A placeholder when GTDB-Tk did
+    // not run, so the table is still written -- just without them.
+    path gtdbtk_summary
 
     // Digest of the Python this process runs. A val input, not an
     // interpolation: Nextflow hashes the unevaluated script source plus the
@@ -45,6 +48,7 @@ process GCF_CHARACTERISATION {
         --tabulation ${tabulation} \\
         --coupling_support ${coupling_support} \\
         --bigscape_db ${bigscape_db} \\
+        ${Utils.optArg('--gtdbtk_summary', gtdbtk_summary)} \\
         --cutoff ${(params.bigscape_cutoffs.toString().split(',')[0]).trim()} \\
         --out gcf_characterisation.tsv
     """

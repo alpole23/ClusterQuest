@@ -19,7 +19,6 @@ process VISUALIZE_RESULTS {
     path versions_file
     path gcf_tree_png
     path gcf_tree_svg
-    path gcf_heatmap_svg
     path coupling_annotation
     path coupling_support
     path gcf_characterisation
@@ -65,7 +64,6 @@ process VISUALIZE_RESULTS {
     def versions_arg            = Utils.optArg('--versions',            versions_file)
     def gcf_tree_arg            = Utils.optArg('--gcf_tree',            gcf_tree_png)
     def gcf_tree_svg_arg        = Utils.optArg('--gcf_tree_svg',        gcf_tree_svg)
-    def gcf_heatmap_svg_arg     = Utils.optArg('--gcf_heatmap_svg',     gcf_heatmap_svg)
     def pepm_json_arg           = Utils.optArg('--pepm_json',           pepm_json)
     def coupling_annotation_arg = Utils.optArg('--coupling_annotation', coupling_annotation)
     def coupling_support_arg    = Utils.optArg('--coupling_support',    coupling_support)
@@ -80,7 +78,7 @@ process VISUALIZE_RESULTS {
     def mibig_arg     = params.bigscape_mibig_version ? "--mibig_included" : ""
     def skip_tree_arg = params.skip_tree ? "--skip_tree" : ""
     """
-    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${gcf_heatmap_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${reference_summary_arg} ${branch_point_arg} ${bioprofile_arg} \\
+    python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${reference_summary_arg} ${branch_point_arg} ${bioprofile_arg} \\
         ${consensus_arg} ${per_cds_arg} \\
         ${transfer_summary_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
     """

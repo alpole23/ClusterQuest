@@ -1,6 +1,6 @@
 """Visualization modules for BGC analysis pipeline."""
 
-from .charts import get_bgc_color, plot_kcb_identification_chart
+from .charts import get_bgc_color
 from .tables import (
     get_genome_count,
     generate_genome_table_html,
@@ -32,7 +32,6 @@ from utils.trace import (
 __all__ = [
     # charts
     'get_bgc_color',
-    'plot_kcb_identification_chart',
     # tree_viz
     # tables
     'get_genome_count',
