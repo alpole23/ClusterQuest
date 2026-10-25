@@ -170,7 +170,16 @@ def run_blastx(diamond, gaps_fasta, pool_db, threads):
     proc = subprocess.run(
         [diamond, 'blastx', '-d', str(pool_db), '-q', str(gaps_fasta), '--quiet',
          '--threads', str(threads), '--evalue', '1e-10', '--max-target-seqs', '25',
-         '--outfmt', '6', 'qseqid', 'sseqid', 'pident', 'qstart', 'qend', 'bitscore'],
+         # stitle, NOT sseqid. The pool's headers are `>locus_tag|product` and the
+         # product has spaces in it, while BLAST and DIAMOND both truncate sseqid
+         # at the first whitespace -- so merge_and_write's split on '|' only ever
+         # saw the product's first word. Every homology-recovered gene was named
+         # for it: "DNA polymerase III subunit beta" was written as product=DNA,
+         # "IS3 family transposase" as IS3. A one-word product is not merely
+         # clipped, it is wrong, and these names feed GCF_ANNOTATION_TRANSFER and
+         # the consensus gene-content tables. Measured on 12 pilot genomes:
+         # 290 of 713 recovered genes affected.
+         '--outfmt', '6', 'qseqid', 'stitle', 'pident', 'qstart', 'qend', 'bitscore'],
         capture_output=True, text=True)
     if proc.returncode != 0:
         sys.exit(f'diamond blastx failed:\n{proc.stderr[:2000]}')
