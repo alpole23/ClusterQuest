@@ -29,6 +29,10 @@
  *
  * A gather step: every RECOVER_ORFS task waits on this one. It is cheap (concatenating
  * proteins out of a few hundred GenBanks) but it does serialise here.
+ *
+ * It also builds the DIAMOND database, which RECOVER_ORFS used to build once per GENOME
+ * over this same pool -- 52% of that stage's wall time spent rebuilding an identical
+ * 7.19 GB file, 200 times per batch. Here it is paid once per run.
  */
 process BUILD_PROTEIN_POOL {
     tag "$taxon"
@@ -44,13 +48,20 @@ process BUILD_PROTEIN_POOL {
     val scripts_version
 
     output:
-    path "protein_pool.faa", emit: pool
+    path "protein_pool.faa",  emit: pool
+    path "protein_pool.dmnd", emit: db
 
     script:
     """
     python ${projectDir}/scripts/genome/build_protein_pool.py \\
         --genomes ${genomes} \\
         --out protein_pool.faa
+
+    # --threads explicitly, unlike the per-genome call this replaces: diamond defaults
+    # to every core on the box, which under Nextflow meant 8 concurrent tasks each
+    # claiming 16 cores. Measured on a 6.89 GB pool: 84 s / 268 CPU-s at 4 threads
+    # against 59 s / 500 CPU-s at 16 -- the wall saving is not worth 1.9x the CPU.
+    diamond makedb --in protein_pool.faa -d protein_pool --threads ${task.cpus} --quiet
     """
 }
 
@@ -64,6 +75,10 @@ process BUILD_PROTEIN_POOL {
  *
  * The GFF3s are published because they are the evidence for every downstream gene call
  * that was not in the source annotation.
+ *
+ * One task handles a batch of genomes with ONE blastx over all of their gaps -- see the
+ * note in the script block, and run_batch() in recover_orfs.py for why that needs three
+ * passes rather than two.
  */
 process RECOVER_ORFS {
     tag "${genomes instanceof List ? genomes.size() + ' genomes' : genomes.baseName}"
@@ -75,6 +90,7 @@ process RECOVER_ORFS {
     val taxon
     path genomes
     path protein_pool
+    path protein_pool_db
     val scripts_version
 
     output:
@@ -83,24 +99,28 @@ process RECOVER_ORFS {
 
     script:
     """
-    for GENOME in ${genomes}; do
-        BASE=\$(basename "\$GENOME" .gbff)
-        # Every failure is a continue, never an exit: aborting would forfeit the
-        # whole batch over one bad genome, and a genome with no recovered genes is
-        # a normal outcome rather than an error.
-        python ${projectDir}/scripts/genome/recover_orfs.py \\
-            --genome "\$GENOME" \\
-            --out "\${BASE}.gff3" \\
-            --pool ${protein_pool} \\
-            --prodigal \$(which prodigal) \\
-            --diamond \$(which diamond) \\
-            --threads ${task.cpus} \\
-            --workdir "_work_\${BASE}" \\
-            >> recovery_stats.tsv 2>&1 || {
-                echo "  WARN: recovery failed for \$BASE, writing an empty GFF3"
-                printf '##gff-version 3\\n' > "\${BASE}.gff3"
-            }
-        rm -rf "_work_\${BASE}"
-    done
+    # ONE call for the whole batch, not one per genome. diamond spends ~120 CPU-s
+    # loading the 7.19 GB pool database before it searches anything, so the loop
+    # this replaces paid that cost once per genome: measured on 20 genomes of the
+    # whole-Bacteria pilot, 20 calls cost 2,536 CPU-s against 265 for one, and the
+    # batched run reproduced all 20 genomes' hits exactly. That is ~90% of this
+    # stage, which was 76.4% of the pilot's 428.5 CPU-h.
+    #
+    # Per-genome failures stay per-genome inside the script -- a genome that
+    # cannot be parsed gets an empty GFF3 and the batch continues, exactly as the
+    # shell loop did. A non-zero exit here therefore means the batch itself broke
+    # (a missing binary, an unreadable database), which is not something a
+    # fallback should paper over.
+    python ${projectDir}/scripts/genome/recover_orfs.py \\
+        --genomes ${genomes} \\
+        --outdir . \\
+        --pool ${protein_pool} \\
+        --pool_db ${protein_pool_db} \\
+        --prodigal \$(which prodigal) \\
+        --diamond \$(which diamond) \\
+        --threads ${task.cpus} \\
+        --workdir _work \\
+        > recovery_stats.tsv 2>&1
+    rm -rf _work
     """
 }

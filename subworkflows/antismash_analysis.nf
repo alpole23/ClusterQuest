@@ -74,6 +74,7 @@ workflow ANTISMASH_ANALYSIS {
                 taxon,
                 sortedBatches(renamed_genomes, pepmBatchSize()),
                 BUILD_PROTEIN_POOL.out.pool,
+                BUILD_PROTEIN_POOL.out.db,
                 Utils.scriptsHash(projectDir, ['genome/recover_orfs.py'])
             )
             recovered_gff_ch = RECOVER_ORFS.out.gff.flatten()
