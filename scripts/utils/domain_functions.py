@@ -265,11 +265,3 @@ def profile(accessions):
     return out
 
 
-def elaboration(accessions):
-    """How much chemistry the cluster does to its own product.
-
-    Counts distinct tailoring/lipid domains, not occurrences: three copies of the
-    same methyltransferase domain in one cluster is one kind of chemistry, and
-    counting occurrences would let a tandem duplication look like elaboration.
-    """
-    return len({bare(a) for a in accessions if category(a) in ELABORATION})

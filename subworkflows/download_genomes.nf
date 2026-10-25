@@ -50,7 +50,12 @@ workflow DOWNLOAD_GENOMES {
         EXTRACT_TAXONOMY(
             taxon,
             NCBI_FETCH_METADATA.out.assembly_data_report,
-            NCBI_FETCH_METADATA.out.taxonomy_report,
+            // ifEmpty, because this output is `optional: true` and NCBI does not
+            // emit it for every taxon. Without this the empty channel skips
+            // EXTRACT_TAXONOMY and, downstream, the whole HTML report -- with
+            // Nextflow still reporting success. The file is unread anyway; see
+            // the note on the process input.
+            NCBI_FETCH_METADATA.out.taxonomy_report.ifEmpty(file('NO_TAXONOMY_REPORT')),
             DOWNLOAD_TAXONKIT_DB.out.taxdump_dir,
             Utils.scriptsHash(projectDir, ['taxonomy/extract_taxonomy.py'])
         )
@@ -65,5 +70,5 @@ workflow DOWNLOAD_GENOMES {
         name_map             = CREATE_NAME_MAP.out.name_map
         taxonomy_map         = EXTRACT_TAXONOMY.out.taxonomy_map
         assembly_data_report = NCBI_FETCH_METADATA.out.assembly_data_report
-        taxonomy_report      = NCBI_FETCH_METADATA.out.taxonomy_report
+        taxonomy_report      = NCBI_FETCH_METADATA.out.taxonomy_report.ifEmpty(file('NO_TAXONOMY_REPORT'))
 }

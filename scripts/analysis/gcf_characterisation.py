@@ -52,7 +52,13 @@ runs broad enough to calibrate one against.
   EVIDENCE is still reported -- how confident we are the family is real rather than an
   assembly artefact -- because it qualifies every other column on the row.
 """
-import argparse, collections, csv, json, math, re, sys
+# GTDB ranks, shallowest first. The order IS the semantics: span_rank reports the
+# first rank at which every member of a family agrees, so "genus" means the family
+# does not leave one genus and "phylum" means it crosses orders and classes.
+RANK_CODES = [('species', 's'), ('genus', 'g'), ('family', 'f'),
+              ('order', 'o'), ('class', 'c'), ('phylum', 'p')]
+
+import argparse, collections, csv, json, math, os, re, sys
 from pathlib import Path
 
 # record_id is spelled inconsistently across the pipeline's own outputs — some rows
@@ -78,7 +84,16 @@ W_GENOMES, W_GENERA, W_INTACT, W_CLASS = 0.35, 0.25, 0.30, 0.10
 def load(reps_path, tab_path, sup_path):
     reps = json.loads(Path(reps_path).read_text())
     tab = list(csv.DictReader(Path(tab_path).open(), delimiter='\t'))
-    lines = [l for l in Path(sup_path).open() if not l.startswith('#')]
+    # The coupling support is optional upstream: GCF_BIOSYNTHETIC_TREE emits it
+    # `optional: true`, so this may be a placeholder. Degrade to no coupling
+    # evidence rather than crashing -- every other column still has its data,
+    # and this table is what replaced the GCF x species heatmap.
+    sp = Path(sup_path)
+    if not sp.exists() or sp.name.startswith('NO_'):
+        sys.stderr.write(f'note: no coupling support ({sp.name}); '
+                         'coupling_class and the divergence columns will be blank\n')
+        return reps, tab, {}
+    lines = [l for l in sp.open() if not l.startswith('#')]
     # Support rows are keyed "ACCESSION.VERSION.regionNNN", with extra "_N" rows for the
     # sub-records (protocluster, cand_cluster, proto_core). Keep region level only, and
     # index on the *unversioned* accession: region_tabulation.tsv has already lost the
@@ -164,7 +179,7 @@ def num(v, default=None):
         return default
 
 
-def build(reps, tab, sup):
+def build(reps, tab, sup, gtdbtk_summary=None):
     """One record per family, joining the three sources on region identity."""
     # tabulation is the only place carrying both spellings of a region
     by_region = {}
@@ -177,6 +192,30 @@ def build(reps, tab, sup):
                           'edge': r['contig_edge'].strip().lower() in ('true', '1', 'yes'),
                           'genus': genome.split('_')[0]}
 
+    # GTDB taxonomy per genome, when GTDB-Tk ran. This REPLACES nothing: the
+    # existing `genera` count stays as it is, derived from the genome name's
+    # first token, because it feeds the evidence score and changing its source
+    # would silently move a published number.
+    #
+    # It is kept alongside rather than trusted, because that shortcut is wrong
+    # for any name whose first token is not a genus -- every "Candidatus ..."
+    # collapses to the genus "Candidatus". Measured: 125 of 1,530 Enterobacterales
+    # genomes (8.2%), and the shortcut finds 417 genera where GTDB finds 476.
+    gtdb = {}
+    if gtdbtk_summary and os.path.exists(gtdbtk_summary):
+        with open(gtdbtk_summary) as fh:
+            next(fh, None)
+            for line in fh:
+                parts = line.split('\t')
+                if len(parts) < 2:
+                    continue
+                name = parts[0][4:] if parts[0].startswith('usr_') else parts[0]
+                lin = {}
+                for rank, code in RANK_CODES:
+                    m = re.search(rf'{code}__([A-Za-z0-9_.\- ]+)', parts[1])
+                    lin[rank] = m.group(1).strip() if m and m.group(1).strip() else None
+                gtdb[name] = lin
+
     fam = collections.defaultdict(lambda: {
         'n': 0, 'genomes': set(), 'genera': set(), 'intact': 0, 'seen': 0,
         'd_coupling': [], 'd_pepm': [], 'classes': collections.Counter(),
@@ -185,7 +224,8 @@ def build(reps, tab, sup):
         # without the name a reader cannot tell a Pantoea match from a Streptomyces
         # one, and four of the five families at 64-75% match HvrC while the fifth
         # matches FrbC.
-        'ref_name': collections.Counter()})
+        'ref_name': collections.Counter(),
+        'lineages': []})
 
     for key, v in reps['bgc_to_gcf'].items():
         f = fam[v['family_id']]
@@ -196,6 +236,9 @@ def build(reps, tab, sup):
             continue                      # region absent from the tabulation join
         f['seen'] += 1
         f['genera'].add(meta['genus'])
+        lin = gtdb.get(key.rsplit('|', 1)[0])
+        if lin:
+            f['lineages'].append(lin)
         f['intact'] += (not meta['edge'])
         s = meta['sup']
         if s:
@@ -248,6 +291,25 @@ def score(f, isolation):
             characterised)
 
 
+def _span(lineages):
+    """Shallowest GTDB rank at which every member of a family agrees.
+
+    Blank for a single-member family, where the question is meaningless. Reported
+    rather than a boolean because "crosses a genus boundary" and "crosses a phylum
+    boundary" are very different claims, and the ablation in
+    docs/comparisons/ shows the genus-level answer is sensitive to how much
+    flanking sequence BiG-SCAPE is shown -- so the rank carries the nuance a flag
+    would throw away.
+    """
+    if len(lineages) < 2:
+        return ''
+    for rank, _ in RANK_CODES:
+        vals = {l[rank] for l in lineages}
+        if len(vals) == 1 and None not in vals:
+            return rank
+    return 'above phylum'
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -257,12 +319,15 @@ def main():
     ap.add_argument('--bigscape_db', required=True,
                     help='BiG-SCAPE sqlite; supplies the all-pairs distances '
                          'that isolation is computed from')
+    ap.add_argument('--gtdbtk_summary', default=None,
+                    help='GTDB-Tk bac120 summary; adds the gtdb_* taxonomy columns. '
+                         'Optional -- the table is written without them if absent.')
     ap.add_argument('--cutoff', type=float, default=0.3)
     ap.add_argument('--out', required=True)
     a = ap.parse_args()
 
     reps, tab, sup = load(a.gcf_representatives, a.tabulation, a.coupling_support)
-    fam = build(reps, tab, sup)
+    fam = build(reps, tab, sup, a.gtdbtk_summary)
     iso = isolation_by_family(a.bigscape_db, a.cutoff)
     if not iso:
         print(f'warning: no families at cutoff {a.cutoff} in {a.bigscape_db}; '
@@ -293,16 +358,25 @@ def main():
             reference_pct_id=round(best_ref, 1) if best_ref is not None else '',
             reference_name=ref_name, reference_organism=ref_org,
             reference_status=ref_status,
+            gtdb_genera=len({l['genus'] for l in f['lineages'] if l['genus']}) or '',
+            gtdb_phyla=len({l['phylum'] for l in f['lineages'] if l['phylum']}) or '',
+            span_rank=_span(f['lineages']),
+            gtdb_genus_list='; '.join(sorted({l['genus'] for l in f['lineages']
+                                              if l['genus']})) or '',
             coupling_divergence=round(d_c, 4) if d_c is not None else '',
             pepm_divergence=round(d_p, 4) if d_p is not None else ''))
 
     # By family id. There is no score to sort on, and the report sorts client-side.
     rows.sort(key=lambda r: int(r['gcf']) if str(r['gcf']).isdigit() else 0)
 
+    # `genera` is the first-token count that feeds the evidence score; the gtdb_*
+    # columns are the corrected taxonomy and are deliberately separate, so a reader
+    # can see both rather than wonder which one a single column meant.
     cols = ['gcf', 'status', 'isolation', 'evidence', 'members', 'genomes', 'genera',
-            'intact', 'coupling_class', 'reference_status', 'reference_pct_id',
-            'reference_name', 'reference_organism', 'coupling_divergence',
-            'pepm_divergence']
+            'gtdb_genera', 'gtdb_phyla', 'span_rank', 'intact', 'coupling_class',
+            'reference_status', 'reference_pct_id', 'reference_name',
+            'reference_organism', 'coupling_divergence', 'pepm_divergence',
+            'gtdb_genus_list']
     with open(a.out, 'w', newline='') as fh:
         w = csv.DictWriter(fh, fieldnames=cols, delimiter='\t', extrasaction='ignore')
         w.writeheader()

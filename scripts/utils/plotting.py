@@ -52,3 +52,30 @@ def canonicalise_svg(path):
 
     path.write_text(_CLIP_ID.sub(lambda m: f'{m.group(1)}p{mapping[m.group(2)]}', text))
     return path
+
+
+# ── Figure size ceiling ──────────────────────────────────────────────────────
+# matplotlib's Agg renderer refuses any figure over 2^16 px in either direction,
+# and raises from savefig -- the last call in a script, after all the work. Twice
+# that has killed a whole-Bacteria pipeline run at its final figure with ~430
+# CPU-h of results already on disk: the GCF x species heatmap at 225,819 px wide
+# (1,250 species columns) and the GCF tree at 82,620 px tall (1,020 leaves).
+#
+# Both were sized as a constant inches-per-item times an item count that scales
+# with the dataset, which walks into the wall silently. Any figure sized that way
+# must call fit_extent().
+MAX_FIG_PX = 65000          # 2^16 with headroom for bbox_inches='tight'
+
+
+def fit_extent(n_items, per_item, fixed=0.0, dpi=180, floor=0.02):
+    """Shrink per-item extent so `fixed + n_items * per_item` fits the renderer.
+
+    Returns (per_item, total_inches, ok). `ok` is False when even `floor` does
+    not fit -- the caller should warn and skip rather than raise, because a
+    missing figure is recoverable and a dead pipeline is not.
+    """
+    budget = MAX_FIG_PX / dpi - fixed
+    if n_items > 0 and n_items * per_item > budget:
+        per_item = max(floor, budget / n_items)
+    total = fixed + n_items * per_item
+    return per_item, total, total * dpi < MAX_FIG_PX

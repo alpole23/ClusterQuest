@@ -257,55 +257,6 @@ def build_rows(gcf_class, gcf_total, gcf_species, singleton_species):
 
 # ─── Row clustering ───────────────────────────────────────────────────────────
 
-def compute_row_linkage(rows, species_list, gcf_species, singleton_species):
-    """
-    Hierarchical clustering of rows by species presence/absence (Jaccard).
-    Returns (linkage_matrix, reordered_row_indices).
-    """
-    n_rows = len(rows)
-    n_cols = len(species_list)
-    sp_idx = {sp: i for i, sp in enumerate(species_list)}
-
-    matrix = np.zeros((n_rows, n_cols), dtype=float)
-    for ri, row in enumerate(rows):
-        if row['type'] == 'gcf':
-            cell_data = gcf_species[row['gcf_id']]
-        else:
-            cell_data = singleton_species[row['cls']]
-        for sp, cnt in cell_data.items():
-            ci = sp_idx.get(sp)
-            if ci is not None:
-                matrix[ri, ci] = 1.0
-
-    if n_rows < 2:
-        return None, list(range(n_rows))
-
-    dist = pdist(matrix, metric='jaccard')
-    dist = np.nan_to_num(dist, nan=1.0)
-    Z = linkage(dist, method='complete')
-    order = list(leaves_list(Z))
-    return Z, order
-
-
-def draw_row_dendrogram(ax, Z, n_rows):
-    """
-    Draw row dendrogram in ax. Leaves on right (adjacent to strip), root on left.
-    Y-axis matches imshow convention: row 0 at top.
-    """
-    dend = dendrogram(Z, no_plot=True, orientation='left')
-    # scipy leaf positions: 5, 15, 25, ... (5 + 10*i)
-    # Map to row positions 0..n-1: row_pos = (y - 5) / 10
-    max_dist = max(d for dc in dend['dcoord'] for d in dc)
-    for ic, dc in zip(dend['icoord'], dend['dcoord']):
-        y_mapped = [(y - 5) / 10 for y in ic]
-        ax.plot(dc, y_mapped, color='#333333', lw=0.9, solid_capstyle='butt')
-    # Match imshow y-axis: row 0 near top, row n-1 near bottom
-    ax.set_ylim(n_rows - 0.5, -0.5)
-    ax.invert_xaxis()   # leaves on right, root on left
-    ax.set_xlim(max_dist * 1.05, 0)
-    ax.axis('off')
-
-
 # ─── Phylogenetic tree ────────────────────────────────────────────────────────
 
 def _keep_clade(clade, targets):
@@ -554,7 +505,14 @@ def plot_heatmap(rows, species_list, gcf_species, singleton_species, outdir,
     # ── Figure dimensions ───────────────────────────────────────────────────────
     dendro_w  = 1.5 if gcf_tree is not None else 0.0  # GCF biosynthetic tree
     strip_w   = 0.25    # coupling class color strip
-    cell_w    = 1.0     # per species column
+    # cell_w is DERIVED, not fixed. At a constant 1.0 in/column the figure width
+    # scales linearly with the column count straight into matplotlib's hard 2^16
+    # pixel limit, with no warning until savefig raises. The whole-Bacteria
+    # reference pilot hit it at ~1,250 species columns -- 225,819 px -- and killed
+    # the run at the final figure with 430 CPU-h of results already on disk.
+    # Shrinking the cell keeps wide runs renderable; the guard below catches
+    # whatever shrinking cannot save.
+    cell_w    = 1.0     # per species column; reduced below when n_cols is large
     cell_h    = 0.45    # per row
     label_w   = 2.8     # row label area (right of strip)
     bot_pad   = 0.4
@@ -564,8 +522,26 @@ def plot_heatmap(rows, species_list, gcf_species, singleton_species, outdir,
     tree_h    = 2.5 if has_tree else 0.0
     top_pad   = 2.5 if has_tree else 2.5   # space for rotated col labels (+ tree if present)
 
-    fig_w = dendro_w + strip_w + label_w + n_cols * cell_w + right_pad
+    fixed_w = dendro_w + strip_w + label_w + right_pad
+    avail_w = MAX_FIG_IN - fixed_w
+    if n_cols * cell_w > avail_w:
+        cell_w = max(MIN_CELL_W, avail_w / max(n_cols, 1))
+        print(f'  note: {n_cols} columns, narrowing cells to {cell_w:.3f} in '
+              f'to stay inside the renderable width')
+
+    fig_w = fixed_w + n_cols * cell_w
     fig_h = top_pad + tree_h + n_rows * cell_h + bot_pad
+
+    # Refuse rather than raise. A figure is not worth a pipeline: matplotlib's
+    # savefig raises ValueError past 2^16 px in either direction, which exits
+    # non-zero and aborts the Nextflow session.
+    if max(fig_w, fig_h) * 180 >= 65000:
+        sys.stderr.write(
+            f'WARNING: heatmap would be {fig_w*180:.0f}x{fig_h*180:.0f} px, past '
+            f"matplotlib's 65536 limit ({n_cols} columns x {n_rows} rows).\n"
+            '         Skipping the heatmap. Aggregate columns to a coarser rank, '
+            'or filter to taxa carrying a multi-member GCF.\n')
+        return
 
     fig = plt.figure(figsize=(fig_w, fig_h))
 
@@ -708,6 +684,12 @@ def plot_heatmap(rows, species_list, gcf_species, singleton_species, outdir,
     print(f'Saved: {out_svg}')
     plt.close(fig)
 
+
+# Width budget. 180 dpi x 360 in = 64,800 px, just inside matplotlib's 65,536.
+# MIN_CELL_W is the point below which a column is too thin to read; past it the
+# guard above refuses instead of emitting an unreadable figure.
+MAX_FIG_IN = 360.0
+MIN_CELL_W = 0.06
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
 

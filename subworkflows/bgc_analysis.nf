@@ -82,7 +82,6 @@ workflow BGC_ANALYSIS {
             // --- GCF Biosynthetic Tree (runs before visualization so its output can be embedded) ---
             gcf_tree_png_ch         = placeholder('NO_GCF_TREE')
             gcf_tree_svg_ch         = placeholder('NO_GCF_TREE_SVG')
-            gcf_heatmap_svg_ch      = placeholder('NO_GCF_HEATMAP_SVG')
             coupling_annotation_ch  = placeholder('NO_COUPLING_ANNOTATION')
             coupling_support_ch     = placeholder('NO_COUPLING_SUPPORT')
             characterisation_ch              = placeholder('NO_CHARACTERISATION')
@@ -101,7 +100,7 @@ workflow BGC_ANALYSIS {
                     PHYLOGENY.out.gtdbtk_db,
                     CLUSTERING.out.centers_db,
                     Utils.scriptsHash(projectDir,
-                        ['bgc_coupling_annotation.py', 'bgc_gcf_heatmap.py',
+                        ['bgc_coupling_annotation.py',
                          'bgc_gcf_tree.py', 'bgc_pfam_tree.py', 'utils'])
                 )
                 // Annotation transfer needs family membership, so it runs after
@@ -135,7 +134,13 @@ workflow BGC_ANALYSIS {
                     Utils.scriptsHash(projectDir,
                         ['analysis/branch_point_prediction.py', 'utils'])
                 )
+                // ifEmpty, like every sibling in this block. `prediction` is
+                // `optional: true`, and an unguarded optional output is how the
+                // whole-Bacteria run finished with no HTML report at all: the
+                // empty channel skips VISUALIZE_RESULTS and Nextflow still says
+                // "[SUCCESS] failed=0". See d73f6a1.
                 branch_point_ch = BRANCH_POINT_PREDICTION.out.prediction
+                    .ifEmpty(file('NO_BRANCH_POINT'))
 
                 // Reads the finished clustering database, so it runs beside the
                 // branch-point call rather than after it.
@@ -165,7 +170,6 @@ workflow BGC_ANALYSIS {
 
                 gcf_tree_png_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_png.ifEmpty(file('NO_GCF_TREE'))
                 gcf_tree_svg_ch        = GCF_BIOSYNTHETIC_TREE.out.gcf_tree_svg.ifEmpty(file('NO_GCF_TREE_SVG'))
-                gcf_heatmap_svg_ch     = GCF_BIOSYNTHETIC_TREE.out.heatmap_svg.ifEmpty(file('NO_GCF_HEATMAP_SVG'))
                 coupling_annotation_ch = GCF_BIOSYNTHETIC_TREE.out.coupling_annotation.ifEmpty(file('NO_COUPLING_ANNOTATION'))
                 coupling_support_ch    = GCF_BIOSYNTHETIC_TREE.out.coupling_support.ifEmpty(file('NO_COUPLING_SUPPORT'))
 
@@ -175,8 +179,14 @@ workflow BGC_ANALYSIS {
                     taxon,
                     CLUSTERING.out.gcf_data,
                     tabulation_ch,
-                    GCF_BIOSYNTHETIC_TREE.out.coupling_support,
+                    // the guarded channel, not the raw optional output: the
+                    // placeholder lets GCF_CHARACTERISATION still produce the
+                    // table, minus the coupling-evidence columns, instead of
+                    // vanishing. It is the heatmap's replacement, so losing it
+                    // silently is worse than losing two of its columns.
+                    coupling_support_ch,
                     CLUSTERING.out.bigscape_db,
+                    PHYLOGENY.out.summary,
                     Utils.scriptsHash(projectDir, ['analysis/gcf_characterisation.py'])
                 )
                 characterisation_ch = GCF_CHARACTERISATION.out.ranking.ifEmpty(file('NO_CHARACTERISATION'))
@@ -198,7 +208,6 @@ workflow BGC_ANALYSIS {
                 versions_ch,
                 gcf_tree_png_ch,
                 gcf_tree_svg_ch,
-                gcf_heatmap_svg_ch,
                 coupling_annotation_ch,
                 coupling_support_ch,
                 characterisation_ch,

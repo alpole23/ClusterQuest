@@ -58,11 +58,39 @@ process GTDBTK_CLASSIFY {
     # Create input genome directory
     # Add unique prefix to avoid conflicts with GTDB reference genome names
     # This prevents "duplicate taxon labels" errors in tree generation
+    #
+    # Names are also SANITIZED here. GTDB-Tk refuses to start at all if any genome
+    # id contains = ( ) [ ] ; , or a space -- one bad name kills the whole shard,
+    # 40 s in, after everything upstream has run. Five of the 4,193 genomes a
+    # whole-Bacteria reference sweep retains carry a semicolon from NCBI's strain
+    # field (e.g. Nitrosococcus_oceani_ATCC_19707_ATCC_19707;_JCM30415_Type_strain).
+    #
+    # Sanitizing HERE and not in create_name_map.py is the point: renaming upstream
+    # changes every genome filename and invalidates the fetch, ORF recovery and all
+    # 84 antiSMASH batches -- ~400 CPU-h re-run to rename five files.
     mkdir -p genomes
+    : > name_map.tsv
     for f in ${fasta_files}; do
         BASENAME=\$(basename "\$f")
-        cp "\$f" "genomes/usr_\${BASENAME}"
+        # Character class order matters: '[=' inside a bracket expression opens a
+        # POSIX equivalence class, so 's/[][=();, ]/.../' is a syntax error that
+        # makes sed emit nothing and every name collapse to the empty string.
+        # Keep '=' away from the opening bracket.
+        SAFE=\$(printf '%s' "\$BASENAME" | sed 's/[][;,()= ]/_/g')
+        if [ -e "genomes/usr_\${SAFE}" ]; then
+            echo "ERROR: sanitizing '\$BASENAME' collides with a genome already staged." >&2
+            echo "       Two genomes differ only in characters GTDB-Tk forbids." >&2
+            exit 1
+        fi
+        cp "\$f" "genomes/usr_\${SAFE}"
+        if [ "\$SAFE" != "\$BASENAME" ]; then
+            printf 'usr_%s\\tusr_%s\\n' "\${SAFE%.fna}" "\${BASENAME%.fna}" >> name_map.tsv
+        fi
     done
+    RENAMED=\$(wc -l < name_map.tsv)
+    if [ "\$RENAMED" -gt 0 ]; then
+        echo "Sanitized \$RENAMED genome id(s) that GTDB-Tk would have rejected"
+    fi
 
     GENOME_COUNT=\$(ls genomes/*.fna 2>/dev/null | wc -l)
     echo "Processing \$GENOME_COUNT genomes"
@@ -123,6 +151,21 @@ process GTDBTK_CLASSIFY {
     if [ -f gtdbtk_output/gtdbtk.ar53.summary.tsv ]; then
         AR_COUNT=\$(tail -n +2 gtdbtk_output/gtdbtk.ar53.summary.tsv | wc -l)
         echo "Archaeal genomes classified: \$AR_COUNT"
+    fi
+
+    # Put the ORIGINAL names back before anything downstream sees them, so the
+    # sanitizing above is invisible outside this process. Four separate places
+    # strip the usr_ prefix -- filter_gtdbtk_results.py, viz/distribution.py,
+    # bgc_gcf_heatmap.py and check_gtdbtk_reuse.nf -- and teaching each one an
+    # inverse map is exactly how two code paths drift apart.
+    if [ -s name_map.tsv ]; then
+        for S in gtdbtk_output/gtdbtk.bac120.summary.tsv gtdbtk_output/gtdbtk.ar53.summary.tsv; do
+            [ -f "\$S" ] || continue
+            awk -F'\\t' -v OFS='\\t' \\
+                'NR==FNR { m[\$1]=\$2; next } FNR>1 && (\$1 in m) { \$1=m[\$1] } { print }' \\
+                name_map.tsv "\$S" > "\$S.restored" && mv "\$S.restored" "\$S"
+        done
+        echo "Restored \$(wc -l < name_map.tsv) original genome id(s) in the summaries"
     fi
 
     # Shard-tagged copies for the merge. The tree classify_wf produced is left in

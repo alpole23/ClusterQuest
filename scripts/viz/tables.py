@@ -13,12 +13,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.constants import KCB_THRESHOLDS
 
 
-def get_genome_count(counts_file):
-    """Get the number of genomes in the counts file."""
-    counts_df = pd.read_csv(counts_file, sep='\t', comment='#')
-    return len(counts_df)
-
-
 # Rows rendered into the HTML up front. Enough to fill the first screen; the rest are
 # rendered from JSON on search or on demand.
 INITIAL_GENOME_ROWS = 100

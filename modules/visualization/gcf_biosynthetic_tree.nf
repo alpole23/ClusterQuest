@@ -17,8 +17,6 @@ process GCF_BIOSYNTHETIC_TREE {
     val scripts_version
 
     output:
-    path "gcf_species_heatmap.png",                     emit: heatmap_png,          optional: true
-    path "gcf_species_heatmap.svg",                     emit: heatmap_svg,          optional: true
     path "gcf_biosynthetic_tree.png",                   emit: gcf_tree_png,         optional: true
     path "gcf_biosynthetic_tree.svg",                   emit: gcf_tree_svg,         optional: true
     path "phosphonate_metadata.json",                   emit: metadata,             optional: true
@@ -54,13 +52,20 @@ process GCF_BIOSYNTHETIC_TREE {
         --reference_pepm ${projectDir}/assets/reference_sequences/reference_pepM.faa \\
         --bgc_type phosphonate
 
-    # Step 3: Generate GCF × species heatmap
-    python ${projectDir}/scripts/bgc_gcf_heatmap.py \\
-        --metadata phosphonate_metadata.json \\
-        --coupling_annotation phosphonate_itol_coupling.txt \\
-        ${summary_arg} \\
-        ${ref_tree} \\
-        --outdir .
+    # The GCF x species heatmap used to be step 3 here. Removed 2026-10-24: on a
+    # one-genome-per-species sweep it is ~1,250 columns of which 98% are empty,
+    # because 77 of 85 multi-member GCFs occupy a single genus. It also killed the
+    # whole-Bacteria run at the final figure, past matplotlib's 2^16 pixel limit,
+    # with 430 CPU-h of results already on disk.
+    #
+    # viz/distribution.py already carries a bounded fallback -- a canvas-rendered
+    # GCF x GENUS heatmap, top 30 x top 20 -- which is what the report now shows.
+    # The generator is kept as a standalone tool under scripts/ (the same
+    # treatment bgc_all_bgcs_tree.py got) and now refuses rather than raises
+    # when the figure would exceed the renderable width. Its filename is left
+    # unwritten here on purpose: check_script_deps.py reads any "scripts/<x>.py"
+    # in a process block as an invocation, so naming the path would re-declare
+    # a dependency this process no longer has.
 
     # Step 4: Generate GCF biosynthetic NJ tree figure (GCF medoids)
     python ${projectDir}/scripts/bgc_gcf_tree.py \\
