@@ -36,7 +36,7 @@ import matplotlib.pyplot as plt
 from Bio import Phylo
 
 sys.path.insert(0, str(Path(__file__).parent))
-from utils.plotting import SVG_METADATA, canonicalise_svg
+from utils.plotting import SVG_METADATA, canonicalise_svg, fit_extent
 from utils.constants import COUPLING_COLORS, COUPLING_ORDER, load_coupling_classes
 from utils.tree_building import build_nj_tree as _build_nj_tree
 from utils.tree_layout import assign_layout, draw_cladogram, max_depth
@@ -195,8 +195,19 @@ def plot_gcf_tree(tree, gcf_info, gcf_dominant, outdir):
     leaf_order = list(tree.get_terminals())
     n = len(leaf_order)
 
+    # 0.45 in per leaf is the readable spacing, but it is NOT safe as a constant:
+    # at 1,020 GCFs it asks for 82,620 px and matplotlib refuses past 2^16, which
+    # killed the whole-Bacteria run at its final figure. fit_extent shrinks the
+    # per-leaf spacing to fit, and tells us when even that cannot.
     fig_w = 6.0
-    fig_h = max(3.0, n * 0.45)
+    per_leaf, fig_h, ok = fit_extent(n, 0.45, fixed=3.0)
+    if not ok:
+        sys.stderr.write(
+            f'WARNING: {n} GCF leaves cannot be drawn inside the renderable height; '
+            'skipping the biosynthetic tree.\n')
+        return
+    if per_leaf < 0.45:
+        print(f'  note: {n} leaves, spacing narrowed to {per_leaf:.3f} in/leaf')
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
 
     # Reserve the title band in INCHES, not as a fraction of the figure. This tree
