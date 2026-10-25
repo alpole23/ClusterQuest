@@ -284,10 +284,17 @@ cluster-workflow option and errors with `Option is not permitted for this workfl
 for `sseqid`, which BLAST and DIAMOND truncate at the first whitespace, while the pool's
 headers are `>locus_tag|product with spaces`. Every homology-recovered gene therefore
 carries a one-word product: `DNA polymerase III subunit beta` is written as `DNA`,
-`IS3 family transposase` as `IS3`. 290 of 713 genes in the equivalence test. `stitle`
-returns the full title and fixes it in one field, verified on diamond 2.2.6 -- but it
-changes output, so it cannot ride along with a change whose acceptance test is
-byte-identity.
+`IS3 family transposase` as `IS3`. 290 of 713 genes in the equivalence test.
+
+Fixed in [#14](https://github.com/alpole23/ClusterQuest/pull/14) by asking for `stitle`
+instead -- one field, kept out of the batching change because that change's acceptance
+test was byte-identical output. Verified on the same 12 genomes against the pre-fix
+output: **12/12 identical ignoring `product=`**, 713 recovered genes either way,
+products containing a space **0 of 290 -> 280 of 290** (the 10 that stay single-word
+genuinely are, e.g. `transposase`).
+
+**Anything produced before that carries the truncated names**, the pilot's recovered
+ORFs included -- which is why it is worth landing before a re-run rather than after.
 
 ## Fix
 
