@@ -1,0 +1,1021 @@
+gcf	status	isolation	evidence	members	genomes	genera	gtdb_genera	gtdb_phyla	span_rank	intact	coupling_class	reference_status	reference_pct_id	reference_name	reference_organism	coupling_divergence	pepm_divergence	gtdb_genus_list
+1	measured	0.2544	0.9484	93	93	9	9	1	class	0.828	Decarboxylase	distant only	43.6	Fom2	Streptomyces fradiae	0.597	0.567	Burkholderia; Caballeronia; Cupriavidus; Fukatsuia; Mycetohabitans; Pandoraea; Paraburkholderia; Robbsia; Trinickia
+2	measured	0.1883	0.6065	5	5	2	2	1	family	0.4	Decarboxylase	distant only	44.4	Fom2	Streptomyces fradiae	0.59	0.56	Burkholderia; Paraburkholderia
+3	measured	0.2039	0.725	12	12	1	1	1	genus	0.917	Decarboxylase	distant only	40.9	Fom2	Streptomyces fradiae	0.6	0.549	Burkholderia
+4	measured	0.094	0.67	15	15	1	1	1	genus	0.733	Decarboxylase	distant only	42.0	DhpF	Streptomyces luridus	0.598	0.564	Caballeronia
+5	measured	0.2279	0.4849	4	4	1	1	1	genus	0.5	Decarboxylase	distant only	41.3	Fom2	Streptomyces fradiae	0.592	0.567	Paraburkholderia
+6	measured	0.1953	0.7071	14	14	1	1	1	genus	0.857	Decarboxylase	distant only	41.8	Fom2	Streptomyces fradiae	0.597	0.568	Paraburkholderia
+7	measured	0.2353	0.642	25	25	1	1	1	genus	0.64	Decarboxylase	distant only	42.1	DhpF	Streptomyces luridus	0.589	0.564	Pandoraea
+8	measured	0.2103	0.7207	8	8	1	1	1	genus	1.0	Decarboxylase	distant only	42.1	Fom2	Streptomyces fradiae	0.589	0.564	Paraburkholderia
+9	measured	0.2032	0.4815	5	5	1	1	1	genus	0.4	Decarboxylase	distant only	42.0	Fom2	Streptomyces fradiae	0.588	0.571	Paraburkholderia
+10	measured	0.234	0.6615	5	5	1	1	1	genus	1.0	Decarboxylase	distant only	41.6	Fom2	Streptomyces fradiae	0.587	0.545	Burkholderia
+11	measured	0.2824	0.6523	3	3	3	3	2	above phylum	0.333	Decarboxylase	distant only	39.2	DhpF	Streptomyces luridus	0.611	0.575	Hassallia; Nostoc; Paraburkholderia
+12	measured	0.6396	0.5604	2	2	1	1	1	species	1.0	Decarboxylase	distant only	45.4	Ppd	Glycomyces sp.	0.558	0.575	Streptomyces
+13	measured	0.4381	0.63	15	15	1	1	1	genus	0.6	Decarboxylase	distant only	33.9	DhpF	Streptomyces luridus	0.661	0.576	Streptomyces
+14	measured	0.3572	0.4273	3	3	2	2	1	order	0.0	Transaminase	distant only	36.1	PnaA	Streptomyces sp.	0.639	0.58	Bradyrhizobium; Mesorhizobium
+15	measured	0.6219	0.5023	3	3	1	1	1	genus	0.667	Decarboxylase	distant only	48.0	DhpF	Streptomyces luridus	0.52	0.503	Streptomyces
+16	measured	0.2898	0.3849	4	4	1	1	1	genus	0.5	-	none for this class						Bradyrhizobium
+17	measured	0.2119	0.3104	2	2	1	1	1	genus	0.5	-	none for this class						Bradyrhizobium
+18	measured	0.5785	0.5023	3	3	1	1	1	genus	0.667	Decarboxylase	distant only	41.8	DhpF	Streptomyces luridus	0.586	0.546	Bradyrhizobium
+19	measured	0.3821	0.6349	4	4	1	1	1	genus	1.0	Decarboxylase	distant only	49.6	Ppd	Glycomyces sp.	0.519	0.471	Pectobacterium
+20	measured	0.5088	0.2604	2	2	1	1	1	genus	0.0	Transaminase	distant only	36.4	PnaA	Streptomyces sp.	0.657	0.586	Bradyrhizobium
+21	measured	0.7147	0.5604	2	2	1	1	1	species	1.0	Decarboxylase	distant only	48.1	Ppd	Glycomyces sp.	0.519	0.4	Butyricimonas
+22	measured	0.6909	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	48.1	DhpF	Streptomyces luridus	0.519	0.5	Catenulispora
+23	measured	0.6278	0.5604	2	2	1	1	1	genus	1.0	Synthase	characterised	75.3	HvrC	Pantoea ananatis	0.296	0.327	Photorhabdus
+24	measured	0.6409	0.4023	3	3	1	1	1	genus	0.333	Decarboxylase	distant only	34.1	Fom2	Streptomyces fradiae	0.662	0.403	Campylobacter_D
+25	measured	0.6899	0.6349	4	4	1	1	1	genus	1.0	Decarboxylase	distant only	47.7	Fom2	Streptomyces fradiae	0.529	0.45	Burkholderia
+26	measured	0.7535	0.4599	4	4	1	1	1	genus	0.75	-	none for this class						Bradyrhizobium
+27	measured	0.5458	0.4104	2	2	1	1	1	genus	0.5	Decarboxylase	distant only	44.2	Fom2	Streptomyces fradiae	0.568	0.519	Xanthomonas
+28	measured	0.3692	0.6349	4	4	1	1	1	genus	1.0	Decarboxylase	distant only	40.0	Fom2	Streptomyces fradiae	0.605	0.571	Paraburkholderia
+29	measured	0.3793	0.4849	4	4	1	1	1	genus	0.5	Decarboxylase	distant only	46.5	Fom2	Streptomyces fradiae	0.543	0.465	Centipeda
+30	measured	0.4522	0.6273	3	3	2	1	1	genus	0.667	Decarboxylase	distant only	48.0	Ppd	Glycomyces sp.	0.523	0.405	Clostridium
+31	measured	0.6017	0.4815	5	5	1	1	1	genus	0.4	Synthase	distant only	29.0	FrbC	Streptomyces rubellomurinus	0.715	0.476	Streptomyces
+32	measured	0.2406	0.7821	7	7	3	3	1	family	0.429	Decarboxylase	distant only	44.6	DhpF	Streptomyces luridus	0.569	0.542	Plastoroseomonas; Pseudoroseomonas; Roseomonas
+33	measured	0.2853	0.7315	5	5	3	1	1	genus	0.4	Decarboxylase	distant only	43.3	DhpF	Streptomyces luridus	0.581	0.527	Roseomonas
+34	measured	0.6006	0.7315	5	5	4	4	1	family	0.4	Decarboxylase	distant only	45.7	DhpF	Streptomyces luridus	0.554	0.526	Belnapia; Caldovatus; Craurococcus; Paracraurococcus
+35	measured	0.6027	0.4104	2	2	1	1	1	genus	0.5	Transaminase	distant only	28.0	PnaA	Streptomyces sp.	0.72	0.553	Bradyrhizobium
+36	measured	0.6976	0.5604	2	2	1	1	1	species	1.0	Decarboxylase	distant only	47.6	Ppd	Glycomyces sp.	0.524	0.407	Parabacteroides
+37	measured	0.4089	0.6349	4	4	1	1	1	genus	1.0	Decarboxylase	distant only	51.1	Ppd	Glycomyces sp.	0.495	0.422	Methylophilus
+38	measured	0.7014	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	36.9	DhpF	Streptomyces luridus	0.631	0.496	JANYGI01
+39	measured	0.7534	0.5321	7	7	1	1	1	genus	0.429	Transaminase	distant only	44.6	PnaA	Streptomyces sp.	0.575	0.493	Pseudomonas_E
+40	measured	0.3212	0.4023	3	3	1	1	1	genus	0.333	Decarboxylase	distant only	36.9	Fom2	Streptomyces fradiae	0.636	0.542	Paenibacillus
+41	measured	0.7155	0.4104	2	2	1	1	1	genus	0.5	Reductase	distant only	28.9	VlpB	Streptomyces durhamensis	0.711	0.556	Actinoalloteichus
+42	measured	0.3231	0.6349	4	4	1	1	1	genus	1.0	Decarboxylase	distant only	49.7	Ppd	Glycomyces sp.	0.521	0.468	Pectobacterium
+43	measured	0.28	0.6665	5	5	2	1	1	genus	0.6	Transaminase	distant only	26.4	PnaA	Streptomyces sp.	0.736	0.604	Rhizobium
+44	measured	0.2937	0.6273	3	3	2	1	1	genus	0.667	Transaminase	distant only	27.3	PnaA	Streptomyces sp.	0.727	0.605	Rhizobium
+45	measured	0.6536	0.4104	2	2	1	1	1	genus	0.5	Decarboxylase	distant only	43.9	Fom2	Streptomyces fradiae	0.575	0.329	Streptomyces
+46	measured	0.3329	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	41.1	DhpF	Streptomyces luridus	0.597	0.542	Salinisphaera
+47	measured	0.4273	0.8205	11	11	2	2	1	family	0.818	Transaminase	distant only	44.7	PnaA	Streptomyces sp.	0.576	0.589	Aminobacter; Mesorhizobium
+48	measured	0.7503	0.5604	2	2	1	1	1	genus	1.0	Transaminase	distant only	29.6	PnaA	Streptomyces sp.	0.725	0.556	Burkholderia
+49	measured	0.591	0.2604	2	2	1	1	1	genus	0.0	Transaminase	distant only	38.6	PnaA	Streptomyces sp.	0.634	0.551	Rhizobium
+50	measured	0.4297	0.5604	2	2	1	1	1	species	1.0	Decarboxylase	distant only	38.7	Ppd	Glycomyces sp.	0.616	0.542	Metabacillus
+51	measured	0.6362	0.5604	2	2	1	1	1	species	1.0	Transaminase	distant only	45.7	PnaA	Streptomyces sp.	0.555	0.587	Tistrella
+52	measured	0.4778	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	38.9	DhpF	Streptomyces luridus	0.618	0.589	Nitrosacidococcus
+53	measured	0.5165	0.5023	3	3	1	1	1	genus	0.667	Decarboxylase	distant only	41.6	Fom2	Streptomyces fradiae	0.592	0.526	Paracidovorax
+54	measured	0.8381	0.5599	4	4	1	1	1	genus	0.75	Decarboxylase	distant only	47.7	DhpF	Streptomyces luridus	0.529	0.655	Streptomyces
+55	measured	0.3669	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	39.7	Fom2	Streptomyces fradiae	0.605	0.567	Paraburkholderia
+56	measured	0.6323	0.5604	2	2	1	1	1	species	1.0	Decarboxylase	distant only	47.3	Ppd	Glycomyces sp.	0.553	0.487	Streptomyces
+57	measured	0.4757	0.2604	2	2	1	1	1	genus	0.0	Decarboxylase	distant only	38.8	Fom2	Streptomyces fradiae	0.622	0.472	Campylobacter_D
+58	measured	0.319	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	36.3	DhpF	Streptomyces luridus	0.637	0.553	Paenibacillus_J
+59	measured	0.4714	0.4104	2	2	1	1	1	genus	0.5	Decarboxylase	distant only	41.4	Fom2	Streptomyces fradiae	0.594	0.567	Pararobbsia
+60	measured	0.4966	0.4604	2	2	1	1	1	genus	1.0	-	none for this class						Nitrospira_E
+61	measured	0.4617	0.2604	2	2	1	1	1	genus	0.0	Decarboxylase	distant only	46.3	DhpF	Streptomyces luridus	0.709	0.507	Nocardiopsis_A
+62	measured	0.6369	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	37.2	Fom2	Streptomyces fradiae	0.645	0.564	Brevibacillus_B
+63	measured	0.6234	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	38.4	Ppd	Glycomyces sp.	0.627	0.556	Paenibacillus
+64	measured	0.7568	0.5604	2	2	1	1	1	genus	1.0	Synthase	characterised	63.4	FrbC	Streptomyces rubellomurinus	0.371	0.45	Burkholderia
+65	measured	0.5571	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	44.4	Fom2	Streptomyces fradiae	0.556	0.579	Nocardia
+66	measured	0.3929	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	42.8	DhpF	Streptomyces luridus	0.588	0.495	Sorangium
+67	measured	0.7261	0.4104	2	2	1	1	1	genus	0.5	Decarboxylase	distant only	47.0	DhpF	Streptomyces luridus	0.538	0.484	Streptomyces
+68	measured	0.4458	0.4104	2	2	1	1	1	genus	0.5	Decarboxylase	distant only	49.2	Ppd	Glycomyces sp.	0.515	0.337	Pararheinheimera
+69	measured	0.3999	0.5604	2	2	1	1	1	species	1.0	Decarboxylase	distant only	40.3	DhpF	Streptomyces luridus	0.602	0.556	Burkholderia
+70	measured	0.5497	0.6023	3	3	1	1	1	genus	1.0	Decarboxylase	distant only	47.3	DhpF	Streptomyces luridus	0.542	0.303	Streptomyces
+71	measured	0.3804	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	50.0	Ppd	Glycomyces sp.	0.5	0.41	Methylophilus
+72	measured	0.5703	0.6273	3	3	2	2	1	family	0.667	Decarboxylase	distant only	34.7	Fom2	Streptomyces fradiae	0.655	0.317	Kitasatospora; Streptomyces
+73	measured	0.6235	0.4104	2	2	1	1	1	genus	0.5	Decarboxylase	distant only	37.6	Fom2	Streptomyces fradiae	0.634	0.542	Paenibacillus_G
+74	measured	0.4897	0.2604	2	2	1	1	1	genus	0.0	Transaminase	distant only	36.3	PnaA	Streptomyces sp.	0.637	0.564	Rhizobium
+75	measured	0.5476	0.5354	2	2	2	1	1	genus	0.5	Decarboxylase	distant only	44.4	DhpF	Streptomyces luridus	0.561	0.535	Hongsoonwoonella
+76	measured	0.3997	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	45.3	Fom2	Streptomyces fradiae	0.558	0.586	Nocardia
+77	measured	0.6826	0.6023	3	3	1	1	1	genus	1.0	Decarboxylase	distant only	45.2	Ppd	Glycomyces sp.	0.554	0.466	Lonsdalea
+78	measured	0.4534	0.5604	2	2	1	1	1	genus	1.0	Reductase	distant only	25.7	VlpB	Streptomyces durhamensis	0.767	0.29	Streptomyces
+79	measured	0.6337	0.5604	2	2	1	1	1	species	1.0	Decarboxylase	distant only	37.7	DhpF	Streptomyces luridus	0.633	0.584	Hamiltonella
+80	measured	0.6447	0.6854	2	2	2	1	1	genus	1.0	Decarboxylase	distant only	37.0	Ppd	Glycomyces sp.	0.633	0.556	Bacillus_BU
+81	measured	0.7561	0.4604	2	2	1	1	1	genus	1.0	-	none for this class						Nitrospina
+82	measured	0.4188	0.5604	2	2	1	1	1	genus	1.0	Decarboxylase	distant only	42.8	DhpF	Streptomyces luridus	0.575	0.564	Stappia
+83	measured	0.6481	0.6854	2	2	2	1	1	genus	1.0	Decarboxylase	distant only	44.8	DhpF	Streptomyces luridus	0.578	0.458	Actinoplanes
+84	measured	0.4394	0.1604	2	2	1	1	1	genus	0.0	-	none for this class						Nocardia
+85	measured	0.5798	0.5604	2	2	1	1	1	genus	1.0	Transaminase	distant only	42.5	PnaA	Streptomyces sp.	0.599	0.523	Pseudomonas_E
+86	measured	0.7455	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.9	DhpF	Streptomyces luridus	0.611	0.612	Dactylosporangium
+87	measured	0.3886	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.0	DhpF	Streptomyces luridus	0.62	0.532	Nitrospira_G
+88	measured	0.6319	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.7	Ppd	Glycomyces sp.	0.633	0.545	Fontibacillus
+89	measured	0.5873	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	50.7	Ppd	Glycomyces sp.	0.493	0.335	Spirochaeta_B
+90	measured	0.608	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.6	Ppd	Glycomyces sp.	0.624	0.553	Paenibacillus_G
+91	measured	0.4551	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.3	DhpF	Streptomyces luridus	0.577	0.542	Inquilinus
+92	measured	0.7021	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.0	VlpB	Streptomyces durhamensis	0.77	0.262	Actinacidiphila
+93	measured	0.3381	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.6	DhpF	Streptomyces luridus	0.624	0.567	Dulcicalothrix
+94	measured	0.76	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	34.1	DhpF	Streptomyces luridus	0.659	0.512	Mesorhizobium
+95	measured	0.7543	0.4012	1	1	1	1	1		1.0	-	none for this class						Pantanalinema
+96	measured	0.6415	0.4012	1	1	1	1	1		1.0	-	none for this class						Bacillus_AZ
+97	measured	0.7133	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	30.9	PnaA	Streptomyces sp.	0.691	0.495	Abyssisolibacter
+98	measured	0.6352	0.4012	1	1	1	1	1		1.0	-	none for this class						Nocardioides
+99	measured	0.3291	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.8	DhpF	Streptomyces luridus	0.562	0.527	Roseomonas
+100	measured	0.7029	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	31.8	Ppd	Glycomyces sp.	0.682	0.568	Lactococcus_A
+101	measured	0.5676	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.7	Ppd	Glycomyces sp.	0.623	0.567	Sporosarcina
+102	measured	0.6925	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.4	Ppd	Glycomyces sp.	0.636	0.366	Arcobacter
+103	measured	0.6074	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	35.1	PnaA	Streptomyces sp.	0.649	0.576	Bradyrhizobium
+104	measured	0.6274	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.2	DhpF	Streptomyces luridus	0.528	0.5	Streptomyces
+105	measured	0.5125	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	20.7	PnaA	Streptomyces sp.	0.793	0.584	Bradyrhizobium
+106	measured	0.6498	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.7	Fom2	Streptomyces fradiae	0.583	0.526	Pseudooceanicola
+107	measured	0.6745	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.2	Fom2	Streptomyces fradiae	0.638	0.382	Campylobacter
+108	measured	0.6943	0.5012	1	1	1		1		1.0	Decarboxylase	distant only	48.5	Ppd	Glycomyces sp.	0.515	0.473	
+109	measured	0.7095	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.1	Ppd	Glycomyces sp.	0.509	0.424	Treponema_C
+110	measured	0.6557	0.5012	1	1	1	1	1		1.0	Synthase	distant only	28.5	FrbC	Streptomyces rubellomurinus	0.715	0.509	Lentzea
+111	measured	0.7729	0.4012	1	1	1	1	1		1.0	-	none for this class						Streptomonospora
+112	measured	0.4851	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.7	Fom2	Streptomyces fradiae	0.563	0.515	Xanthomonas
+113	measured	0.5467	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.8	Ppd	Glycomyces sp.	0.522	0.356	Paraglaciecola
+114	measured	0.7463	0.4012	1	1	1	1	1		1.0	-	none for this class						Bradyrhizobium
+115	measured	0.65	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	51.6	Fom2	Streptomyces fradiae	0.484	0.589	Nitronereus
+116	measured	0.3886	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.9	DhpF	Streptomyces luridus	0.601	0.575	Paraburkholderia
+117	measured	0.6047	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	36.9	PnaA	Streptomyces sp.	0.631	0.569	Chelatococcus
+118	measured	0.7649	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	45.4	PnaA	Streptomyces sp.	0.546	0.464	Azohydromonas
+119	measured	0.4873	0.2012	1	1	1	1	1		0.0	Decarboxylase	characterised	80.1	DhpF	Streptomyces luridus	0.199	0.166	Streptomyces
+120	measured	0.6068	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.7	Ppd	Glycomyces sp.	0.503	0.362	Lucifugimonas
+121	measured	0.5341	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.3	Fom2	Streptomyces fradiae	0.567	0.571	Nocardia
+122	measured	0.7894	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	32.1	DhpF	Streptomyces luridus	0.679	0.678	Puia
+123	measured	0.5105	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.2	Ppd	Glycomyces sp.	0.638	0.535	Sporosarcina
+124	measured	0.6347	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.6	DhpF	Streptomyces luridus	0.584	0.56	Streptomyces
+125	measured	0.4284	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	35.8	Ppd	Glycomyces sp.	0.642	0.538	Chengkuizengella
+126	measured	0.6443	0.2012	1	1	1		1		0.0	Decarboxylase	distant only	38.2	Ppd	Glycomyces sp.	0.618	0.575	
+127	measured	0.4352	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.7	DhpF	Streptomyces luridus	0.603	0.58	Bradyrhizobium
+128	measured	0.5286	0.1012	1	1	1	1	1		0.0	-	none for this class						Bradyrhizobium
+129	measured	0.4009	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.7	Fom2	Streptomyces fradiae	0.583	0.423	Flaviaestuariibacter
+130	measured	0.7873	0.4012	1	1	1	1	1		1.0	-	none for this class						Rhodoplanes
+131	measured	0.6915	0.2012	1	1	1	1	1		0.0	Reductase	distant only	22.7	VlpB	Streptomyces durhamensis	0.773	0.44	Anaerovirgula
+132	measured	0.593	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	39.8	Fom2	Streptomyces fradiae	0.602	0.556	Cohnella
+133	measured	0.4818	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.5	DhpF	Streptomyces luridus	0.575	0.49	Streptomyces
+134	measured	0.5983	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.9	Ppd	Glycomyces sp.	0.531	0.316	Desulfatibacillum
+135	measured	0.6284	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.2	Ppd	Glycomyces sp.	0.638	0.39	Minisyncoccus
+136	measured	0.5945	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.2	Ppd	Glycomyces sp.	0.508	0.316	Alteromonas
+137	measured	0.5449	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.3	DhpF	Streptomyces luridus	0.547	0.533	Psychromarinibacter
+138	measured	0.5527	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	42.3	PnaA	Streptomyces sp.	0.577	0.493	Pseudomonas_E
+139	measured	0.7266	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.6	Ppd	Glycomyces sp.	0.544	0.436	Campylobacter
+140	measured	0.4692	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	33.7	DhpF	Streptomyces luridus	0.663	0.322	Streptomyces
+141	measured	0.5919	0.5012	1	1	1	1	1		1.0	Synthase	distant only	28.3	FrbC	Streptomyces rubellomurinus	0.717	0.5	Nocardiopsis
+142	measured	0.4104	0.5012	1	1	1	1	1		1.0	Reductase	distant only	24.3	VlpB	Streptomyces durhamensis	0.757	0.6	Xenorhabdus
+143	measured	0.659	0.5012	1	1	1	1	1		1.0	Reductase	distant only	21.7	VlpB	Streptomyces durhamensis	0.783	0.28	Actinosynnema
+144	measured	0.7095	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	49.9	Ppd	Glycomyces sp.	0.501	0.422	Desulfonatronum
+145	measured	0.6157	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	46.6	Ppd	Glycomyces sp.	0.534	0.417	Methyloglobulus
+146	measured	0.3885	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.6	Fom2	Streptomyces fradiae	0.504	0.578	Nitrospira_D
+147	measured	0.6237	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.3	Fom2	Streptomyces fradiae	0.627	0.57	Rhizobium
+148	measured	0.6094	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	51.1	Ppd	Glycomyces sp.	0.489	0.363	Sphingopyxis
+149	measured	0.6237	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.0	DhpF	Streptomyces luridus	0.56	0.557	KSS12
+150	measured	0.4293	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	40.0	Ppd	Glycomyces sp.	0.6	0.545	Metabacillus
+151	measured	0.6218	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.1	Ppd	Glycomyces sp.	0.619	0.545	Paenibacillus
+152	measured	0.6492	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.5	Fom2	Streptomyces fradiae	0.605	0.56	Anaerobacillus_A
+153	measured	0.4889	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	77.3	Ppd	Glycomyces sp.	0.227	0.117	Stackebrandtia
+154	measured	0.4941	0.2012	1	1	1	1	1		0.0	Synthase	characterised	100.0	FrbC	Streptomyces rubellomurinus	0.0	0.0	Kitasatospora
+155	measured	0.4607	0.4012	1	1	1	1	1		1.0	-	none for this class						Bradyrhizobium
+156	measured	0.5342	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.0	Ppd	Glycomyces sp.	0.53	0.386	Ekhidna
+157	measured	0.337	0.5012	1	1	1	1	1		1.0	Reductase	distant only	24.0	VlpB	Streptomyces durhamensis	0.76	0.28	Streptomyces
+158	measured	0.5176	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.9	Ppd	Glycomyces sp.	0.531	0.449	Pandoraea
+159	measured	0.7883	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	27.7	PnaA	Streptomyces sp.	0.723	0.674	Billgrantia
+160	measured	0.6298	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.4	Fom2	Streptomyces fradiae	0.516	0.405	Sphaerochaeta
+161	measured	0.3319	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.9	Fom2	Streptomyces fradiae	0.601	0.545	Burkholderia
+162	measured	0.5342	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.1	Ppd	Glycomyces sp.	0.509	0.379	Ekhidna
+163	measured	0.7637	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.2	Ppd	Glycomyces sp.	0.538	0.472	Eubacterium_S
+164	measured	0.6684	0.5012	1	1	1	1	1		1.0	Reductase	distant only	21.2	VlpB	Streptomyces durhamensis	0.788	0.445	Hungatella
+165	measured	0.7726	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.8	Ppd	Glycomyces sp.	0.572	0.446	Copranaerobaculum
+166	measured	0.7294	0.5012	1	1	1	1	1		1.0	Synthase	characterised	87.4	FrbC	Streptomyces rubellomurinus	0.126	0.25	Streptomyces
+167	measured	0.4585	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.6	Ppd	Glycomyces sp.	0.624	0.462	Helicobacter_D
+168	measured	0.7718	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	41.9	PnaA	Streptomyces sp.	0.581	0.528	Chitiniphilus
+169	measured	0.7841	0.4012	1	1	1	1	1		1.0	-	none for this class						Lysinibacillus
+170	measured	0.7511	0.5012	1	1	1	1	1		1.0	Reductase	distant only	19.9	VlpB	Streptomyces durhamensis	0.801	0.415	Hominiventricola
+171	measured	0.34	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	34.3	PnaA	Streptomyces sp.	0.657	0.551	Sinorhizobium
+172	measured	0.6061	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	57.9	Ppd	Glycomyces sp.	0.421	0.294	Mycobacterium
+173	measured	0.6793	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	43.7	PnaA	Streptomyces sp.	0.563	0.465	Nitrogeniibacter
+174	measured	0.602	0.4012	1	1	1	1	1		1.0	-	none for this class						Bradyrhizobium
+175	measured	0.6967	0.2012	1	1	1		1		0.0	Decarboxylase	distant only	43.5	Ppd	Glycomyces sp.	0.565	0.446	
+176	measured	0.7519	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.5	Ppd	Glycomyces sp.	0.635	0.394	Helicobacter_A
+177	measured	0.632	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.2	DhpF	Streptomyces luridus	0.508	0.522	Nocardia
+178	measured	0.459	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	20.8	PnaA	Streptomyces sp.	0.792	0.606	Bradyrhizobium
+179	measured	0.5734	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.5	Ppd	Glycomyces sp.	0.505	0.32	Sneathiella
+180	measured	0.6535	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.0	Ppd	Glycomyces sp.	0.63	0.534	Paenibacillus_AF
+181	measured	0.605	0.5012	1	1	1	1	1		1.0	Reductase	distant only	22.7	VlpB	Streptomyces durhamensis	0.773	0.321	Vibrio
+182	measured	0.4415	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.0	Fom2	Streptomyces fradiae	0.5	0.349	Stenotrophomonas
+183	measured	0.7386	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.8	Ppd	Glycomyces sp.	0.542	0.469	Centipeda
+184	measured	0.5664	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.7	DhpF	Streptomyces luridus	0.543	0.522	Aquabacter
+185	measured	0.339	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.0	Fom2	Streptomyces fradiae	0.62	0.542	Paenibacillus
+186	measured	0.5771	0.4012	1	1	1	1	1		1.0	-	none for this class						Blastococcus
+187	measured	0.6326	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	40.4	Fom2	Streptomyces fradiae	0.596	0.515	Caedibacter
+188	measured	0.605	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.2	Fom2	Streptomyces fradiae	0.508	0.315	Methylonatrum
+189	measured	0.5797	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.7	Ppd	Glycomyces sp.	0.623	0.549	Paenibacillus_AB
+190	measured	0.6299	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.9	DhpF	Streptomyces luridus	0.561	0.547	Shumkonia
+191	measured	0.5296	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.2	DhpF	Streptomyces luridus	0.558	0.497	Streptomyces
+192	measured	0.7439	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	38.2	PnaA	Streptomyces sp.	0.618	0.595	Sinorhizobium
+193	measured	0.6548	0.2012	1	1	1	1	1		0.0	Synthase	distant only	27.7	FrbC	Streptomyces rubellomurinus	0.723	0.652	Cupriavidus
+194	measured	0.3553	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	41.3	PnaA	Streptomyces sp.	0.587	0.475	Pseudomonas_E
+195	measured	0.648	0.4012	1	1	1	1	1		1.0	-	none for this class						Syntrophotalea
+196	measured	0.7094	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.1	Fom2	Streptomyces fradiae	0.569	0.443	Flavivirga
+197	measured	0.7053	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	37.9	PnaA	Streptomyces sp.	0.621	0.555	Achromobacter
+198	measured	0.5006	0.4012	1	1	1	1	1		1.0	-	none for this class						Tumebacillus_A
+199	measured	0.3	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.6	Ppd	Glycomyces sp.	0.504	0.471	Pectobacterium
+200	measured	0.5455	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	38.5	PnaA	Streptomyces sp.	0.615	0.574	Xaviernesmea
+201	measured	0.5458	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.9	Ppd	Glycomyces sp.	0.621	0.538	Ureibacillus
+202	measured	0.6393	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.9	Fom2	Streptomyces fradiae	0.561	0.564	Actomonas
+203	measured	0.6624	0.1012	1	1	1	1	1		0.0	-	none for this class						Phyllobacterium
+204	measured	0.4198	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.4	Ppd	Glycomyces sp.	0.626	0.567	Cohnella
+205	measured	0.468	0.2012	1	1	1	1	1		0.0	Synthase	distant only	27.2	FrbC	Streptomyces rubellomurinus	0.728	0.502	Streptomyces
+206	measured	0.6907	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.7	Ppd	Glycomyces sp.	0.523	0.465	Samsonia
+207	measured	0.547	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	45.8	Ppd	Glycomyces sp.	0.542	0.405	Clostridium
+208	measured	0.3995	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.2	DhpF	Streptomyces luridus	0.598	0.571	Sediminispirochaeta
+209	measured	0.6836	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.9	Ppd	Glycomyces sp.	0.501	0.405	Bacteroides
+210	measured	0.768	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	22.4	PnaA	Streptomyces sp.	0.776	0.472	Aliivibrio
+211	measured	0.6939	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	51.1	Ppd	Glycomyces sp.	0.489	0.412	Prevotella
+212	measured	0.7951	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	29.5	DhpF	Streptomyces luridus	0.705	0.672	Peptoniphilus_A
+213	measured	0.8338	0.5012	1	1	1	1	1		1.0	Synthase	distant only	58.3	HvrC	Pantoea ananatis	0.417	0.487	Pseudomonas_E
+214	measured	0.7519	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	45.2	PnaA	Streptomyces sp.	0.548	0.613	Roseateles
+215	measured	0.6765	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.7	DhpF	Streptomyces luridus	0.563	0.472	Kitasatospora
+216	measured	0.3492	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.6	Fom2	Streptomyces fradiae	0.584	0.549	Trinickia
+217	measured	0.5636	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.0	Ppd	Glycomyces sp.	0.63	0.571	Chengkuizengella
+218	measured	0.7191	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.4	Ppd	Glycomyces sp.	0.516	0.503	Natronogracilivirga
+219	measured	0.6896	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	22.0	PnaA	Streptomyces sp.	0.78	0.585	Bradyrhizobium
+220	measured	0.6797	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.9	VlpB	Streptomyces durhamensis	0.761	0.434	Synergistes
+221	measured	0.8079	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.8	Ppd	Glycomyces sp.	0.622	0.481	Neorhizobium
+222	measured	0.5501	0.1012	1	1	1	1	1		0.0	-	none for this class						Nocardioides
+223	measured	0.3012	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	42.3	Ppd	Glycomyces sp.	0.577	0.538	Roseomonas
+224	measured	0.7798	0.4012	1	1	1	1	1		1.0	-	none for this class						Cupriavidus
+225	measured	0.7658	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.8	Ppd	Glycomyces sp.	0.522	0.427	Anaerovibrio
+226	measured	0.612	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.5	Ppd	Glycomyces sp.	0.535	0.361	Terasakiella
+227	measured	0.5486	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.7	Ppd	Glycomyces sp.	0.493	0.358	Olivibacter
+228	measured	0.6252	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.7	Fom2	Streptomyces fradiae	0.603	0.564	Buttiauxella
+229	measured	0.5805	0.5012	1	1	1	1	1		1.0	Synthase	distant only	28.7	FrbC	Streptomyces rubellomurinus	0.713	0.491	Streptomyces
+230	measured	0.5801	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.7	Ppd	Glycomyces sp.	0.513	0.293	Oceanicoccus
+231	measured	0.704	0.5012	1	1	1	1	1		1.0	Reductase	distant only	19.4	VlpB	Streptomyces durhamensis	0.806	0.589	Xenorhabdus
+232	measured	0.6717	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.1	Ppd	Glycomyces sp.	0.519	0.402	Gracilimonas
+233	measured	0.6449	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.5	Ppd	Glycomyces sp.	0.635	0.553	Shimazuella
+234	measured	0.7162	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.1	Ppd	Glycomyces sp.	0.519	0.407	Clostridium_L
+235	measured	0.5906	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.4	Ppd	Glycomyces sp.	0.496	0.349	Motiliproteus
+236	measured	0.6873	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	39.0	PnaA	Streptomyces sp.	0.61	0.558	Rhizobium
+237	measured	0.5725	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.1	Fom2	Streptomyces fradiae	0.569	0.357	Streptomyces
+238	measured	0.7953	0.2012	1	1	1	1	1		0.0	Reductase	distant only	19.1	VlpB	Streptomyces durhamensis	0.809	0.442	Lachnobacterium
+239	measured	0.5918	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.1	Ppd	Glycomyces sp.	0.609	0.553	Bradyrhizobium
+240	measured	0.6245	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.7	Ppd	Glycomyces sp.	0.613	0.556	Priestia
+241	measured	0.767	0.4012	1	1	1	1	1		1.0	-	none for this class						Vreelandella
+242	measured	0.5538	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.0	DhpF	Streptomyces luridus	0.56	0.304	Dactylosporangium
+243	measured	0.4547	0.5012	1	1	1	1	1		1.0	Synthase	characterised	64.9	FrbC	Streptomyces rubellomurinus	0.351	0.553	Streptomyces
+244	measured	0.6971	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	39.5	PnaA	Streptomyces sp.	0.605	0.58	Sinorhizobium
+245	measured	0.8122	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.4	Fom2	Streptomyces fradiae	0.576	0.446	Velocimicrobium
+246	measured	0.608	0.2012	1	1	1	1	1		0.0	Decarboxylase	characterised	95.6	Fom2	Streptomyces fradiae	0.044	0.011	Streptomyces
+247	measured	0.7803	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	30.5	PnaA	Streptomyces sp.	0.695	0.665	Novosphingobium
+248	measured	0.6523	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	40.8	PnaA	Streptomyces sp.	0.592	0.56	Sinorhizobium
+249	measured	0.5308	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.2	Ppd	Glycomyces sp.	0.518	0.422	Treponema_D
+250	measured	0.3593	0.1012	1	1	1	1	1		0.0	-	none for this class						Paraburkholderia
+251	measured	0.6954	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	45.3	Ppd	Glycomyces sp.	0.547	0.444	Terasakiella
+252	measured	0.4889	0.2012	1	1	1		1		0.0	Decarboxylase	characterised	75.3	Ppd	Glycomyces sp.	0.247	0.155	
+253	measured	0.5257	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.0	DhpF	Streptomyces luridus	0.6	0.538	Turneriella
+254	measured	0.6654	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.3	DhpF	Streptomyces luridus	0.497	0.48	Streptomyces
+255	measured	0.576	0.4012	1	1	1	1	1		1.0	-	none for this class						Geodermatophilus
+256	measured	0.6812	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.1	Ppd	Glycomyces sp.	0.569	0.472	Edwardsiella
+257	measured	0.8491	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	35.6	DhpF	Streptomyces luridus	0.644	0.653	Microbacterium
+258	measured	0.6281	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.8	DhpF	Streptomyces luridus	0.572	0.553	Pseudomonas_E
+259	measured	0.4038	0.4012	1	1	1	1	1		1.0	-	none for this class						Nocardiopsis
+260	measured	0.6535	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	38.1	PnaA	Streptomyces sp.	0.619	0.558	Paramesorhizobium
+261	measured	0.7593	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.4	Ppd	Glycomyces sp.	0.576	0.484	Roseburia
+262	measured	0.6235	0.4012	1	1	1	1	1		1.0	-	none for this class						Marmoricola_A
+263	measured	0.5361	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.6	Ppd	Glycomyces sp.	0.524	0.328	Draconibacterium
+264	measured	0.6266	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.2	Fom2	Streptomyces fradiae	0.628	0.553	Paenibacillus_F
+265	measured	0.6164	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.7	Fom2	Streptomyces fradiae	0.613	0.542	Alicyclobacillus
+266	measured	0.7892	0.4012	1	1	1	1	1		1.0	-	none for this class						Cupriavidus
+267	measured	0.7487	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.3	Ppd	Glycomyces sp.	0.637	0.564	Rhizobium
+268	measured	0.6981	0.2012	1	1	1	1	1		0.0	Reductase	distant only	24.8	VlpB	Streptomyces durhamensis	0.752	0.139	Streptomyces
+269	measured	0.768	0.1012	1	1	1	1	1		0.0	-	none for this class						Spectribacter
+270	measured	0.4826	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.3	DhpF	Streptomyces luridus	0.627	0.558	Deinococcus
+271	measured	0.6081	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.1	DhpF	Streptomyces luridus	0.559	0.57	Limimonas
+272	measured	0.6728	0.2012	1	1	1	1	1		0.0	Synthase	distant only	29.3	FrbC	Streptomyces rubellomurinus	0.707	0.465	Glycomyces
+273	measured	0.5409	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.9	Ppd	Glycomyces sp.	0.591	0.483	Streptomyces
+274	measured	0.3885	0.4012	1	1	1	1	1		1.0	-	none for this class						Nitrospira_D
+275	measured	0.6726	0.1012	1	1	1	1	1		0.0	-	none for this class						Nitrospira_D
+276	measured	0.5323	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.8	Ppd	Glycomyces sp.	0.622	0.549	Aneurinibacillus
+277	measured	0.6073	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.7	Fom2	Streptomyces fradiae	0.553	0.549	Nonomuraea
+278	measured	0.6285	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	39.2	Ppd	Glycomyces sp.	0.608	0.553	Kroppenstedtia
+279	measured	0.7536	0.4012	1	1	1	1	1		1.0	-	none for this class						Nocardia
+280	measured	0.3798	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	42.5	PnaA	Streptomyces sp.	0.575	0.493	Pseudomonas_E
+281	measured	0.7764	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.4	Ppd	Glycomyces sp.	0.546	0.46	Eubacterium_Q
+282	measured	0.6359	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.7	Ppd	Glycomyces sp.	0.623	0.564	Paenibacillus_K
+283	measured	0.4198	0.5012	1	1	1	1	1		1.0	Synthase	characterised	64.9	FrbC	Streptomyces rubellomurinus	0.351	0.531	Streptomyces
+284	measured	0.7517	0.2012	1	1	1	1	1		0.0	Synthase	distant only	24.4	FrbC	Streptomyces rubellomurinus	0.756	0.567	Cohnella
+285	measured	0.5212	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.9	DhpF	Streptomyces luridus	0.591	0.516	Labilithrix
+286	measured	0.6279	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.8	Ppd	Glycomyces sp.	0.612	0.538	Sporolactobacillus
+287	measured	0.4566	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.9	DhpF	Streptomyces luridus	0.561	0.538	Inquilinus
+288	measured	0.7809	0.4012	1	1	1	1	1		1.0	-	none for this class						Herbaspirillum
+289	measured	0.3114	0.4012	1	1	1	1	1		1.0	-	none for this class						Caballeronia
+290	measured	0.6225	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.2	DhpF	Streptomyces luridus	0.588	0.56	Pseudomonas_E
+291	measured	0.6266	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.9	Fom2	Streptomyces fradiae	0.611	0.538	Paenibacillus_G
+292	measured	0.711	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.5	Fom2	Streptomyces fradiae	0.525	0.422	Termitinema
+293	measured	0.55	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.7	Ppd	Glycomyces sp.	0.623	0.412	Helicobacter_C
+294	measured	0.7566	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.8	Fom2	Streptomyces fradiae	0.612	0.589	Mesorhizobium
+295	measured	0.3576	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.2	Fom2	Streptomyces fradiae	0.608	0.567	Paraburkholderia
+296	measured	0.5658	0.4012	1	1	1	1	1		1.0	-	none for this class						Kitasatospora
+297	measured	0.3155	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.7	Fom2	Streptomyces fradiae	0.633	0.545	Paenibacillus
+298	measured	0.6626	0.5012	1	1	1	1	1		1.0	Synthase	characterised	100.0	HvrC	Pantoea ananatis	0.0	0.0	Pantoea
+299	measured	0.4056	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.2	Ppd	Glycomyces sp.	0.588	0.451	Helicobacter_D
+300	measured	0.653	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.0	VlpB	Streptomyces durhamensis	0.77	0.425	Cellulosilyticum
+301	measured	0.4938	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	49.3	Ppd	Glycomyces sp.	0.507	0.335	NORP241
+302	measured	0.3351	0.1012	1	1	1	1	1		0.0	-	none for this class						Bradyrhizobium
+303	measured	0.5513	0.5012	1	1	1	1	1		1.0	Synthase	distant only	28.0	FrbC	Streptomyces rubellomurinus	0.72	0.493	Bacillus
+304	measured	0.7883	0.1012	1	1	1	1	1		0.0	-	none for this class						Dethiosulfatibacter
+305	measured	0.6138	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.2	Ppd	Glycomyces sp.	0.618	0.578	Bacillus_BS
+306	measured	0.7516	0.4012	1	1	1	1	1		1.0	-	none for this class						Amycolatopsis
+307	measured	0.5943	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	41.6	PnaA	Streptomyces sp.	0.584	0.56	Sinorhizobium
+308	measured	0.564	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	35.9	PnaA	Streptomyces sp.	0.641	0.582	Mesorhizobium
+309	measured	0.6372	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.8	Ppd	Glycomyces sp.	0.622	0.538	Seinonella
+310	measured	0.3938	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.7	Fom2	Streptomyces fradiae	0.593	0.571	Accumulibacter
+311	measured	0.5179	0.5012	1	1	1	1	1		1.0	Synthase	distant only	28.2	FrbC	Streptomyces rubellomurinus	0.718	0.476	Streptomyces
+312	measured	0.6588	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	50.1	Ppd	Glycomyces sp.	0.499	0.434	Bacteroides
+313	measured	0.4243	0.1012	1	1	1	1	1		0.0	-	none for this class						Bradyrhizobium
+314	measured	0.8298	0.5012	1	1	1	1	1		1.0	Synthase	characterised	72.7	FrbC	Streptomyces rubellomurinus	0.273	0.55	Micromonospora
+315	measured	0.6932	0.1012	1	1	1	1	1		0.0	-	none for this class						Scalindua
+316	measured	0.7069	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.1	DhpF	Streptomyces luridus	0.539	0.411	Actinacidiphila
+317	measured	0.4028	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.6	DhpF	Streptomyces luridus	0.584	0.503	Streptomyces
+318	measured	0.5434	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.2	Fom2	Streptomyces fradiae	0.588	0.567	Niveibacterium
+319	measured	0.3717	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	43.7	PnaA	Streptomyces sp.	0.563	0.479	Pseudomonas_B
+320	measured	0.6763	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.1	Ppd	Glycomyces sp.	0.519	0.431	Treponema_D
+321	measured	0.5155	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.8	Ppd	Glycomyces sp.	0.522	0.349	Arenibacter
+322	measured	0.4352	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.1	DhpF	Streptomyces luridus	0.599	0.577	Bradyrhizobium
+323	measured	0.7508	0.5012	1	1	1	1	1		1.0	Synthase	distant only	26.0	HvrC	Pantoea ananatis	0.74	0.527	Enterococcus
+324	measured	0.7825	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	31.9	PnaA	Streptomyces sp.	0.681	0.645	Cupriavidus
+325	measured	0.6111	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.8	Fom2	Streptomyces fradiae	0.512	0.368	Limnospira
+326	measured	0.3086	0.1012	1	1	1	1	1		0.0	-	none for this class						Bradyrhizobium
+327	measured	0.4954	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	30.6	PnaA	Streptomyces sp.	0.694	0.56	Chimaeribacter
+328	measured	0.7125	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.0	Fom2	Streptomyces fradiae	0.59	0.545	Streptomyces
+329	measured	0.4824	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.6	DhpF	Streptomyces luridus	0.564	0.304	Kitasatospora
+330	measured	0.609	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.1	Fom2	Streptomyces fradiae	0.499	0.365	Azoarcus
+331	measured	0.4382	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	33.8	PnaA	Streptomyces sp.	0.662	0.596	Bradyrhizobium
+332	measured	0.5799	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.5	Fom2	Streptomyces fradiae	0.615	0.545	Laceyella
+333	measured	0.3684	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	32.3	Fom2	Streptomyces fradiae	0.677	0.603	Streptomyces
+334	measured	0.5781	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.0	Fom2	Streptomyces fradiae	0.56	0.488	Rathayibacter
+335	measured	0.599	0.5012	1	1	1	1	1		1.0	Reductase	distant only	31.0	VlpB	Streptomyces durhamensis	0.69	0.262	Umezawaea
+336	measured	0.4467	0.5012	1	1	1	1	1		1.0	Reductase	distant only	27.2	VlpB	Streptomyces durhamensis	0.728	0.429	Azospirillum
+337	measured	0.5155	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.4	Ppd	Glycomyces sp.	0.526	0.342	HL-DH10
+338	measured	0.684	0.4012	1	1	1	1	1		1.0	-	none for this class						Dulcicalothrix
+339	measured	0.7116	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.8	DhpF	Streptomyces luridus	0.512	0.487	Planosporangium
+340	measured	0.6257	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	36.4	Fom2	Streptomyces fradiae	0.636	0.538	Polycladomyces
+341	measured	0.5902	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.6	Ppd	Glycomyces sp.	0.544	0.354	Balneola
+342	measured	0.771	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.0	Ppd	Glycomyces sp.	0.55	0.441	Lachnospira
+343	measured	0.6203	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.4	Ppd	Glycomyces sp.	0.606	0.564	Sporosarcina
+344	measured	0.7931	0.4012	1	1	1	1	1		1.0	-	none for this class						Variovorax
+345	measured	0.5203	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.1	Fom2	Streptomyces fradiae	0.599	0.535	Planktothrix
+346	measured	0.7243	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	39.5	PnaA	Streptomyces sp.	0.605	0.588	Sinorhizobium
+347	measured	0.5417	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.4	DhpF	Streptomyces luridus	0.546	0.48	Kitasatospora
+348	measured	0.6212	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.8	DhpF	Streptomyces luridus	0.492	0.387	Longimycelium
+349	measured	0.3793	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	36.0	PnaA	Streptomyces sp.	0.64	0.573	Mesorhizobium
+350	measured	0.5792	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.1	Ppd	Glycomyces sp.	0.619	0.553	Cohnella
+351	measured	0.7125	0.4012	1	1	1	1	1		1.0	-	none for this class						Nonomuraea
+352	measured	0.3666	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.9	VlpB	Streptomyces durhamensis	0.761	0.255	Streptomyces
+353	measured	0.7124	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	53.7	Ppd	Glycomyces sp.	0.463	0.44	Fibrobacter
+354	measured	0.7388	0.5012	1	1	1	1	1		1.0	Reductase	distant only	28.5	VlpB	Streptomyces durhamensis	0.715	0.577	Streptomyces
+355	measured	0.5449	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	61.4	Ppd	Glycomyces sp.	0.386	0.278	Ilumatobacter
+356	measured	0.7487	0.1012	1	1	1	1	1		0.0	-	none for this class						Odyssella
+357	measured	0.8373	0.4012	1	1	1	1	1		1.0	-	none for this class						Nannocystis
+358	measured	0.3992	0.5012	1	1	1	1	1		1.0	Reductase	distant only	24.2	VlpB	Streptomyces durhamensis	0.758	0.556	Nocardia
+359	measured	0.3966	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.1	DhpF	Streptomyces luridus	0.579	0.564	Paraburkholderia
+360	measured	0.601	0.2012	1	1	1	1	1		0.0	Reductase	distant only	21.6	VlpB	Streptomyces durhamensis	0.784	0.443	Oribacterium
+361	measured	0.6464	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.4	Ppd	Glycomyces sp.	0.536	0.465	Pectobacterium
+362	measured	0.753	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.0	DhpF	Streptomyces luridus	0.51	0.478	Actinoplanes
+363	measured	0.5254	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	24.9	PnaA	Streptomyces sp.	0.751	0.539	Bradyrhizobium
+364	measured	0.3558	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.4	Fom2	Streptomyces fradiae	0.536	0.467	Centipeda
+365	measured	0.7331	0.4012	1	1	1	1	1		1.0	-	none for this class						Bradyrhizobium
+366	measured	0.5415	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.3	DhpF	Streptomyces luridus	0.517	0.486	Streptomyces
+367	measured	0.42	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	41.6	PnaA	Streptomyces sp.	0.584	0.578	Neorhizobium
+368	measured	0.6216	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.3	Fom2	Streptomyces fradiae	0.597	0.542	Kosakonia
+369	measured	0.55	0.5012	1	1	1	1	1		1.0	Reductase	distant only	24.0	VlpB	Streptomyces durhamensis	0.76	0.395	Helicobacter_C
+370	measured	0.5202	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	46.0	Fom2	Streptomyces fradiae	0.54	0.474	Centipeda
+371	measured	0.6247	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.3	Fom2	Streptomyces fradiae	0.527	0.301	Kitasatospora
+372	measured	0.5568	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	37.7	PnaA	Streptomyces sp.	0.623	0.581	Bradyrhizobium
+373	measured	0.627	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.7	Ppd	Glycomyces sp.	0.623	0.556	Paenibacillus_S
+374	measured	0.6919	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.3	Fom2	Streptomyces fradiae	0.627	0.445	Ereboglobus
+375	measured	0.3993	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.3	Fom2	Streptomyces fradiae	0.587	0.542	Burkholderia
+376	measured	0.3849	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.1	Fom2	Streptomyces fradiae	0.569	0.283	Streptomyces
+377	measured	0.6316	0.4012	1	1	1	1	1		1.0	-	none for this class						Streptomyces
+378	measured	0.7099	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.2	Ppd	Glycomyces sp.	0.508	0.393	Clostridium_J
+379	measured	0.6908	0.5012	1	1	1	1	1		1.0	Reductase	distant only	26.6	VlpB	Streptomyces durhamensis	0.734	0.487	Nonomuraea
+380	measured	0.5469	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.9	DhpF	Streptomyces luridus	0.571	0.574	Stappia
+381	measured	0.4228	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.2	VlpB	Streptomyces durhamensis	0.768	0.553	Kroppenstedtia
+382	measured	0.6848	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.2	Fom2	Streptomyces fradiae	0.568	0.497	Providencia
+383	measured	0.7496	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	36.1	Ppd	Glycomyces sp.	0.639	0.547	Caldalkalibacillus
+384	measured	0.4844	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.1	Ppd	Glycomyces sp.	0.619	0.56	Cohnella
+385	measured	0.6122	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.9	Fom2	Streptomyces fradiae	0.531	0.557	Actinoplanes
+386	measured	0.7704	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.1	Ppd	Glycomyces sp.	0.569	0.465	Olsenella
+387	measured	0.7023	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.3	Ppd	Glycomyces sp.	0.567	0.368	Clostridium_J
+388	measured	0.5749	0.2012	1	1	1	1	1		0.0	Decarboxylase	characterised	85.0	Ppd	Glycomyces sp.	0.15	0.188	Glycomyces
+389	measured	0.336	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.9	Fom2	Streptomyces fradiae	0.571	0.523	Xanthomonas_A
+390	measured	0.6293	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.4	DhpF	Streptomyces luridus	0.596	0.564	Nitrococcus
+391	measured	0.532	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.4	DhpF	Streptomyces luridus	0.566	0.46	Amycolatopsis
+392	measured	0.6656	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	39.7	PnaA	Streptomyces sp.	0.603	0.607	Bradyrhizobium
+393	measured	0.4315	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.2	Fom2	Streptomyces fradiae	0.558	0.578	Robbsia
+394	measured	0.6366	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.6	Fom2	Streptomyces fradiae	0.564	0.551	Kibdelosporangium
+395	measured	0.565	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.1	Fom2	Streptomyces fradiae	0.599	0.514	Actinosynnema
+396	measured	0.6594	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.6	Ppd	Glycomyces sp.	0.504	0.43	Prevotella
+397	measured	0.6767	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	34.5	Fom2	Streptomyces fradiae	0.655	0.571	Shewanella
+398	measured	0.5636	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.3	Ppd	Glycomyces sp.	0.517	0.422	Treponema_B
+399	measured	0.6143	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.4	Ppd	Glycomyces sp.	0.616	0.545	Viridibacillus
+400	measured	0.7197	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.6	Ppd	Glycomyces sp.	0.624	0.566	Splendidivirga
+401	measured	0.4056	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	41.4	Fom2	Streptomyces fradiae	0.586	0.448	Helicobacter_D
+402	measured	0.6875	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.2	Ppd	Glycomyces sp.	0.598	0.4	Lachnotalea
+403	measured	0.3367	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.4	Ppd	Glycomyces sp.	0.546	0.488	Winslowiella
+404	measured	0.5231	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.9	Ppd	Glycomyces sp.	0.621	0.542	Metasolibacillus
+405	measured	0.4831	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.1	Ppd	Glycomyces sp.	0.599	0.518	DATLZU01
+406	measured	0.723	0.5012	1	1	1	1	1		1.0	Reductase	distant only	26.3	VlpB	Streptomyces durhamensis	0.737	0.602	Spirillospora
+407	measured	0.5449	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.1	DhpF	Streptomyces luridus	0.539	0.498	Plantactinospora
+408	measured	0.4874	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	40.7	DhpF	Streptomyces luridus	0.593	0.629	Amycolatopsis
+409	measured	0.6185	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.0	Fom2	Streptomyces fradiae	0.61	0.571	Chitinasiproducens
+410	measured	0.718	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.0	Fom2	Streptomyces fradiae	0.59	0.478	Longicatena
+411	measured	0.6045	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	34.3	Fom2	Streptomyces fradiae	0.657	0.545	Saccharopolyspora
+412	measured	0.3821	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	40.8	DhpF	Streptomyces luridus	0.592	0.573	Chlorogloeopsis
+413	measured	0.4104	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.3	VlpB	Streptomyces durhamensis	0.767	0.593	Xenorhabdus
+414	measured	0.7149	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	34.7	PnaA	Streptomyces sp.	0.653	0.48	Paenibacillus
+415	measured	0.7114	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.1	Ppd	Glycomyces sp.	0.529	0.389	Clostridium_L
+416	measured	0.576	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.5	Fom2	Streptomyces fradiae	0.625	0.522	Thermoactinomyces
+417	measured	0.7137	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.2	DhpF	Streptomyces luridus	0.618	0.509	Sphaerisporangium
+418	measured	0.7492	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.1	Ppd	Glycomyces sp.	0.539	0.455	Lancefieldella
+419	measured	0.6268	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.5	Ppd	Glycomyces sp.	0.625	0.531	Fontibacillus
+420	measured	0.7391	0.2012	1	1	1	1	1		0.0	Reductase	distant only	27.1	VlpB	Streptomyces durhamensis	0.729	0.608	Stieleria
+421	measured	0.731	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.4	Ppd	Glycomyces sp.	0.556	0.44	Hominimerdicola
+422	measured	0.6328	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.5	DhpF	Streptomyces luridus	0.575	0.577	Goodfellowiella
+423	measured	0.7132	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.0	Ppd	Glycomyces sp.	0.54	0.4	Clostridium
+424	measured	0.7286	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.0	Fom2	Streptomyces fradiae	0.56	0.337	Streptomyces
+425	measured	0.4274	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.8	DhpF	Streptomyces luridus	0.552	0.304	Kitasatospora
+426	measured	0.6885	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	37.5	PnaA	Streptomyces sp.	0.625	0.584	Mesorhizobium
+427	measured	0.6404	0.4012	1	1	1	1	1		1.0	-	none for this class						DYNF01
+428	measured	0.4806	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.4	Fom2	Streptomyces fradiae	0.586	0.287	Streptomyces
+429	measured	0.4607	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.7	VlpB	Streptomyces durhamensis	0.763	0.294	Streptomyces
+430	measured	0.3351	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	27.5	PnaA	Streptomyces sp.	0.725	0.584	Bradyrhizobium
+431	measured	0.5338	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	39.0	PnaA	Streptomyces sp.	0.61	0.604	Bradyrhizobium
+432	measured	0.8496	0.4012	1	1	1	1	1		1.0	-	none for this class						Hominiventricola
+433	measured	0.6289	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.8	Ppd	Glycomyces sp.	0.642	0.538	Paenibacillus
+434	measured	0.3008	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.8	Ppd	Glycomyces sp.	0.512	0.468	Pectobacterium
+435	measured	0.3911	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.6	DhpF	Streptomyces luridus	0.584	0.56	Paraburkholderia
+436	measured	0.7189	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.4	DhpF	Streptomyces luridus	0.526	0.437	Arthrobacter
+437	measured	0.7745	0.4012	1	1	1	1	1		1.0	-	none for this class						Nocardiopsis
+438	measured	0.5897	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.1	Ppd	Glycomyces sp.	0.519	0.415	Pristimantibacillus
+439	measured	0.4996	0.5012	1	1	1	1	1		1.0	Synthase	characterised	64.8	HvrC	Pantoea ananatis	0.352	0.545	Streptomyces
+440	measured	0.6192	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.5	Ppd	Glycomyces sp.	0.625	0.567	Neobacillus
+441	measured	0.7616	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.3	DhpF	Streptomyces luridus	0.587	0.564	Micromonospora
+442	measured	0.6466	0.5012	1	1	1		1		1.0	Decarboxylase	distant only	39.0	Ppd	Glycomyces sp.	0.61	0.542	
+443	measured	0.6268	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.1	Fom2	Streptomyces fradiae	0.639	0.555	Alicyclobacillus_A
+444	measured	0.7045	0.5012	1	1	1	1	1		1.0	Transaminase	characterised	74.4	PnaA	Streptomyces sp.	0.256	0.168	Streptomyces
+445	measured	0.7857	0.2012	1	1	1	1	1		0.0	Synthase	distant only	27.2	FrbC	Streptomyces rubellomurinus	0.728	0.664	Oceanibaculum
+446	measured	0.621	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	26.6	PnaA	Streptomyces sp.	0.734	0.581	Bradyrhizobium
+447	measured	0.6011	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.1	Ppd	Glycomyces sp.	0.529	0.326	Alteromonas
+448	measured	0.3752	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.2	Fom2	Streptomyces fradiae	0.598	0.571	Paraburkholderia
+449	measured	0.6427	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.1	Ppd	Glycomyces sp.	0.629	0.571	Fulvivirga
+450	measured	0.7062	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.5	Ppd	Glycomyces sp.	0.535	0.365	Defluviitalea
+451	measured	0.4236	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.6	DhpF	Streptomyces luridus	0.644	0.535	Paenibacillus
+452	measured	0.5392	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.6	Ppd	Glycomyces sp.	0.514	0.407	Reichenbachiella
+453	measured	0.6838	0.1012	1	1	1	1	1		0.0	-	none for this class						Chryseobacterium
+454	measured	0.6274	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.9	DhpF	Streptomyces luridus	0.551	0.5	Wenjunlia
+455	measured	0.6095	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.5	Fom2	Streptomyces fradiae	0.495	0.332	Desulfurivibrio
+456	measured	0.4697	0.4012	1	1	1	1	1		1.0	-	none for this class						Nitrospira_E
+457	measured	0.6722	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.7	Ppd	Glycomyces sp.	0.533	0.465	Bianquea
+458	measured	0.3775	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.9	Fom2	Streptomyces fradiae	0.591	0.543	Streptomyces
+459	measured	0.4243	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	34.1	PnaA	Streptomyces sp.	0.659	0.607	Bradyrhizobium
+460	measured	0.6461	0.5012	1	1	1	1	1		1.0	Reductase	distant only	19.6	VlpB	Streptomyces durhamensis	0.804	0.358	Campylobacter_A
+461	measured	0.5589	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	52.9	Fom2	Streptomyces fradiae	0.471	0.326	Rhabdonatronobacter
+462	measured	0.4723	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	40.1	Fom2	Streptomyces fradiae	0.599	0.553	Paenibacillus
+463	measured	0.5721	0.2012	1	1	1	1	1		0.0	Reductase	distant only	23.2	VlpB	Streptomyces durhamensis	0.768	0.391	Helicobacter_C
+464	measured	0.7819	0.4012	1	1	1	1	1		1.0	-	none for this class						Paracandidimonas
+465	measured	0.5997	0.1012	1	1	1	1	1		0.0	-	none for this class						Mesorhizobium
+466	measured	0.4025	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.8	Ppd	Glycomyces sp.	0.622	0.564	Psychrobacillus
+467	measured	0.6093	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.2	Ppd	Glycomyces sp.	0.618	0.553	Cohnella
+468	measured	0.4038	0.4012	1	1	1	1	1		1.0	-	none for this class						Nocardiopsis
+469	measured	0.635	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.0	DhpF	Streptomyces luridus	0.53	0.504	Lentzea
+470	measured	0.5678	0.5012	1	1	1		1		1.0	Decarboxylase	distant only	40.8	DhpF	Streptomyces luridus	0.592	0.489	
+471	measured	0.6277	0.4012	1	1	1	1	1		1.0	-	none for this class						Caballeronia
+472	measured	0.5514	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.1	Fom2	Streptomyces fradiae	0.599	0.555	Agrobacterium
+473	measured	0.5744	0.4012	1	1	1	1	1		1.0	-	none for this class						Enterovirga
+474	measured	0.7054	0.5012	1	1	1	1	1		1.0	Reductase	distant only	24.5	VlpB	Streptomyces durhamensis	0.755	0.126	Streptomyces
+475	measured	0.6253	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.5	DhpF	Streptomyces luridus	0.555	0.578	Streptomyces
+476	measured	0.488	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.9	Ppd	Glycomyces sp.	0.621	0.556	Paenibacillus
+477	measured	0.7383	0.1012	1	1	1	1	1		0.0	-	none for this class						Mesorhizobium
+478	measured	0.5549	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.2	Ppd	Glycomyces sp.	0.618	0.564	Paenibacillus_J
+479	measured	0.5291	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	35.7	Ppd	Glycomyces sp.	0.643	0.556	Desulfuribacillus
+480	measured	0.3798	0.4012	1	1	1	1	1		1.0	-	none for this class						Tumebacillus_A
+481	measured	0.7413	0.1012	1	1	1	1	1		0.0	-	none for this class						Adhaeribacter
+482	measured	0.654	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.1	Ppd	Glycomyces sp.	0.619	0.549	Desulfovermiculus
+483	measured	0.7618	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	36.5	PnaA	Streptomyces sp.	0.635	0.448	Paenibacillus_S
+484	measured	0.6901	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.4	Ppd	Glycomyces sp.	0.576	0.5	Streptomyces
+485	measured	0.7278	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	32.7	PnaA	Streptomyces sp.	0.673	0.505	Streptomyces
+486	measured	0.3086	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	34.1	PnaA	Streptomyces sp.	0.659	0.574	Bradyrhizobium
+487	measured	0.5483	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.6	DhpF	Streptomyces luridus	0.574	0.531	Salinihabitans
+488	measured	0.5513	0.5012	1	1	1	1	1		1.0	Synthase	distant only	26.3	FrbC	Streptomyces rubellomurinus	0.737	0.496	Bacillus
+489	measured	0.7468	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	45.5	Ppd	Glycomyces sp.	0.545	0.496	Agathobaculum
+490	measured	0.5939	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.2	Fom2	Streptomyces fradiae	0.628	0.556	Marinithermofilum
+491	measured	0.3207	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	36.0	PnaA	Streptomyces sp.	0.64	0.558	Bradyrhizobium
+492	measured	0.7437	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.0	Ppd	Glycomyces sp.	0.64	0.463	Helicobacter_H
+493	measured	0.5725	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.1	Fom2	Streptomyces fradiae	0.569	0.36	Streptomyces
+494	measured	0.5834	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	37.7	PnaA	Streptomyces sp.	0.623	0.609	Bradyrhizobium
+495	measured	0.6428	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.4	Ppd	Glycomyces sp.	0.546	0.462	Erwinia
+496	measured	0.311	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.0	Ppd	Glycomyces sp.	0.54	0.382	Clostridium
+497	measured	0.7099	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.2	Ppd	Glycomyces sp.	0.508	0.398	Clostridium_J
+498	measured	0.5765	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.6	Fom2	Streptomyces fradiae	0.534	0.321	Bowmanella
+499	measured	0.7205	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.5	DhpF	Streptomyces luridus	0.505	0.433	Umezawaea
+500	measured	0.4169	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	36.2	PnaA	Streptomyces sp.	0.638	0.547	Bradyrhizobium
+501	measured	0.4111	0.1012	1	1	1	1	1		0.0	-	none for this class						Spirillospora
+502	measured	0.6276	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.5	DhpF	Streptomyces luridus	0.505	0.362	Streptomyces
+503	measured	0.5675	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.7	Ppd	Glycomyces sp.	0.613	0.542	Sporosarcina
+504	measured	0.7642	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	34.8	PnaA	Streptomyces sp.	0.652	0.605	Sinorhizobium
+505	measured	0.7117	0.1012	1	1	1	1	1		0.0	-	none for this class						Actinocrinis
+506	measured	0.7394	0.4012	1	1	1	1	1		1.0	-	none for this class						Peterkaempfera
+507	measured	0.3833	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.8	Ppd	Glycomyces sp.	0.622	0.567	Melghirimyces
+508	measured	0.3675	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.7	Fom2	Streptomyces fradiae	0.563	0.553	Pseudonocardia
+509	measured	0.6437	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.1	Fom2	Streptomyces fradiae	0.639	0.595	Shewanella
+510	measured	0.5291	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.5	DhpF	Streptomyces luridus	0.545	0.469	Streptomyces
+511	measured	0.3666	0.2012	1	1	1	1	1		0.0	Reductase	distant only	24.0	VlpB	Streptomyces durhamensis	0.76	0.259	Streptomyces
+512	measured	0.3999	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	50.4	Ppd	Glycomyces sp.	0.496	0.367	Bacteroides
+513	measured	0.7567	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	41.8	Fom2	Streptomyces fradiae	0.582	0.491	Schaedlerella
+514	measured	0.3835	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.4	DhpF	Streptomyces luridus	0.596	0.575	Nitrosococcus
+515	measured	0.3325	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	41.6	PnaA	Streptomyces sp.	0.584	0.421	Pseudomonas_E
+516	measured	0.4765	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.1	DhpF	Streptomyces luridus	0.579	0.486	Streptomyces
+517	measured	0.6948	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.8	Ppd	Glycomyces sp.	0.532	0.465	Brenneria
+518	measured	0.7077	0.2012	1	1	1	1	1		0.0	Reductase	distant only	26.8	VlpB	Streptomyces durhamensis	0.732	0.381	Actinosynnema
+519	measured	0.6939	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	38.5	PnaA	Streptomyces sp.	0.615	0.578	Peristeroidobacter
+520	measured	0.3438	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	43.5	Fom2	Streptomyces fradiae	0.565	0.509	Spectribacter
+521	measured	0.8183	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	25.1	PnaA	Streptomyces sp.	0.749	0.447	Pararoseburia
+522	measured	0.7253	0.5012	1	1	1	1	1		1.0	Synthase	distant only	42.7	FrbC	Streptomyces rubellomurinus	0.573	0.518	Salipaludibacillus
+523	measured	0.7747	0.5012	1	1	1	1	1		1.0	Reductase	distant only	26.6	VlpB	Streptomyces durhamensis	0.734	0.391	Oceaniferula
+524	measured	0.4656	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.8	DhpF	Streptomyces luridus	0.592	0.571	Pigmentiphaga
+525	measured	0.7548	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	36.8	Ppd	Glycomyces sp.	0.632	0.56	Halalkalibacter
+526	measured	0.6379	0.5012	1	1	1	1	1		1.0	Reductase	distant only	18.2	VlpB	Streptomyces durhamensis	0.818	0.328	Aliarcobacter
+527	measured	0.6982	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.4	Ppd	Glycomyces sp.	0.576	0.472	Schwartzia
+528	measured	0.6769	0.5012	1	1	1	1	1		1.0	Synthase	characterised	70.1	HvrC	Pantoea ananatis	0.299	0.444	Amycolatopsis
+529	measured	0.3291	0.2012	1	1	1	1	1		0.0	Synthase	characterised	65.1	FrbC	Streptomyces rubellomurinus	0.349	0.531	Streptomyces
+530	measured	0.5632	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.8	Ppd	Glycomyces sp.	0.622	0.535	Pseudomonas_E
+531	measured	0.5727	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.6	Ppd	Glycomyces sp.	0.604	0.542	Ectobacillus
+532	measured	0.3894	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.2	Fom2	Streptomyces fradiae	0.578	0.297	Streptomyces_H
+533	measured	0.6233	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.4	Fom2	Streptomyces fradiae	0.576	0.569	Umezawaea
+534	measured	0.7712	0.4012	1	1	1	1	1		1.0	-	none for this class						JAURVT01
+535	measured	0.426	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	38.3	PnaA	Streptomyces sp.	0.617	0.421	Fimivivens
+536	measured	0.8302	0.5012	1	1	1	1	1		1.0	Reductase	distant only	25.6	VlpB	Streptomyces durhamensis	0.744	0.687	Amycolatopsis
+537	measured	0.7585	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	26.6	Fom2	Streptomyces fradiae	0.734	0.618	Amycolatopsis
+538	measured	0.5501	0.4012	1	1	1	1	1		1.0	-	none for this class						Nocardioides
+539	measured	0.4929	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	75.9	Ppd	Glycomyces sp.	0.241	0.108	Stackebrandtia
+540	measured	0.7676	0.5012	1	1	1	1	1		1.0	Reductase	distant only	18.7	VlpB	Streptomyces durhamensis	0.813	0.449	Aminipila
+541	measured	0.4009	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.1	Fom2	Streptomyces fradiae	0.559	0.424	Flaviaestuariibacter
+542	measured	0.3551	0.5012	1	1	1	1	1		1.0	Reductase	distant only	25.2	VlpB	Streptomyces durhamensis	0.748	0.19	Glycomyces
+543	measured	0.5132	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	29.6	PnaA	Streptomyces sp.	0.704	0.593	Bradyrhizobium
+544	measured	0.559	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.6	Ppd	Glycomyces sp.	0.534	0.419	Treponema_D
+545	measured	0.4151	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.9	DhpF	Streptomyces luridus	0.581	0.542	Roseomonas
+546	measured	0.5996	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.8	Ppd	Glycomyces sp.	0.612	0.549	JACDOC01
+547	measured	0.6826	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.8	Ppd	Glycomyces sp.	0.552	0.294	Streptosporangium
+548	measured	0.6876	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	33.5	Fom2	Streptomyces fradiae	0.665	0.372	Helicobacter_J
+549	measured	0.5282	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	34.7	PnaA	Streptomyces sp.	0.653	0.644	Bradyrhizobium
+550	measured	0.5854	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.5	Ppd	Glycomyces sp.	0.535	0.491	Brenneria
+551	measured	0.641	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.4	Ppd	Glycomyces sp.	0.586	0.549	Prodigiosinella
+552	measured	0.4174	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.2	DhpF	Streptomyces luridus	0.598	0.567	Caballeronia
+553	measured	0.6361	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.2	Ppd	Glycomyces sp.	0.618	0.564	Bacillus_CH
+554	measured	0.7436	0.5012	1	1	1	1	1		1.0	Synthase	characterised	64.5	FrbC	Streptomyces rubellomurinus	0.355	0.473	Streptomyces
+555	measured	0.6616	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.1	Fom2	Streptomyces fradiae	0.589	0.578	Pantoea
+556	measured	0.6219	0.1012	1	1	1	1	1		0.0	-	none for this class						Rhizobium
+557	measured	0.8708	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.3	DhpF	Streptomyces luridus	0.587	0.505	Actinomyces
+558	measured	0.7545	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.2	DhpF	Streptomyces luridus	0.578	0.583	Amycolatopsis
+559	measured	0.7535	0.5012	1	1	1	1	1		1.0	Synthase	characterised	65.5	HvrC	Pantoea ananatis	0.345	0.44	Kutzneria
+560	measured	0.6959	0.2012	1	1	1	1	1		0.0	Reductase	distant only	27.3	VlpB	Streptomyces durhamensis	0.727	0.0	Streptomyces
+561	measured	0.7447	0.1012	1	1	1	1	1		0.0	-	none for this class						Candidimonas
+562	measured	0.7551	0.4012	1	1	1	1	1		1.0	-	none for this class						Candidimonas
+563	measured	0.6045	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.3	Fom2	Streptomyces fradiae	0.647	0.549	Saccharopolyspora
+564	measured	0.3376	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.9	DhpF	Streptomyces luridus	0.561	0.553	Pseudoroseomonas
+565	measured	0.6967	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.5	Ppd	Glycomyces sp.	0.535	0.424	Massiliimalia
+566	measured	0.3207	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	34.3	PnaA	Streptomyces sp.	0.657	0.553	Bradyrhizobium
+567	measured	0.5625	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.0	Ppd	Glycomyces sp.	0.52	0.396	Clostridium
+568	measured	0.7205	0.2012	1	1	1	1	1		0.0	Synthase	distant only	43.3	HvrC	Pantoea ananatis	0.567	0.531	Paenibacillus
+569	measured	0.7952	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.7	DhpF	Streptomyces luridus	0.603	0.59	Bradyrhizobium
+570	measured	0.7557	0.5012	1	1	1	1	1		1.0	Reductase	distant only	26.2	VlpB	Streptomyces durhamensis	0.738	0.447	UBA4844
+571	measured	0.591	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.7	Ppd	Glycomyces sp.	0.503	0.356	Dethiobacter
+572	measured	0.5928	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.3	Ppd	Glycomyces sp.	0.537	0.358	JBFHER01
+573	measured	0.7864	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	21.1	PnaA	Streptomyces sp.	0.789	0.446	Aristaeella
+574	measured	0.363	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	37.2	PnaA	Streptomyces sp.	0.628	0.544	Pararhizobium
+575	measured	0.7918	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	30.6	DhpF	Streptomyces luridus	0.694	0.477	Selenomonas
+576	measured	0.3778	0.4012	1	1	1	1	1		1.0	-	none for this class						Actinoallomurus
+577	measured	0.8651	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	31.1	Fom2	Streptomyces fradiae	0.689	0.6	Pectobacterium
+578	measured	0.5973	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.6	Ppd	Glycomyces sp.	0.564	0.432	Flaviaestuariibacter
+579	measured	0.5648	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.4	Fom2	Streptomyces fradiae	0.516	0.354	Marinomonas
+580	measured	0.5058	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	42.0	Ppd	Glycomyces sp.	0.58	0.455	Campylobacter_D
+581	measured	0.766	0.1012	1	1	1	1	1		0.0	-	none for this class						Prevotella
+582	measured	0.3325	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	42.8	PnaA	Streptomyces sp.	0.572	0.421	Pseudomonas_E
+583	measured	0.5938	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.2	Fom2	Streptomyces fradiae	0.508	0.332	Stenotrophomonas
+584	measured	0.6137	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.9	Ppd	Glycomyces sp.	0.541	0.351	Desulfonatronum
+585	measured	0.5021	0.2012	1	1	1	1	1		0.0	Synthase	characterised	62.2	HvrC	Pantoea ananatis	0.378	0.473	Bartonella
+586	measured	0.815	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	33.8	DhpF	Streptomyces luridus	0.662	0.624	Amycolatopsis
+587	measured	0.4735	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	28.6	PnaA	Streptomyces sp.	0.714	0.602	Bradyrhizobium
+588	measured	0.7938	0.4012	1	1	1	1	1		1.0	-	none for this class						Paralcaligenes
+589	measured	0.5361	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	51.5	Fom2	Streptomyces fradiae	0.485	0.347	Neptunomonas
+590	measured	0.5693	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	45.4	PnaA	Streptomyces sp.	0.546	0.475	Pseudoduganella
+591	measured	0.7551	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	35.9	Ppd	Glycomyces sp.	0.641	0.642	Verticiella
+592	measured	0.6266	0.5012	1	1	1	1	1		1.0	Synthase	distant only	29.9	FrbC	Streptomyces rubellomurinus	0.701	0.482	Paraburkholderia
+593	measured	0.783	0.4012	1	1	1	1	1		1.0	-	none for this class						Pararobbsia
+594	measured	0.5476	0.5012	1	1	1	1	1		1.0	Synthase	distant only	59.2	FrbC	Streptomyces rubellomurinus	0.408	0.43	Pseudomonas_E
+595	measured	0.6277	0.4012	1	1	1	1	1		1.0	-	none for this class						Caballeronia
+596	measured	0.4772	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.2	DhpF	Streptomyces luridus	0.558	0.545	TMPK1
+597	measured	0.6269	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.3	Ppd	Glycomyces sp.	0.627	0.542	Solibacillus
+598	measured	0.6242	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.4	Fom2	Streptomyces fradiae	0.586	0.556	Elongatibacter
+599	measured	0.7055	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.9	Ppd	Glycomyces sp.	0.501	0.419	Sphaerochaeta
+600	measured	0.7311	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.5	Fom2	Streptomyces fradiae	0.585	0.487	Flavimaricola
+601	measured	0.318	0.1012	1	1	1	1	1		0.0	-	none for this class						Streptomyces
+602	measured	0.7383	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.3	Ppd	Glycomyces sp.	0.547	0.46	Acetatifactor
+603	measured	0.5933	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.0	Fom2	Streptomyces fradiae	0.53	0.342	Algibacillus
+604	measured	0.581	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.1	DhpF	Streptomyces luridus	0.559	0.504	Streptomyces
+605	measured	0.7262	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.7	DhpF	Streptomyces luridus	0.523	0.516	Actinoplanes
+606	measured	0.5534	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	35.7	PnaA	Streptomyces sp.	0.643	0.555	Bradyrhizobium
+607	measured	0.3208	0.5012	1	1	1	1	1		1.0	Synthase	distant only	25.5	FrbC	Streptomyces rubellomurinus	0.745	0.484	Paenibacillus
+608	measured	0.5873	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.6	Fom2	Streptomyces fradiae	0.544	0.339	Alkaliflexus
+609	measured	0.4174	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.5	Fom2	Streptomyces fradiae	0.575	0.556	Pseudonocardia
+610	measured	0.7141	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	32.7	PnaA	Streptomyces sp.	0.673	0.469	Bacillus
+611	measured	0.7165	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	38.8	PnaA	Streptomyces sp.	0.612	0.512	Tistrella
+612	measured	0.3775	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.6	DhpF	Streptomyces luridus	0.604	0.546	Streptomyces
+613	measured	0.3516	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.2	DhpF	Streptomyces luridus	0.598	0.535	Fontibacillus
+614	measured	0.637	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.0	Ppd	Glycomyces sp.	0.63	0.538	Maribacillus
+615	measured	0.6364	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.1	Fom2	Streptomyces fradiae	0.629	0.56	Effusibacillus
+616	measured	0.547	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.3	Ppd	Glycomyces sp.	0.547	0.398	Clostridium
+617	measured	0.704	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.8	Fom2	Streptomyces fradiae	0.532	0.405	Treponema
+618	measured	0.7511	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	36.6	Fom2	Streptomyces fradiae	0.634	0.396	Helicobacter_F
+619	measured	0.743	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.0	DhpF	Streptomyces luridus	0.56	0.481	Cellulomonas
+620	measured	0.4622	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	35.2	PnaA	Streptomyces sp.	0.648	0.553	Bradyrhizobium
+621	measured	0.7349	0.4012	1	1	1	1	1		1.0	-	none for this class						Brevundimonas
+622	measured	0.5821	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.5	Ppd	Glycomyces sp.	0.505	0.326	Pseudomaricurvus
+623	measured	0.4284	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.1	Ppd	Glycomyces sp.	0.639	0.549	Chengkuizengella
+624	measured	0.6015	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	51.5	Fom2	Streptomyces fradiae	0.485	0.354	Nitrincola
+625	measured	0.4028	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.6	DhpF	Streptomyces luridus	0.564	0.483	Streptomyces
+626	measured	0.6434	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	46.0	Ppd	Glycomyces sp.	0.54	0.477	Centipeda
+627	measured	0.6022	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	69.8	Ppd	Glycomyces sp.	0.302	0.22	Nitriliruptor
+628	measured	0.5822	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	51.1	Ppd	Glycomyces sp.	0.489	0.358	Fulvitalea
+629	measured	0.6237	0.2012	1	1	1	1	1		0.0	Reductase	distant only	24.3	VlpB	Streptomyces durhamensis	0.757	0.357	BNUJ01
+630	measured	0.4021	0.5012	1	1	1	1	1		1.0	Reductase	distant only	25.1	VlpB	Streptomyces durhamensis	0.749	0.573	Actinopolyspora
+631	measured	0.7906	0.4012	1	1	1	1	1		1.0	-	none for this class						Bordetella_C
+632	measured	0.5729	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	75.7	Ppd	Glycomyces sp.	0.243	0.244	Natronoglycomyces
+633	measured	0.6959	0.4012	1	1	1	1	1		1.0	-	none for this class						Aulosira
+634	measured	0.3913	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.4	Fom2	Streptomyces fradiae	0.606	0.575	Nitrosococcus
+635	measured	0.445	0.1012	1	1	1	1	1		0.0	-	none for this class						Chelativorans
+636	measured	0.6846	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.9	Ppd	Glycomyces sp.	0.571	0.513	Anaerosporobacter
+637	measured	0.5636	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.1	Fom2	Streptomyces fradiae	0.509	0.422	Treponema_B
+638	measured	0.7165	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	33.9	DhpF	Streptomyces luridus	0.661	0.493	Gracilibacillus
+639	measured	0.7145	0.4012	1	1	1	1	1		1.0	-	none for this class						Pseudopelobacter
+640	measured	0.6647	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.0	Ppd	Glycomyces sp.	0.52	0.426	Yeguia
+641	measured	0.6455	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.2	Fom2	Streptomyces fradiae	0.618	0.578	Evansella
+642	measured	0.6316	0.1012	1	1	1	1	1		0.0	-	none for this class						Streptomyces
+643	measured	0.6275	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.1	Ppd	Glycomyces sp.	0.629	0.575	Lederbergia_A
+644	measured	0.6698	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	40.3	PnaA	Streptomyces sp.	0.597	0.583	Methylosinus
+645	measured	0.7793	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.5	Ppd	Glycomyces sp.	0.595	0.46	Clostridium_G
+646	measured	0.7365	0.5012	1	1	1	1	1		1.0	Synthase	distant only	42.5	FrbC	Streptomyces rubellomurinus	0.575	0.575	Salinibacillus
+647	measured	0.7028	0.4012	1	1	1	1	1		1.0	-	none for this class						Laterigemmans
+648	measured	0.7829	0.4012	1	1	1	1	1		1.0	-	none for this class						Paraburkholderia
+649	measured	0.4036	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.6	DhpF	Streptomyces luridus	0.594	0.549	Bradyrhizobium
+650	measured	0.5874	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.9	Ppd	Glycomyces sp.	0.511	0.375	Porphyromonas
+651	measured	0.5449	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	50.8	Fom2	Streptomyces fradiae	0.492	0.304	Natronospira
+652	measured	0.3452	0.1012	1	1	1	1	1		0.0	-	none for this class						Cellulomonas
+653	measured	0.3291	0.5012	1	1	1	1	1		1.0	Synthase	characterised	64.2	HvrC	Pantoea ananatis	0.358	0.55	Streptomyces
+654	measured	0.339	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	72.0	DhpF	Streptomyces luridus	0.28	0.26	Amycolatopsis
+655	measured	0.7014	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.9	Ppd	Glycomyces sp.	0.531	0.405	Bacteroides
+656	measured	0.7439	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.3	Ppd	Glycomyces sp.	0.597	0.564	Segnochrobactrum
+657	measured	0.6082	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.9	DhpF	Streptomyces luridus	0.551	0.36	Nocardia
+658	measured	0.6266	0.4012	1	1	1	1	1		1.0	-	none for this class						Paraburkholderia
+659	measured	0.7004	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.0	Ppd	Glycomyces sp.	0.6	0.495	Streptomyces
+660	measured	0.3233	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.5	Ppd	Glycomyces sp.	0.625	0.516	Nitrospira_C
+661	measured	0.607	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.8	Fom2	Streptomyces fradiae	0.492	0.323	Ectothiorhodospira
+662	measured	0.6628	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	61.5	Ppd	Glycomyces sp.	0.385	0.262	Ilumatobacter_A
+663	measured	0.6255	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.1	Fom2	Streptomyces fradiae	0.519	0.454	Zymobacter
+664	measured	0.5477	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	46.4	Ppd	Glycomyces sp.	0.536	0.356	Halalkalibaculum
+665	measured	0.7757	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	42.9	Ppd	Glycomyces sp.	0.571	0.437	Limousia
+666	measured	0.6261	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.0	Ppd	Glycomyces sp.	0.63	0.522	Oceanobacillus
+667	measured	0.6424	0.5012	1	1	1	1	1		1.0	Reductase	distant only	20.3	VlpB	Streptomyces durhamensis	0.797	0.44	Aliarcobacter
+668	measured	0.3404	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.0	DhpF	Streptomyces luridus	0.57	0.527	Roseomonas
+669	measured	0.7044	0.5012	1	1	1	1	1		1.0	Synthase	distant only	26.3	HvrC	Pantoea ananatis	0.737	0.527	Rathayibacter
+670	measured	0.6601	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.2	Fom2	Streptomyces fradiae	0.508	0.604	Ruminococcus_F
+671	measured	0.6515	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.0	Ppd	Glycomyces sp.	0.62	0.516	Saccharococcus
+672	measured	0.576	0.1012	1	1	1	1	1		0.0	-	none for this class						Geodermatophilus
+673	measured	0.4158	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.4	DhpF	Streptomyces luridus	0.576	0.556	Pseudonocardia
+674	measured	0.7616	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	45.2	PnaA	Streptomyces sp.	0.548	0.455	Paludibacterium
+675	measured	0.7366	0.5012	1	1	1	1	1		1.0	Reductase	distant only	22.9	VlpB	Streptomyces durhamensis	0.771	0.417	Domibacillus
+676	measured	0.5476	0.5012	1	1	1	1	1		1.0	Synthase	distant only	59.8	FrbC	Streptomyces rubellomurinus	0.402	0.44	Pseudomonas_E
+677	measured	0.5687	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.1	Ppd	Glycomyces sp.	0.639	0.542	Fontibacillus
+678	measured	0.5248	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.6	Fom2	Streptomyces fradiae	0.564	0.472	Amycolatopsis
+679	measured	0.609	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	49.9	Ppd	Glycomyces sp.	0.501	0.347	Marinospirillum
+680	measured	0.6145	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.4	Ppd	Glycomyces sp.	0.516	0.37	Desulfobotulus
+681	measured	0.7427	0.5012	1	1	1	1	1		1.0	Synthase	distant only	25.0	FrbC	Streptomyces rubellomurinus	0.75	0.498	Paenibacillus_D
+682	measured	0.3171	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.7	Ppd	Glycomyces sp.	0.523	0.396	Clostridium
+683	measured	0.684	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.5	Ppd	Glycomyces sp.	0.505	0.416	Gracilimonas
+684	measured	0.7503	0.5012	1	1	1	1	1		1.0	Synthase	distant only	57.8	HvrC	Pantoea ananatis	0.422	0.615	Xenorhabdus
+685	measured	0.6628	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.7	DhpF	Streptomyces luridus	0.523	0.47	Streptomyces
+686	measured	0.769	0.5012	1	1	1	1	1		1.0	Reductase	distant only	27.6	VlpB	Streptomyces durhamensis	0.724	0.455	Burkholderia
+687	measured	0.7312	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	44.8	Ppd	Glycomyces sp.	0.552	0.424	Actibacterium_D
+688	measured	0.6521	0.5012	1	1	1	1	1		1.0	Reductase	distant only	19.7	VlpB	Streptomyces durhamensis	0.803	0.343	Nitratifractor
+689	measured	0.5658	0.4012	1	1	1	1	1		1.0	-	none for this class						Kitasatospora
+690	measured	0.7392	0.4012	1	1	1	1	1		1.0	-	none for this class						Kribbella
+691	measured	0.5609	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.9	Fom2	Streptomyces fradiae	0.561	0.462	Nocardioides
+692	measured	0.3572	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	34.1	PnaA	Streptomyces sp.	0.659	0.584	Bradyrhizobium
+693	measured	0.5099	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	74.7	Ppd	Glycomyces sp.	0.253	0.174	Stackebrandtia
+694	measured	0.6904	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	43.2	PnaA	Streptomyces sp.	0.568	0.588	Neorhizobium
+695	measured	0.4786	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.8	DhpF	Streptomyces luridus	0.602	0.577	Nostoc
+696	measured	0.4818	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	42.2	DhpF	Streptomyces luridus	0.578	0.486	Streptomyces
+697	measured	0.7005	0.5012	1	1	1	1	1		1.0	Reductase	distant only	21.4	VlpB	Streptomyces durhamensis	0.786	0.396	Helicobacter_A
+698	measured	0.6965	0.4012	1	1	1	1	1		1.0	-	none for this class						Streptomyces
+699	measured	0.6342	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	26.5	PnaA	Streptomyces sp.	0.735	0.59	Bradyrhizobium
+700	measured	0.6865	0.5012	1	1	1	1	1		1.0	Reductase	distant only	22.3	VlpB	Streptomyces durhamensis	0.777	0.589	Erwinia
+701	measured	0.4593	0.1012	1	1	1	1	1		0.0	-	none for this class						Bradyrhizobium
+702	measured	0.6194	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.8	Ppd	Glycomyces sp.	0.642	0.531	Paenibacillus
+703	measured	0.3521	0.4012	1	1	1	1	1		1.0	-	none for this class						Streptacidiphilus
+704	measured	0.4913	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	29.2	PnaA	Streptomyces sp.	0.708	0.516	Spirillospora
+705	measured	0.7213	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.6	Fom2	Streptomyces fradiae	0.604	0.567	Kordiimonas
+706	measured	0.3876	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.0	Ppd	Glycomyces sp.	0.59	0.455	Brachyspira
+707	measured	0.7112	0.5012	1	1	1	1	1		1.0	Reductase	distant only	18.5	VlpB	Streptomyces durhamensis	0.815	0.596	Photorhabdus
+708	measured	0.3846	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.6	Fom2	Streptomyces fradiae	0.594	0.56	Paraburkholderia
+709	measured	0.6593	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.6	DhpF	Streptomyces luridus	0.544	0.527	Thermomonospora
+710	measured	0.6038	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.0	DhpF	Streptomyces luridus	0.58	0.487	Desulfobacca
+711	measured	0.3452	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.6	Fom2	Streptomyces fradiae	0.554	0.453	Cellulomonas
+712	measured	0.339	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	71.7	DhpF	Streptomyces luridus	0.283	0.257	Amycolatopsis
+713	measured	0.4166	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.8	DhpF	Streptomyces luridus	0.572	0.567	Stappia
+714	measured	0.7377	0.4012	1	1	1	1	1		1.0	-	none for this class						Variovorax
+715	measured	0.7462	0.4012	1	1	1	1	1		1.0	-	none for this class						Streptantibioticus
+716	measured	0.5776	0.4012	1	1	1	1	1		1.0	-	none for this class						Blastococcus
+717	measured	0.6063	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	52.5	Fom2	Streptomyces fradiae	0.475	0.35	Desulfurivibrio
+718	measured	0.5296	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	34.3	PnaA	Streptomyces sp.	0.657	0.574	Bradyrhizobium
+719	measured	0.4169	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.2	DhpF	Streptomyces luridus	0.528	0.542	Pseudoroseomonas
+720	measured	0.3876	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.8	Fom2	Streptomyces fradiae	0.582	0.377	Brachyspira
+721	measured	0.5742	0.5012	1	1	1	1	1		1.0	Reductase	distant only	25.6	VlpB	Streptomyces durhamensis	0.744	0.28	Actinosynnema
+722	measured	0.5159	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.2	Ppd	Glycomyces sp.	0.618	0.549	Lysinibacillus
+723	measured	0.75	0.5012	1	1	1	1	1		1.0	Reductase	distant only	21.8	VlpB	Streptomyces durhamensis	0.782	0.575	Pseudoalteromonas
+724	measured	0.5822	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	49.2	DhpF	Streptomyces luridus	0.508	0.356	Frankia
+725	measured	0.483	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	38.0	PnaA	Streptomyces sp.	0.62	0.586	Mesorhizobium
+726	measured	0.4671	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.3	DhpF	Streptomyces luridus	0.577	0.573	Nostoc
+727	measured	0.614	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	50.3	Ppd	Glycomyces sp.	0.497	0.34	Oceanibaculum
+728	measured	0.7294	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.3	DhpF	Streptomyces luridus	0.507	0.319	Wenjunlia
+729	measured	0.688	0.1012	1	1	1	1	1		0.0	-	none for this class						Amycolatopsis
+730	measured	0.6843	0.5012	1	1	1	1	1		1.0	Reductase	distant only	22.5	VlpB	Streptomyces durhamensis	0.775	0.418	Angelakisella
+731	measured	0.5736	0.1012	1	1	1	1	1		0.0	-	none for this class						Rhizobium
+732	measured	0.3212	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.5	Fom2	Streptomyces fradiae	0.625	0.535	Paenibacillus
+733	measured	0.4938	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	51.1	Ppd	Glycomyces sp.	0.489	0.325	Vibrio
+734	measured	0.7267	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.5	Ppd	Glycomyces sp.	0.635	0.571	Cohnella
+735	measured	0.6085	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	75.4	Ppd	Glycomyces sp.	0.246	0.259	Lipingzhangella_A
+736	measured	0.6145	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.5	Fom2	Streptomyces fradiae	0.615	0.545	Thermoflavimicrobium
+737	measured	0.5742	0.2012	1	1	1	1	1		0.0	Reductase	distant only	25.7	VlpB	Streptomyces durhamensis	0.743	0.273	Lentzea
+738	measured	0.4296	0.1012	1	1	1	1	1		0.0	-	none for this class						Streptomyces
+739	measured	0.468	0.5012	1	1	1	1	1		1.0	Synthase	distant only	27.9	FrbC	Streptomyces rubellomurinus	0.721	0.495	Streptomyces
+740	measured	0.7574	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	41.8	Ppd	Glycomyces sp.	0.582	0.462	Roseburia_B
+741	measured	0.5449	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.2	DhpF	Streptomyces luridus	0.508	0.509	Actinoplanes
+742	measured	0.6619	0.5012	1	1	1	1	1		1.0	Reductase	distant only	24.8	VlpB	Streptomyces durhamensis	0.752	0.581	Pantoea
+743	measured	0.5568	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	38.4	PnaA	Streptomyces sp.	0.616	0.586	Bradyrhizobium
+744	measured	0.6463	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.9	Fom2	Streptomyces fradiae	0.611	0.484	Clavibacter
+745	measured	0.7471	0.5012	1	1	1	1	1		1.0	Synthase	distant only	54.8	HvrC	Pantoea ananatis	0.452	0.605	Photorhabdus
+746	measured	0.4666	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	34.4	DhpF	Streptomyces luridus	0.656	0.596	Streptosporangium
+747	measured	0.6273	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.5	Fom2	Streptomyces fradiae	0.585	0.564	Lacunisphaera
+748	measured	0.6333	0.5012	1	1	1		1		1.0	Decarboxylase	distant only	36.4	Ppd	Glycomyces sp.	0.636	0.538	
+749	measured	0.8392	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	27.5	Ppd	Glycomyces sp.	0.725	0.44	Oribacterium
+750	measured	0.6066	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.9	Fom2	Streptomyces fradiae	0.621	0.567	Saccharibacillus
+751	measured	0.5978	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.3	Ppd	Glycomyces sp.	0.497	0.358	Persicirhabdus
+752	measured	0.8369	0.4012	1	1	1	1	1		1.0	-	none for this class						Helicobacter_A
+753	measured	0.5744	0.1012	1	1	1	1	1		0.0	-	none for this class						Myxococcus
+754	measured	0.3061	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.9	DhpF	Streptomyces luridus	0.631	0.553	Paenibacillus_J
+755	measured	0.7034	0.5012	1	1	1	1	1		1.0	Synthase	characterised	86.6	FrbC	Streptomyces rubellomurinus	0.134	0.203	Streptomyces
+756	measured	0.6905	0.1012	1	1	1	1	1		0.0	-	none for this class						Virgisporangium
+757	measured	0.6315	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	34.6	Ppd	Glycomyces sp.	0.654	0.325	Desulfuromusa
+758	measured	0.3999	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.1	Ppd	Glycomyces sp.	0.499	0.362	Bacteroides
+759	measured	0.5625	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.2	Ppd	Glycomyces sp.	0.518	0.403	Clostridium
+760	measured	0.7648	0.2012	1	1	1	1	1		0.0	Synthase	characterised	61.3	FrbC	Streptomyces rubellomurinus	0.387	0.458	Burkholderia
+761	measured	0.3426	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	37.2	PnaA	Streptomyces sp.	0.628	0.575	Mesorhizobium
+762	measured	0.6473	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.6	Ppd	Glycomyces sp.	0.644	0.542	Heyndrickxia
+763	measured	0.4856	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	39.2	PnaA	Streptomyces sp.	0.608	0.602	Bradyrhizobium
+764	measured	0.5289	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.5	Ppd	Glycomyces sp.	0.635	0.556	Solibacillus
+765	measured	0.5856	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	23.8	PnaA	Streptomyces sp.	0.762	0.594	Bradyrhizobium
+766	measured	0.3866	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	34.3	PnaA	Streptomyces sp.	0.657	0.56	Bradyrhizobium
+767	measured	0.4061	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.2	DhpF	Streptomyces luridus	0.578	0.524	Telmatospirillum
+768	measured	0.606	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.4	DhpF	Streptomyces luridus	0.586	0.575	Allorhizobium
+769	measured	0.6172	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.4	Fom2	Streptomyces fradiae	0.596	0.571	Nevskia
+770	measured	0.3548	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	35.7	Ppd	Glycomyces sp.	0.643	0.547	Paenibacillus_D
+771	measured	0.6489	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.4	Fom2	Streptomyces fradiae	0.586	0.393	Halanaerobium
+772	measured	0.6043	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	70.5	Ppd	Glycomyces sp.	0.295	0.212	Nonomuraea
+773	measured	0.6227	0.1012	1	1	1	1	1		0.0	-	none for this class						Saccharopolyspora
+774	measured	0.5451	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	73.1	DhpF	Streptomyces luridus	0.269	0.237	Streptomyces
+775	measured	0.7522	0.5012	1	1	1	1	1		1.0	Reductase	distant only	24.5	VlpB	Streptomyces durhamensis	0.755	0.388	Helicobacter_B
+776	measured	0.5943	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	42.2	PnaA	Streptomyces sp.	0.578	0.56	Sinorhizobium
+777	measured	0.6076	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.4	Fom2	Streptomyces fradiae	0.496	0.365	Arenimonas
+778	measured	0.6776	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.6	Ppd	Glycomyces sp.	0.624	0.545	Bacillus_BD
+779	measured	0.8313	0.2012	1	1	1	1	1		0.0	Reductase	distant only	21.9	VlpB	Streptomyces durhamensis	0.781	0.471	Selenomonas_A
+780	measured	0.4539	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.0	Ppd	Glycomyces sp.	0.62	0.516	Parageobacillus
+781	measured	0.6304	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.1	Ppd	Glycomyces sp.	0.609	0.538	Paenibacillus_E
+782	measured	0.4474	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.6	DhpF	Streptomyces luridus	0.564	0.556	Pseudonocardia
+783	measured	0.3005	0.1012	1	1	1	1	1		0.0	-	none for this class						Bradyrhizobium
+784	measured	0.5723	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.1	Ppd	Glycomyces sp.	0.619	0.562	Sporosarcina
+785	measured	0.488	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.2	Fom2	Streptomyces fradiae	0.628	0.553	Paenibacillus
+786	measured	0.6773	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	44.3	Ppd	Glycomyces sp.	0.557	0.472	Selenomonas_C
+787	measured	0.7108	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.3	Ppd	Glycomyces sp.	0.517	0.393	Clostridium_L
+788	measured	0.6308	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.1	DhpF	Streptomyces luridus	0.589	0.564	Spartinivicinus
+789	measured	0.596	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	36.6	PnaA	Streptomyces sp.	0.634	0.551	Sinorhizobium
+790	measured	0.5488	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	53.3	Ppd	Glycomyces sp.	0.467	0.354	Labilibaculum
+791	measured	0.745	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.7	Fom2	Streptomyces fradiae	0.553	0.407	JBFHER01
+792	measured	0.6261	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.2	DhpF	Streptomyces luridus	0.568	0.545	Lichenicola
+793	measured	0.7979	0.4012	1	1	1	1	1		1.0	-	none for this class						Aminobacterium
+794	measured	0.5699	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.8	Fom2	Streptomyces fradiae	0.642	0.544	Sporosarcina
+795	measured	0.5739	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	46.3	DhpF	Streptomyces luridus	0.537	0.35	Frankia
+796	measured	0.3778	0.4012	1	1	1	1	1		1.0	-	none for this class						Spirillospora
+797	measured	0.3114	0.1012	1	1	1	1	1		0.0	-	none for this class						Caballeronia
+798	measured	0.7121	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.3	Ppd	Glycomyces sp.	0.507	0.384	Clostridium_AT
+799	measured	0.6692	0.4012	1	1	1	1	1		1.0	-	none for this class						JAGQKC01
+800	measured	0.7552	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.8	DhpF	Streptomyces luridus	0.602	0.548	Nocardia
+801	measured	0.6324	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.0	Fom2	Streptomyces fradiae	0.59	0.56	Dickeya
+802	measured	0.8365	0.4012	1	1	1	1	1		1.0	-	none for this class						Haliotispira
+803	measured	0.581	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	40.1	Ppd	Glycomyces sp.	0.599	0.46	Schaedlerella
+804	measured	0.4539	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	35.6	PnaA	Streptomyces sp.	0.644	0.591	Bradyrhizobium
+805	measured	0.5765	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.6	Ppd	Glycomyces sp.	0.514	0.345	Aliiglaciecola
+806	measured	0.6416	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.9	Fom2	Streptomyces fradiae	0.531	0.472	Streptomyces
+807	measured	0.652	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	49.7	Ppd	Glycomyces sp.	0.503	0.571	Nitrospira_A
+808	measured	0.7464	0.1012	1	1	1	1	1		0.0	-	none for this class						Halorhodospira
+809	measured	0.4236	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.4	DhpF	Streptomyces luridus	0.636	0.531	Paenibacillus
+810	measured	0.6061	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.3	Fom2	Streptomyces fradiae	0.507	0.356	Desulfofustis
+811	measured	0.3019	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	43.2	PnaA	Streptomyces sp.	0.568	0.493	Pseudomonas_E
+812	measured	0.4182	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	33.8	PnaA	Streptomyces sp.	0.662	0.588	Bradyrhizobium
+813	measured	0.7574	0.5012	1	1	1	1	1		1.0	Synthase	distant only	57.4	FrbC	Streptomyces rubellomurinus	0.426	0.585	Blastomonas
+814	measured	0.767	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	26.0	DhpF	Streptomyces luridus	0.74	0.619	Amycolatopsis
+815	measured	0.8366	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	34.8	DhpF	Streptomyces luridus	0.652	0.585	Ewingella
+816	measured	0.7153	0.4012	1	1	1	1	1		1.0	-	none for this class						Streptomyces
+817	measured	0.3798	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	55.0	Fom2	Streptomyces fradiae	0.45	0.484	Tumebacillus_A
+818	measured	0.6287	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.8	Ppd	Glycomyces sp.	0.642	0.549	Fontibacillus
+819	measured	0.6052	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.3	Ppd	Glycomyces sp.	0.517	0.383	Fretibacterium
+820	measured	0.819	0.4012	1	1	1	1	1		1.0	-	none for this class						Methylomusa
+821	measured	0.4941	0.5012	1	1	1	1	1		1.0	Synthase	characterised	67.3	FrbC	Streptomyces rubellomurinus	0.327	0.56	Catenuloplanes
+822	measured	0.3994	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.8	Fom2	Streptomyces fradiae	0.572	0.273	Streptomyces
+823	measured	0.7197	0.4012	1	1	1	1	1		1.0	-	none for this class						Spirillospora
+824	measured	0.4216	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	43.0	PnaA	Streptomyces sp.	0.57	0.475	Pseudomonas_E
+825	measured	0.6164	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.4	Ppd	Glycomyces sp.	0.616	0.531	Bacillus_BA
+826	measured	0.4607	0.1012	1	1	1	1	1		0.0	-	none for this class						Bradyrhizobium
+827	measured	0.5605	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.5	Fom2	Streptomyces fradiae	0.595	0.553	Skermanella
+828	measured	0.4869	0.2012	1	1	1	1	1		0.0	Transaminase	characterised	94.4	PnaA	Streptomyces sp.	0.056	0.027	Streptomyces
+829	measured	0.7014	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.5	Ppd	Glycomyces sp.	0.505	0.426	Treponema
+830	measured	0.4182	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	33.3	PnaA	Streptomyces sp.	0.667	0.553	Bradyrhizobium
+831	measured	0.6067	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.7	Fom2	Streptomyces fradiae	0.493	0.321	Pseudidiomarina
+832	measured	0.6828	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.2	Ppd	Glycomyces sp.	0.518	0.448	Arachnia
+833	measured	0.3913	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.6	Fom2	Streptomyces fradiae	0.604	0.575	Nitrosococcus
+834	measured	0.6978	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	52.8	Ppd	Glycomyces sp.	0.472	0.437	Bacteroides
+835	measured	0.7139	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.1	Fom2	Streptomyces fradiae	0.519	0.379	Reichenbachiella
+836	measured	0.4539	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.9	Ppd	Glycomyces sp.	0.621	0.516	Parageobacillus
+837	measured	0.6651	0.5012	1	1	1	1	1		1.0	Reductase	distant only	26.7	VlpB	Streptomyces durhamensis	0.733	0.262	Saccharopolyspora
+838	measured	0.5901	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.1	Ppd	Glycomyces sp.	0.509	0.333	Glaciecola
+839	measured	0.5423	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	41.5	DhpF	Streptomyces luridus	0.585	0.504	Hongsoonwoonella
+840	measured	0.3263	0.5012	1	1	1	1	1		1.0	Reductase	distant only	25.5	VlpB	Streptomyces durhamensis	0.745	0.498	Nocardia
+841	measured	0.8007	0.5012	1	1	1	1	1		1.0	Reductase	distant only	20.4	VlpB	Streptomyces durhamensis	0.796	0.33	Paremcibacter
+842	measured	0.744	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	34.3	Fom2	Streptomyces fradiae	0.657	0.389	NHYN01
+843	measured	0.3367	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	45.0	Ppd	Glycomyces sp.	0.55	0.488	Vibrio
+844	measured	0.6807	0.5012	1	1	1	1	1		1.0	Reductase	distant only	22.3	VlpB	Streptomyces durhamensis	0.777	0.446	Hominisplanchenecus_A
+845	measured	0.8296	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.1	DhpF	Streptomyces luridus	0.589	0.547	Xanthomonas_A
+846	measured	0.3208	0.5012	1	1	1	1	1		1.0	Synthase	distant only	27.7	FrbC	Streptomyces rubellomurinus	0.723	0.481	Paenibacillus
+847	measured	0.6415	0.1012	1	1	1	1	1		0.0	-	none for this class						Neobacillus
+848	measured	0.4055	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.3	Ppd	Glycomyces sp.	0.587	0.273	Streptomyces
+849	measured	0.4912	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	21.8	PnaA	Streptomyces sp.	0.782	0.59	Bradyrhizobium
+850	measured	0.3301	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.3	DhpF	Streptomyces luridus	0.547	0.526	Caldovatus
+851	measured	0.6131	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.0	Ppd	Glycomyces sp.	0.61	0.542	Brevibacillus_C
+852	measured	0.601	0.5012	1	1	1	1	1		1.0	Reductase	distant only	26.2	VlpB	Streptomyces durhamensis	0.738	0.438	Oribacterium
+853	measured	0.5392	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.4	Ppd	Glycomyces sp.	0.516	0.405	Reichenbachiella
+854	measured	0.6254	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.5	Ppd	Glycomyces sp.	0.535	0.538	Azospirillum
+855	measured	0.6774	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.0	VlpB	Streptomyces durhamensis	0.77	0.426	Hominiventricola
+856	measured	0.7144	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.5	Ppd	Glycomyces sp.	0.535	0.443	Treponema_F
+857	measured	0.6608	0.4012	1	1	1	1	1		1.0	-	none for this class						Saccharopolyspora_C
+858	measured	0.459	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	22.4	PnaA	Streptomyces sp.	0.776	0.553	Bradyrhizobium
+859	measured	0.5453	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.2	DhpF	Streptomyces luridus	0.608	0.56	Burkholderia
+860	measured	0.6192	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.1	DhpF	Streptomyces luridus	0.519	0.502	Actinoplanes
+861	measured	0.3516	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.2	DhpF	Streptomyces luridus	0.608	0.531	Fontibacillus
+862	measured	0.4911	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	25.1	PnaA	Streptomyces sp.	0.749	0.594	Bradyrhizobium
+863	measured	0.6276	0.5012	1	1	1	1	1		1.0	Reductase	distant only	25.8	VlpB	Streptomyces durhamensis	0.742	0.314	Haloactinomyces
+864	measured	0.6219	0.1012	1	1	1	1	1		0.0	-	none for this class						Rhizobium
+865	measured	0.5308	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.9	Ppd	Glycomyces sp.	0.531	0.422	Treponema_D
+866	measured	0.3995	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.8	Fom2	Streptomyces fradiae	0.612	0.567	Sediminispirochaeta
+867	measured	0.7537	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.5	DhpF	Streptomyces luridus	0.495	0.348	Micromonospora
+868	measured	0.76	0.4012	1	1	1	1	1		1.0	-	none for this class						Symbiodolus
+869	measured	0.3005	0.1012	1	1	1	1	1		0.0	-	none for this class						Bradyrhizobium
+870	measured	0.5277	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.1	DhpF	Streptomyces luridus	0.639	0.556	Cohnella
+871	measured	0.7745	0.4012	1	1	1	1	1		1.0	-	none for this class						Photobacterium
+872	measured	0.3533	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	44.3	PnaA	Streptomyces sp.	0.557	0.478	Pseudomonas_E
+873	measured	0.466	0.5012	1	1	1	1	1		1.0	Synthase	characterised	71.0	HvrC	Pantoea ananatis	0.29	0.331	Photorhabdus
+874	measured	0.818	0.4012	1	1	1	1	1		1.0	-	none for this class						Selenomonas
+875	measured	0.6227	0.4012	1	1	1	1	1		1.0	-	none for this class						Saccharopolyspora
+876	measured	0.4524	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	44.7	PnaA	Streptomyces sp.	0.553	0.479	Azotobacter
+877	measured	0.8373	0.4012	1	1	1	1	1		1.0	-	none for this class						Nannocystis
+878	measured	0.42	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	40.5	PnaA	Streptomyces sp.	0.595	0.585	Allorhizobium
+879	measured	0.6019	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	26.9	PnaA	Streptomyces sp.	0.731	0.59	Bradyrhizobium
+880	measured	0.8578	0.5012	1	1	1	1	1		1.0	Reductase	distant only	21.9	VlpB	Streptomyces durhamensis	0.781	0.553	Alexandriicola
+881	measured	0.6049	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.4	Fom2	Streptomyces fradiae	0.516	0.323	Marinospirillum
+882	measured	0.4844	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.3	Ppd	Glycomyces sp.	0.627	0.571	Cohnella
+883	measured	0.5971	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.1	Ppd	Glycomyces sp.	0.519	0.335	Paraglaciecola
+884	measured	0.6722	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	42.5	Ppd	Glycomyces sp.	0.575	0.472	Pilosibacter
+885	measured	0.4735	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	37.3	PnaA	Streptomyces sp.	0.627	0.61	Bradyrhizobium
+886	measured	0.3835	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.6	DhpF	Streptomyces luridus	0.604	0.571	Nitrosococcus
+887	measured	0.3504	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	29.1	PnaA	Streptomyces sp.	0.709	0.589	Bradyrhizobium
+888	measured	0.5278	0.1012	1	1	1	1	1		0.0	-	none for this class						Micromonospora
+889	measured	0.5198	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.9	Fom2	Streptomyces fradiae	0.571	0.476	Streptomyces
+890	measured	0.7851	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	29.6	PnaA	Streptomyces sp.	0.704	0.685	Acidisoma
+891	measured	0.7993	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.8	Fom2	Streptomyces fradiae	0.512	0.432	Leadbettera
+892	measured	0.5066	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	37.0	PnaA	Streptomyces sp.	0.63	0.564	Mesorhizobium_F
+893	measured	0.6072	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	44.4	Ppd	Glycomyces sp.	0.556	0.365	Daejeonella
+894	measured	0.3684	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	32.1	DhpF	Streptomyces luridus	0.679	0.58	Streptomyces
+895	measured	0.6672	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.5	Fom2	Streptomyces fradiae	0.615	0.412	Gracilinema
+896	measured	0.6101	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.5	Ppd	Glycomyces sp.	0.605	0.553	Paenibacillus
+897	measured	0.7922	0.4012	1	1	1	1	1		1.0	-	none for this class						Pollutimonas
+898	measured	0.6227	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	34.2	PnaA	Streptomyces sp.	0.658	0.585	Bradyrhizobium
+899	measured	0.6609	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	49.5	Fom2	Streptomyces fradiae	0.505	0.333	Desulfonatronospira
+900	measured	0.5739	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.7	DhpF	Streptomyces luridus	0.543	0.338	Frankia
+901	measured	0.7516	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.6	Ppd	Glycomyces sp.	0.544	0.481	Aristaeella
+902	measured	0.3833	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.8	DhpF	Streptomyces luridus	0.572	0.495	Sorangium
+903	measured	0.7278	0.4012	1	1	1	1	1		1.0	-	none for this class						Haloactinomyces
+904	measured	0.3551	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	90.6	Ppd	Glycomyces sp.	0.094	0.026	Glycomyces
+905	measured	0.6366	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	68.0	DhpF	Streptomyces luridus	0.32	0.292	Actinokineospora
+906	measured	0.4379	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.1	Ppd	Glycomyces sp.	0.509	0.335	Rheinheimera
+907	measured	0.7134	0.4012	1	1	1	1	1		1.0	-	none for this class						Prauserella_A
+908	measured	0.5073	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	38.3	DhpF	Streptomyces luridus	0.617	0.615	Streptacidiphilus
+909	measured	0.6025	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	46.0	Fom2	Streptomyces fradiae	0.54	0.357	Desulfobotulus
+910	measured	0.7383	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	38.6	PnaA	Streptomyces sp.	0.614	0.58	Sinorhizobium
+911	measured	0.6125	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.1	DhpF	Streptomyces luridus	0.599	0.56	Cupriavidus
+912	measured	0.7947	0.4012	1	1	1	1	1		1.0	-	none for this class						Fimivivens
+913	measured	0.336	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	40.8	DhpF	Streptomyces luridus	0.592	0.578	Nostoc
+914	measured	0.7798	0.4012	1	1	1	1	1		1.0	-	none for this class						Rhodococcoides
+915	measured	0.6483	0.5012	1	1	1	1	1		1.0	Reductase	distant only	22.7	VlpB	Streptomyces durhamensis	0.773	0.351	Campylobacter_A
+916	measured	0.7568	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.2	DhpF	Streptomyces luridus	0.598	0.599	Bradyrhizobium
+917	measured	0.761	0.4012	1	1	1	1	1		1.0	-	none for this class						Bradyrhizobium
+918	measured	0.627	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.1	Fom2	Streptomyces fradiae	0.629	0.553	Desmospora
+919	measured	0.5676	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.9	Fom2	Streptomyces fradiae	0.631	0.542	Paenibacillus
+920	measured	0.7167	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.4	Ppd	Glycomyces sp.	0.526	0.412	Clostridium
+921	measured	0.7864	0.4012	1	1	1	1	1		1.0	-	none for this class						Aristaeella
+922	measured	0.4869	0.5012	1	1	1	1	1		1.0	Transaminase	characterised	71.8	PnaA	Streptomyces sp.	0.282	0.178	Streptomyces
+923	measured	0.4467	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	43.1	PnaA	Streptomyces sp.	0.569	0.436	Azospirillum
+924	measured	0.6076	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	40.0	Ppd	Glycomyces sp.	0.6	0.551	Gordoniibacillus
+925	measured	0.8126	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.9	DhpF	Streptomyces luridus	0.601	0.48	Paraburkholderia
+926	measured	0.7237	0.5012	1	1	1	1	1		1.0	Reductase	distant only	25.3	VlpB	Streptomyces durhamensis	0.747	0.398	Streptomyces
+927	measured	0.3279	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	36.8	Fom2	Streptomyces fradiae	0.632	0.535	Cohnella
+928	measured	0.7308	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.3	DhpF	Streptomyces luridus	0.557	0.56	Mixta
+929	measured	0.8185	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	26.3	PnaA	Streptomyces sp.	0.737	0.655	Azospirillum
+930	measured	0.7069	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.5	Fom2	Streptomyces fradiae	0.495	0.484	Kitasatospora
+931	measured	0.801	0.5012	1	1	1	1	1		1.0	Reductase	distant only	26.8	VlpB	Streptomyces durhamensis	0.732	0.453	Dactylosporangium
+932	measured	0.6568	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	50.8	Fom2	Streptomyces fradiae	0.492	0.419	Prevotella
+933	measured	0.7808	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	34.3	PnaA	Streptomyces sp.	0.657	0.669	Zwartia
+934	measured	0.6619	0.5012	1	1	1	1	1		1.0	Reductase	distant only	23.9	VlpB	Streptomyces durhamensis	0.761	0.589	Pantoea
+935	measured	0.6351	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.6	Ppd	Glycomyces sp.	0.644	0.524	Bacillus_BE
+936	measured	0.5149	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.5	Ppd	Glycomyces sp.	0.615	0.567	Pristimantibacillus
+937	measured	0.7056	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.2	Ppd	Glycomyces sp.	0.528	0.426	Brucepastera
+938	measured	0.6466	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.4	Ppd	Glycomyces sp.	0.646	0.553	Fontibacillus
+939	measured	0.6798	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	41.4	PnaA	Streptomyces sp.	0.586	0.603	Labrys
+940	measured	0.6872	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.8	Fom2	Streptomyces fradiae	0.552	0.391	Clostridium
+941	measured	0.3044	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.8	DhpF	Streptomyces luridus	0.582	0.538	Salinisphaera
+942	measured	0.6213	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.5	DhpF	Streptomyces luridus	0.495	0.427	Actinosynnema
+943	measured	0.7894	0.4012	1	1	1	1	1		1.0	-	none for this class						Mycobacterium
+944	measured	0.7867	0.4012	1	1	1	1	1		1.0	-	none for this class						Oceanibaculum
+945	measured	0.5975	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.9	Fom2	Streptomyces fradiae	0.511	0.337	Marinospirillum
+946	measured	0.6117	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	69.3	Ppd	Glycomyces sp.	0.307	0.253	Natronosporangium
+947	measured	0.4415	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	51.9	Fom2	Streptomyces fradiae	0.481	0.328	Stenotrophomonas
+948	measured	0.6112	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	51.2	Fom2	Streptomyces fradiae	0.488	0.354	Desulfonatronum
+949	measured	0.6275	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.7	Fom2	Streptomyces fradiae	0.613	0.509	Actinosynnema
+950	measured	0.5067	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.6	DhpF	Streptomyces luridus	0.594	0.516	JAICXS01
+951	measured	0.3922	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.3	Fom2	Streptomyces fradiae	0.597	0.556	Paraburkholderia
+952	measured	0.7833	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.2	DhpF	Streptomyces luridus	0.628	0.476	Thermoflavimicrobium
+953	measured	0.5171	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.7	DhpF	Streptomyces luridus	0.553	0.324	Streptomyces
+954	measured	0.78	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.1	Fom2	Streptomyces fradiae	0.589	0.462	Clostridium_X
+955	measured	0.7633	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	32.8	PnaA	Streptomyces sp.	0.672	0.401	GPF-1
+956	measured	0.3292	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.7	DhpF	Streptomyces luridus	0.633	0.567	Bacteriovorax
+957	measured	0.7867	0.4012	1	1	1	1	1		1.0	-	none for this class						Mycobacterium
+958	measured	0.648	0.4012	1	1	1	1	1		1.0	-	none for this class						Syntrophotalea
+959	measured	0.7676	0.2012	1	1	1	1	1		0.0	Reductase	distant only	21.8	VlpB	Streptomyces durhamensis	0.782	0.452	Acutalibacter
+960	measured	0.618	0.2012	1	1	1	1	1		0.0	Reductase	distant only	17.2	VlpB	Streptomyces durhamensis	0.828	0.363	Treponema_D
+961	measured	0.3675	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.1	Fom2	Streptomyces fradiae	0.569	0.556	Pseudonocardia
+962	measured	0.3798	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	42.8	PnaA	Streptomyces sp.	0.572	0.493	Pseudomonas_E
+963	measured	0.731	0.5012	1	1	1	1	1		1.0	Synthase	characterised	65.7	FrbC	Streptomyces rubellomurinus	0.343	0.507	Nonomuraea
+964	measured	0.6477	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.4	Ppd	Glycomyces sp.	0.556	0.475	Enterocloster
+965	measured	0.5311	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.7	Fom2	Streptomyces fradiae	0.553	0.462	Streptomyces
+966	measured	0.3292	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.1	Ppd	Glycomyces sp.	0.629	0.567	Bacteriovorax
+967	measured	0.394	0.2012	1	1	1	1	1		0.0	Transaminase	distant only	36.1	PnaA	Streptomyces sp.	0.639	0.578	Bradyrhizobium
+968	measured	0.5724	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	52.0	Fom2	Streptomyces fradiae	0.48	0.372	Aliidiomarina
+969	measured	0.6935	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	47.0	Ppd	Glycomyces sp.	0.53	0.422	Prevotella
+970	measured	0.6079	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.9	Fom2	Streptomyces fradiae	0.501	0.33	Marinobacter
+971	measured	0.5855	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.5	Fom2	Streptomyces fradiae	0.615	0.535	Gorillibacterium
+972	measured	0.7617	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	45.8	Ppd	Glycomyces sp.	0.542	0.451	Roseburia
+973	measured	0.5632	0.5012	1	1	1	1	1		1.0	Reductase	distant only	29.7	VlpB	Streptomyces durhamensis	0.703	0.301	Streptomyces
+974	measured	0.6215	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	38.4	PnaA	Streptomyces sp.	0.616	0.558	Rhizobium
+975	measured	0.6718	0.4012	1	1	1	1	1		1.0	-	none for this class						Nonomuraea
+976	measured	0.3086	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.3	DhpF	Streptomyces luridus	0.537	0.517	Nocardiopsis_A
+977	measured	0.5711	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.8	Ppd	Glycomyces sp.	0.592	0.56	Lichenicola
+978	measured	0.3231	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.1	Ppd	Glycomyces sp.	0.519	0.471	Pectobacterium
+979	measured	0.6759	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	48.5	Fom2	Streptomyces fradiae	0.515	0.382	Clostridium_D
+980	measured	0.632	0.5012	1	1	1	1	1		1.0	Synthase	distant only	28.8	HvrC	Pantoea ananatis	0.712	0.505	Streptomyces
+981	measured	0.3866	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	39.4	DhpF	Streptomyces luridus	0.606	0.556	Burkholderia
+982	measured	0.73	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	55.0	Fom2	Streptomyces fradiae	0.45	0.505	Tumebacillus_A
+983	measured	0.6945	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	50.8	Ppd	Glycomyces sp.	0.492	0.456	Arachnia
+984	measured	0.6166	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	44.8	DhpF	Streptomyces luridus	0.552	0.347	Streptomyces
+985	measured	0.6777	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	40.7	Ppd	Glycomyces sp.	0.593	0.599	Oligoflexus
+986	measured	0.7573	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	35.2	Fom2	Streptomyces fradiae	0.648	0.454	Helicobacter_B
+987	measured	0.6963	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	49.6	Ppd	Glycomyces sp.	0.504	0.405	Bacteroides
+988	measured	0.4094	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.0	Ppd	Glycomyces sp.	0.63	0.535	Nitrospira_D
+989	measured	0.6989	0.4012	1	1	1	1	1		1.0	-	none for this class						Saccharopolyspora_C
+990	measured	0.7173	0.4012	1	1	1	1	1		1.0	-	none for this class						Bacillus_AO
+991	measured	0.7214	0.5012	1	1	1	1	1		1.0	Synthase	distant only	41.9	HvrC	Pantoea ananatis	0.581	0.52	Bacillus
+992	measured	0.5142	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.1	Fom2	Streptomyces fradiae	0.619	0.542	Anabaena
+993	measured	0.6173	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.8	Ppd	Glycomyces sp.	0.512	0.377	Desulfamplus
+994	measured	0.5824	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	48.9	Ppd	Glycomyces sp.	0.511	0.365	Polaribacter_A
+995	measured	0.6058	0.4012	1	1	1	1	1		1.0	-	none for this class						Nocardia
+996	measured	0.4094	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	32.8	DhpF	Streptomyces luridus	0.672	0.322	Streptomyces
+997	measured	0.7023	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	46.8	Fom2	Streptomyces fradiae	0.532	0.424	Massiliimalia
+998	measured	0.7622	0.5012	1	1	1	1	1		1.0	Synthase	characterised	63.7	FrbC	Streptomyces rubellomurinus	0.363	0.544	Brenneria
+999	measured	0.7519	0.4012	1	1	1	1	1		1.0	-	none for this class						Paenibacillus_H
+1000	measured	0.6019	0.5012	1	1	1	1	1		1.0	Decarboxylase	characterised	71.0	Ppd	Glycomyces sp.	0.29	0.223	Spiractinospora
+1001	measured	0.7075	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	51.5	Ppd	Glycomyces sp.	0.485	0.442	Bacteroides
+1002	measured	0.5382	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.2	Ppd	Glycomyces sp.	0.628	0.567	Bradyrhizobium
+1003	measured	0.5758	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.1	Fom2	Streptomyces fradiae	0.629	0.553	Cohnella
+1004	measured	0.7522	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	42.5	PnaA	Streptomyces sp.	0.575	0.58	Longimicrobium
+1005	measured	0.6118	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	43.3	Fom2	Streptomyces fradiae	0.567	0.56	Nocardia
+1006	measured	0.3233	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	37.0	DhpF	Streptomyces luridus	0.63	0.523	Nitrospira_C
+1007	measured	0.5887	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	36.7	DhpF	Streptomyces luridus	0.633	0.577	Enterocloster
+1008	measured	0.6078	0.5012	1	1	1	1	1		1.0	Transaminase	distant only	35.2	PnaA	Streptomyces sp.	0.648	0.58	Bradyrhizobium
+1009	measured	0.6568	0.2012	1	1	1	1	1		0.0	Decarboxylase	distant only	47.2	Ppd	Glycomyces sp.	0.528	0.403	Clostridium
+1010	measured	0.6972	0.4012	1	1	1	1	1		1.0	-	none for this class						Streptomyces
+1011	measured	0.6244	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.5	Ppd	Glycomyces sp.	0.635	0.553	Polycladomyces
+1012	measured	0.6727	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	38.2	Ppd	Glycomyces sp.	0.618	0.417	Breznakiella
+1013	measured	0.3423	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.5	Ppd	Glycomyces sp.	0.625	0.532	Nitrospira_D
+1014	measured	0.3191	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.2	Fom2	Streptomyces fradiae	0.628	0.542	Paenibacillus_G
+1015	measured	0.7675	0.4012	1	1	1	1	1		1.0	-	none for this class						Rhizobium
+1016	measured	0.5224	0.5012	1	1	1	1	1		1.0	Synthase	distant only	28.4	FrbC	Streptomyces rubellomurinus	0.716	0.48	Streptomyces
+1017	measured	0.6201	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	42.9	DhpF	Streptomyces luridus	0.571	0.539	Lichenicoccus
+1018	measured	0.6401	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	41.9	Ppd	Glycomyces sp.	0.581	0.556	Pseudomonas_E
+1019	measured	0.8444	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	36.6	DhpF	Streptomyces luridus	0.634	0.544	Pseudomonas_E
+1020	measured	0.7611	0.5012	1	1	1	1	1		1.0	Decarboxylase	distant only	37.0	Ppd	Glycomyces sp.	0.63	0.449	Helicobacter_C

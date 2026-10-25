@@ -1,0 +1,17 @@
+pairs with taxonomy on both sides: 903,840 of 903,840
+
+separation         pairs  median d   min d   d<0.30   d<0.50
+same species         133     0.952   0.000       24       26
+same genus        18,437     0.932   0.000      846    2,130
+same family       35,201     0.942   0.041      149      327
+same order        17,612     0.963   0.204        1       17
+same class        93,777     0.969   0.261        3       34
+same phylum      107,458     0.969   0.340        0        5
+diff phylum      631,222     0.971   0.282        1       24
+
+HGT candidates = BGC pair inside the 0.30 GCF cutoff but organisms far apart:
+  same family      149 pairs within cutoff
+  same order         1 pairs within cutoff
+  same class         3 pairs within cutoff
+  same phylum        0 pairs within cutoff
+  diff phylum        1 pairs within cutoff
