@@ -1153,6 +1153,35 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
                     'database holds only within-partition pairs.">—</span>')
         return f'<span style="font-variant-numeric:tabular-nums;">{float(v):.3f}</span>'
 
+    def span_cell(r):
+        """How far across the tree a family reaches, from the GTDB lineages of its
+        members. Blank for a singleton, where the question is meaningless.
+
+        This is what replaced the GCF x species heatmap: that figure asked which
+        families cross taxa and, on one-genome-per-species input, answered with
+        ~1,250 columns of which 98% were empty. The same fact is one value here.
+
+        Deliberately NOT a "crosses a genus boundary" flag. Ablation
+        (docs/comparisons/) shows the genus-level answer moves a long way with how
+        much flanking sequence BiG-SCAPE is shown, while "reaches across a class"
+        does not -- so the rank carries a nuance the boolean would throw away.
+        """
+        rank = (r.get('span_rank') or '').strip()
+        if not rank:
+            return '<span style="color:#bbb;" title="Single-member family">—</span>'
+        n_g, n_p = r.get('gtdb_genera', ''), r.get('gtdb_phyla', '')
+        wide = rank not in ('species', 'genus')
+        detail = f'{n_g} genera' + (f', {n_p} phyla' if n_p and int(n_p or 1) > 1 else '')
+        names = (r.get('gtdb_genus_list') or '').replace('"', '&quot;')
+        style = 'color:#8d3a2c;font-weight:600;' if wide else 'color:#444;'
+        # "share a above phylum" otherwise -- span_rank's top value is a phrase,
+        # not a rank name, so it cannot take the article.
+        phrase = ('reach beyond phylum level' if rank == 'above phylum'
+                  else f'share a {rank}')
+        return (f'<span style="{style}" title="All members {phrase}. {names}">'
+                f'{rank}</span><br>'
+                f'<span style="font-size:.82em;color:#777;">{detail}</span>')
+
     body = ''.join(
         f'<tr>'
         f'<td style="padding:7px 10px;white-space:nowrap;vertical-align:top;">'
@@ -1165,6 +1194,8 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
         f'{org_cell(r["gcf"])}</td>'
         f'<td style="padding:7px 10px;font-size:.9em;vertical-align:top;">'
         f'{r["coupling_class"]}</td>'
+        f'<td style="padding:7px 10px;font-size:.85em;vertical-align:top;">'
+        f'{span_cell(r)}</td>'
         f'<td style="padding:7px 10px;font-size:.85em;vertical-align:top;">'
         f'{branch_cell(r["gcf"])}</td>'
         f'<td style="padding:7px 10px;font-size:.85em;vertical-align:top;">'
@@ -1210,6 +1241,11 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
                     title="The family representative, and a link to its antiSMASH region
                     page">Representative</th>
                 <th style="text-align:left;padding:6px 10px;">Coupling class</th>
+                <th style="text-align:left;padding:6px 10px;"
+                    title="Shallowest GTDB rank uniting every member: 'genus' means the
+                    family does not leave one genus, 'class' means it crosses orders.
+                    Hover a cell for the genera. Replaces the GCF x species heatmap.">
+                    Taxonomic span</th>
                 <th style="text-align:left;padding:6px 10px;"
                     title="The intermediate the pathway branches through, from the enzymes
                     present. Hover a cell for the full call and its support.">Branch point</th>
