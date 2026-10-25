@@ -230,6 +230,65 @@ with GTDB-Tk, where 8 and 64 genomes were used to argue O(1) and the two candida
 differed by 94x at a million. Take a third and fourth query size before building a plan on
 the batched figure.
 
+### Measured 2026-10-25, and shipped
+
+The caveat above was taken up rather than ignored. Three sizes, same box, same pool,
+4 threads, idle:
+
+| genomes per blastx | CPU-s/genome | peak RSS |
+|---:|---:|---:|
+| 1 (what the pipeline did) | 126.7 | 3.46 GB |
+| 12 | 16.8 | — |
+| 200 (`pepm_prescreen_batch_size`) | **13.4** | 7.26 GB |
+
+**9.5x, against the ~5.5x the two-point fit projected** -- conservative this time, where
+the previous projection in this document was optimistic by 2.23x. Solving the three
+points gives ~120 CPU-s fixed per invocation, which is the database load, and the rest
+is marginal.
+
+Contention-adjusted, the pilot's `RECOVER_ORFS` goes **327.6 CPU-h -> ~35**: 13.4 scaled
+by the 2.23x isolation-to-production factor this document measured earlier gives ~30
+CPU-s/genome over 4,193 genomes. That factor is likely pessimistic now, because the
+allocation below cuts concurrency from 7 tasks to 4 and contention with it.
+
+**Equivalence, which is the point rather than the speed.** This stage feeds antiSMASH's
+gene calls, so a silent difference propagates into every BGC boundary downstream:
+13 genomes gave **13/13 byte-identical GFF3s** against the per-genome path, and the same
+12 genomes compared against the **200-genome** batch gave 12/12. 713 recovered genes
+either way, same homology/prodigal split.
+
+**Memory was the thing that nearly stopped it, and the obvious fixes were wrong.** The
+batch peaks at 7.26 GB against `process_medium`'s 8 GB. It is diamond, driven by QUERY
+size and not the database -- 0.35 MB of gaps 3.46 GB, 16 MB 7.16, 64 MB 7.26 -- so it
+**plateaus** well before a full batch. An earlier reading of the first two of those
+points called it "~60 MB of RAM per MB of gaps", which is the two-point error again, in
+the same document that warns about it.
+
+Because it plateaus, both ways of bounding it by reshaping the query fail, and both
+**change the hits**:
+
+| lever | MAXRSS | CPU | hits vs unsplit |
+|---|---:|---:|---|
+| split the batch into 4 | 7.16 GB -- **no saving** | 2.1x | +106 / -47, 78 above the 40% floor |
+| `diamond -b 0.02` | 0.33 GB | **5.5x** | +13 |
+| `diamond -b 0.01` | 0.45 GB | 4.8x | +72 |
+
+So the allocation moves instead: `RECOVER_ORFS` is declared at 12 GB. One unsplit call
+is the only variant verified to reproduce the per-genome path byte for byte, and a
+memory fix that changes the answer is not a fix.
+
+Note `-M/--memory-limit` is **not available for blastx** in diamond 2.2.6 -- it is a
+cluster-workflow option and errors with `Option is not permitted for this workflow`.
+
+**Separate defect found while verifying, not fixed with it.** `run_blastx` asks diamond
+for `sseqid`, which BLAST and DIAMOND truncate at the first whitespace, while the pool's
+headers are `>locus_tag|product with spaces`. Every homology-recovered gene therefore
+carries a one-word product: `DNA polymerase III subunit beta` is written as `DNA`,
+`IS3 family transposase` as `IS3`. 290 of 713 genes in the equivalence test. `stitle`
+returns the full title and fixes it in one field, verified on diamond 2.2.6 -- but it
+changes output, so it cannot ride along with a change whose acceptance test is
+byte-identity.
+
 ## Fix
 
 Build the DIAMOND database once, in `BUILD_PROTEIN_POOL`, and pass the `.dmnd` to

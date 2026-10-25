@@ -160,10 +160,21 @@ neighbourhoods fails too, for a different reason: a 46× smaller query saves 11%
 because blastx against a 7.19 GB database is ~99 CPU-s of fixed load plus
 ~0.028 CPU-s per kb searched.
 
-The untested lever is the invocation count — diamond pays that fixed cost once
-per call and the module calls it once per genome. Not attempted here; the
-estimate rests on a two-point fit, which is the error this project has made
-before.
+**The lever was the invocation count, and it has been measured** (2026-10-25).
+diamond pays that fixed cost once per call and the module called it once per
+genome. Batching every genome's gaps into one query takes this stage from
+**126.7 to 13.4 CPU-s/genome** isolated — 9.5× — which projects the pilot's
+327.6 CPU-h to **~35**, and `RECOVER_ORFS` from 76.4% of the bill to ~14%.
+
+Verified byte-identical rather than assumed: 13/13 GFF3s against the per-genome
+path, and 12/12 for the same genomes against a 200-genome batch. The memory
+allocation moves 8 → 12 GB, because diamond peaks at 7.26 GB on a full batch and
+neither way of bounding that by reshaping the query is safe — both change the
+hit set. Detail in `recover_orfs_recalibration/`;
+[#12](https://github.com/alpole23/ClusterQuest/pull/12).
+
+Note this removes a constant factor, not the quadratic: blastx still searches
+each genome against a pool that grows with N.
 
 ## Data
 
