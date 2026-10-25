@@ -75,6 +75,10 @@ process BUILD_PROTEIN_POOL {
  *
  * The GFF3s are published because they are the evidence for every downstream gene call
  * that was not in the source annotation.
+ *
+ * One task handles a batch of genomes with ONE blastx over all of their gaps -- see the
+ * note in the script block, and run_batch() in recover_orfs.py for why that needs three
+ * passes rather than two.
  */
 process RECOVER_ORFS {
     tag "${genomes instanceof List ? genomes.size() + ' genomes' : genomes.baseName}"
@@ -95,25 +99,28 @@ process RECOVER_ORFS {
 
     script:
     """
-    for GENOME in ${genomes}; do
-        BASE=\$(basename "\$GENOME" .gbff)
-        # Every failure is a continue, never an exit: aborting would forfeit the
-        # whole batch over one bad genome, and a genome with no recovered genes is
-        # a normal outcome rather than an error.
-        python ${projectDir}/scripts/genome/recover_orfs.py \\
-            --genome "\$GENOME" \\
-            --out "\${BASE}.gff3" \\
-            --pool ${protein_pool} \\
-            --pool_db ${protein_pool_db} \\
-            --prodigal \$(which prodigal) \\
-            --diamond \$(which diamond) \\
-            --threads ${task.cpus} \\
-            --workdir "_work_\${BASE}" \\
-            >> recovery_stats.tsv 2>&1 || {
-                echo "  WARN: recovery failed for \$BASE, writing an empty GFF3"
-                printf '##gff-version 3\\n' > "\${BASE}.gff3"
-            }
-        rm -rf "_work_\${BASE}"
-    done
+    # ONE call for the whole batch, not one per genome. diamond spends ~120 CPU-s
+    # loading the 7.19 GB pool database before it searches anything, so the loop
+    # this replaces paid that cost once per genome: measured on 20 genomes of the
+    # whole-Bacteria pilot, 20 calls cost 2,536 CPU-s against 265 for one, and the
+    # batched run reproduced all 20 genomes' hits exactly. That is ~90% of this
+    # stage, which was 76.4% of the pilot's 428.5 CPU-h.
+    #
+    # Per-genome failures stay per-genome inside the script -- a genome that
+    # cannot be parsed gets an empty GFF3 and the batch continues, exactly as the
+    # shell loop did. A non-zero exit here therefore means the batch itself broke
+    # (a missing binary, an unreadable database), which is not something a
+    # fallback should paper over.
+    python ${projectDir}/scripts/genome/recover_orfs.py \\
+        --genomes ${genomes} \\
+        --outdir . \\
+        --pool ${protein_pool} \\
+        --pool_db ${protein_pool_db} \\
+        --prodigal \$(which prodigal) \\
+        --diamond \$(which diamond) \\
+        --threads ${task.cpus} \\
+        --workdir _work \\
+        > recovery_stats.tsv 2>&1
+    rm -rf _work
     """
 }
