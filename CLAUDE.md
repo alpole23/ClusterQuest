@@ -1296,6 +1296,91 @@ BiG-SCAPE weighs. Separately, two of them have cross-family pepM identity 0.975 
 0.974 *within* one of them, and internal distance 0.190 against external 0.134 — those two
 should be merged, and are kept apart only because GCF numbering is BiG-SCAPE's.
 
+### Horizontal transfer: what the data supports, and what it does not
+
+Measured 2026-10-24/25 on the whole-Bacteria reference pilot (4,193 retained
+genomes, 1,345 regions) and the GenBank Enterobacterales run. Two separate
+questions, with different evidence and different reliability.
+
+**Do not plot BGC similarity against taxonomic distance.** Median BiG-SCAPE
+distance is **0.93-0.97 at EVERY level of separation** -- same species through
+different phylum -- so there is no trend to fit. This is the same finding that
+retired the Yu et al. figure (see "Why There Is No pepM Tree"), reached from the
+other direction. The whole signal is in the tail:
+
+| separation | pairs | median d | min d | pairs within the 0.30 cutoff |
+|---|---:|---:|---:|---:|
+| same species | 133 | 0.952 | 0.000 | 24 |
+| same genus | 18,437 | 0.932 | 0.000 | 846 |
+| same family | 35,201 | 0.942 | 0.041 | 149 |
+| same order | 17,612 | 0.963 | 0.204 | **1** |
+| same class | 93,777 | 0.969 | 0.261 | **3** |
+| same phylum | 107,458 | 0.969 | 0.340 | 0 |
+| different phylum | 631,222 | 0.971 | 0.282 | **1** |
+
+So the display that works is an **arc diagram**, not a scatter: genomes on a
+GTDB-ordered axis, an arc per pair inside the cutoff. Local sharing piles into a
+band and the five long-range arcs leap clear, so the exceptions are visible
+against the rule rather than cherry-picked out of it.
+
+**Five candidate pairs sit beyond family level**, and the biology of the
+carriers is the interesting part:
+
+| GCF | d | separation | organisms |
+|---|---:|---|---|
+| GCF-14 | 0.204 | same order | *Mesorhizobium metallidurans* / *Bradyrhizobium oropedii* |
+| GCF-1 | 0.261-0.262 | same class, 3 pairs | *Ca.* Burkholderia verschuerenii / *Ca.* Fukatsuia spp. |
+| GCF-11 | 0.282 | **different phylum** | *Hassallia byssoidea* (Cyanobacteriota) / *Paraburkholderia phenazinium* |
+
+The GCF-1 pairs are both insect endosymbionts, which is the textbook setting for
+transfer; GCF-11 crosses a phylum boundary.
+
+**"Crosses a genus boundary" is safe to claim; "is confined to one genus" is
+NOT.** Of 85 multi-member GCFs, 8 cross a genus boundary and **all 8 survive an
+ablation** that trims each region to proto_core +/- 2 kb (49% of CDS removed,
+matched control, PYTHONHASHSEED pinned). The reverse does not hold: that same
+trim takes families crossing a genus boundary from **8 of 85 to 51 of 132**, and
+the shallowest-rank profile shifts right across the board (family 5 -> 20, order
+1 -> 11, class 1 -> 12). So most apparent genus-confinement is BiG-SCAPE reading
+the 10 kb neighbourhood's shared housekeeping, exactly as the pantaphos 186/29
+split turned out to be. Note the trimmed clustering is NOT "the right answer"
+either -- Jaccard 0.259 against the control, with 2,626 pairs split as well as
+5,022 merged, and the trim discards real tailoring chemistry.
+
+**Pantaphos looks horizontally acquired, on composition.** Its regions sit
+**9.8 GC points below their host genomes** -- 43.83% against 53.60%, median
+-10.33, sd **1.37** across 235 regions. The control is what makes that mean
+something: other phosphonate regions across Enterobacterales sit at -0.60 pp
+(median +0.87, sd 4.36), so low GC is not a property of the class.
+
+Distribution fits one ancient acquisition then vertical inheritance: all 235
+within-cutoff hits are *Pantoea* (the lone "uncultured" is *uncultured Pantoea
+sp.*), spread over *ananatis* 180, *agglomerans* 32, *allii* 13, sp. 8,
+*vagans* 1 -- while ***P. stewartii* carries 9 phosphonate regions and none
+pantaphos-like**. The nearest non-*Pantoea* relatives are insect-associated:
+*Ca.* Stammera capleta at **0.303**, just outside the cutoff, then *Photorhabdus*
+(42 regions at 0.30-0.70) and *Xenorhabdus* (17).
+
+**The caveat that stops this being clean:** *P. ananatis* carries a SECOND,
+unrelated phosphonate cluster (d ~ 0.96 from pantaphos, 35.5 kb, on a different
+contig, conserved to the base pair across strains) with **the same -10.2 pp
+anomaly**. So within *Pantoea* the signature does not single pantaphos out.
+Either the lineage acquired two phosphonate islands, or something else about its
+phosphonate loci is compositionally atypical. Codon-usage bias against the host
+and mobility markers at the island boundaries (integrases, tRNA insertion sites,
+direct repeats) would separate those; neither has been run.
+
+**An arc is co-membership, not transfer.** Low distance between distant
+organisms is consistent with HGT and also with convergent retention or an
+ancient origin plus heavy loss. Note too that the two instruments see different
+things: pantaphos is INVISIBLE on the arc figure, because it never crosses a
+genus boundary, while composition catches transfers old enough for the recipient
+lineage to have diversified. The 0.30 threshold is inherited from GCF
+clustering, not chosen for this question -- at 0.50 the beyond-family count goes
+from 5 to 56.
+
+Scripts, the per-family table and the arc figure: `docs/comparisons/hgt_candidates/`.
+
 ## Post-Pipeline BGC Analysis Scripts
 
 These standalone scripts (in `scripts/`) perform additional analyses after the main pipeline completes. They operate on the BiG-SCAPE SQLite database and antiSMASH outputs.

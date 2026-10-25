@@ -1,0 +1,86 @@
+gcf	regions	genomes	genera	span_rank	robust_cross_genus	coupling_class	phyla	genus_list
+GCF-1	93	93	9	class	yes	Decarboxylase	1	Burkholderia; Caballeronia; Cupriavidus; Fukatsuia; Mycetohabitans; Pandoraea; +3
+GCF-7	25	25	1	genus	-	Decarboxylase	1	Pandoraea
+GCF-4	15	15	1	genus	-	Decarboxylase	1	Caballeronia
+GCF-13	15	15	1	genus	-	Unknown	1	Streptomyces
+GCF-6	14	14	1	genus	-	Decarboxylase	1	Paraburkholderia
+GCF-3	12	12	1	genus	-	Decarboxylase	1	Burkholderia
+GCF-47	11	11	2	family	yes	Transaminase	1	Aminobacter; Mesorhizobium
+GCF-8	8	8	1	genus	-	Decarboxylase	1	Paraburkholderia
+GCF-32	7	7	3	family	yes	Decarboxylase	1	Plastoroseomonas; Pseudoroseomonas; Roseomonas
+GCF-39	7	7	1	genus	-	Transaminase	1	Pseudomonas_E
+GCF-2	5	5	2	family	yes	Decarboxylase	1	Burkholderia; Paraburkholderia
+GCF-9	5	5	1	genus	-	Decarboxylase	1	Paraburkholderia
+GCF-10	5	5	1	genus	-	Decarboxylase	1	Burkholderia
+GCF-31	5	5	1	genus	-	Synthase	1	Streptomyces
+GCF-33	5	5	1	genus	-	Decarboxylase	1	Roseomonas
+GCF-34	5	5	4	family	yes	Decarboxylase	1	Belnapia; Caldovatus; Craurococcus; Paracraurococcus
+GCF-43	5	5	1	genus	-	Unknown	1	Rhizobium
+GCF-5	4	4	1	genus	-	Decarboxylase	1	Paraburkholderia
+GCF-16	4	4	1	genus	-	Unknown	1	Bradyrhizobium
+GCF-19	4	4	1	genus	-	Decarboxylase	1	Pectobacterium
+GCF-25	4	4	1	genus	-	Decarboxylase	1	Burkholderia
+GCF-26	4	4	1	genus	-	Unknown	1	Bradyrhizobium
+GCF-28	4	4	1	genus	-	Decarboxylase	1	Paraburkholderia
+GCF-29	4	4	1	genus	-	Decarboxylase	1	Centipeda
+GCF-37	4	4	1	genus	-	Decarboxylase	1	Methylophilus
+GCF-42	4	4	1	genus	-	Decarboxylase	1	Pectobacterium
+GCF-54	4	4	1	genus	-	Decarboxylase	1	Streptomyces
+GCF-11	3	3	3	above phylum	yes	Decarboxylase	2	Hassallia; Nostoc; Paraburkholderia
+GCF-14	3	3	2	order	yes	Unknown	1	Bradyrhizobium; Mesorhizobium
+GCF-15	3	3	1	genus	-	Decarboxylase	1	Streptomyces
+GCF-18	3	3	1	genus	-	Decarboxylase	1	Bradyrhizobium
+GCF-24	3	3	1	genus	-	Decarboxylase	1	Campylobacter_D
+GCF-30	3	3	1	genus	-	Decarboxylase	1	Clostridium
+GCF-40	3	3	1	genus	-	Decarboxylase	1	Paenibacillus
+GCF-44	3	3	1	genus	-	Unknown	1	Rhizobium
+GCF-53	3	3	1	genus	-	Decarboxylase	1	Paracidovorax
+GCF-70	3	3	1	genus	-	Decarboxylase	1	Streptomyces
+GCF-72	3	3	2	family	yes	Decarboxylase	1	Kitasatospora; Streptomyces
+GCF-77	3	3	1	genus	-	Decarboxylase	1	Lonsdalea
+GCF-12	2	2	1	species	-	Decarboxylase	1	Streptomyces
+GCF-17	2	2	1	genus	-	Unknown	1	Bradyrhizobium
+GCF-20	2	2	1	genus	-	Transaminase	1	Bradyrhizobium
+GCF-21	2	2	1	species	-	Decarboxylase	1	Butyricimonas
+GCF-22	2	2	1	genus	-	Decarboxylase	1	Catenulispora
+GCF-23	2	2	1	genus	-	Synthase	1	Photorhabdus
+GCF-27	2	2	1	genus	-	Decarboxylase	1	Xanthomonas
+GCF-35	2	2	1	genus	-	Transaminase	1	Bradyrhizobium
+GCF-36	2	2	1	species	-	Decarboxylase	1	Parabacteroides
+GCF-38	2	2	1	genus	-	Decarboxylase	1	JANYGI01
+GCF-41	2	2	1	genus	-	Unknown	1	Actinoalloteichus
+GCF-45	2	2	1	genus	-	Decarboxylase	1	Streptomyces
+GCF-46	2	2	1	genus	-	Decarboxylase	1	Salinisphaera
+GCF-48	2	2	1	genus	-	Transaminase	1	Burkholderia
+GCF-49	2	2	1	genus	-	Transaminase	1	Rhizobium
+GCF-50	2	2	1	species	-	Decarboxylase	1	Metabacillus
+GCF-51	2	2	1	species	-	Transaminase	1	Tistrella
+GCF-52	2	2	1	genus	-	Decarboxylase	1	Nitrosacidococcus
+GCF-55	2	2	1	genus	-	Decarboxylase	1	Paraburkholderia
+GCF-56	2	2	1	species	-	Decarboxylase	1	Streptomyces
+GCF-57	2	2	1	genus	-	Decarboxylase	1	Campylobacter_D
+GCF-58	2	2	1	genus	-	Decarboxylase	1	Paenibacillus_J
+GCF-59	2	2	1	genus	-	Decarboxylase	1	Pararobbsia
+GCF-60	2	2	1	genus	-	Unknown	1	Nitrospira_E
+GCF-61	2	2	1	genus	-	Decarboxylase	1	Nocardiopsis_A
+GCF-62	2	2	1	genus	-	Decarboxylase	1	Brevibacillus_B
+GCF-63	2	2	1	genus	-	Decarboxylase	1	Paenibacillus
+GCF-64	2	2	1	genus	-	Synthase	1	Burkholderia
+GCF-65	2	2	1	genus	-	Decarboxylase	1	Nocardia
+GCF-66	2	2	1	genus	-	Decarboxylase	1	Sorangium
+GCF-67	2	2	1	genus	-	Decarboxylase	1	Streptomyces
+GCF-68	2	2	1	genus	-	Decarboxylase	1	Pararheinheimera
+GCF-69	2	2	1	species	-	Decarboxylase	1	Burkholderia
+GCF-71	2	2	1	genus	-	Decarboxylase	1	Methylophilus
+GCF-73	2	2	1	genus	-	Decarboxylase	1	Paenibacillus_G
+GCF-74	2	2	1	genus	-	Unknown	1	Rhizobium
+GCF-75	2	2	1	genus	-	Decarboxylase	1	Hongsoonwoonella
+GCF-76	2	2	1	genus	-	Decarboxylase	1	Nocardia
+GCF-78	2	2	1	genus	-	Reductase	1	Streptomyces
+GCF-79	2	2	1	species	-	Decarboxylase	1	Hamiltonella
+GCF-80	2	2	1	genus	-	Decarboxylase	1	Bacillus_BU
+GCF-81	2	2	1	genus	-	Unknown	1	Nitrospina
+GCF-82	2	2	1	genus	-	Decarboxylase	1	Stappia
+GCF-83	2	2	1	genus	-	Decarboxylase	1	Actinoplanes
+GCF-84	2	2	1	genus	-	Unknown	1	Nocardia
+GCF-85	2	2	1	genus	-	Transaminase	1	Pseudomonas_E
