@@ -1,8 +1,6 @@
 """Visualization modules for BGC analysis pipeline."""
 
-from .charts import get_bgc_color
 from .tables import (
-    get_genome_count,
     generate_genome_table_html,
     calculate_summary_statistics,
     create_bgc_distribution_table
@@ -31,10 +29,8 @@ from utils.trace import (
 
 __all__ = [
     # charts
-    'get_bgc_color',
     # tree_viz
     # tables
-    'get_genome_count',
     'generate_genome_table_html',
     'calculate_summary_statistics',
     'create_bgc_distribution_table',

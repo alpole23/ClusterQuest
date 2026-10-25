@@ -257,55 +257,6 @@ def build_rows(gcf_class, gcf_total, gcf_species, singleton_species):
 
 # ─── Row clustering ───────────────────────────────────────────────────────────
 
-def compute_row_linkage(rows, species_list, gcf_species, singleton_species):
-    """
-    Hierarchical clustering of rows by species presence/absence (Jaccard).
-    Returns (linkage_matrix, reordered_row_indices).
-    """
-    n_rows = len(rows)
-    n_cols = len(species_list)
-    sp_idx = {sp: i for i, sp in enumerate(species_list)}
-
-    matrix = np.zeros((n_rows, n_cols), dtype=float)
-    for ri, row in enumerate(rows):
-        if row['type'] == 'gcf':
-            cell_data = gcf_species[row['gcf_id']]
-        else:
-            cell_data = singleton_species[row['cls']]
-        for sp, cnt in cell_data.items():
-            ci = sp_idx.get(sp)
-            if ci is not None:
-                matrix[ri, ci] = 1.0
-
-    if n_rows < 2:
-        return None, list(range(n_rows))
-
-    dist = pdist(matrix, metric='jaccard')
-    dist = np.nan_to_num(dist, nan=1.0)
-    Z = linkage(dist, method='complete')
-    order = list(leaves_list(Z))
-    return Z, order
-
-
-def draw_row_dendrogram(ax, Z, n_rows):
-    """
-    Draw row dendrogram in ax. Leaves on right (adjacent to strip), root on left.
-    Y-axis matches imshow convention: row 0 at top.
-    """
-    dend = dendrogram(Z, no_plot=True, orientation='left')
-    # scipy leaf positions: 5, 15, 25, ... (5 + 10*i)
-    # Map to row positions 0..n-1: row_pos = (y - 5) / 10
-    max_dist = max(d for dc in dend['dcoord'] for d in dc)
-    for ic, dc in zip(dend['icoord'], dend['dcoord']):
-        y_mapped = [(y - 5) / 10 for y in ic]
-        ax.plot(dc, y_mapped, color='#333333', lw=0.9, solid_capstyle='butt')
-    # Match imshow y-axis: row 0 near top, row n-1 near bottom
-    ax.set_ylim(n_rows - 0.5, -0.5)
-    ax.invert_xaxis()   # leaves on right, root on left
-    ax.set_xlim(max_dist * 1.05, 0)
-    ax.axis('off')
-
-
 # ─── Phylogenetic tree ────────────────────────────────────────────────────────
 
 def _keep_clade(clade, targets):

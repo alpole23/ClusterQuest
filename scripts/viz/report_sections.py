@@ -1237,16 +1237,6 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
     </div>'''
 
 
-def build_novelty_intro():
-    """One line saying what the ranking orders on, above the ranking itself."""
-    return '''
-            <h2>BGC Novelty</h2>
-            <p style="color:#666;max-width:72ch;">
-                <em>Which gene cluster families are worth taking into the laboratory,
-                and why.</em>
-            </p>'''
-
-
 def build_all_regions_section(all_regions_html, n_regions=0):
     """Every region found, as its own pane rather than a fold in the ranking.
 

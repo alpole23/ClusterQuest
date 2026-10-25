@@ -263,56 +263,6 @@ def find_record_index(antismash_data, record_id):
     return 1
 
 
-def extract_kcb_hits(antismash_data):
-    """Extract KnownClusterBlast hits from antiSMASH JSON data.
-
-    Returns list of dicts with keys: record_id, region, hit_name, accession, similarity
-    """
-    hits = []
-    if not antismash_data:
-        return hits
-
-    for record in antismash_data.get('records', []):
-        record_id = record.get('id', record.get('name', ''))
-        modules = record.get('modules', {})
-        kcb_module = modules.get('antismash.modules.clusterblast', {})
-
-        if not kcb_module:
-            continue
-
-        for region_key, region_data in kcb_module.items():
-            if not region_key.startswith('region'):
-                continue
-
-            try:
-                region_num = int(region_key.replace('region', ''))
-            except ValueError:
-                continue
-
-            knowncluster = region_data.get('knowncluster', {})
-            for ranking in knowncluster.get('rankings', []):
-                if not ranking:
-                    continue
-                hit_info = ranking[0] if isinstance(ranking, list) else ranking
-                accession = hit_info.get('accession', '')
-                description = hit_info.get('description', '')
-
-                # Calculate similarity from hits
-                similarity = 0
-                if 'hits' in hit_info:
-                    similarity = len(hit_info['hits'])
-
-                hits.append({
-                    'record_id': record_id,
-                    'region': region_num,
-                    'hit_name': description,
-                    'accession': accession,
-                    'similarity': similarity
-                })
-
-    return hits
-
-
 def build_record_index_map(antismash_dir):
     """Build a mapping from (genome, record_id) -> record_index by scanning antiSMASH JSONs.
 
@@ -440,33 +390,12 @@ def find_region_feature(record, region_num, product_filter=None):
     return None
 
 
-def region_bounds(record, region_num, product_filter=None):
-    """(start, end) of a region feature, or (None, None) if not found.
-
-    Lossy for compound locations; prefer `region_segments`.
-    """
-    feat = find_region_feature(record, region_num, product_filter)
-    if feat is None:
-        return None, None
-    return parse_location_bounds(feat.get('location', ''))
-
-
 def region_segments(record, region_num, product_filter=None):
     """Coordinate segments of a region feature, or [] if not found."""
     feat = find_region_feature(record, region_num, product_filter)
     if feat is None:
         return []
     return parse_location_segments(feat.get('location', ''))
-
-
-def cds_in_region(feat, region_start, region_end):
-    """True if a CDS feature overlaps the region (or bounds are unknown)."""
-    if region_start is None:
-        return True
-    start, end = parse_location_bounds(feat.get('location', ''))
-    if start is None:
-        return True
-    return not (end < region_start or start > region_end)
 
 
 def cds_in_segments(feat, segments):

@@ -8,6 +8,5 @@ from .parsers import (
 from .antismash_parser import (
     load_antismash_json, find_antismash_json, parse_location,
     get_gene_function_category, get_gene_color, extract_region_info,
-    extract_genes_from_region, extract_domain_hits, find_record_index,
-    extract_kcb_hits
+    extract_genes_from_region, extract_domain_hits, find_record_index
 )
