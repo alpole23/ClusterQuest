@@ -134,7 +134,13 @@ workflow BGC_ANALYSIS {
                     Utils.scriptsHash(projectDir,
                         ['analysis/branch_point_prediction.py', 'utils'])
                 )
+                // ifEmpty, like every sibling in this block. `prediction` is
+                // `optional: true`, and an unguarded optional output is how the
+                // whole-Bacteria run finished with no HTML report at all: the
+                // empty channel skips VISUALIZE_RESULTS and Nextflow still says
+                // "[SUCCESS] failed=0". See d73f6a1.
                 branch_point_ch = BRANCH_POINT_PREDICTION.out.prediction
+                    .ifEmpty(file('NO_BRANCH_POINT'))
 
                 // Reads the finished clustering database, so it runs beside the
                 // branch-point call rather than after it.
@@ -173,7 +179,12 @@ workflow BGC_ANALYSIS {
                     taxon,
                     CLUSTERING.out.gcf_data,
                     tabulation_ch,
-                    GCF_BIOSYNTHETIC_TREE.out.coupling_support,
+                    // the guarded channel, not the raw optional output: the
+                    // placeholder lets GCF_CHARACTERISATION still produce the
+                    // table, minus the coupling-evidence columns, instead of
+                    // vanishing. It is the heatmap's replacement, so losing it
+                    // silently is worse than losing two of its columns.
+                    coupling_support_ch,
                     CLUSTERING.out.bigscape_db,
                     PHYLOGENY.out.summary,
                     Utils.scriptsHash(projectDir, ['analysis/gcf_characterisation.py'])

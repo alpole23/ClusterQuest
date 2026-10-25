@@ -84,7 +84,16 @@ W_GENOMES, W_GENERA, W_INTACT, W_CLASS = 0.35, 0.25, 0.30, 0.10
 def load(reps_path, tab_path, sup_path):
     reps = json.loads(Path(reps_path).read_text())
     tab = list(csv.DictReader(Path(tab_path).open(), delimiter='\t'))
-    lines = [l for l in Path(sup_path).open() if not l.startswith('#')]
+    # The coupling support is optional upstream: GCF_BIOSYNTHETIC_TREE emits it
+    # `optional: true`, so this may be a placeholder. Degrade to no coupling
+    # evidence rather than crashing -- every other column still has its data,
+    # and this table is what replaced the GCF x species heatmap.
+    sp = Path(sup_path)
+    if not sp.exists() or sp.name.startswith('NO_'):
+        sys.stderr.write(f'note: no coupling support ({sp.name}); '
+                         'coupling_class and the divergence columns will be blank\n')
+        return reps, tab, {}
+    lines = [l for l in sp.open() if not l.startswith('#')]
     # Support rows are keyed "ACCESSION.VERSION.regionNNN", with extra "_N" rows for the
     # sub-records (protocluster, cand_cluster, proto_core). Keep region level only, and
     # index on the *unversioned* accession: region_tabulation.tsv has already lost the
