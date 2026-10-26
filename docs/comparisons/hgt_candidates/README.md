@@ -118,7 +118,7 @@ insertions each beside a tRNA with integrase remnants would make the case.
 - **0.30 is the GCF clustering cutoff, not an HGT threshold.** At 0.50 the
   beyond-family count goes from 5 to 56.
 - **One genome per species.** Within-species spread is invisible by
-  construction, and 935 of the 1,020 families are singletons for that reason.
+  construction, and 938 of the 1,022 families are singletons for that reason.
 
 ## Reproducing
 

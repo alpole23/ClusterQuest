@@ -246,10 +246,20 @@ the previous projection in this document was optimistic by 2.23x. Solving the th
 points gives ~120 CPU-s fixed per invocation, which is the database load, and the rest
 is marginal.
 
-Contention-adjusted, the pilot's `RECOVER_ORFS` goes **327.6 CPU-h -> ~35**: 13.4 scaled
-by the 2.23x isolation-to-production factor this document measured earlier gives ~30
-CPU-s/genome over 4,193 genomes. That factor is likely pessimistic now, because the
-allocation below cuts concurrency from 7 tasks to 4 and contention with it.
+Contention-adjusted, this projected the stage at **~35 CPU-h**: 13.4 scaled by the 2.23x
+isolation-to-production factor measured earlier, over 4,193 genomes.
+
+**Measured in production 2026-10-26: 47.93 CPU-h, 41.2 CPU-s/genome** -- 37% over that
+projection. The 9.5x isolated ratio held exactly; what did not was the contention factor,
+which came in at **3.07x** rather than 2.23x, because 4 concurrent tasks x 4 CPUs now
+fully subscribes all 16 cores. That is the THIRD time in this document an idle-box
+measurement has under-predicted production. **Multiply an isolated figure by ~3 before
+quoting it for this machine**, or measure under load.
+
+The pilot comparison that used to sit here -- "327.6 CPU-h -> ~35" -- is withdrawn with
+the rest of the pilot's cost table; see `bacteria_reference_pilot/`. The controlled
+before/after above is the defensible evidence for what batching bought, because it holds
+the genomes, pool, box and load constant.
 
 **Equivalence, which is the point rather than the speed.** This stage feeds antiSMASH's
 gene calls, so a silent difference propagates into every BGC boundary downstream:
