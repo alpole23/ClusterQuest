@@ -237,27 +237,36 @@ available.
 the pilot's withdrawn stage costs — it under-counted antiSMASH and GTDB-Tk by using
 figures that were never real.
 
-### One hard blocker, and it is not CPU
+### The memory blocker, found and removed
 
-`BUILD_PROTEIN_POOL` keeps the deduplicated pool resident in a Python dict keyed on the
-protein **sequence**: ~550 bytes per unique protein, **measured 10.2 GB over 19.8 M**.
-Linear in the pool:
+`BUILD_PROTEIN_POOL` kept the deduplicated pool resident in a Python dict keyed on the
+protein **sequence** — ~550 bytes per unique protein, **measured 10.2 GB over 19.8 M**,
+linear in the pool. At ~30,000 retained genomes that is ~68 GB, which does not fit a
+56 GB box: the binding constraint on going wider was memory, not CPU.
 
-| retained genomes | unique proteins | peak |
-|---:|---:|---:|
-| 4,193 *(measured)* | 19.8 M | 10.2 GB |
-| 30,000 | ~142 M | **~78 GB** |
+Fixed in [#16](https://github.com/alpole23/ClusterQuest/pull/16) by remembering a sha256
+digest and streaming each protein straight to the output, so the pool is never resident.
+Measured on 400 genomes: **516 → 108 bytes per protein**, output byte-identical.
 
-**That does not fit a 56 GB box.** Keying on a digest rather than the sequence cuts it
-~5× and is the prerequisite for going wider.
-[#15](https://github.com/alpole23/ClusterQuest/pull/15) raised the declaration (16 GB
-base, 48 GB on SLURM) for the current scale only.
+| retained genomes | unique proteins | before | after |
+|---:|---:|---:|---:|
+| 4,193 *(measured)* | 19.8 M | 10.2 GB | **~2.2 GB** |
+| 30,000 | ~142 M | ~68 GB | **~14.5 GB** |
+
+**Resource declarations now scale with the input rather than with this workstation**,
+also in #16 — `BUILD_PROTEIN_POOL` from the genome count, `RECOVER_ORFS` from the
+database size. A literal fitted to one box wastes a large node and silently blocks
+scheduling on a small one, and this pipeline has to run on better hardware than the
+machine it was developed on.
 
 ### What else to distrust at that scale
 
 - **A 51 GB DIAMOND database.** `RECOVER_ORFS` was measured against 7.2 GB and peaks at
   7.26 GB of RAM, driven by query size. Neither the time nor the memory of a 7× larger
-  database has been measured, and the 12 GB declaration is calibrated to the small one.
+  database has been measured. The declaration now scales with the database (#16), but
+  that rule is fitted to a single point: diamond chunks its database, so peak may be
+  *bounded* rather than linear, in which case it over-requests. **This is the biggest
+  remaining unknown in the table above**, and it sits on the stage that dominates.
 - **BiG-SCAPE fits, which was not expected.** ~9,600 BGCs gives 20.7 GB on the corrected
   fit, against a ~15,000-BGC ceiling for this box — so it runs unpartitioned and the
   partitioning machinery stays insurance.
