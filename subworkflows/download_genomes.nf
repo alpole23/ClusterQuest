@@ -24,7 +24,8 @@ workflow DOWNLOAD_GENOMES {
         taxon
 
     main:
-        NCBI_FETCH_METADATA(taxon)
+        NCBI_FETCH_METADATA(taxon,
+            Utils.scriptsHash(projectDir, ['genome/plan_metadata_shards.py']))
         CREATE_NAME_MAP(taxon, NCBI_FETCH_METADATA.out.assembly_info,
                         Utils.scriptsHash(projectDir, ['genome/create_name_map.py']))
         DOWNLOAD_TAXONKIT_DB()

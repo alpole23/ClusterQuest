@@ -181,7 +181,7 @@
         "download_max_forks": {
             "type": "integer",
             "description": "Concurrent fetch tasks. MEASURED on the COMBINED fetch+screen stage, which is what this process actually does \u2014 a download-only probe overstates it, because the pepM screen runs inline before the next batch starts. Re-probed wired on 2026-1",
-            "default": 4,
+            "default": 24,
             "x-group": "Download Genome Options"
         },
         "gtdb_release": {
@@ -239,6 +239,12 @@
             ],
             "description": "only for --workflow bgc_analysis; Path to pre-downloaded genomes directory",
             "x-group": "antiSMASH Analysis Options"
+        },
+        "metadata_shard_threshold": {
+            "type": "integer",
+            "description": "Record count above which NCBI_FETCH_METADATA splits its fetch by release date. NCBI cannot hold one stream open long enough for a whole domain: 3,350,527 records failed four times at 0.29-1.31 GB of ~1.72 GB, while 149,539 fetch cleanly in ~4.5 min. Below the threshold the fetch is a single call, exactly as before. 0 disables sharding.",
+            "default": 100000,
+            "x-group": "Download Genome Options"
         },
         "outdir": {
             "type": "string",
