@@ -38,6 +38,25 @@ process BUILD_PROTEIN_POOL {
     tag "$taxon"
     label 'process_low'
 
+    // Memory is a FUNCTION OF THE INPUT, not a constant, because the pool scales
+    // with the run and this pipeline has to size itself on whatever machine it is
+    // given. A literal tuned to one workstation either wastes a large node or
+    // silently blocks scheduling on a small one.
+    //
+    // Measured after the digest change: ~0.21 GB of BioPython parsing floor plus
+    // ~108 bytes per unique protein. A fully PGAP-annotated genome donates ~4,726
+    // unique proteins, so ~0.51 MB per genome is the worst case; 1 MB per genome
+    // is about 2x headroom on that, and far more on sparsely annotated GenBank
+    // input (769 proteins/genome measured on Enterobacterales).
+    //
+    //     4,193 genomes -> 6 GB declared, ~2.2 GB needed
+    //    30,000 genomes -> 32 GB declared, ~14.5 GB needed
+    //
+    // Declared here rather than in conf/labels.config because a config `withName`
+    // closure can see `task` but NOT the process inputs, and it would override
+    // this if it also set memory.
+    memory { 1.GB * (2 + Math.ceil((genomes instanceof List ? genomes.size() : 1) / 1000.0)) }
+
     input:
     val taxon
     path genomes
@@ -83,6 +102,24 @@ process BUILD_PROTEIN_POOL {
 process RECOVER_ORFS {
     tag "${genomes instanceof List ? genomes.size() + ' genomes' : genomes.baseName}"
     label 'process_medium'
+
+    // Scales with the DATABASE, for the same portability reason as above.
+    //
+    // It is diamond that holds the memory. Measured against the whole-Bacteria
+    // pool: a 7.19 GB database peaks at 7.26 GB on a full batch and 3.46 GB on a
+    // single genome's gaps, so peak tracks database size closely at that point,
+    // and 6 GB over it is comfortable headroom.
+    //
+    // CAVEAT, because one point is not a curve: that relationship is measured at
+    // ONE database size. diamond chunks its database, so peak may well be BOUNDED
+    // rather than linear above 7 GB -- in which case this over-requests on a large
+    // pool. Over-requesting wastes an allocation; under-requesting is an OOM kill
+    // of a long batch, so the error is taken in this direction, and the escalation
+    // below absorbs the case where it is wrong the other way. Re-measure at a
+    // larger pool before trusting the high end.
+    memory { 1.GB * (6 + Math.ceil(protein_pool_db.size() / 1e9)) * task.attempt }
+    maxRetries 1
+    errorStrategy { task.exitStatus in [104, 134, 137, 139, 140] && task.attempt <= 1 ? 'retry' : 'terminate' }
     publishDir "${params.outdir}/recovered_orfs/${Utils.sanitizeTaxon(params.taxon)}",
         mode: params.publish_mode, pattern: '*.gff3'
 
