@@ -51,34 +51,47 @@ process BUILD_PROTEIN_POOL {
     // and an OOM on dense input. File size tracks annotation directly, so it
     // absorbs that spread on its own.
     //
-    // What the number is built from, all measured on Bacteria GenBank:
-    //   - 3,470 bytes of GenBank per CDS (833,045 CDS over 2,890.9 MB, 387 genomes)
-    //   - ~130 bytes per entry in the digest set. Measured directly on a set of
-    //     N sha256 digests rather than inferred from a run's RSS, because RSS
-    //     also carries BioPython's own working set and reading the slope off it
-    //     overstates the cost by ~2x. Per element it is 126 B at 1e5 and falls
-    //     to 107 B at 2e7 as the table's load factor settles, so 130 is above
-    //     the whole measured range and comfortably above it where it matters.
-    // so the ZERO-DEDUPLICATION bound is 130/3,470 = 3.7% of input bytes. 2.5% is
-    // declared instead, which is met once deduplication passes 32% -- already 28%
-    // at just 387 genomes and climbing steeply with pool size, since the pool is
-    // drawn from screened genomes that are each other's close relatives. The
-    // retry below covers the case where that is wrong.
+    // Calibrated end to end on the Bacteria GenBank run's OWN retained genomes,
+    // running this process's script over a seeded random draw and reading peak
+    // RSS as ru_maxrss of the single python process. Do NOT calibrate this off a
+    // Nextflow `peak_rss`: that sums the process tree and spans the makedb phase
+    // as well, and reading the slope off one gave 510 B/unique, 4.5x the truth.
     //
-    // The BioPython parse transient used to dominate both terms and no longer
-    // exists; see the note on the iteration in build_protein_pool.py.
+    //     genomes    input   gross CDS     unique    dedup   peak RSS
+    //         200   1.37 GB     423,315    275,563   34.9%     126 MB
+    //         800   6.15 GB   1,831,247  1,215,059   33.6%     234 MB
+    //       3,200  25.25 GB   7,419,776  4,314,865   41.8%     565 MB
     //
-    // This has to cover `diamond makedb` too, which runs after the Python exits
-    // and so has the digest set's memory back. makedb peaked at 1.65 GB on a 6.89
-    // GB pool, i.e. ~24% of pool size, and the pool is ~347 bytes per unique
-    // protein -- so the makedb phase stays under the Python phase for as long as
-    // the declaration tracks unique proteins, which is what it is built to do.
+    // which fits RSS = 99 MB + 113.5 BYTES per unique protein, over a 16x range.
+    // Deduplication RISES with pool size (34.9% -> 41.8%) because the pool is
+    // drawn from screened genomes that are each other's close relatives, so
+    // unique proteins per input GB FALLS -- 201,140 -> 170,886 -- and the
+    // marginal cost at 3,200 genomes is 113.5 B x 170,886 = 1.94% of input
+    // bytes, still falling. 2.5% is declared, above the measured rate at every
+    // size tested; the retry below covers the case where that is wrong.
+    //
+    // Beware the dereplicated case, which is the opposite extreme: the
+    // whole-Bacteria REFERENCE pilot is one genome per species, so it dedupes
+    // only 2.4% and yields 339,527 unique/GB -- 2.0x this run's rate. 2.5% still
+    // covers it (58.37 GB in -> 4 GB declared against 2.4 GB needed), but a
+    // broader dereplicated input is the direction that would break it.
+    //
+    // `diamond makedb` runs after the python exits, so it gets that memory back
+    // and is not additive. Measured on the pilot's real 7.40 GB pool: peak
+    // 1.52 GB, 20.5% of pool size, 108 s, producing a 7.72 GB database. The pool
+    // is 373 bytes per unique protein and the database 389, so makedb stays well
+    // under the python phase at every size this declaration covers.
     //
     //       387 genomes,    2.9 GB in ->  3 GB declared, 0.16 GB measured
-    //     4,193 genomes,   33.5 GB in ->  3 GB declared
-    //   203,000 genomes, 1,577.4 GB in -> 42 GB declared, and 42 GB covers 308 M
-    //                                   unique proteins -- 71% of gross CDS, where
-    //                                   deduplication is already 28% at 387 genomes
+    //     4,193 genomes,   58.4 GB in ->  4 GB declared, 2.4 GB needed
+    //   204,000 genomes, 1,659.0 GB in -> 44 GB declared, 32 GB needed
+    //                                   (~283 M unique proteins; makedb ~22 GB)
+    //
+    // NOTE the 204,000 figure is 6.088% retention (21,260 of 349,204 screened)
+    // over 3,350,527 records at the 8.13 MB/genome this run's retained set
+    // measures. That pool implies a ~110 GB DIAMOND database, which RECOVER_ORFS
+    // below declares as 6 + ceil(db_GB) = ~116 GB -- re-check that directive
+    // before a run of this size, not this one.
     //
     // Declared here rather than in conf/labels.config because a config `withName`
     // closure can see `task` but NOT the process inputs, and it would override
