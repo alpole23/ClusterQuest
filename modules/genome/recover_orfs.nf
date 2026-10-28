@@ -43,19 +43,56 @@ process BUILD_PROTEIN_POOL {
     // given. A literal tuned to one workstation either wastes a large node or
     // silently blocks scheduling on a small one.
     //
-    // Measured after the digest change: ~0.21 GB of BioPython parsing floor plus
-    // ~108 bytes per unique protein. A fully PGAP-annotated genome donates ~4,726
-    // unique proteins, so ~0.51 MB per genome is the worst case; 1 MB per genome
-    // is about 2x headroom on that, and far more on sparsely annotated GenBank
-    // input (769 proteins/genome measured on Enterobacterales).
+    // Scaled on INPUT BYTES, not on genome count, because the count does not say
+    // how much annotation a genome carries and that is what costs memory. Across
+    // the inputs this has been measured on, per-genome protein counts span 769
+    // (Enterobacterales) to 4,726 (PGAP reference) -- 6.1x, which no per-genome
+    // constant absorbs. It is picked up as a pure over-request on sparse input
+    // and an OOM on dense input. File size tracks annotation directly, so it
+    // absorbs that spread on its own.
     //
-    //     4,193 genomes -> 6 GB declared, ~2.2 GB needed
-    //    30,000 genomes -> 32 GB declared, ~14.5 GB needed
+    // What the number is built from, all measured on Bacteria GenBank:
+    //   - 3,470 bytes of GenBank per CDS (833,045 CDS over 2,890.9 MB, 387 genomes)
+    //   - ~130 bytes per entry in the digest set. Measured directly on a set of
+    //     N sha256 digests rather than inferred from a run's RSS, because RSS
+    //     also carries BioPython's own working set and reading the slope off it
+    //     overstates the cost by ~2x. Per element it is 126 B at 1e5 and falls
+    //     to 107 B at 2e7 as the table's load factor settles, so 130 is above
+    //     the whole measured range and comfortably above it where it matters.
+    // so the ZERO-DEDUPLICATION bound is 130/3,470 = 3.7% of input bytes. 2.5% is
+    // declared instead, which is met once deduplication passes 32% -- already 28%
+    // at just 387 genomes and climbing steeply with pool size, since the pool is
+    // drawn from screened genomes that are each other's close relatives. The
+    // retry below covers the case where that is wrong.
+    //
+    // The BioPython parse transient used to dominate both terms and no longer
+    // exists; see the note on the iteration in build_protein_pool.py.
+    //
+    // This has to cover `diamond makedb` too, which runs after the Python exits
+    // and so has the digest set's memory back. makedb peaked at 1.65 GB on a 6.89
+    // GB pool, i.e. ~24% of pool size, and the pool is ~347 bytes per unique
+    // protein -- so the makedb phase stays under the Python phase for as long as
+    // the declaration tracks unique proteins, which is what it is built to do.
+    //
+    //       387 genomes,    2.9 GB in ->  3 GB declared, 0.16 GB measured
+    //     4,193 genomes,   33.5 GB in ->  3 GB declared
+    //   203,000 genomes, 1,577.4 GB in -> 42 GB declared, and 42 GB covers 308 M
+    //                                   unique proteins -- 71% of gross CDS, where
+    //                                   deduplication is already 28% at 387 genomes
     //
     // Declared here rather than in conf/labels.config because a config `withName`
     // closure can see `task` but NOT the process inputs, and it would override
     // this if it also set memory.
-    memory { 1.GB * (2 + Math.ceil((genomes instanceof List ? genomes.size() : 1) / 1000.0)) }
+    //
+    // NOTE .size() is COUNT on a List and BYTES on a single file, hence the guard.
+    memory {
+        def inGB = (genomes instanceof List
+                        ? (genomes.sum { it.size() } ?: 0)
+                        : genomes.size()) / 1e9
+        1.GB * (2 + Math.ceil(inGB * 0.025) * task.attempt)
+    }
+    maxRetries 1
+    errorStrategy { task.exitStatus in [104, 134, 137, 139, 140] && task.attempt <= 1 ? 'retry' : 'terminate' }
 
     input:
     val taxon
