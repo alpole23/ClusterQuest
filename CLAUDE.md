@@ -2956,76 +2956,82 @@ however the tooltip is worded, which is the same failure the composite was withd
 for. It also cost `GCF_CHARACTERISATION` an input -- the whole BiG-SCAPE database --
 that nothing else in that process needed.
 
-`viz/gcf_network.py` shows the same distances as a shape, which cannot be sorted. One
-node per family, sized by members and coloured by coupling class.
+`viz/gcf_network.py` shows the same distances as a shape, which cannot be sorted.
 
-**A node is the family REPRESENTATIVE and an edge is the measured distance between two
-representatives** (changed 2026-10-29; it was single linkage over all cross-family
-pairs). The node is `family.center_id`, BiG-SCAPE's own medoid, so it is a real BGC the
-tooltip names and the family page links to -- and **it is the same matrix the
-family-centre tree is built on** (`bgc_gcf_tree.py`, Biosynthetic phylogeny pane). That
-is the reason for the change: the two panes are now one object in two layouts, where
-before a reader who found two families adjacent in the network and far apart in the
-tree had no way to reconcile them. The tree shows the backbone, the network keeps the
-cycles a tree has to discard.
+**It is a distance matrix over family representatives** -- one row and one column per
+family, the cell being the measured BiG-SCAPE distance between the two
+`family.center_id` medoids, darker the closer. Rows and columns are grouped by
+coupling class and sorted by size inside each group; a bar down the left edge carries
+family size, which is the one thing a matrix cannot put in the cells.
 
-What the switch cost, measured on GenBank Enterobacterales at the 0.50 cutoff:
+**It is the same matrix the family-centre tree is built on** (`bgc_gcf_tree.py`,
+Biosynthetic phylogeny pane), so the two panes are one object in two renderings: the
+tree shows the backbone, this shows every pair the tree had to discard. Until
+2026-10-29 the pane was built on a different matrix -- single linkage over all
+cross-family pairs -- and a reader who found two families adjacent here and far apart
+in the tree had no way to reconcile them.
 
-| | closest pair | representatives |
-|---|---:|---:|
-| edges | 327 | **258** |
-| families with no neighbour | 9 | **13** |
-| largest degree | 79 | **75** |
-| edges the other does not have | 69 | **0** |
+**Do not go back to a node-link diagram.** Three were drawn against this data first,
+and the matrix beats them on grounds that are not taste:
 
-**Representative-only edges are 0 at every threshold tried** (0.30 through 0.70), and
-necessarily so -- the representative pair is one of the pairs single linkage minimises
-over, so `d(rep_A, rep_B) >= min(A, B)` always. The representative network is a strict
-*subset*. 43 of 112 families are singletons where the two definitions coincide by
-construction; over the 69 multi-member families the median representative-minus-closest
-gap is +0.021, mean +0.049, worst +0.717. What is given up -- a family pair touching
-closely at one point while their bulk differs -- is cohesion, which
-`docs/comparisons/family_cohesion/` measures directly and better.
+- **It needs no threshold.** A node-link diagram has to decide which edges to draw, so
+  it needs an `EDGE_CUTOFF`, and no value of it is defensible. The matrix shows all
+  6,216 pairs. The constant survives only to count neighbours and pick which cells get
+  an individual tooltip.
+- **A hub reads as a stripe.** GCF-31 is within 0.50 of two thirds of all other
+  families -- the grab-bag signature recorded for GCF-27 above -- and a full-length
+  line across every block is unmissable where 75 chords from one node are a dense patch.
+- **Sub-block structure survives.** The Decarboxylase group is plainly not one thing.
+  Neither the ring nor the arc showed that at all.
 
-**Representatives are stable under the pipeline's pin**, which is what makes this safe:
-`bigscape_determinism/` measured 2 of 5 family centres moving between identical runs
-*unpinned* and **0 with `PYTHONHASHSEED=0`**, which all four BiG-SCAPE processes set.
-Every difference that survey saw was at distance >= 0.66 and **0 of 6,319 comparisons
-below 0.5 changed**, so the drawn edges sit in the regime that reproduced even unpinned.
-Do not cite the unpinned figure as an argument against centre-based figures.
+The three that lost, so they are not retried: **Fruchterman-Reingold** failed twice --
+plain FR walks weakly-connected nodes into the clamp and draws them in rows along the
+frame, and adding gravity made it worse, 89 of 112 pinned. The cause is the hub, so
+*any* force layout resolves to a sunburst and the tuning only picks how ugly. **A ring**
+fixed that and shipped briefly, but it orders by class, so most edges are within-class
+chords bundled unreadably against the rim while the interesting cross-class ones must
+be picked out of the crossings. **An arc diagram**, the ring unrolled, is better on the
+long-range edges and fits a page better, but bundles the same dense local block and
+still has to threshold.
 
-A chord below the 0.30 family cutoff is still legitimate: BiG-SCAPE 2 clusters by
-affinity propagation, NOT single linkage, so near-identical regions can sit in different
-families.
+**The ramp is clipped at 0.9 and binned by tenths, because that is where the data is.**
+Representative distances here: median **0.945**, 74% at 0.9 or above, only 5% below
+0.556. A linear ramp over [0, 1] spends nearly all its range on pairs that are simply
+unrelated. One shade per tenth up to 0.9 and blank beyond matches the decile histogram,
+is one sentence to explain, and holds the drawn cells to about a quarter of the square
+-- which is also what keeps the SVG inlinable.
+
+**`RAMP[0]` is the DARKEST.** The list is ordered the way `shade()` indexes it, so dark
+means similar. Writing it light-first and indexing by distance draws the figure inside
+out -- the dense 0.8-0.9 shoulder goes black and the close blocks fade to nothing. That
+was shipped for one render and caught only by looking at the PNG.
+
+**Cells are emitted as one path per shade bin, not as 12,544 rects.** Individual rects
+with their own fill is over a megabyte of SVG inlined in the report; per-bin paths with
+integer coordinates give 135 kB. Only the pairs within `EDGE_CUTOFF` get real elements,
+so tooltips exist exactly where they are worth the bytes.
 
 `family_network()` also returns how many of the n(n-1)/2 representative pairs the
-database actually holds a comparison for, and the caption says so when it is short. On a
-merged partitioned database only within-partition pairs exist, and a missing chord there
-means *not measured*, not *far apart* -- the trap the all-BGCs tree fell into by
-substituting a constant for 42.9% of its matrix silently.
+database holds a comparison for. Unmeasured cells get their own sand fill and the
+caption counts them: on a merged partitioned database only within-partition pairs
+exist, and a missing cell means *not measured*, not *far apart* -- the trap the
+all-BGCs tree fell into by substituting a constant for 42.9% of its matrix silently.
 
-**Do not use a force layout for this.** Fruchterman-Reingold was tried and failed
-twice: plain FR walks weakly-connected nodes into the clamp and draws them as straight
-rows along the frame, and adding gravity made it worse (89 of 112 nodes pinned). The
-cause is the data, not the tuning -- GenBank Enterobacterales has **GCF-31 at degree
-75**, a family within 0.50 of two thirds of all others, so any force layout resolves to a
-sunburst around it. That is the grab-bag signature already recorded for GCF-27 above,
-and the network surfaces it at a glance. A ring ordered by coupling class then size is
-deterministic by construction, which is what byte-reproducible reports need -- a seeded
-RNG is not enough, because family ids shift between runs.
+**Representatives are stable under the pipeline's pin**, which is what makes a
+centre-based figure safe: `bigscape_determinism/` measured 2 of 5 family centres moving
+between identical runs *unpinned* and **0 with `PYTHONHASHSEED=0`**, which all four
+BiG-SCAPE processes set. Every difference it saw was at distance >= 0.66 and **0 of
+6,319 comparisons below 0.5 changed**. Do not cite the unpinned figure as an argument
+against centre-based figures; it nearly blocked this one.
 
-**Ring labels run radially, along their own spoke.** Horizontal was tried and
-overprinted into an unreadable blob: the ring sorts by size inside each class group, so
-the ten largest families are always ADJACENT, and at the top of the ring adjacent labels
-differ by ~16 px of x against a ~44 px word. Radially they are separated by the angular
-gap instead -- 11 px of text height against 18 px of arc at 112 nodes -- so they cannot
-collide at any family count this figure is readable at. Caught by rendering the SVG and
-looking at it, which is the only thing that catches it.
+A cell below the 0.30 family cutoff is legitimate: BiG-SCAPE 2 clusters by affinity
+propagation, NOT single linkage, so near-identical regions can land in different
+families.
 
-Measured on the GenBank Enterobacterales database: 112 families, 258 edges at 0.50, 13
-families with no neighbour, all 6,216 representative pairs measured, 83 KB of SVG,
-0.22 s -- the query is now 6,216 indexed lookups rather than a scan of all 1,088,550
-distance rows. Byte-identical across three processes under `PYTHONHASHSEED=random`.
+Measured on the GenBank Enterobacterales database: 112 families, all 6,216
+representative pairs measured and drawn, 3,350 cells inked, 135 kB of SVG, 0.22 s --
+the query is 6,216 indexed lookups rather than a scan of all 1,088,550 distance rows.
+Byte-identical across three processes under `PYTHONHASHSEED=random`.
 
 ### The execution timeline was removed from the resources pane
 
