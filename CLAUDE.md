@@ -515,7 +515,8 @@ cluster. At full depth the same order gives 72 families from 1,303 BGCs, largest
 
 ### Paper figures (`scripts/figures/`, output in `docs/figures/`)
 
-Four figures, each regenerating with one command and no live run directory:
+Six figures from five scripts, each regenerating with one command and no live run
+directory:
 
 | script | manuscript | shows |
 |---|---|---|
@@ -523,6 +524,25 @@ Four figures, each regenerating with one command and no live run directory:
 | `fig1_orf_recovery.py` | Figure 2 | ORF recovery across clades + a gain distribution |
 | `fig2_prescreen.py` | Figure 3 | pre-screen CPU saving and detection neutrality |
 | `fig3_partitioning.py` | Figure 4 | BiG-SCAPE partitioning: runtime, memory, families |
+| `fig5_architecture.py` | Figure 5 | the three mechanisms, one panel each |
+| `fig5_architecture.py` | Figure S1 | stages, artefacts, the funnel and the CPU strip |
+
+**Figures 5 and S1 moved from the RefSeq run to the GenBank run on 2026-10-28**, and
+read `docs/comparisons/enterobacterales_genbank/summary.json`. The switch strengthens
+the claim rather than restating it: at 8.9x the input and an eighth the retention,
+fetch-and-screen goes **40.4% -> 91.2%** of CPU and antiSMASH **29.3% -> 4.0%**.
+
+Two things do NOT transfer, and the panel that cites them says so. **Peak disk and peak
+memory were never sampled on the GenBank run**, and cannot be recovered after the fact:
+RefSeq's 150 GB came from a `df` poll every 60 s (`disk_samples.tsv`, 2,608 samples),
+while a Nextflow trace records `rchar`/`wchar` -- bytes MOVED, not bytes held. To get a
+figure at this scale, start a sampler alongside a future run; do not try to reconstruct
+one from a finished one.
+
+**Sum CACHED tasks as well as COMPLETED when costing a resumed run.** The GenBank run
+was resumed four times, so a cached entry carries the realtime of the session that
+actually executed it. COMPLETED alone gives 705.2 CPU-h against the true 1,547.2 --
+the fetch stage, which is almost all of the cache, is undercounted by more than half.
 
 **Inputs are committed, and that was not free.** Figures 1 and 2 read region GenBanks
 that used to come from six A/B run directories under `results_*/`, which is gitignored and
@@ -554,6 +574,37 @@ Output is byte-deterministic across processes — `utils/plotting` pins `svg.has
 `canonicalise_svg` rewrites clip-path ids. The committed SVGs were found stale once,
 produced by older script versions and never refreshed; regenerate all four after touching
 any of them.
+
+### Measured: GenBank Enterobacterales (2026-10-16) — the inversion completes
+
+1,349,504 genomes, same box, screen on, recovery on, GTDB-Tk on, unpartitioned.
+**54,058 tasks, 0 failed, 1,547.2 CPU-h.** Data:
+`docs/comparisons/enterobacterales_genbank/summary.json`.
+
+| | RefSeq · 150,690 | GenBank · 1,349,504 |
+|---|---:|---:|
+| passed the pepM screen | 1,309 (0.87%) | **1,530 (0.113%)** |
+| regions / BGC-positive genomes | 1,303 / 1,261 | 1,476 / 1,427 |
+| families / largest / singletons | 72 / 186 / 16 | **112** / 186 / 43 |
+| `FETCH_RENAME_SCREEN` | 40.4% of CPU | **91.2%** |
+| `ANTISMASH` | 29.3% | **4.0%** |
+| `BIGSCAPE` | 0.7% | **0.07%** |
+
+**8.9x the input bought 1.17x the surviving genomes**, because GenBank's extra ~1.2 M
+assemblies are overwhelmingly more clinical *E. coli*, *Salmonella* and *Klebsiella*.
+That is the measured version of what `enterobacterales_genbank/PREDICTIONS.md` guessed.
+
+**The largest family does not move: 186 either way.** It is the pantaphos family, already
+saturated in RefSeq. The 40 extra families and 27 extra singletons are new chemistry from
+clades RefSeq did not sample, not growth of what was there -- the same shape as the
+component-rarefaction result for partitioning, where new diversity adds components beside
+the dense cluster rather than enlarging it.
+
+**Wall clock is per session, not a single figure.** The run was resumed four times; the
+session that completed it took 2 d 0 h 15 m, matching the timeline report's own elapsed,
+and total active runtime across all sessions is at least 2 d 5 h 1 m. The ~2.6-day gap
+between Oct 11 and Oct 14 is idle and is not runtime. Do not quote submit-to-complete
+across a resumed run as a wall time; it spans the gaps.
 
 ### Measured: BiG-SCAPE scaling (2026-08-30)
 
