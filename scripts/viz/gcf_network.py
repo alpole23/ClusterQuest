@@ -106,7 +106,7 @@ _UNMEASURED = '#f3ece2'
 # figure DOWN -- so a 9 px cell renders the 7 px row labels at 6.5 px and reads worse
 # than an 8 px cell at 1:1. 8 is the largest cell that keeps every label legible.
 CELL_MAX, CELL_MIN, BODY_MAX = 8, 3, 900
-PAD_L, PAD_T = 92, 44          # room for row labels, the strips, and class names
+PAD_L, PAD_T = 92, 76          # row labels left; class names, strip, column labels above
 
 _CLASS_FALLBACK = '#9aa7ad'
 _SENTINELS = ('', '-', 'Unknown', 'unknown')
@@ -243,7 +243,8 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     parts = [f'<svg viewBox="0 0 {W} {H}" width="100%" '
              f'style="max-width:{W}px;height:auto;display:block;margin:0 auto;" '
              f'role="img" aria-label="Distance matrix of {n} gene cluster family '
-             f'representatives, rows and columns grouped by coupling enzyme class. '
+             f'representatives, every family named on both axes and grouped by coupling '
+             f'enzyme class. '
              f'Darker means more similar; a cell is blank at {BLANK_AT:g} or beyond.">',
              f'<rect x="{PAD_L}" y="{PAD_T}" width="{body}" height="{body}" '
              f'fill="#fbfcfc"/>']
@@ -291,7 +292,7 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         parts.append(f'<rect x="{PAD_L - 11}" y="{y0(i0)}" width="8" height="{run}" '
                      f'fill="{fill}"><title>{_html.escape(c or "no dominant class")}: '
                      f'{i1 - i0 + 1} families</title></rect>')
-        parts.append(f'<rect x="{x0(i0)}" y="{PAD_T - 11}" width="{run}" height="8" '
+        parts.append(f'<rect x="{x0(i0)}" y="22" width="{run}" height="8" '
                      f'fill="{fill}"/>')
         # Above the matrix, not below: with every family labelled down the left edge
         # the eye enters at the top-left, and a class name under 896 px of cells is a
@@ -299,7 +300,7 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         # family count -- a 4-family span is 32 px and cannot hold "Decarboxylase".
         name = c or 'unclassified'
         if i1 - i0 >= 1 and run >= 5.0 * len(name):
-            parts.append(f'<text x="{x0(i0) + run / 2:.0f}" y="{PAD_T - 17}" '
+            parts.append(f'<text x="{x0(i0) + run / 2:.0f}" y="16" '
                          f'text-anchor="middle" font-size="10" '
                          f'font-family="system-ui,-apple-system,sans-serif" '
                          f'fill="#44555e">{_html.escape(name)}</text>')
@@ -310,11 +311,15 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         parts.append(f'<rect x="{PAD_L - 35 + (20 - w)}" y="{y0(at[f])}" width="{w}" '
                      f'height="{cell}" fill="#8fa6b0"/>')
 
-    # EVERY family is labelled down the left edge. This is the one axis that can
-    # carry them: 7 px text in an 8 px row pitch, which is a dense table rather than
-    # a collision. The columns cannot -- the same labels along the top would need
-    # rotating and would triple the figure's height -- so the matrix is read down the
-    # rows and across to a class band, which is why the class names moved to the top.
+    # EVERY family is labelled on BOTH axes: down the left edge, and rotated above
+    # the columns. 7 px text in an 8 px pitch is a dense table rather than a
+    # collision, and rotating the column labels costs 29 px of height -- 3% of the
+    # figure -- not the "roughly triple" an earlier version of this comment claimed.
+    # That number came from reasoning about HORIZONTAL labels along the top, where
+    # 28 px of text over an 8 px column really is impossible, and carrying the
+    # conclusion across to rotated ones without measuring. Labelling both axes is
+    # what lets a cell be read in from either direction, which is the whole point of
+    # keeping the redundant lower triangle.
     #
     # The ten largest and anything near a quarter of the run are drawn darker, so the
     # families a reader came looking for still stand out from the other hundred.
@@ -322,7 +327,6 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     named = ({f for f in sorted(order, key=lambda g: -size[g])[:10]}
              | {f for f in order if degree.get(f, 0) >= hub_at})
     for f in order:
-        y = y0(at[f]) + cell / 2.0
         label, organism = reps.get(f, ('', ''))
         deg = degree.get(f, 0)
         tip = (f'GCF-{f}: {size[f]} BGC{"s" if size[f] != 1 else ""}; '
@@ -332,14 +336,24 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
             if organism:
                 tip += f' ({organism})'
         strong = f in named
-        text = (f'<text x="{PAD_L - 40}" y="{y:.1f}" text-anchor="end" '
-                f'dominant-baseline="middle" font-size="7" '
-                f'font-family="system-ui,-apple-system,sans-serif" '
-                f'fill="{"#1d3440" if strong else "#7b8a92"}"'
-                f'{" font-weight=\"600\"" if strong else ""}>'
-                f'GCF-{_html.escape(str(f))}<title>{_html.escape(tip)}</title></text>')
+        style = (f'dominant-baseline="middle" font-size="7" '
+                 f'font-family="system-ui,-apple-system,sans-serif" '
+                 f'fill="{"#1d3440" if strong else "#7b8a92"}"'
+                 f'{" font-weight=\"600\"" if strong else ""}')
+        name = f'GCF-{_html.escape(str(f))}'
+        title = f'<title>{_html.escape(tip)}</title>'
         href = hrefs.get(f)
-        parts.append(f'<a href="{_html.escape(href)}">{text}</a>' if href else text)
+
+        ry = y0(at[f]) + cell / 2.0
+        cx = x0(at[f]) + cell / 2.0
+        cy = PAD_T - 5                      # column labels run UP from the matrix
+        for text in (
+                f'<text x="{PAD_L - 40}" y="{ry:.1f}" text-anchor="end" {style}>'
+                f'{name}{title}</text>',
+                f'<text x="{cx:.1f}" y="{cy}" transform="rotate(-90 {cx:.1f} {cy})" '
+                f'text-anchor="start" {style}>{name}{title}</text>'):
+            parts.append(f'<a href="{_html.escape(href)}">{text}</a>'
+                         if href else text)
 
     # Ramp key along the bottom.
     key_y = PAD_T + body + 16
