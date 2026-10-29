@@ -30,6 +30,8 @@ from utils.parsers import parse_trace_file
 from utils.report_lint import check_report
 from utils.trace import aggregate_trace_by_process, generate_resource_usage_html
 from viz.clustering import generate_bigscape_stats_html, generate_gcf_visualization_html
+from viz.gcf_network import generate_gcf_network_html
+from utils.constants import COUPLING_COLORS, COUPLING_ORDER
 from viz.gcf_pages import create_gcf_pages, family_meta
 from viz.tables import (calculate_summary_statistics, create_bgc_distribution_table,
                         generate_genome_table_html)
@@ -67,6 +69,7 @@ def embed_image(svg_path=None, png_path=None):
 
 def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
                          bigscape_stats_html='',
+                         gcf_network_html='',
                          phylo_tree_generated=False, genome_table=None,
                          resource_usage_html='', phylo_tree_data=None, gcf_data=None, taxonomy_map=None,
                          versions_data=None, rarefaction_stats=None,
@@ -111,7 +114,8 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # with the pipeline diagnostics rather than with the chemistry.
     partition_section_html = build_partition_section(pepm_summary)
 
-    bigscape_stats_section = build_bigscape_stats_section(bigscape_stats_html, taxon_clean)
+    bigscape_stats_section = build_bigscape_stats_section(bigscape_stats_html, taxon_clean,
+                                                         gcf_network_html)
 
     versions_html = _build_versions_html(versions_data)
 
@@ -514,6 +518,20 @@ def main():
             gcf_support_rows = build_gcf_support_rows(
                 args.coupling_support, args.coupling_annotation, bigscape_db_for_coupling)
 
+    # The family network. Needs only the database, so it is built whenever one is
+    # resolvable -- the coupling classes merely colour it, and it is still worth
+    # drawing in grey on a run where the coupling annotation is missing.
+    gcf_network_html = ''
+    if bigscape_db_for_coupling:
+        print("Building GCF network...")
+        # Cutoff 0.3 by default, as viz/rarefaction.py does: this script takes no
+        # cutoff argument, and every run so far is single-cutoff. A multi-cutoff run
+        # would need both to learn about it together.
+        gcf_network_html = generate_gcf_network_html(
+            str(bigscape_db_for_coupling),
+            classes=gcf_classes or {}, colors=COUPLING_COLORS,
+            class_order=COUPLING_ORDER, hrefs=gcf_hrefs)
+
     if args.counts or args.tabulation:
         print(f"Generating HTML report...")
         generate_html_report(args.outdir, args.taxon, table_header, table_rows, stats, tree_html,
@@ -538,6 +556,7 @@ def main():
                             coupling_table_rows=coupling_table_rows,
                             gcf_classes=gcf_classes,
                             gcf_support_rows=gcf_support_rows,
+                            gcf_network_html=gcf_network_html,
                             gcf_hrefs=gcf_hrefs)
         print(f"Visualizations complete! Open {args.outdir}/bgc_report.html in a browser.")
 

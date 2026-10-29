@@ -13,7 +13,17 @@ process COLLECT_VERSIONS {
 
     script:
     def nf_version = workflow.nextflow.version
-    def work_conda = "${workDir}/conda"
+    // Every place a conda environment might be, newest first. This used to be
+    // `${workDir}/conda` alone, which stopped being true the day conda.cacheDir
+    // moved to ~/.clusterquest/conda so environments would survive a change of
+    // work directory. Nothing failed -- find_executable simply found nothing and
+    // every tool was recorded as "not installed", in the report header and in
+    // software_versions.json, so runs from that period cannot say what they were
+    // produced against. Searching both costs one glob over a missing directory.
+    def conda_dirs = [
+        (System.getenv('NXF_CONDA_CACHEDIR') ?: "${System.getProperty('user.home')}/.clusterquest/conda"),
+        "${workDir}/conda",
+    ].unique().join(java.io.File.pathSeparator)
     """
     #!/usr/bin/env python3
     import json
@@ -22,12 +32,20 @@ process COLLECT_VERSIONS {
     import re
     from pathlib import Path
 
-    def find_executable(name, search_dir):
-        '''Find executable in conda environments.'''
-        for env_dir in Path(search_dir).glob("env-*"):
-            bin_path = env_dir / "bin" / name
-            if bin_path.exists():
-                return str(bin_path)
+    def find_executable(name, search_dirs):
+        '''Find an executable in any conda environment, then on PATH.'''
+        import shutil
+        for search_dir in str(search_dirs).split(os.pathsep):
+            if not search_dir:
+                continue
+            for env_dir in sorted(Path(search_dir).glob("env-*")):
+                bin_path = env_dir / "bin" / name
+                if bin_path.exists():
+                    return str(bin_path)
+        # Last resort: the tool is on this task's own PATH. Rare, since each
+        # process gets its own environment, but free to check and it is the
+        # case for a user running the pipeline inside one combined env.
+        return shutil.which(name)
         return None
 
     def get_version(executable, pattern=None, version_arg="--version"):
@@ -50,11 +68,11 @@ process COLLECT_VERSIONS {
         except Exception as e:
             return f"error: {str(e)}"
 
-    work_conda = "${work_conda}"
+    conda_dirs = "${conda_dirs}"
     versions = {}
 
     # antiSMASH
-    antismash_bin = find_executable("antismash", work_conda)
+    antismash_bin = find_executable("antismash", conda_dirs)
     if antismash_bin:
         versions["antismash"] = get_version(antismash_bin, r"antiSMASH\\s+([\\d.]+)")
     else:
@@ -62,7 +80,7 @@ process COLLECT_VERSIONS {
 
     # BiG-SCAPE - check if it was run (bigscape_done is not a placeholder)
     bigscape_ran = os.path.isdir("${bigscape_done}") or (os.path.isfile("${bigscape_done}") and "NO_BIGSCAPE" not in "${bigscape_done}")
-    bigscape_bin = find_executable("bigscape", work_conda)
+    bigscape_bin = find_executable("bigscape", conda_dirs)
     if bigscape_bin:
         versions["bigscape"] = get_version(bigscape_bin, r"BiG-SCAPE\\s+([\\d.]+)")
     elif bigscape_ran:
@@ -72,7 +90,7 @@ process COLLECT_VERSIONS {
 
     # GTDB-Tk - check if it was run (gtdbtk_done is not a placeholder)
     gtdbtk_ran = os.path.isdir("${gtdbtk_done}") or (os.path.isfile("${gtdbtk_done}") and "NO_GTDBTK" not in "${gtdbtk_done}")
-    gtdbtk_bin = find_executable("gtdbtk", work_conda)
+    gtdbtk_bin = find_executable("gtdbtk", conda_dirs)
     if gtdbtk_bin:
         versions["gtdbtk"] = get_version(gtdbtk_bin, r"gtdbtk:\\s*v?([\\d.]+)")
     elif gtdbtk_ran:
@@ -81,7 +99,7 @@ process COLLECT_VERSIONS {
         versions["gtdbtk"] = "not used"
 
     # TaxonKit (uses 'version' subcommand, not '--version' flag)
-    taxonkit_bin = find_executable("taxonkit", work_conda)
+    taxonkit_bin = find_executable("taxonkit", conda_dirs)
     if taxonkit_bin:
         versions["taxonkit"] = get_version(taxonkit_bin, r"taxonkit\\s+v?([\\d.]+)", "version")
     else:

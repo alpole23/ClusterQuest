@@ -19,7 +19,7 @@ nextflow run main.nf -profile slurm                        # HPC execution
 
 ## Operational traps
 
-Five ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Six ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -54,6 +54,17 @@ JAVA_HOME=~/miniconda3/envs/nextflow PATH="$PATH:$HOME/miniconda3/envs/nextflow/
 
 Append rather than prepend, or the conda `python3` shadows the system one and the pyflakes
 check skips.
+
+**`COLLECT_VERSIONS` searched the wrong directory for two months, and said nothing.**
+It looked for executables under `${workDir}/conda`, which stopped being where they live
+the day `conda.cacheDir` moved to `~/.clusterquest/conda` so environments would survive
+a change of work directory. Nothing failed: `find_executable` returned None, every tool
+was recorded as `"not installed"`, and the report printed that in its own header. Runs
+from that period cannot say what they were produced against -- which is the whole point
+of `software_versions.json` and of pinning the databases below. It now searches the
+configured cache AND the legacy path AND `PATH`. **When you move where something lives,
+grep for the old path**: a reader that silently finds nothing is worse than one that
+crashes.
 
 **Changing `-w` re-solves every conda environment, so pin transitive dependencies.**
 Nextflow caches conda environments *inside the work directory*. Point `-w` somewhere new
@@ -2871,6 +2882,47 @@ within-partition distances, so 25 of 1,302 have none: 61 members inflated by a m
 GCF-11 rising from 12th to 3rd is worth noting: the lab picked that cluster for
 characterisation on independent grounds, and the unbiased axis agrees with them where
 the reference-based one did not.
+
+### The GCF network replaced the isolation column
+
+`isolation` -- the median distance from each member to the nearest region outside its
+family -- survived the withdrawal of the composite novelty score as a published column,
+and was removed on 2026-10-29. It measured something real, but a per-family number
+headed "isolation" sitting beside the reference identity reads as a novelty rank
+however the tooltip is worded, which is the same failure the composite was withdrawn
+for. It also cost `GCF_CHARACTERISATION` an input -- the whole BiG-SCAPE database --
+that nothing else in that process needed.
+
+`viz/gcf_network.py` shows the same distances as a shape, which cannot be sorted. One
+node per family, sized by members and coloured by coupling class; a chord joins two
+families holding at least one pair of regions within **0.50**. The edge is
+**single-linkage -- the closest pair, not a median** -- because the question is "could
+these two be the same chemistry?", and one close pair is enough to make that worth
+checking. Note BiG-SCAPE 2 clusters by affinity propagation, NOT single linkage, so a
+chord below the 0.30 family cutoff is legitimate: on this run the closest cross-family
+pair is 0.000.
+
+**Do not use a force layout for this.** Fruchterman-Reingold was tried and failed
+twice: plain FR walks weakly-connected nodes into the clamp and draws them as straight
+rows along the frame, and adding gravity made it worse (89 of 112 nodes pinned). The
+cause is the data, not the tuning -- GenBank Enterobacterales has **GCF-31 at degree
+79**, a family within 0.50 of 70% of all others, so any force layout resolves to a
+sunburst around it. That is the grab-bag signature already recorded for GCF-27 above,
+and the network surfaces it at a glance. A ring ordered by coupling class then size is
+deterministic by construction, which is what byte-reproducible reports need -- a seeded
+RNG is not enough, because family ids shift between runs.
+
+Measured on the GenBank Enterobacterales database: 112 families, 6,216 family pairs
+reduced from 1,088,550 region pairs in one pass, 327 edges at 0.50, 9 families with no
+neighbour, 90 KB of SVG, 0.7 s.
+
+### The execution timeline was removed from the resources pane
+
+On a screened run one process dominates the wall clock so completely that the Gantt
+chart carries no information: `FETCH_RENAME_SCREEN` was 53,981 of 54,058 tasks and
+spans essentially the whole run, so its bar *is* the chart. The per-process table says
+the same thing in numbers that can be read. `generate_gantt_chart_html()` is kept and
+still exported for ad-hoc use on a run with a flatter profile.
 
 ### `utils/domain_functions.py` — Pfam accession → biosynthetic role
 
