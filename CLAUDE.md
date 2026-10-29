@@ -2957,27 +2957,75 @@ for. It also cost `GCF_CHARACTERISATION` an input -- the whole BiG-SCAPE databas
 that nothing else in that process needed.
 
 `viz/gcf_network.py` shows the same distances as a shape, which cannot be sorted. One
-node per family, sized by members and coloured by coupling class; a chord joins two
-families holding at least one pair of regions within **0.50**. The edge is
-**single-linkage -- the closest pair, not a median** -- because the question is "could
-these two be the same chemistry?", and one close pair is enough to make that worth
-checking. Note BiG-SCAPE 2 clusters by affinity propagation, NOT single linkage, so a
-chord below the 0.30 family cutoff is legitimate: on this run the closest cross-family
-pair is 0.000.
+node per family, sized by members and coloured by coupling class.
+
+**A node is the family REPRESENTATIVE and an edge is the measured distance between two
+representatives** (changed 2026-10-29; it was single linkage over all cross-family
+pairs). The node is `family.center_id`, BiG-SCAPE's own medoid, so it is a real BGC the
+tooltip names and the family page links to -- and **it is the same matrix the
+family-centre tree is built on** (`bgc_gcf_tree.py`, Biosynthetic phylogeny pane). That
+is the reason for the change: the two panes are now one object in two layouts, where
+before a reader who found two families adjacent in the network and far apart in the
+tree had no way to reconcile them. The tree shows the backbone, the network keeps the
+cycles a tree has to discard.
+
+What the switch cost, measured on GenBank Enterobacterales at the 0.50 cutoff:
+
+| | closest pair | representatives |
+|---|---:|---:|
+| edges | 327 | **258** |
+| families with no neighbour | 9 | **13** |
+| largest degree | 79 | **75** |
+| edges the other does not have | 69 | **0** |
+
+**Representative-only edges are 0 at every threshold tried** (0.30 through 0.70), and
+necessarily so -- the representative pair is one of the pairs single linkage minimises
+over, so `d(rep_A, rep_B) >= min(A, B)` always. The representative network is a strict
+*subset*. 43 of 112 families are singletons where the two definitions coincide by
+construction; over the 69 multi-member families the median representative-minus-closest
+gap is +0.021, mean +0.049, worst +0.717. What is given up -- a family pair touching
+closely at one point while their bulk differs -- is cohesion, which
+`docs/comparisons/family_cohesion/` measures directly and better.
+
+**Representatives are stable under the pipeline's pin**, which is what makes this safe:
+`bigscape_determinism/` measured 2 of 5 family centres moving between identical runs
+*unpinned* and **0 with `PYTHONHASHSEED=0`**, which all four BiG-SCAPE processes set.
+Every difference that survey saw was at distance >= 0.66 and **0 of 6,319 comparisons
+below 0.5 changed**, so the drawn edges sit in the regime that reproduced even unpinned.
+Do not cite the unpinned figure as an argument against centre-based figures.
+
+A chord below the 0.30 family cutoff is still legitimate: BiG-SCAPE 2 clusters by
+affinity propagation, NOT single linkage, so near-identical regions can sit in different
+families.
+
+`family_network()` also returns how many of the n(n-1)/2 representative pairs the
+database actually holds a comparison for, and the caption says so when it is short. On a
+merged partitioned database only within-partition pairs exist, and a missing chord there
+means *not measured*, not *far apart* -- the trap the all-BGCs tree fell into by
+substituting a constant for 42.9% of its matrix silently.
 
 **Do not use a force layout for this.** Fruchterman-Reingold was tried and failed
 twice: plain FR walks weakly-connected nodes into the clamp and draws them as straight
 rows along the frame, and adding gravity made it worse (89 of 112 nodes pinned). The
 cause is the data, not the tuning -- GenBank Enterobacterales has **GCF-31 at degree
-79**, a family within 0.50 of 70% of all others, so any force layout resolves to a
+75**, a family within 0.50 of two thirds of all others, so any force layout resolves to a
 sunburst around it. That is the grab-bag signature already recorded for GCF-27 above,
 and the network surfaces it at a glance. A ring ordered by coupling class then size is
 deterministic by construction, which is what byte-reproducible reports need -- a seeded
 RNG is not enough, because family ids shift between runs.
 
-Measured on the GenBank Enterobacterales database: 112 families, 6,216 family pairs
-reduced from 1,088,550 region pairs in one pass, 327 edges at 0.50, 9 families with no
-neighbour, 90 KB of SVG, 0.7 s.
+**Ring labels run radially, along their own spoke.** Horizontal was tried and
+overprinted into an unreadable blob: the ring sorts by size inside each class group, so
+the ten largest families are always ADJACENT, and at the top of the ring adjacent labels
+differ by ~16 px of x against a ~44 px word. Radially they are separated by the angular
+gap instead -- 11 px of text height against 18 px of arc at 112 nodes -- so they cannot
+collide at any family count this figure is readable at. Caught by rendering the SVG and
+looking at it, which is the only thing that catches it.
+
+Measured on the GenBank Enterobacterales database: 112 families, 258 edges at 0.50, 13
+families with no neighbour, all 6,216 representative pairs measured, 83 KB of SVG,
+0.22 s -- the query is now 6,216 indexed lookups rather than a scan of all 1,088,550
+distance rows. Byte-identical across three processes under `PYTHONHASHSEED=random`.
 
 ### The execution timeline was removed from the resources pane
 
