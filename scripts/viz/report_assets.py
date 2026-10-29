@@ -50,6 +50,48 @@ REPORT_CSS = """\
             color: #2c5aa0;
             font-weight: 600;
         }
+        /* The cutoff selector. Its radios are siblings of the panes so a pure-CSS
+           rule can reach into them, exactly as the tab radios do; the visible pills
+           live in .cutbar, which is NOT adjacent to any radio, so the nav-item
+           styling on `input:checked + label` cannot catch them. */
+        .cutbar {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 0 0 16px;
+            padding: 10px 14px;
+            background: #f3f6f9;
+            border: 1px solid #dfe6ee;
+            border-radius: 8px;
+        }
+        .cutbar .cutbar-title {
+            font-size: 0.74em;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #6b7b8a;
+        }
+        .cutbar .cutbar-note { font-size: 0.82em; color: #7b8a99; margin-left: auto; }
+        .tabs .cutbar label {
+            grid-column: auto;
+            display: inline-block;
+            padding: 3px 13px;
+            border: 1px solid #c8d4e0;
+            border-left: 1px solid #c8d4e0;
+            border-radius: 999px;
+            background: #fff;
+            font-size: 0.9em;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+            color: #42566a;
+        }
+        .tabs .cutbar label:hover { background: #e8eff7; color: #1f3b5f; }
+        /* Every cutoff-dependent block is emitted for every cutoff and hidden; the
+           generated rules below reveal the selected one. */
+        .cutblock { display: none; }
+        /*CUTOFF_RULES*/
         .nav-group {
             grid-column: 1;
             padding: 16px 14px 5px;
@@ -309,6 +351,19 @@ MAX_PANES = 40
 REPORT_CSS = REPORT_CSS.replace(
     '/*PANE_RULES*/',
     ',\n'.join(f'        #tab{i}:checked ~ #content{i}' for i in range(1, MAX_PANES + 1)))
+
+# Two rules per cutoff: light the selected pill, and reveal that cutoff's blocks
+# wherever they sit. `~ .tab-content .cut-N` is a descendant of a later sibling,
+# which is what lets one control at the top drive blocks inside several panes.
+# Unused rules never match, same as the pane rules above.
+MAX_CUTOFFS = 8
+REPORT_CSS = REPORT_CSS.replace(
+    '/*CUTOFF_RULES*/',
+    '\n'.join(
+        f'        #cut{i}:checked ~ .cutbar label[for="cut{i}"] {{ background: #2c5aa0; '
+        f'color: #fff; border-color: #2c5aa0; font-weight: 600; }}\n'
+        f'        #cut{i}:checked ~ .tab-content .cut-{i} {{ display: block; }}'
+        for i in range(MAX_CUTOFFS)))
 
 REPORT_JS = """\
         // Jump from the GCF Characterisation table to the family's row in the master table.

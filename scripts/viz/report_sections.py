@@ -14,7 +14,7 @@ from utils.constants import load_coupling_classes, COUPLING_COLORS, KCB_THRESHOL
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
 from bgc_coupling_annotation import AMBIGUOUS_MARGIN
 from utils.gene_diagram import generate_gene_svg
-from viz.report_assets import MAX_PANES
+from viz.report_assets import MAX_PANES, MAX_CUTOFFS
 
 
 def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_hrefs=None):
@@ -747,7 +747,46 @@ def build_partition_section(pepm_summary):
 
 # ─── Sidebar navigation ────────────────────────────────────────────────────────
 
-def build_tabbed_nav(groups):
+def cutoff_block(cutoffs, cut, html):
+    """Wrap one cutoff's version of a section so the selector can reveal it.
+
+    `cutoffs` is the ordered list the selector was built from; the class carries the
+    INDEX, not the value, because a CSS class cannot hold a dot. A block for a cutoff
+    the selector does not know about would be hidden forever, so that is an error
+    rather than something to render invisibly.
+    """
+    if not html or not html.strip():
+        return ''
+    i = list(cutoffs).index(cut)
+    return f'<div class="cutblock cut-{i}">{html}</div>'
+
+
+def build_cutoff_bar(cutoffs, primary=None, note=''):
+    """The radios and the pill row for the cutoff selector, or '' for one cutoff.
+
+    Returns markup that must be placed FIRST inside `.tabs`: the radios have to
+    precede every pane for `#cutN:checked ~ .tab-content .cut-N` to reach them.
+    """
+    cutoffs = list(cutoffs)
+    if len(cutoffs) < 2:
+        return ''
+    if len(cutoffs) > MAX_CUTOFFS:
+        raise ValueError(f'{len(cutoffs)} cutoffs; raise MAX_CUTOFFS in '
+                         'viz/report_assets.py, which generates rules per cutoff')
+    sel = cutoffs.index(primary) if primary in cutoffs else 0
+    radios = '\n'.join(
+        f'        <input type="radio" id="cut{i}" name="cutoff"'
+        f'{" checked" if i == sel else ""}>' for i in range(len(cutoffs)))
+    pills = ''.join(f'<label for="cut{i}">{c:g}</label>'
+                    for i, c in enumerate(cutoffs))
+    note_html = (f'<span class="cutbar-note">{_html.escape(note)}</span>'
+                 if note else '')
+    return (f'{radios}\n        <div class="cutbar">'
+            f'<span class="cutbar-title">BiG-SCAPE cutoff</span>{pills}'
+            f'{note_html}</div>')
+
+
+def build_tabbed_nav(groups, cutoff_bar=''):
     """Sidebar entries and content panes for the whole report.
 
     `groups` is [(group_label, [(entry_label, pane_html), ...]), ...].
@@ -767,7 +806,7 @@ def build_tabbed_nav(groups):
     reveals a pane pairs `#tabN` with `#contentN`. Nothing may depend on a particular
     N: which sections a run emits decides them.
     """
-    nav_parts, pane_parts, n = [], [], 0
+    nav_parts, pane_parts, n = ([cutoff_bar] if cutoff_bar else []), [], 0
     for group_label, entries in groups:
         live = [(label, html) for label, html in entries if html and html.strip()]
         if not live:

@@ -31,6 +31,7 @@ from utils.report_lint import check_report
 from utils.trace import aggregate_trace_by_process, generate_resource_usage_html
 from viz.clustering import generate_bigscape_stats_html, generate_gcf_visualization_html
 from viz.gcf_network import generate_gcf_network_html
+from viz.cutoff_comparison import build_cutoff_comparison_section
 from utils.constants import COUPLING_COLORS, COUPLING_ORDER
 from viz.gcf_pages import create_gcf_pages, family_meta
 from viz.tables import (calculate_summary_statistics, create_bgc_distribution_table,
@@ -41,6 +42,7 @@ from viz.distribution import generate_bgc_distribution_html
 from viz.genome_pages import create_genome_metadata_pages
 from viz.rarefaction import generate_rarefaction_curve
 from viz.report_sections import (build_bigscape_stats_section,
+                                 build_cutoff_bar, cutoff_block,
                                  build_partition_section,
                                  _build_kcb_content, _build_rarefaction_section,
                                  gcf_coupling_classes, build_gcf_support_rows,
@@ -67,9 +69,34 @@ def embed_image(svg_path=None, png_path=None):
     return None, 'image/png'
 
 
+def db_cutoffs(db_path):
+    """Cutoffs the BiG-SCAPE database actually holds, ascending; [] if unreadable.
+
+    The parameter says what was asked for; this says what is there. They differ
+    whenever a run is resumed with a changed `bigscape_cutoffs`, or a database is
+    reused, and the database is the one that decides whether a section has rows.
+    """
+    import sqlite3 as _sq
+    try:
+        c = _sq.connect(f'file:{db_path}?mode=ro', uri=True)
+        try:
+            return sorted(r[0] for r in c.execute('SELECT DISTINCT cutoff FROM family'))
+        finally:
+            c.close()
+    except Exception as exc:
+        print(f'Warning: could not read cutoffs from {db_path}: {exc}', file=sys.stderr)
+        return []
+
+
 def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
                          bigscape_stats_html='',
                          gcf_network_html='',
+                         # Multi-cutoff: the ordered cutoffs the database holds, the
+                         # one every non-switchable section is built at, and one
+                         # entry per cutoff for each section the selector switches.
+                         report_cutoffs=(), primary_cutoff=None,
+                         network_by_cutoff=None, rarefaction_by_cutoff=None,
+                         coupling_rows_by_cutoff=None, cutoff_comparison='',
                          phylo_tree_generated=False, genome_table=None,
                          resource_usage_html='', phylo_tree_data=None, gcf_data=None, taxonomy_map=None,
                          versions_data=None, rarefaction_stats=None,
@@ -114,13 +141,29 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     # with the pipeline diagnostics rather than with the chemistry.
     partition_section_html = build_partition_section(pepm_summary)
 
-    bigscape_stats_section = build_bigscape_stats_section(bigscape_stats_html, taxon_clean,
-                                                         gcf_network_html)
+    # Each switchable section is emitted once per cutoff and hidden; one CSS rule
+    # per cutoff reveals the selected one. With a single cutoff `cuts` has one entry
+    # and `cutoff_block` is a transparent wrapper, so the single-cutoff report is
+    # byte-for-byte what it was apart from that wrapper div.
+    cuts = list(report_cutoffs) or ([primary_cutoff] if primary_cutoff is not None else [])
+    network_by_cutoff = network_by_cutoff or {}
+    rarefaction_by_cutoff = rarefaction_by_cutoff or {}
+    coupling_rows_by_cutoff = coupling_rows_by_cutoff or {}
+
+    def _switch(by_cutoff, render, fallback=''):
+        if len(cuts) < 2:
+            return fallback
+        return ''.join(cutoff_block(cuts, c, render(by_cutoff.get(c))) for c in cuts)
+
+    bigscape_stats_section = build_bigscape_stats_section(
+        bigscape_stats_html, taxon_clean,
+        _switch(network_by_cutoff, lambda h: h or '', gcf_network_html))
 
     versions_html = _build_versions_html(versions_data)
 
 
-    rarefaction_section = _build_rarefaction_section(rarefaction_stats)
+    rarefaction_section = _switch(rarefaction_by_cutoff, _build_rarefaction_section,
+                                  _build_rarefaction_section(rarefaction_stats))
 
     # Build BGC Distribution section HTML (replaces Tree View)
     distribution_section = generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path)
@@ -152,7 +195,9 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
     consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary,
                                                         gcf_hrefs, per_cds_path)
-    phylogeny_key    = build_biosynthetic_phylogeny_section(coupling_table_rows)
+    phylogeny_key    = _switch(coupling_rows_by_cutoff,
+                               build_biosynthetic_phylogeny_section,
+                               build_biosynthetic_phylogeny_section(coupling_table_rows))
     support_section  = _build_gcf_support_section(gcf_support_rows)
     gcf_trees_tab    = build_gcf_trees_tab(gcf_tree_b64, gcf_tree_mime)
     pipeline_tab     = build_pipeline_tab(resource_usage_html, partition_section_html,
@@ -165,6 +210,14 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     # The rail, and the panes it switches between. Order here is the order on the
     # page; a section that this run did not produce drops out of both.
+    # The selector drives the sections built per cutoff above, and it NAMES them.
+    # A control that silently governs three of twelve panes is worse than no control:
+    # a reader who moves it, sees the characterisation table stay put and is not told
+    # why would be right to distrust the whole page.
+    cutoff_bar = build_cutoff_bar(
+        cuts, primary=primary_cutoff,
+        note='switches the family network, rarefaction curve and coupling table')
+
     tabs_html = build_tabbed_nav([
         ('Overview', [
             ('Summary',                   f'''            <p style="color: #666; font-size: 0.9em; margin: 4px 0 2px;">
@@ -190,6 +243,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             # one pane and the figure it explains in another.
             ('Biosynthetic phylogeny',    phylogeny_key + gcf_trees_tab),
             ('BiG-SCAPE statistics',      bigscape_stats_section),
+            ('Cutoff comparison',         cutoff_comparison),
             ('Coupling enzyme support',   support_section),
             # 'Family representatives' is gone: it answered the same question as
             # Consensus gene content, which answers it better. Both present ONE REAL
@@ -253,7 +307,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             </div>
             <script id="genomeData" type="application/json">{genome_data_json}</script>'''),
         ]),
-    ])
+    ], cutoff_bar=cutoff_bar)
 
     html_content = f'''
 <!DOCTYPE html>
@@ -410,6 +464,11 @@ def main():
     # Generate BiG-SCAPE statistics visualization
     bigscape_stats_html = ''
     rarefaction_stats = None
+    # Everything the cutoff selector switches is built once per cutoff and hidden
+    # by CSS; see viz/report_sections.cutoff_block.
+    rarefaction_by_cutoff = {}
+    report_cutoffs = []
+    primary_cutoff = None
     if args.bigscape_stats and args.bigscape_stats.exists():
         print(f"Generating BiG-SCAPE statistics visualization...")
         bigscape_stats_html = generate_bigscape_stats_html(str(args.bigscape_stats), args.mibig_included)
@@ -426,10 +485,26 @@ def main():
                 bigscape_db = db_files[0]
 
         if bigscape_db:
-            print(f"Generating rarefaction curve from {bigscape_db.name}...")
-            rarefaction_stats = generate_rarefaction_curve(str(bigscape_db), args.outdir, args.taxon,
-                                                           seed=args.seed, counts_file=args.counts,
-                                                           cutoff=args.bigscape_cutoff)
+            # The database is authoritative about which cutoffs exist, not the
+            # parameter: a resumed or reused run can hold a set the current
+            # params no longer name.
+            report_cutoffs = db_cutoffs(bigscape_db)
+            if args.bigscape_cutoff in report_cutoffs:
+                primary_cutoff = args.bigscape_cutoff
+            else:
+                primary_cutoff = report_cutoffs[0] if report_cutoffs else args.bigscape_cutoff
+            print(f"Generating rarefaction curve from {bigscape_db.name} "
+                  f"({len(report_cutoffs) or 1} cutoff(s))...")
+            # One curve per cutoff, each to its own files; the primary one supplies
+            # the headline numbers printed below and the stats the Summary quotes.
+            for _cut in (report_cutoffs or [primary_cutoff]):
+                _sfx = '' if _cut == primary_cutoff else f'_c{_cut:g}'
+                _st = generate_rarefaction_curve(str(bigscape_db), args.outdir, args.taxon,
+                                                 seed=args.seed, counts_file=args.counts,
+                                                 cutoff=_cut, suffix=_sfx)
+                rarefaction_by_cutoff[_cut] = _st
+                if _cut == primary_cutoff:
+                    rarefaction_stats = _st
             if rarefaction_stats:
                 _c = rarefaction_stats["chao2"]
                 print(f"Rarefaction curve generated: {rarefaction_stats['total_gcfs']} GCFs observed, "
@@ -509,6 +584,8 @@ def main():
     coupling_table_rows = None
     gcf_classes = None
     gcf_support_rows = None
+    classes_by_cutoff = {}
+    coupling_rows_by_cutoff = {}
     bigscape_db_for_coupling = None
     if args.bigscape_db and args.bigscape_db.exists():
         bigscape_db_for_coupling = args.bigscape_db
@@ -520,11 +597,18 @@ def main():
     if (args.coupling_annotation and args.coupling_annotation.exists()
             and bigscape_db_for_coupling):
         print("Building coupling enzyme table from live data...")
-        coupling_table_rows = build_coupling_table_rows(
-            args.coupling_annotation, bigscape_db_for_coupling, args.bigscape_cutoff)
-        # Same map drives the GCF badge colours in the Novel BGCs table
-        gcf_classes = gcf_coupling_classes(
-            args.coupling_annotation, bigscape_db_for_coupling, args.bigscape_cutoff)
+        # Per cutoff: the coupling table is a pure join of the per-region annotation
+        # onto family membership, so it is answerable at any cutoff from the same
+        # annotation file. The badge colours the upstream-derived tables use stay at
+        # the primary cutoff, because those tables' ROWS come from a single-cutoff
+        # process and colouring them by another cutoff's families would be incoherent.
+        for _cut in (report_cutoffs or [args.bigscape_cutoff]):
+            classes_by_cutoff[_cut] = gcf_coupling_classes(
+                args.coupling_annotation, bigscape_db_for_coupling, _cut)
+            coupling_rows_by_cutoff[_cut] = build_coupling_table_rows(
+                args.coupling_annotation, bigscape_db_for_coupling, _cut)
+        coupling_table_rows = coupling_rows_by_cutoff.get(args.bigscape_cutoff)
+        gcf_classes = classes_by_cutoff.get(args.bigscape_cutoff)
         if args.coupling_support and args.coupling_support.exists():
             gcf_support_rows = build_gcf_support_rows(
                 args.coupling_support, args.coupling_annotation, bigscape_db_for_coupling,
@@ -534,11 +618,8 @@ def main():
     # Every section below filters on it, and a mismatch returns empty rather than
     # raising -- the report then renders with five sections quietly missing. Say so.
     if bigscape_db_for_coupling:
-        import sqlite3 as _sq
         try:
-            _c = _sq.connect(f'file:{bigscape_db_for_coupling}?mode=ro', uri=True)
-            _have = sorted(r[0] for r in _c.execute('SELECT DISTINCT cutoff FROM family'))
-            _c.close()
+            _have = report_cutoffs or db_cutoffs(bigscape_db_for_coupling)
             if _have and args.bigscape_cutoff not in _have:
                 print(f"WARNING: no families at cutoff {args.bigscape_cutoff} in "
                       f"{Path(bigscape_db_for_coupling).name}; it holds "
@@ -547,19 +628,27 @@ def main():
                       f"Pass --bigscape_cutoff to match params.bigscape_cutoffs.",
                       file=sys.stderr)
         except Exception as exc:
-            print(f"Warning: could not read cutoffs from the BiG-SCAPE database: {exc}",
-                  file=sys.stderr)
+            print(f"Warning: could not check cutoffs: {exc}", file=sys.stderr)
 
     # The family network. Needs only the database, so it is built whenever one is
     # resolvable -- the coupling classes merely colour it, and it is still worth
     # drawing in grey on a run where the coupling annotation is missing.
     gcf_network_html = ''
+    network_by_cutoff = {}
     if bigscape_db_for_coupling:
         print("Building GCF network...")
-        gcf_network_html = generate_gcf_network_html(
-            str(bigscape_db_for_coupling), cutoff=args.bigscape_cutoff,
-            classes=gcf_classes or {}, colors=COUPLING_COLORS,
-            class_order=COUPLING_ORDER, hrefs=gcf_hrefs)
+        for _cut in (report_cutoffs or [args.bigscape_cutoff]):
+            network_by_cutoff[_cut] = generate_gcf_network_html(
+                str(bigscape_db_for_coupling), cutoff=_cut,
+                classes=classes_by_cutoff.get(_cut) or {}, colors=COUPLING_COLORS,
+                class_order=COUPLING_ORDER, hrefs=gcf_hrefs)
+        gcf_network_html = network_by_cutoff.get(args.bigscape_cutoff, '')
+
+    cutoff_comparison_html = ''
+    if bigscape_db_for_coupling and len(report_cutoffs) > 1:
+        print(f"Comparing {len(report_cutoffs)} cutoffs...")
+        cutoff_comparison_html = build_cutoff_comparison_section(
+            str(bigscape_db_for_coupling), primary=primary_cutoff)
 
     if args.counts or args.tabulation:
         print(f"Generating HTML report...")
@@ -586,6 +675,12 @@ def main():
                             gcf_classes=gcf_classes,
                             gcf_support_rows=gcf_support_rows,
                             gcf_network_html=gcf_network_html,
+                            report_cutoffs=report_cutoffs,
+                            primary_cutoff=primary_cutoff or args.bigscape_cutoff,
+                            network_by_cutoff=network_by_cutoff,
+                            rarefaction_by_cutoff=rarefaction_by_cutoff,
+                            coupling_rows_by_cutoff=coupling_rows_by_cutoff,
+                            cutoff_comparison=cutoff_comparison_html,
                             gcf_hrefs=gcf_hrefs)
         print(f"Visualizations complete! Open {args.outdir}/bgc_report.html in a browser.")
 

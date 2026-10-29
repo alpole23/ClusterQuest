@@ -2904,8 +2904,47 @@ the same way `gcf_annotation_transfer`, `branch_point_prediction` and
 the database actually holds and warns, naming them, when the one it was given is not
 among them -- because the failure is five empty sections rather than an error.
 
-**Multi-cutoff runs show the first cutoff only.** The report has one of each section;
-`bigscape_cutoffs = "0.30,0.50"` clusters at both and reports on 0.30.
+### Multi-cutoff reports
+
+`bigscape_cutoffs = "0.20,0.30,0.50"` clusters at all three and the report now shows
+all three, with **one selector at the top of the page**.
+
+**The database is authoritative about which cutoffs exist, not the parameter.**
+`db_cutoffs()` reads `SELECT DISTINCT cutoff FROM family`; `--bigscape_cutoff` only
+names which one is primary. A resumed run, or a reused database, can hold a set the
+current params no longer name, and the sections have rows for what is in the database.
+
+**Only three sections follow the selector**: the family network, the rarefaction curve
+and the coupling enzyme table. They are pure reads of the BiG-SCAPE database (the
+coupling table joins the per-region annotation onto family membership, which is
+answerable at any cutoff from the same file). Everything else -- characterisation,
+branch point, biosynthetic profile, consensus gene content, annotation transfer -- is
+produced by processes that take ONE cutoff, so those panes stay at the primary and
+**the selector says so in its own label**. A control that silently governs three of
+twelve panes is worse than no control: a reader who moves it, sees the characterisation
+table stay put and is not told why is right to distrust the page.
+
+Making the rest switchable means fanning seven processes out over the cutoff list.
+Compute is not the obstacle -- all of `BGC_ANALYSIS` was 1.3 CPU-h of 1,547 on the
+GenBank run -- the report size and the code are.
+
+**The mechanism is still pure CSS.** The cutoff radios are emitted as siblings of the
+panes, before them, so `#cutN:checked ~ .tab-content .cut-N` reaches blocks inside any
+pane; the visible pills live in a `.cutbar` div that is deliberately NOT adjacent to a
+radio, or `.tabs input:checked + label` would style them as nav items. `MAX_CUTOFFS`
+in `viz/report_assets.py` generates two rules per cutoff and is a real ceiling, like
+`MAX_PANES`.
+
+**`Cutoff comparison` is its own pane and is NOT cutoff-aware**, deliberately: it
+exists to show the cutoffs together. It reports shape per cutoff (families, largest,
+singletons, median, regions in a family of more than one) and, between consecutive
+cutoffs, co-membership **split and merged separately** plus the ARI. Split and merged
+are different problems -- a merge joins chemistry the tighter cutoff kept apart, a
+split breaks a family you may already have written about -- and the ARI hides which
+direction the change went.
+
+With one cutoff nothing changes: no selector is emitted, no comparison pane, and the
+switchable sections render exactly as before.
 
 ### The GCF network replaced the isolation column
 
