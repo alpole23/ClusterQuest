@@ -1,0 +1,8 @@
+{
+  "taxon": "Bacteria",
+  "assembly_source": "GenBank",
+  "assembly_reference_only": false,
+  "outdir": "/mnt/bigdisk/clusterquest/results_gb",
+  "pepm_prescreen": true,
+  "bigscape_partition": true
+}

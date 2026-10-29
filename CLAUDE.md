@@ -19,7 +19,7 @@ nextflow run main.nf -profile slurm                        # HPC execution
 
 ## Operational traps
 
-Five ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Six ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -54,6 +54,16 @@ JAVA_HOME=~/miniconda3/envs/nextflow PATH="$PATH:$HOME/miniconda3/envs/nextflow/
 
 Append rather than prepend, or the conda `python3` shadows the system one and the pyflakes
 check skips.
+
+**Never call a bare `sync` in a process script.** It flushes EVERY mounted filesystem,
+so one sick mount anywhere on the host hangs a task that never touched it. On a WSL2 box
+the Windows-served mounts do exactly that: the call parks in uninterruptible D state, no
+signal reaches it, and the task sits there until its time limit, ignores the SIGTERM, and
+leaves Nextflow with `IllegalThreadStateException: process hasn't exited` -- which aborts
+the **run**, not the task. It killed a Bacteria GenBank run ~8,800 fetch batches in, after
+the downloads had already succeeded, and left thirty-odd unkillable processes that only a
+VM restart cleared. Use `sync -f .`, which flushes just the filesystem holding the work
+directory.
 
 **Changing `-w` re-solves every conda environment, so pin transitive dependencies.**
 Nextflow caches conda environments *inside the work directory*. Point `-w` somewhere new
@@ -3302,7 +3312,7 @@ This is set in `scripts/clustering/extract_gcf_representatives.py` (`antismash_l
 
 - **Duplicate gene names**: Some NCBI genomes have duplicate CDS feature names (e.g., `sapC`), causing antiSMASH to fail with "multiple CDS features have the same name"
 - **DIAMOND memory errors**: `malloc(): corrupted top size` errors during ClusterBlast indicate memory issues; try increasing memory allocation or reducing concurrent jobs
-- **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module includes validation with `sync` + retry logic, but if corruption persists, delete the cached work directory and re-run
+- **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module includes validation with `sync -f .` + retry logic (scoped, never a bare `sync` -- see the trap above), but if corruption persists, delete the cached work directory and re-run
 - **pyhmmer/BiG-SCAPE compatibility**: pyhmmer 0.12+ changed `profile.accession` from bytes to str, breaking BiG-SCAPE. The module pins `pyhmmer<0.11`
 - **GTDB-Tk duplicate taxon labels**: GTDB-Tk normalizes genome names case-insensitively. If two genomes have names differing only in case (e.g., `MDCuke` vs `MDcuke`), GTDB-Tk will fail with `NewickReaderDuplicateTaxonError`. The `create_name_map.py` script now handles this by tracking names case-insensitively and adding numeric suffixes to duplicates
 - **Run reports are scoped per taxon (fixed 2026-08-25)**: `trace`, `report` and

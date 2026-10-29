@@ -157,7 +157,22 @@ process FETCH_RENAME_SCREEN {
     if [ "\$FETCHED" = yes ]; then
         unzip -q batch.zip
     fi
-    sync
+    # syncfs on the work directory, never a bare `sync`. A bare sync flushes
+    # EVERY mounted filesystem, and on a WSL2 host that includes mounts served
+    # from the Windows side; when one of those stalls the call parks in
+    # uninterruptible D state and no signal reaches it. That killed a Bacteria
+    # GenBank run ~8,800 batches in. The download itself had succeeded -- every
+    # failed task's stderr ends "valid data package, 100%" -- and the task then
+    # sat in sync past process_medium's 2 h limit, ignored the SIGTERM, and left
+    # Nextflow with `IllegalThreadStateException: process hasn't exited`, which
+    # aborts the run rather than the task. Thirty-odd unkillable syncs survived
+    # it and only a VM restart cleared them.
+    #
+    # Everything this task writes is under the work directory, so `-f .` flushes
+    # exactly the filesystem that matters and touches no other. Verified on the
+    # host that hung: `sync -f` on the work directory returns immediately while
+    # a bare `sync` never does. Needs GNU coreutils >= 8.24 for `-f`.
+    sync -f .
 
     # Null-filled files are what a timed-out transfer leaves behind. Delete and
     # refetch; a valid GenBank file starts with LOCUS.
@@ -177,7 +192,7 @@ process FETCH_RENAME_SCREEN {
         datasets download genome accession --inputfile ${accessions} --include gbff \\
             --assembly-source ${params.assembly_source} --filename batch.zip || true
         unzip -qo batch.zip || true
-        sync
+        sync -f .
     done
 
     FOUND=\$(find ncbi_dataset/data -name '*.gbff' -type f | wc -l)
