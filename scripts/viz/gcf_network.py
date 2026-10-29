@@ -101,8 +101,12 @@ RAMP = ['#17455a', '#2c6173', '#42788d', '#5b8fa4', '#78a5b7',
 _DIAGONAL = '#d2dcdf'      # a reading guide, not a measurement: a family to itself
 _UNMEASURED = '#f3ece2'
 
+# cell stays at 8 deliberately. A bigger cell makes the SVG wider than the report's
+# content column (~1040 px at a 1440 window), and `width:100%` then scales the whole
+# figure DOWN -- so a 9 px cell renders the 7 px row labels at 6.5 px and reads worse
+# than an 8 px cell at 1:1. 8 is the largest cell that keeps every label legible.
 CELL_MAX, CELL_MIN, BODY_MAX = 8, 3, 900
-PAD_L, PAD_T = 92, 30          # room for row labels and the strips
+PAD_L, PAD_T = 92, 44          # room for row labels, the strips, and class names
 
 _CLASS_FALLBACK = '#9aa7ad'
 _SENTINELS = ('', '-', 'Unknown', 'unknown')
@@ -226,7 +230,7 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     cell = max(CELL_MIN, min(CELL_MAX, BODY_MAX // n))
     body = cell * n
     W = PAD_L + body + 16
-    H = PAD_T + body + 78
+    H = PAD_T + body + 48
     x0 = lambda i: PAD_L + i * cell
     y0 = lambda i: PAD_T + i * cell
 
@@ -289,11 +293,16 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
                      f'{i1 - i0 + 1} families</title></rect>')
         parts.append(f'<rect x="{x0(i0)}" y="{PAD_T - 11}" width="{run}" height="8" '
                      f'fill="{fill}"/>')
-        if i1 - i0 >= 3:
-            parts.append(f'<text x="{x0(i0) + run / 2:.0f}" y="{PAD_T + body + 20}" '
+        # Above the matrix, not below: with every family labelled down the left edge
+        # the eye enters at the top-left, and a class name under 896 px of cells is a
+        # long way from the columns it names. Gated on measured width rather than on
+        # family count -- a 4-family span is 32 px and cannot hold "Decarboxylase".
+        name = c or 'unclassified'
+        if i1 - i0 >= 1 and run >= 5.0 * len(name):
+            parts.append(f'<text x="{x0(i0) + run / 2:.0f}" y="{PAD_T - 17}" '
                          f'text-anchor="middle" font-size="10" '
                          f'font-family="system-ui,-apple-system,sans-serif" '
-                         f'fill="#44555e">{_html.escape(c or "unclassified")}</text>')
+                         f'fill="#44555e">{_html.escape(name)}</text>')
 
     biggest = max(size.values())
     for f in order:
@@ -301,30 +310,39 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         parts.append(f'<rect x="{PAD_L - 35 + (20 - w)}" y="{y0(at[f])}" width="{w}" '
                      f'height="{cell}" fill="#8fa6b0"/>')
 
-    # Row labels for the families a reader would look for: the ten largest and
-    # anything near a quarter of the run. They are adjacent by construction, since
-    # rows sort by size inside each class -- which is fine down a column, where the
-    # row pitch separates them, and was NOT fine around the ring this replaced.
+    # EVERY family is labelled down the left edge. This is the one axis that can
+    # carry them: 7 px text in an 8 px row pitch, which is a dense table rather than
+    # a collision. The columns cannot -- the same labels along the top would need
+    # rotating and would triple the figure's height -- so the matrix is read down the
+    # rows and across to a class band, which is why the class names moved to the top.
+    #
+    # The ten largest and anything near a quarter of the run are drawn darker, so the
+    # families a reader came looking for still stand out from the other hundred.
     hub_at = max(4, n // 4)
     named = ({f for f in sorted(order, key=lambda g: -size[g])[:10]}
              | {f for f in order if degree.get(f, 0) >= hub_at})
-    for f in sorted(named, key=lambda g: at[g]):
+    for f in order:
         y = y0(at[f]) + cell / 2.0
         label, organism = reps.get(f, ('', ''))
-        tip = f'GCF-{f}: {size[f]} BGC{"s" if size[f] != 1 else ""}'
+        deg = degree.get(f, 0)
+        tip = (f'GCF-{f}: {size[f]} BGC{"s" if size[f] != 1 else ""}; '
+               f'{deg} famil{"y" if deg == 1 else "ies"} within {edge_cutoff:g}')
         if label:
             tip += f'; representative {label}'
             if organism:
                 tip += f' ({organism})'
+        strong = f in named
         text = (f'<text x="{PAD_L - 40}" y="{y:.1f}" text-anchor="end" '
                 f'dominant-baseline="middle" font-size="7" '
-                f'font-family="system-ui,-apple-system,sans-serif" fill="#2b3f49">'
+                f'font-family="system-ui,-apple-system,sans-serif" '
+                f'fill="{"#1d3440" if strong else "#7b8a92"}"'
+                f'{" font-weight=\"600\"" if strong else ""}>'
                 f'GCF-{_html.escape(str(f))}<title>{_html.escape(tip)}</title></text>')
         href = hrefs.get(f)
         parts.append(f'<a href="{_html.escape(href)}">{text}</a>' if href else text)
 
     # Ramp key along the bottom.
-    key_y = PAD_T + body + 38
+    key_y = PAD_T + body + 16
     for k in range(BINS):
         parts.append(f'<rect x="{PAD_L + k * 26}" y="{key_y}" width="26" height="9" '
                      f'fill="{RAMP[k]}"/>')

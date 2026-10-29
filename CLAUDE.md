@@ -3006,10 +3006,28 @@ means similar. Writing it light-first and indexing by distance draws the figure 
 out -- the dense 0.8-0.9 shoulder goes black and the close blocks fade to nothing. That
 was shipped for one render and caught only by looking at the PNG.
 
+**Every family is labelled down the left edge, and the class names sit above the
+matrix.** The rows are the one axis that can carry 112 labels -- 7 px text in an 8 px
+row pitch, a dense table rather than a collision -- while the same labels along the top
+would need rotating and would roughly triple the figure's height. So the figure is read
+down the rows and across to a class band, which is why the class names moved from below
+the matrix to above it: with every row named, the eye enters at the top-left, and a
+class name under 896 px of cells is a long way from the columns it names. The ten
+largest families and anything near a quarter of the run are drawn darker and semibold,
+so what a reader came looking for still stands out from the other hundred.
+
+**`cell` stays at 8 px, and bigger is worse.** The report's content column is about
+1040 px at a 1440-wide window (body padding 40, a 224 px nav rail, 30 px pane padding,
+8 px figure padding), and the SVG is `width:100%` with `max-width`. A 9 px cell makes
+the figure 1116 px wide, which then scales DOWN to 0.93 and renders the 7 px row labels
+at 6.5 px. 8 px is the largest cell that still lets every label render 1:1. Class names
+are gated on measured width (`run >= 5.0 * len(name)`), not on family count, because a
+4-family span is 32 px and cannot hold "Decarboxylase".
+
 **Cells are emitted as one path per shade bin, not as 12,544 rects.** Individual rects
 with their own fill is over a megabyte of SVG inlined in the report; per-bin paths with
-integer coordinates give 135 kB. Only the pairs within `EDGE_CUTOFF` get real elements,
-so tooltips exist exactly where they are worth the bytes.
+integer coordinates give 165 kB with all 112 labels. Only the pairs within `EDGE_CUTOFF`
+get real elements, so tooltips exist exactly where they are worth the bytes.
 
 `family_network()` also returns how many of the n(n-1)/2 representative pairs the
 database holds a comparison for. Unmeasured cells get their own sand fill and the
@@ -3029,7 +3047,8 @@ propagation, NOT single linkage, so near-identical regions can land in different
 families.
 
 Measured on the GenBank Enterobacterales database: 112 families, all 6,216
-representative pairs measured and drawn, 3,350 cells inked, 135 kB of SVG, 0.22 s --
+representative pairs measured and drawn, 3,350 cells inked, all 112 rows labelled,
+165 kB of SVG, 0.22 s --
 the query is 6,216 indexed lookups rather than a scan of all 1,088,550 distance rows.
 Byte-identical across three processes under `PYTHONHASHSEED=random`.
 
