@@ -2883,6 +2883,30 @@ GCF-11 rising from 12th to 3rd is worth noting: the lab picked that cluster for
 characterisation on independent grounds, and the unbiased axis agrees with them where
 the reference-based one did not.
 
+### The report never knew which cutoff it was reporting on
+
+`params.bigscape_cutoffs` has always existed and nine module call sites honour it --
+BiG-SCAPE itself, centers, partition, references, annotation transfer, branch point,
+biosynthetic profile. **`VISUALIZE_RESULTS` was passed no cutoff at all**, so the five
+report sections that filter `family.cutoff = ?` each defaulted to `0.3`:
+`generate_rarefaction_curve`, `gcf_coupling_classes`, `build_gcf_support_rows`,
+`build_coupling_table_rows` and the GCF network.
+
+So a run with `bigscape_cutoffs = "0.50"` clustered at 0.50 and then reported on
+families that matched nothing: the rarefaction curve, the coupling enzyme table, the
+GCF badge colours, the per-family support rows and the network all came back EMPTY,
+and none of them said why. Sections that render as nothing look like sections the run
+had no data for.
+
+`--bigscape_cutoff` is now passed from the module as the first comma-separated value,
+the same way `gcf_annotation_transfer`, `branch_point_prediction` and
+`biosynthetic_profile` already took it. `visualize_results.py` also checks the cutoffs
+the database actually holds and warns, naming them, when the one it was given is not
+among them -- because the failure is five empty sections rather than an error.
+
+**Multi-cutoff runs show the first cutoff only.** The report has one of each section;
+`bigscape_cutoffs = "0.30,0.50"` clusters at both and reports on 0.30.
+
 ### The GCF network replaced the isolation column
 
 `isolation` -- the median distance from each member to the nearest region outside its

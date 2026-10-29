@@ -317,6 +317,16 @@ def main():
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_characterisation', type=Path, help='gcf_characterisation.tsv from GCF_CHARACTERISATION')
+    # The cutoff the families were built at. Every section that reads the BiG-SCAPE
+    # database filters `family.cutoff = ?`, and until this existed they all defaulted
+    # to 0.3 while params.bigscape_cutoffs was free to be anything -- so a run at 0.50
+    # clustered at 0.50 and then reported on families that matched nothing. The
+    # rarefaction curve, the coupling table, the GCF badge colours, the support rows
+    # and the family network all returned empty, none of them loudly. Comma-separated
+    # cutoffs take the first, as every other module does: the report shows one.
+    parser.add_argument('--bigscape_cutoff', type=float, default=0.3,
+                        help='BiG-SCAPE cutoff the families were clustered at '
+                             '(params.bigscape_cutoffs, first value). Default 0.3.')
     parser.add_argument('--reference_summary', type=Path,
                         help='reference_summary.json from BIGSCAPE_REFERENCES; absent on '
                              'a partitioned run, where that pass is skipped')
@@ -418,7 +428,8 @@ def main():
         if bigscape_db:
             print(f"Generating rarefaction curve from {bigscape_db.name}...")
             rarefaction_stats = generate_rarefaction_curve(str(bigscape_db), args.outdir, args.taxon,
-                                                           seed=args.seed, counts_file=args.counts)
+                                                           seed=args.seed, counts_file=args.counts,
+                                                           cutoff=args.bigscape_cutoff)
             if rarefaction_stats:
                 _c = rarefaction_stats["chao2"]
                 print(f"Rarefaction curve generated: {rarefaction_stats['total_gcfs']} GCFs observed, "
@@ -510,13 +521,34 @@ def main():
             and bigscape_db_for_coupling):
         print("Building coupling enzyme table from live data...")
         coupling_table_rows = build_coupling_table_rows(
-            args.coupling_annotation, bigscape_db_for_coupling)
+            args.coupling_annotation, bigscape_db_for_coupling, args.bigscape_cutoff)
         # Same map drives the GCF badge colours in the Novel BGCs table
         gcf_classes = gcf_coupling_classes(
-            args.coupling_annotation, bigscape_db_for_coupling)
+            args.coupling_annotation, bigscape_db_for_coupling, args.bigscape_cutoff)
         if args.coupling_support and args.coupling_support.exists():
             gcf_support_rows = build_gcf_support_rows(
-                args.coupling_support, args.coupling_annotation, bigscape_db_for_coupling)
+                args.coupling_support, args.coupling_annotation, bigscape_db_for_coupling,
+                args.bigscape_cutoff)
+
+    # Does the database actually hold families at the cutoff we are about to query?
+    # Every section below filters on it, and a mismatch returns empty rather than
+    # raising -- the report then renders with five sections quietly missing. Say so.
+    if bigscape_db_for_coupling:
+        import sqlite3 as _sq
+        try:
+            _c = _sq.connect(f'file:{bigscape_db_for_coupling}?mode=ro', uri=True)
+            _have = sorted(r[0] for r in _c.execute('SELECT DISTINCT cutoff FROM family'))
+            _c.close()
+            if _have and args.bigscape_cutoff not in _have:
+                print(f"WARNING: no families at cutoff {args.bigscape_cutoff} in "
+                      f"{Path(bigscape_db_for_coupling).name}; it holds "
+                      f"{', '.join(str(x) for x in _have)}. The rarefaction curve, "
+                      f"coupling table, GCF colours and family network will be empty. "
+                      f"Pass --bigscape_cutoff to match params.bigscape_cutoffs.",
+                      file=sys.stderr)
+        except Exception as exc:
+            print(f"Warning: could not read cutoffs from the BiG-SCAPE database: {exc}",
+                  file=sys.stderr)
 
     # The family network. Needs only the database, so it is built whenever one is
     # resolvable -- the coupling classes merely colour it, and it is still worth
@@ -524,11 +556,8 @@ def main():
     gcf_network_html = ''
     if bigscape_db_for_coupling:
         print("Building GCF network...")
-        # Cutoff 0.3 by default, as viz/rarefaction.py does: this script takes no
-        # cutoff argument, and every run so far is single-cutoff. A multi-cutoff run
-        # would need both to learn about it together.
         gcf_network_html = generate_gcf_network_html(
-            str(bigscape_db_for_coupling),
+            str(bigscape_db_for_coupling), cutoff=args.bigscape_cutoff,
             classes=gcf_classes or {}, colors=COUPLING_COLORS,
             class_order=COUPLING_ORDER, hrefs=gcf_hrefs)
 
