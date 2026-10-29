@@ -55,29 +55,50 @@ def main():
     genomes = skipped = total = 0
     with a.out.open('w') as fh:
         for path in a.genomes:
+            # Iterate the parse, do NOT list() it. A GenBank record is far larger
+            # parsed than on disk, and materialising a whole genome's records held
+            # all of them at once for no reason -- nothing here looks backwards.
+            # Measured on the largest genome in the Bacteria GenBank set
+            # (Burkholderia gladioli CCRMBG13, 43.3 MB): peak RSS 156.8 MB listed
+            # against 42.6 MB streamed, i.e. the entire transient disappears and
+            # what is left is the interpreter itself. That transient, not the
+            # digest set, was the larger of the two terms at every pool size this
+            # has been run at.
+            #
+            # The try must wrap the ITERATION, not just the call: SeqIO.parse is a
+            # generator factory, so a malformed deposit now raises on the first
+            # next() rather than here, and an unguarded loop would turn a bad file
+            # back into a fatal error.
+            #
+            # One real behaviour change: a file that parses for a while and THEN
+            # breaks now contributes the proteins it yielded before breaking,
+            # where listing it first discarded the whole genome. Keeping them is
+            # the better answer -- they are ordinary annotated proteins and this
+            # is a reference set, not a census -- but it means the genome counts
+            # as skipped while its proteins are in the pool, so the tallies below
+            # are deliberately not expected to reconcile on a corrupt input.
             try:
-                recs = list(SeqIO.parse(str(path), 'genbank'))
+                for rec in SeqIO.parse(str(path), 'genbank'):
+                    for f in rec.features:
+                        if f.type != 'CDS':
+                            continue
+                        q = f.qualifiers
+                        seq = (q.get('translation') or [''])[0]
+                        if len(seq) < a.min_aa:
+                            continue
+                        total += 1
+                        digest = hashlib.sha256(seq.encode()).digest()
+                        if digest in seen:
+                            continue
+                        seen.add(digest)
+                        tag = (q.get('locus_tag') or q.get('gene') or ['?'])[0]
+                        product = (q.get('product') or [''])[0].strip() or 'hypothetical protein'
+                        fh.write(f'>{tag}|{product}\n{seq}\n')
             except Exception as err:                  # a malformed deposit is not fatal
                 print(f'  WARN: {path.name}: {err}', file=sys.stderr)
                 skipped += 1
                 continue
             genomes += 1
-            for rec in recs:
-                for f in rec.features:
-                    if f.type != 'CDS':
-                        continue
-                    q = f.qualifiers
-                    seq = (q.get('translation') or [''])[0]
-                    if len(seq) < a.min_aa:
-                        continue
-                    total += 1
-                    digest = hashlib.sha256(seq.encode()).digest()
-                    if digest in seen:
-                        continue
-                    seen.add(digest)
-                    tag = (q.get('locus_tag') or q.get('gene') or ['?'])[0]
-                    product = (q.get('product') or [''])[0].strip() or 'hypothetical protein'
-                    fh.write(f'>{tag}|{product}\n{seq}\n')
 
     print(f'pooled {len(seen):,} unique proteins from {total:,} CDS across {genomes} genomes'
           + (f' ({skipped} unreadable)' if skipped else ''))

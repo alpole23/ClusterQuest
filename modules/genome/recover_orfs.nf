@@ -43,19 +43,69 @@ process BUILD_PROTEIN_POOL {
     // given. A literal tuned to one workstation either wastes a large node or
     // silently blocks scheduling on a small one.
     //
-    // Measured after the digest change: ~0.21 GB of BioPython parsing floor plus
-    // ~108 bytes per unique protein. A fully PGAP-annotated genome donates ~4,726
-    // unique proteins, so ~0.51 MB per genome is the worst case; 1 MB per genome
-    // is about 2x headroom on that, and far more on sparsely annotated GenBank
-    // input (769 proteins/genome measured on Enterobacterales).
+    // Scaled on INPUT BYTES, not on genome count, because the count does not say
+    // how much annotation a genome carries and that is what costs memory. Across
+    // the inputs this has been measured on, per-genome protein counts span 769
+    // (Enterobacterales) to 4,726 (PGAP reference) -- 6.1x, which no per-genome
+    // constant absorbs. It is picked up as a pure over-request on sparse input
+    // and an OOM on dense input. File size tracks annotation directly, so it
+    // absorbs that spread on its own.
     //
-    //     4,193 genomes -> 6 GB declared, ~2.2 GB needed
-    //    30,000 genomes -> 32 GB declared, ~14.5 GB needed
+    // Calibrated end to end on the Bacteria GenBank run's OWN retained genomes,
+    // running this process's script over a seeded random draw and reading peak
+    // RSS as ru_maxrss of the single python process. Do NOT calibrate this off a
+    // Nextflow `peak_rss`: that sums the process tree and spans the makedb phase
+    // as well, and reading the slope off one gave 510 B/unique, 4.5x the truth.
+    //
+    //     genomes    input   gross CDS     unique    dedup   peak RSS
+    //         200   1.37 GB     423,315    275,563   34.9%     126 MB
+    //         800   6.15 GB   1,831,247  1,215,059   33.6%     234 MB
+    //       3,200  25.25 GB   7,419,776  4,314,865   41.8%     565 MB
+    //
+    // which fits RSS = 99 MB + 113.5 BYTES per unique protein, over a 16x range.
+    // Deduplication RISES with pool size (34.9% -> 41.8%) because the pool is
+    // drawn from screened genomes that are each other's close relatives, so
+    // unique proteins per input GB FALLS -- 201,140 -> 170,886 -- and the
+    // marginal cost at 3,200 genomes is 113.5 B x 170,886 = 1.94% of input
+    // bytes, still falling. 2.5% is declared, above the measured rate at every
+    // size tested; the retry below covers the case where that is wrong.
+    //
+    // Beware the dereplicated case, which is the opposite extreme: the
+    // whole-Bacteria REFERENCE pilot is one genome per species, so it dedupes
+    // only 2.4% and yields 339,527 unique/GB -- 2.0x this run's rate. 2.5% still
+    // covers it (58.37 GB in -> 4 GB declared against 2.4 GB needed), but a
+    // broader dereplicated input is the direction that would break it.
+    //
+    // `diamond makedb` runs after the python exits, so it gets that memory back
+    // and is not additive. Measured on the pilot's real 7.40 GB pool: peak
+    // 1.52 GB, 20.5% of pool size, 108 s, producing a 7.72 GB database. The pool
+    // is 373 bytes per unique protein and the database 389, so makedb stays well
+    // under the python phase at every size this declaration covers.
+    //
+    //       387 genomes,    2.9 GB in ->  3 GB declared, 0.16 GB measured
+    //     4,193 genomes,   58.4 GB in ->  4 GB declared, 2.4 GB needed
+    //   204,000 genomes, 1,659.0 GB in -> 44 GB declared, 32 GB needed
+    //                                   (~283 M unique proteins; makedb ~22 GB)
+    //
+    // NOTE the 204,000 figure is 6.088% retention (21,260 of 349,204 screened)
+    // over 3,350,527 records at the 8.13 MB/genome this run's retained set
+    // measures. That pool implies a ~110 GB DIAMOND database, which RECOVER_ORFS
+    // below declares as 6 + ceil(db_GB) = ~116 GB -- re-check that directive
+    // before a run of this size, not this one.
     //
     // Declared here rather than in conf/labels.config because a config `withName`
     // closure can see `task` but NOT the process inputs, and it would override
     // this if it also set memory.
-    memory { 1.GB * (2 + Math.ceil((genomes instanceof List ? genomes.size() : 1) / 1000.0)) }
+    //
+    // NOTE .size() is COUNT on a List and BYTES on a single file, hence the guard.
+    memory {
+        def inGB = (genomes instanceof List
+                        ? (genomes.sum { it.size() } ?: 0)
+                        : genomes.size()) / 1e9
+        1.GB * (2 + Math.ceil(inGB * 0.025) * task.attempt)
+    }
+    maxRetries 1
+    errorStrategy { task.exitStatus in [104, 134, 137, 139, 140] && task.attempt <= 1 ? 'retry' : 'terminate' }
 
     input:
     val taxon
