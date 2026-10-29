@@ -1,0 +1,57 @@
+{
+  "question": "What does a full GenBank Enterobacterales run cost and find, on one 16-core / 56 GB box?",
+  "date": "2026-10-16",
+  "supersedes": "enterobacterales_refseq (2026-09-27) as the basis for the architecture figures. The RefSeq run remains the only one with measured peak disk and peak memory; see not_measured below.",
+  "run": {
+    "taxon": "Enterobacterales",
+    "assembly_source": "GenBank",
+    "genomes": 1349504,
+    "tasks": 54058,
+    "failed": 0,
+    "wall": "2 d 15 m",
+    "wall_note": "The session that completed the run (focused_darwin, 2026-10-14 14:05:27) took 2 d 0 h 15 m 10 s, matching the timeline report's own elapsed of 2d 15m 8s. It was a -resume: four earlier sessions on the same UUID 38adfe4c add 4 h 46 m 41 s of timed runtime, and one further session was killed without a recorded duration, so total active runtime is at least 2 d 5 h 1 m. The Oct 11 -> Oct 14 gap between sessions is idle and is not runtime.",
+    "cpu": "1,547.2 CPU-h",
+    "cpu_note": "Summed over COMPLETED and CACHED tasks, since a resumed run's cached entries carry the realtime of the session that actually executed them. Counting COMPLETED alone gives 705.2 CPU-h and undercounts the fetch stage by more than half.",
+    "settings": "screen on, ORF recovery on, GTDB-Tk on, unpartitioned"
+  },
+  "found": {
+    "screened": 1349504,
+    "passed_screen": "1,530 (0.113%)",
+    "regions": 1476,
+    "bgc_positive_genomes": 1427,
+    "gcfs": 112,
+    "largest_family": 186,
+    "singletons": 43
+  },
+  "the_cpu_shape_has_inverted": {
+    "measured": {
+      "FETCH_RENAME_SCREEN": "1,410.4 CPU-h, 91.16%, 53,981 tasks",
+      "ANTISMASH": "61.2 CPU-h, 3.95%, 31 tasks",
+      "GTDBTK_CLASSIFY": "38.2 CPU-h, 2.47%, 1 task",
+      "RECOVER_ORFS": "33.3 CPU-h, 2.15%, 8 tasks",
+      "BIGSCAPE": "1.0 CPU-h, 0.07%, 1 task"
+    },
+    "by_subworkflow": {
+      "DOWNLOAD_GENOMES": "1,411.5 CPU-h, 91.23%, 53,985 tasks",
+      "ANTISMASH_ANALYSIS": "94.6 CPU-h, 6.11%, 41 tasks",
+      "CLUSTERING | PHYLOGENY": "39.8 CPU-h, 2.57%, 21 tasks",
+      "BGC_ANALYSIS + report": "1.3 CPU-h, 0.09%, 11 tasks"
+    },
+    "why_it_matters": "On Erwiniaceae antiSMASH was 81.5% of CPU; on RefSeq Enterobacterales it fell to 29.3% and fetch-and-screen rose to 40.4%. At GenBank scale the inversion is complete: fetch-and-screen is 91.2% and antiSMASH is 4.0%. Nine times the input at an eighth the retention means almost all the work is moving and filtering data, not analysing it. The screen is the architecture, not an optimisation on top of it.",
+    "the_quadratic_stage_is_noise": "BiG-SCAPE is quadratic in both time and memory and is 0.07% of CPU, because the funnel hands it 1,476 regions out of 1,349,504 genomes."
+  },
+  "retention_fell_with_breadth": {
+    "refseq": "1,309 of 150,690 = 0.87%",
+    "genbank": "1,530 of 1,349,504 = 0.113%",
+    "reading": "GenBank's extra ~1.2 M genomes are overwhelmingly more clinical E. coli, Salmonella and Klebsiella, which carry almost no phosphonate BGCs. So 8.9x the input bought 1.17x the surviving genomes. This is the measured version of the prediction in PREDICTIONS.md."
+  },
+  "families_grew_but_the_largest_did_not": {
+    "refseq": "72 families, largest 186, 16 singletons",
+    "genbank": "112 families, largest 186, 43 singletons",
+    "reading": "The largest family is unchanged at 186 -- the pantaphos family, already saturated in RefSeq. The 40 extra families and 27 extra singletons are new chemistry from clades RefSeq did not sample, not growth of what was already there. This matches the component-rarefaction result for partitioning: new diversity adds components beside the dense cluster rather than enlarging it."
+  },
+  "not_measured": {
+    "peak_disk": "No sampler ran during this run. The RefSeq figure (150 GB peak, 30 GB outdir) came from disk_samples.tsv, a df poll every 60 s for 2,608 samples; there is no equivalent here and it cannot be reconstructed after the fact, because the trace records rchar/wchar -- bytes moved -- not occupancy, and the work directory has since been resumed over. To get a figure at this scale, sample a future run rather than this one.",
+    "peak_memory": "Same cause. The RefSeq run measured 19 GB of 56. The trace's peak_rss is present but is not a substitute: it sums RSS across the process tree and read 97 GB on a 56 GB box for GTDB-Tk."
+  }
+}
