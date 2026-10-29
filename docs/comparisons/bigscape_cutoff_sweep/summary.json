@@ -1,0 +1,61 @@
+{
+  "question": "Is the 0.30 BiG-SCAPE cutoff too low, and would an 8 kb antiSMASH neighbourhood have covered the pantaphos cluster?",
+  "date": "2026-10-29",
+  "answer": "No to both, and the two questions turn out to be one. 10 kb is the smallest integer neighbourhood that keeps the whole pantaphos cassette -- the worst member needs 9,792 bp, so 8 kb and 9 kb both clip the terminal ATP-grasp in every member. But a ~10 kb flank is also 79% of the domains BiG-SCAPE compares, and it is what splits one chemistry into several families by host species. The cutoff cannot fix that: swept over 0.20 / 0.30 / 0.40 the largest family stays 186 at every value and the two families whose representatives are 0.020 apart never merge. Affinity propagation is the splitter, not the threshold.",
+
+  "method": "big_scape.network.families.generate_families was called unchanged against a copy of the finished GenBank Enterobacterales database, so this is the real affinity-propagation step with the real parameters (damping 0.90, max_iter 1000, convergence_iter 200, PREFERENCE 0.0, DENSITY 0.85, DENSE_PREFERENCE -5.0). Only connected-component assembly and persistence are local, because the CLI path insists on a Pfam HMM it does not need once every CDS is already scanned -- and the Pfam database lives on an external drive that was disconnected. Script: recluster.py. All 1,088,550 stored comparisons were reused; nothing was re-scanned or re-compared.",
+
+  "validation": {
+    "replication_at_0.30": "112 families, largest 186, 43 singletons -- identical to the production run's headline figures",
+    "components": "30 multi-node connected components + 43 singletons = the 73 rows in the production connected_component table",
+    "ARI_vs_production": 0.998232,
+    "members_moving": "2 of 1,476",
+    "note": "The same 2 that docs/comparisons/bigscape_reproducibility/ found oscillating between identical BiG-SCAPE runs, so the replication sits inside the tool's own noise floor rather than outside it."
+  },
+
+  "cutoff_sweep": {
+    "0.20": {"families": 164, "largest": 186, "singletons": 97, "median": 1, "in_family_gt1": 1379, "cross_genus_families": 5},
+    "0.30": {"families": 112, "largest": 186, "singletons": 43, "median": 3, "in_family_gt1": 1433, "cross_genus_families": 9},
+    "0.40": {"families":  84, "largest": 186, "singletons": 21, "median": 5, "in_family_gt1": 1455, "cross_genus_families": 12},
+    "between": {
+      "0.20_to_0.30": {"ari": 0.9139, "split": 7094, "merged": 1848},
+      "0.30_to_0.40": {"ari": 0.9705, "split": 334, "merged": 2646}
+    }
+  },
+
+  "the_cutoff_is_not_a_monotone_knob": {
+    "observation": "Loosening 0.20 -> 0.30 SPLIT 7,094 co-membership pairs while merging only 1,848. A threshold should not break co-memberships as it loosens.",
+    "mechanism": "BiG-SCAPE swaps AP preference 0.0 for DENSE_PREFERENCE -5.0 when a connected component's density reaches 0.85, which makes it split less. Loosening the cutoff MERGES components, which LOWERS their density, which flips them out of the dense regime and makes AP split them more. At 0.20 there are components of 125 nodes at density 0.99 and 124 at 0.97; by 0.30 they have been absorbed into components of 598 at 0.39 and 296 at 0.34.",
+    "consequence": "Raising the cutoff to reduce over-splitting can increase it. Do not treat bigscape_cutoffs as a dial from 'split' to 'merged'."
+  },
+
+  "families_split_on_host_species_not_chemistry": {
+    "evidence": "Pfam-domain Jaccard between families, whole region against the rule core only. Six of the nine closest pairs have IDENTICAL core domain content.",
+    "pairs": [
+      {"pair": "GCF-1 / GCF-2",   "rep_distance": 0.020, "region_jaccard": 0.312, "core_jaccard": 1.000, "organisms": "Pantoea ananatis / Pantoea allii"},
+      {"pair": "GCF-16 / GCF-18", "rep_distance": 0.045, "region_jaccard": 0.619, "core_jaccard": 1.000, "organisms": "Pectobacterium atrosepticum / punjabense"},
+      {"pair": "GCF-15 / GCF-16", "rep_distance": 0.048, "region_jaccard": 0.682, "core_jaccard": 1.000, "organisms": "Pectobacterium polaris / atrosepticum"},
+      {"pair": "GCF-11 / GCF-16", "rep_distance": 0.051, "region_jaccard": 0.800, "core_jaccard": 1.000, "organisms": "Pectobacterium brasiliense / atrosepticum"},
+      {"pair": "GCF-12 / GCF-16", "rep_distance": 0.050, "region_jaccard": 0.600, "core_jaccard": 1.000, "organisms": "Pectobacterium"},
+      {"pair": "GCF-11 / GCF-17", "rep_distance": 0.064, "region_jaccard": 0.667, "core_jaccard": 1.000, "organisms": "Pectobacterium"}
+    ],
+    "control": "GCF-1 / GCF-16 -- Pantoea against Pectobacterium, a genuinely different chemistry -- has core Jaccard 0.167, so the core metric does discriminate real differences rather than calling everything identical.",
+    "why_it_happens": "Median domains per record: 4 inside the rule core, 19 across the whole region. 79% of what BiG-SCAPE compares is flanking chromosomal context, which differs by host species.",
+    "persistence": "The dense 13-family block (751 BGCs, GCF-1,2,7..18) goes 14 -> 13 -> 12 families as the cutoff goes 0.20 -> 0.30 -> 0.40. GCF-1 and GCF-2 stay separate at every cutoff despite representatives 0.020 apart."
+  },
+
+  "neighbourhood": {
+    "question": "Could antismash_phosphonate_neighbourhood have been 8 rather than 10?",
+    "answer": "No. Measured over the 169 complete (non contig-edge) members of the pantaphos family, the distance from the rule core to the furthest downstream CDS is p0 9,189 / p50 9,318 / p95 9,451 / p100 9,792 bp. 8 kb and 9 kb both clip the terminal gene in every member; 10 kb clears the worst case by 208 bp.",
+    "the_terminal_gene": "An ATP-grasp domain protein wherever it is annotated -- the second ATP-grasp already recorded as missing at 5 kb.",
+    "spread": "603 bp across 169 genomes, which is a conserved cluster boundary rather than arbitrary flanking DNA.",
+    "is_10_kb_itself_clipping": "No, on the one genome where it can be checked: at NEIGHBOURHOOD 20 on LMG 5342 the downstream flank beyond the cluster is 10.8 kb, so nothing lies past 9.2 kb.",
+    "the_tension": "9.8 kb is required to capture the cassette, and ~10 kb of flank is what makes BiG-SCAPE split on species. Neither parameter resolves this alone."
+  },
+
+  "what_this_does_not_settle": [
+    "Whether a core-weighted or asymmetric comparison would cluster better was not tested; the ablation in CLAUDE.md's HGT section trimmed to core +/- 2 kb and got Jaccard 0.259 against control, so a naive trim is not the answer either.",
+    "Cutoffs above 0.40 were not swept. Given the density-flip mechanism they could go either way, and the sweep should be extended before anyone concludes 0.50 merges the block.",
+    "This reuses one run's distances. It therefore tests the CLUSTERING step at three cutoffs, not the whole pipeline at three cutoffs -- which is the right scope for this question, since the distances do not depend on the cutoff."
+  ]
+}

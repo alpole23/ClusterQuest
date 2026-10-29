@@ -1330,6 +1330,77 @@ PF01979, PF07969, PF00625, PF12706, PF13238). It is registered in `CATEGORIES` a
 **excluded from `ELABORATION`** — scavenging phosphorus is not tailoring a product. A
 family needs ≥4 of the 9 to be called catabolic.
 
+### The cutoff is not the knob, and the neighbourhood is why
+
+Measured 2026-10-29 on the GenBank Enterobacterales database --
+`docs/comparisons/bigscape_cutoff_sweep/`. Two questions that turn out to be one.
+
+**`antismash_phosphonate_neighbourhood` could not have been 8.** Over the 169 complete
+(non contig-edge) members of the pantaphos family, the distance from the rule core to
+the furthest downstream CDS is p0 **9,189** / p50 9,318 / p100 **9,792** bp. 8 kb and
+9 kb both clip the terminal gene in **every** member; 10 kb clears the worst case by
+208 bp. That terminal gene is an ATP-grasp domain protein wherever it is annotated --
+the second ATP-grasp already recorded as missing at 5 kb. A 603 bp spread across 169
+genomes is a conserved cluster boundary, not arbitrary flanking DNA. And 10 kb is not
+itself clipping: at NEIGHBOURHOOD 20 on LMG 5342 the downstream flank beyond the
+cluster is 10.8 kb.
+
+**But that flank is 79% of what BiG-SCAPE compares**, and it is what splits one
+chemistry into several families. Median domains per record: **4 inside the rule core,
+19 across the whole region.** Compare the closest family pairs by Pfam content, whole
+region against core only:
+
+| pair | rep distance | region J | **core J** | organisms |
+|---|---:|---:|---:|---|
+| GCF-1 / GCF-2 | 0.020 | 0.312 | **1.000** | *P. ananatis* / *P. allii* |
+| GCF-16 / GCF-18 | 0.045 | 0.619 | **1.000** | *Pectobacterium atrosepticum* / *punjabense* |
+| GCF-15 / GCF-16 | 0.048 | 0.682 | **1.000** | *P. polaris* / *atrosepticum* |
+| GCF-11 / GCF-16 | 0.051 | 0.800 | **1.000** | *P. brasiliense* / *atrosepticum* |
+
+Six of the nine closest pairs have **identical** rule-core domain content. The control
+holds: GCF-1 / GCF-16, *Pantoea* against *Pectobacterium* and a genuinely different
+chemistry, has core J **0.167**, so the core metric discriminates rather than calling
+everything the same.
+
+**Raising the cutoff does not fix it.** Swept at 0.20 / 0.30 / 0.40 by calling
+`big_scape.network.families.generate_families` unchanged against a copy of the finished
+database (the real AP step, real parameters; validated at 0.30 against production at
+ARI 0.9982 with **2 of 1,476** members moving -- the same two
+`bigscape_reproducibility/` found oscillating between identical runs):
+
+| cutoff | families | largest | singletons | cross-genus families |
+|---|---:|---:|---:|---:|
+| 0.20 | 164 | **186** | 97 | 5 |
+| 0.30 | 112 | **186** | 43 | 9 |
+| 0.40 | 84 | **186** | 21 | 12 |
+
+**The largest family is 186 at every cutoff**, and GCF-1 and GCF-2 never merge despite
+representatives 0.020 apart. The dense 13-family block (751 BGCs) goes 14 -> 13 -> 12.
+Affinity propagation is the splitter; the threshold only builds the components it runs
+inside.
+
+**Worse, the cutoff is not monotone.** Loosening 0.20 -> 0.30 **split 7,094**
+co-membership pairs while merging only 1,848. The mechanism is in BiG-SCAPE's own
+config: AP preference swaps from 0.0 to `DENSE_PREFERENCE` **-5.0** once a component's
+density reaches `DENSITY` 0.85, which makes it split *less*. Loosening the cutoff merges
+components, which *lowers* their density, which flips them out of the dense regime and
+makes AP split them *more*. At 0.20 there are components of 125 nodes at density 0.99
+and 124 at 0.97; by 0.30 they have been absorbed into components of 598 at 0.39 and 296
+at 0.34. **Do not treat `bigscape_cutoffs` as a dial from "split" to "merged".**
+
+Not settled: whether a core-weighted or asymmetric comparison clusters better. A naive
+trim is not the answer either -- the ablation in the HGT section above trimmed to core
++/- 2 kb and got Jaccard 0.259 against control while discarding real tailoring
+chemistry. Cutoffs above 0.40 were not swept, and given the density flip they could go
+either way.
+
+**Reusing a finished database to re-cluster is cheap and worth knowing about.** All
+1,088,550 comparisons are already stored, so only the AP step re-runs -- seconds, no
+Pfam, no re-scan. The CLI path cannot do this: `run_bigscape.py` asserts a Pfam HMM and
+presses it before it ever checks what is already scanned, although `pfam_info` is only
+needed for output generation. `recluster.py` in the comparison directory calls
+`generate_families` directly instead.
+
 ### Which families to trust
 
 Measured, not assumed — `docs/comparisons/family_cohesion/`. Of 44 families with ≥4
