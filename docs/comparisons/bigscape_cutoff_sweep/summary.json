@@ -117,7 +117,7 @@
     "This reuses one run's distances. It therefore tests the CLUSTERING step at three cutoffs, not the whole pipeline at three cutoffs -- which is the right scope for this question, since the distances do not depend on the cutoff."
   ],
   "neighbourhood_8kb_experiment": {
-    "status": "PREPARED, NOT RUN -- needs Pfam-A.hmm, which is on the external drive. Run run_8kb.sh with PFAM set once it is reconnected.",
+    "status": "SUPERSEDED by the asymmetric arm, but kept as the control. See where_the_cassette_actually_is. run_windows.sh runs sym8, asym and asym2 together.",
     "what_is_already_measured": {
       "cds_dropped_per_region_10kb_to_8kb": {
         "median": 3,
@@ -141,5 +141,32 @@
     "method": "trim_regions.py re-cuts the region GenBanks antiSMASH already produced at 10 kb to core +/- N, rather than re-running antiSMASH. Valid because detection does not move with the neighbourhood: the same 334 regions in the same 299 genomes were found at 5 kb and at 10 kb on Erwiniaceae. Verified on a 9-region sample: BiG-SCAPE's own parser accepts 9 of 9, with region, cand_cluster, protocluster and proto_core bounds correct including the contig-edge case where the window clamps at 0, and 3.67 CDS dropped per region against the 3 the database predicts.",
     "a_shortcut_that_does_not_work": "Loading records from the finished database, narrowing each one's nt_start/nt_stop to core +/- 8 kb and calling BiG-SCAPE's comparison code on them would avoid the Pfam scan entirely. That comparison code is callable and exact -- it reproduced 60 of 60 stored distances -- but narrowing a record in place desynchronises the CDS indices its LCS extension walks, raising KeyError in score_extend_rev. The crash is the good outcome; the same inconsistency could have returned plausible wrong distances instead.",
     "what_it_will_and_will_not_settle": "It gives the family structure at 8 kb against the 10 kb run at all three cutoffs. It does NOT make 8 kb a usable setting -- the terminal ATP-grasp is lost either way. The point is to measure how much of the species-splitting is attributable to the outer 2 kb, which bounds how much a core-weighted comparison could buy."
+  },
+  "where_the_cassette_actually_is": {
+    "finding": "The phosphonate cassette lies ENTIRELY DOWNSTREAM of the rule core. Every upstream kilobase of the neighbourhood is divergent host context. So the window that would stop families splitting on species is ASYMMETRIC, not smaller -- a symmetric shrink to 8 kb is the worst of both, clipping the terminal ATP-grasp while still carrying 8 kb of the flank that splits them.",
+    "method": "For each 1 kb bin of offset from the rule core, the median Pfam-domain Jaccard between all cross-pairs of two families that BiG-SCAPE split. Shared content is cassette; divergent content is flank.",
+    "orientation_matters_and_nearly_ruined_this": "antiSMASH writes regions in CONTIG coordinates, so 91 of 186 pantaphos regions are reverse-complemented relative to the rest. The first run of this analysis did not normalise and produced a near-perfectly MIRRORED profile -- PF01048 at both -10 and +9, PF13535 at -9 and +8 -- which is a one-sided cluster smeared symmetric, not biology. Normalise on the strand of the pepM CDS (PF13714).",
+    "a_second_trap": "Conservation WITHIN a family does not separate cassette from flank. GCF-1 is 172 of 186 Pantoea ananatis, so its upstream flank is 80% conserved too -- deoD, penicillin-binding protein 2, a diguanylate cyclase. The test has to be what two SPLIT families share, not what one family conserves.",
+    "median_cross_family_jaccard_by_offset_kb": {
+      "GCF-1 vs GCF-2 (P. ananatis / P. allii)": {
+        "-10..-1": 0.0,
+        "+0..+2": 1.0,
+        "+4": 1.0,
+        "+6": 1.0
+      },
+      "GCF-16 vs GCF-18 (Pect. atrosepticum / punjabense)": {
+        "-10..-1": 0.0,
+        "+0..+7": 1.0,
+        "+8..+9": 0.0
+      },
+      "GCF-11 vs GCF-16 (Pect. brasiliense / atrosepticum)": {
+        "-10..-1": "0.00 except -5 and -2, both Pectobacterium",
+        "+0..+7": 1.0,
+        "+8..+9": 0.0
+      }
+    },
+    "the_proposal": "Compare on core -0 / +10 kb. Keeps the entire cassette, so BGCs that differ in tailoring content still separate -- which is the point of having a neighbourhood at all -- while removing about half the window, all of it the divergent flank. Measured on a 9-region sample it drops 10.67 CDS per region against 3.67 for symmetric 8 kb: roughly 3x the flank removed, with no cassette loss.",
+    "how_to_do_it": "antiSMASH has no asymmetric neighbourhood option, and it does not need one -- this is a re-cut for COMPARISON only, so detection stays at 10 kb symmetric. trim_regions.py --up 0 --down 10 orients on pepM and emits GBKs BiG-SCAPE accepts (verified 9 of 9, both strands). run_windows.sh runs the symmetric and asymmetric arms side by side.",
+    "status": "PREPARED, NOT RUN -- still needs Pfam from the external drive."
   }
 }

@@ -21,8 +21,11 @@ easily have returned plausible wrong distances. Write real files and let BiG-SCA
 them.
 
 Usage:
+    # asymmetric -- the cassette is downstream of the core, the flank is upstream
     python trim_regions.py --in  results/antismash_results/Enterobacterales \\
-                           --out trimmed_8kb --kb 8
+                           --out trimmed_0_10 --up 0 --down 10
+    # or symmetric, for comparison
+    python trim_regions.py --in ... --out trimmed_8kb --kb 8
     bigscape cluster -i trimmed_8kb -o out8 --pfam-path .../Pfam-A.hmm \\
         --alignment-mode auto --gcf-cutoffs 0.2,0.3,0.4 --include-singletons \\
         --classify category --cores 16
@@ -40,6 +43,27 @@ from Bio.SeqFeature import SeqFeature, SimpleLocation
 # dropped and the file would be rejected as non-antiSMASH. They are rebuilt by hand.
 STRUCTURAL = ('region', 'cand_cluster', 'protocluster', 'proto_core')
 
+# PEP mutase. Every phosphonate BGC carries one, and its strand is what "downstream"
+# means for the cassette -- antiSMASH writes a region in CONTIG coordinates, so about
+# half of them are reverse-complemented relative to the other half. Measuring without
+# normalising on this smears a one-sided cluster into a symmetric profile; it was the
+# first result this analysis produced and it was entirely an artefact.
+PEPM = 'PF13714'
+
+
+def pepm_strand(record):
+    """+1 / -1 from the pepM CDS, or None when the region carries no recognisable one.
+
+    Reads antiSMASH's own PFAM_domain features rather than re-scanning.
+    """
+    for feat in record.features:
+        if feat.type != 'PFAM_domain':
+            continue
+        acc = (feat.qualifiers.get('db_xref') or feat.qualifiers.get('identifier') or [''])
+        if any(PEPM in str(a) for a in acc):
+            return 1 if feat.location.strand in (None, 1) else -1
+    return None
+
 
 def core_bounds(record):
     """(start, stop) of the rule core, in record coordinates."""
@@ -49,14 +73,28 @@ def core_bounds(record):
     return None
 
 
-def trim(record, kb):
-    """Return the record re-cut to core +/- kb, or None if it has no core."""
+def trim(record, up_kb, down_kb):
+    """Re-cut to core minus up_kb and plus down_kb, oriented on pepM.
+
+    Asymmetry is the point. Measured on three independently split family pairs
+    (docs/comparisons/bigscape_cutoff_sweep/), the phosphonate cassette lies ENTIRELY
+    downstream of the rule core -- median cross-family Jaccard 1.00 from +0 to +7 kb --
+    while every upstream kilobase is divergent host context, 0.00 in all three pairs.
+    A symmetric window is therefore the worst of both: shrinking it to 8 kb clips the
+    terminal ATP-grasp (the cassette reaches 9,189-9,792 bp past the core) AND still
+    carries 8 kb of the flank that splits families by species.
+    """
     bounds = core_bounds(record)
     if bounds is None:
         return None
     cs, ce = bounds
-    lo = max(0, cs - kb * 1000)
-    hi = min(len(record), ce + kb * 1000)
+    strand = pepm_strand(record)
+    if strand is None:
+        strand = 1
+    # On the minus strand, "downstream of the core" runs toward lower coordinates.
+    before, after = (up_kb, down_kb) if strand == 1 else (down_kb, up_kb)
+    lo = max(0, cs - before * 1000)
+    hi = min(len(record), ce + after * 1000)
 
     structural = {f.type: f for f in record.features if f.type in STRUCTURAL}
     out = record[lo:hi]                     # Biopython shifts the CDS coordinates
@@ -97,9 +135,19 @@ def main():
     ap.add_argument('--in', dest='src', required=True,
                     help='antiSMASH results directory (searched recursively)')
     ap.add_argument('--out', required=True, help='directory to write trimmed GBKs into')
-    ap.add_argument('--kb', type=int, required=True,
-                    help='neighbourhood in kb, each side of the rule core')
+    ap.add_argument('--kb', type=int,
+                    help='symmetric neighbourhood in kb each side of the rule core')
+    ap.add_argument('--up', type=int,
+                    help='kb to keep UPSTREAM of the core, in pepM orientation')
+    ap.add_argument('--down', type=int,
+                    help='kb to keep DOWNSTREAM of the core, in pepM orientation')
     args = ap.parse_args()
+    if args.kb is not None:
+        up = down = args.kb
+    elif args.up is not None and args.down is not None:
+        up, down = args.up, args.down
+    else:
+        ap.error('give either --kb, or both --up and --down')
 
     src, dst = Path(args.src), Path(args.out)
     gbks = sorted(p for p in src.rglob('*.region*.gbk'))
@@ -110,7 +158,7 @@ def main():
     for path in gbks:
         record = SeqIO.read(path, 'genbank')
         before = len([f for f in record.features if f.type == 'CDS'])
-        out = trim(record, args.kb)
+        out = trim(record, up, down)
         if out is None:
             skipped += 1
             continue
@@ -122,8 +170,8 @@ def main():
         SeqIO.write(out, target / path.name, 'genbank')
         written += 1
 
-    print(f'{written} regions re-cut to core +/- {args.kb} kb, {skipped} skipped '
-          f'(no proto_core), {clipped} CDS dropped in total '
+    print(f'{written} regions re-cut to core -{up} kb / +{down} kb (pepM orientation), '
+          f'{skipped} skipped (no proto_core), {clipped} CDS dropped in total '
           f'({clipped / max(1, written):.2f} per region)')
 
 
