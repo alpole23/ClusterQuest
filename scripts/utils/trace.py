@@ -220,8 +220,13 @@ def generate_resource_usage_html(tasks, processes):
     total_runtime = sum(p['total_runtime'] for p in sorted_procs)
     peak_memory_overall = max((p['peak_memory'] for p in sorted_procs), default=0)
 
-    # Generate Gantt chart
-    gantt_html = generate_gantt_chart_html(tasks)
+    # No execution timeline here. On a screened run one process dominates the wall
+    # clock so completely that the chart carries no information: FETCH_RENAME_SCREEN
+    # was 53,981 of 54,058 tasks on GenBank Enterobacterales and spans essentially
+    # the whole run, so its bar is the chart and every other process is a hairline
+    # against it. The per-process table below says the same thing in numbers that
+    # can actually be read. generate_gantt_chart_html() is kept and still exported
+    # for ad-hoc use on a run with a flatter profile.
 
     html = f'''
     <div class="stats-container" style="margin-bottom: 25px;">
@@ -231,9 +236,6 @@ def generate_resource_usage_html(tasks, processes):
         <div class="stat-box"><div class="stat-value">{format_duration_str(total_runtime)}</div><div class="stat-label">Total Runtime</div></div>
         <div class="stat-box"><div class="stat-value">{format_bytes(peak_memory_overall)}</div><div class="stat-label">Peak Memory</div></div>
     </div>
-
-    <h3>Execution Timeline</h3>
-    {gantt_html}
 
     <h3>Resource Usage by Process</h3>
     <table class="data-table" style="margin-bottom: 25px;">

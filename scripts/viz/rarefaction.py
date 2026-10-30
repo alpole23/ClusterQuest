@@ -104,7 +104,7 @@ def chao2(genome_gcfs):
 
 
 def generate_rarefaction_curve(bigscape_db_path, outdir, taxon, n_iterations=50, seed=0,
-                               counts_file=None, cutoff=0.3):
+                               counts_file=None, cutoff=0.3, suffix=''):
     """
     Generate GCF rarefaction curve from BiG-SCAPE database.
 
@@ -270,8 +270,12 @@ def generate_rarefaction_curve(bigscape_db_path, outdir, taxon, n_iterations=50,
                 ha='right', color='#666')
 
         plt.tight_layout()
-        output_path = Path(outdir) / 'rarefaction_curve.png'
-        svg_path    = Path(outdir) / 'rarefaction_curve.svg'
+        # `suffix` keeps one cutoff's curve from overwriting another's on a
+        # multi-cutoff run. The report embeds the SVG as base64 either way, so this
+        # only governs the published copies -- but silently overwriting them would
+        # leave the directory holding the last cutoff under an unqualified name.
+        output_path = Path(outdir) / f'rarefaction_curve{suffix}.png'
+        svg_path    = Path(outdir) / f'rarefaction_curve{suffix}.svg'
         plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
         plt.savefig(svg_path,              bbox_inches='tight', facecolor='white', metadata=SVG_METADATA)
         canonicalise_svg(svg_path)

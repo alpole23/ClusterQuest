@@ -14,7 +14,7 @@ from utils.constants import load_coupling_classes, COUPLING_COLORS, KCB_THRESHOL
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
 from bgc_coupling_annotation import AMBIGUOUS_MARGIN
 from utils.gene_diagram import generate_gene_svg
-from viz.report_assets import MAX_PANES
+from viz.report_assets import MAX_PANES, MAX_CUTOFFS
 
 
 def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_hrefs=None):
@@ -321,18 +321,22 @@ def _build_gcf_support_section(gcf_support_rows):
             </div>'''
 
 
-def build_bigscape_stats_section(bigscape_stats_html, taxon_clean):
-    """Network-level clustering numbers, and where to open BiG-SCAPE's own output.
+def build_bigscape_stats_section(bigscape_stats_html, taxon_clean, network_html=''):
+    """Network-level clustering numbers, the family network, and where to open
+    BiG-SCAPE's own output.
 
     The per-family tables that used to sit in this block are their own sections
-    now; what is left is the network summary and the pointer to the interactive
-    output, which is the one thing this report cannot reproduce.
+    now. The GCF network is here rather than with the phylogeny because it is a
+    picture of BiG-SCAPE's distance matrix, not of biosynthesis -- and because this
+    pane was 3.9 KB of an 8.5 MB report, which is the wrong size for the one place a
+    reader goes to ask how the families relate to each other.
     """
-    if not bigscape_stats_html:
+    if not (bigscape_stats_html or network_html):
         return ''
     return f'''
             <div class="clustering-section">
                 {bigscape_stats_html}
+                {network_html}
                 <div class="info-box" style="margin-top: 20px;">
                     <p><strong>The interactive BiG-SCAPE output</strong> — the similarity
                     network, per-family alignments and the distance browser — is not
@@ -743,7 +747,46 @@ def build_partition_section(pepm_summary):
 
 # ─── Sidebar navigation ────────────────────────────────────────────────────────
 
-def build_tabbed_nav(groups):
+def cutoff_block(cutoffs, cut, html):
+    """Wrap one cutoff's version of a section so the selector can reveal it.
+
+    `cutoffs` is the ordered list the selector was built from; the class carries the
+    INDEX, not the value, because a CSS class cannot hold a dot. A block for a cutoff
+    the selector does not know about would be hidden forever, so that is an error
+    rather than something to render invisibly.
+    """
+    if not html or not html.strip():
+        return ''
+    i = list(cutoffs).index(cut)
+    return f'<div class="cutblock cut-{i}">{html}</div>'
+
+
+def build_cutoff_bar(cutoffs, primary=None, note=''):
+    """The radios and the pill row for the cutoff selector, or '' for one cutoff.
+
+    Returns markup that must be placed FIRST inside `.tabs`: the radios have to
+    precede every pane for `#cutN:checked ~ .tab-content .cut-N` to reach them.
+    """
+    cutoffs = list(cutoffs)
+    if len(cutoffs) < 2:
+        return ''
+    if len(cutoffs) > MAX_CUTOFFS:
+        raise ValueError(f'{len(cutoffs)} cutoffs; raise MAX_CUTOFFS in '
+                         'viz/report_assets.py, which generates rules per cutoff')
+    sel = cutoffs.index(primary) if primary in cutoffs else 0
+    radios = '\n'.join(
+        f'        <input type="radio" id="cut{i}" name="cutoff"'
+        f'{" checked" if i == sel else ""}>' for i in range(len(cutoffs)))
+    pills = ''.join(f'<label for="cut{i}">{c:g}</label>'
+                    for i, c in enumerate(cutoffs))
+    note_html = (f'<span class="cutbar-note">{_html.escape(note)}</span>'
+                 if note else '')
+    return (f'{radios}\n        <div class="cutbar">'
+            f'<span class="cutbar-title">BiG-SCAPE cutoff</span>{pills}'
+            f'{note_html}</div>')
+
+
+def build_tabbed_nav(groups, cutoff_bar=''):
     """Sidebar entries and content panes for the whole report.
 
     `groups` is [(group_label, [(entry_label, pane_html), ...]), ...].
@@ -763,7 +806,7 @@ def build_tabbed_nav(groups):
     reveals a pane pairs `#tabN` with `#contentN`. Nothing may depend on a particular
     N: which sections a run emits decides them.
     """
-    nav_parts, pane_parts, n = [], [], 0
+    nav_parts, pane_parts, n = ([cutoff_bar] if cutoff_bar else []), [], 0
     for group_label, entries in groups:
         live = [(label, html) for label, html in entries if html and html.strip()]
         if not live:
@@ -917,13 +960,16 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
                                        gcf_data=None, reference_summary=None):
     """Everything known about each family, on one row.
 
-    Replaces the Novelty Assessment ranking. **There is no composite score.** It was
-    `isolation x evidence` with isolation zeroed whenever the coupling enzyme matched
-    a reference at >=60%, and both halves failed on this data: the 60% gate was
-    calibrated on an identity gap that does not exist in Enterobacterales, and zeroed
-    five families whose CLUSTERS sit 0.38-0.63 from anything characterised; isolation
-    is a within-run quantity that is not comparable between runs of different scope.
-    Both inputs are still shown, each on its own terms. See gcf_characterisation.py.
+    Replaces the Novelty Assessment ranking. **There is no composite score, and no
+    isolation column.** The composite was `isolation x evidence` with isolation zeroed
+    whenever the coupling enzyme matched a reference at >=60%, and both halves failed
+    on this data: the 60% gate was calibrated on an identity gap that does not exist
+    in Enterobacterales, and zeroed five families whose CLUSTERS sit 0.38-0.63 from
+    anything characterised. Isolation outlived the composite as a published column and
+    was dropped too (2026-10-29): a within-run median distance, headed "isolation" and
+    printed beside the reference identity, reads as a novelty rank however the tooltip
+    is worded. The GCF network in the BiG-SCAPE pane shows the same between-family
+    distances as a shape, which cannot be mistaken for an ordering.
 
     Two measures of "is this already known" sit side by side because they disagree,
     and in opposite units:
@@ -1005,9 +1051,6 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
     if not rows:
         return ''
 
-    # "no distances" means isolation could not be measured, not that the family is
-    # suspect, so these stay in the table with an empty isolation cell rather than
-    # being broken out into a warning box of their own.
     ranked = rows
 
     def bar(frac, tone):
@@ -1145,14 +1188,6 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
             out += f'<br><span style="font-size:.82em;color:#888;"><em>{_html.escape(org)}</em></span>'
         return out
 
-    def iso_cell(r):
-        v = (r.get('isolation') or '').strip()
-        if not v:
-            return ('<span style="color:#bbb;" title="No cross-family distances for '
-                    'this family. Expected on a partitioned run, where the merged '
-                    'database holds only within-partition pairs.">—</span>')
-        return f'<span style="font-variant-numeric:tabular-nums;">{float(v):.3f}</span>'
-
     def span_cell(r):
         """How far across the tree a family reaches, from the GTDB lineages of its
         members. Blank for a singleton, where the question is meaningless.
@@ -1204,8 +1239,6 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
         f'{charref_cell(r["gcf"])}</td>'
         f'<td style="padding:7px 10px;font-size:.85em;text-align:right;'
         f'vertical-align:top;">{enzyme_cell(r)}</td>'
-        f'<td style="padding:7px 10px;text-align:right;vertical-align:top;">'
-        f'{iso_cell(r)}</td>'
         f'<td style="padding:7px 10px;font-size:.85em;vertical-align:top;">'
         + (_twin_cell(*twin[r["gcf"]]) if r["gcf"] in twin
            else '<span style="color:#bbb;">—</span>')
@@ -1227,8 +1260,6 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
             distance where <em>lower</em> is closer, compared cluster to cluster and covering
             the 5 of 17 references MIBiG does not hold; <strong>coupling enzyme %ID</strong>
             scores one protein against its class reference, named in brackets.
-            <strong>Isolation</strong> is how far the family sits from every other family
-            <em>in this run</em> &mdash; a statement about this dataset, not about novelty.
             <strong>Same chemistry as</strong> names another family with identical filtered
             domains. <span style="color:#c0392b;font-weight:700;">&#9888;</span> marks a
             conserved enzyme on a divergent cluster.
@@ -1260,9 +1291,6 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
                     title="Identity of the coupling enzyme to the nearest characterised
                     reference of its class, with that reference named">Coupling enzyme
                     %ID</th>
-                <th style="text-align:right;padding:6px 10px;"
-                    title="Median distance from each member to the nearest region outside
-                    its family. Within this run only.">Isolation</th>
                 <th style="text-align:left;padding:6px 10px;" title="Another family with the
                     same core/tailoring/lipid/transport domains. A split between two such
                     families is not biosynthetic.">Same chemistry as</th>

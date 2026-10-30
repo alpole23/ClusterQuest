@@ -19,7 +19,7 @@ nextflow run main.nf -profile slurm                        # HPC execution
 
 ## Operational traps
 
-Five ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Six ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -54,6 +54,17 @@ JAVA_HOME=~/miniconda3/envs/nextflow PATH="$PATH:$HOME/miniconda3/envs/nextflow/
 
 Append rather than prepend, or the conda `python3` shadows the system one and the pyflakes
 check skips.
+
+**`COLLECT_VERSIONS` searched the wrong directory for two months, and said nothing.**
+It looked for executables under `${workDir}/conda`, which stopped being where they live
+the day `conda.cacheDir` moved to `~/.clusterquest/conda` so environments would survive
+a change of work directory. Nothing failed: `find_executable` returned None, every tool
+was recorded as `"not installed"`, and the report printed that in its own header. Runs
+from that period cannot say what they were produced against -- which is the whole point
+of `software_versions.json` and of pinning the databases below. It now searches the
+configured cache AND the legacy path AND `PATH`. **When you move where something lives,
+grep for the old path**: a reader that silently finds nothing is worse than one that
+crashes.
 
 **Changing `-w` re-solves every conda environment, so pin transitive dependencies.**
 Nextflow caches conda environments *inside the work directory*. Point `-w` somewhere new
@@ -2942,6 +2953,188 @@ within-partition distances, so 25 of 1,302 have none: 61 members inflated by a m
 GCF-11 rising from 12th to 3rd is worth noting: the lab picked that cluster for
 characterisation on independent grounds, and the unbiased axis agrees with them where
 the reference-based one did not.
+
+### The report never knew which cutoff it was reporting on
+
+`params.bigscape_cutoffs` has always existed and nine module call sites honour it --
+BiG-SCAPE itself, centers, partition, references, annotation transfer, branch point,
+biosynthetic profile. **`VISUALIZE_RESULTS` was passed no cutoff at all**, so the five
+report sections that filter `family.cutoff = ?` each defaulted to `0.3`:
+`generate_rarefaction_curve`, `gcf_coupling_classes`, `build_gcf_support_rows`,
+`build_coupling_table_rows` and the GCF network.
+
+So a run with `bigscape_cutoffs = "0.50"` clustered at 0.50 and then reported on
+families that matched nothing: the rarefaction curve, the coupling enzyme table, the
+GCF badge colours, the per-family support rows and the network all came back EMPTY,
+and none of them said why. Sections that render as nothing look like sections the run
+had no data for.
+
+`--bigscape_cutoff` is now passed from the module as the first comma-separated value,
+the same way `gcf_annotation_transfer`, `branch_point_prediction` and
+`biosynthetic_profile` already took it. `visualize_results.py` also checks the cutoffs
+the database actually holds and warns, naming them, when the one it was given is not
+among them -- because the failure is five empty sections rather than an error.
+
+### Multi-cutoff reports
+
+`bigscape_cutoffs = "0.20,0.30,0.50"` clusters at all three and the report now shows
+all three, with **one selector at the top of the page**.
+
+**The database is authoritative about which cutoffs exist, not the parameter.**
+`db_cutoffs()` reads `SELECT DISTINCT cutoff FROM family`; `--bigscape_cutoff` only
+names which one is primary. A resumed run, or a reused database, can hold a set the
+current params no longer name, and the sections have rows for what is in the database.
+
+**Only three sections follow the selector**: the family network, the rarefaction curve
+and the coupling enzyme table. They are pure reads of the BiG-SCAPE database (the
+coupling table joins the per-region annotation onto family membership, which is
+answerable at any cutoff from the same file). Everything else -- characterisation,
+branch point, biosynthetic profile, consensus gene content, annotation transfer -- is
+produced by processes that take ONE cutoff, so those panes stay at the primary and
+**the selector says so in its own label**. A control that silently governs three of
+twelve panes is worse than no control: a reader who moves it, sees the characterisation
+table stay put and is not told why is right to distrust the page.
+
+Making the rest switchable means fanning seven processes out over the cutoff list.
+Compute is not the obstacle -- all of `BGC_ANALYSIS` was 1.3 CPU-h of 1,547 on the
+GenBank run -- the report size and the code are.
+
+**The mechanism is still pure CSS.** The cutoff radios are emitted as siblings of the
+panes, before them, so `#cutN:checked ~ .tab-content .cut-N` reaches blocks inside any
+pane; the visible pills live in a `.cutbar` div that is deliberately NOT adjacent to a
+radio, or `.tabs input:checked + label` would style them as nav items. `MAX_CUTOFFS`
+in `viz/report_assets.py` generates two rules per cutoff and is a real ceiling, like
+`MAX_PANES`.
+
+**`Cutoff comparison` is its own pane and is NOT cutoff-aware**, deliberately: it
+exists to show the cutoffs together. It reports shape per cutoff (families, largest,
+singletons, median, regions in a family of more than one) and, between consecutive
+cutoffs, co-membership **split and merged separately** plus the ARI. Split and merged
+are different problems -- a merge joins chemistry the tighter cutoff kept apart, a
+split breaks a family you may already have written about -- and the ARI hides which
+direction the change went.
+
+With one cutoff nothing changes: no selector is emitted, no comparison pane, and the
+switchable sections render exactly as before.
+
+### The GCF network replaced the isolation column
+
+`isolation` -- the median distance from each member to the nearest region outside its
+family -- survived the withdrawal of the composite novelty score as a published column,
+and was removed on 2026-10-29. It measured something real, but a per-family number
+headed "isolation" sitting beside the reference identity reads as a novelty rank
+however the tooltip is worded, which is the same failure the composite was withdrawn
+for. It also cost `GCF_CHARACTERISATION` an input -- the whole BiG-SCAPE database --
+that nothing else in that process needed.
+
+`viz/gcf_network.py` shows the same distances as a shape, which cannot be sorted.
+
+**It is a distance matrix over family representatives** -- one row and one column per
+family, the cell being the measured BiG-SCAPE distance between the two
+`family.center_id` medoids, darker the closer. Rows and columns are grouped by
+coupling class and sorted by size inside each group; a bar down the left edge carries
+family size, which is the one thing a matrix cannot put in the cells.
+
+**It is the same matrix the family-centre tree is built on** (`bgc_gcf_tree.py`,
+Biosynthetic phylogeny pane), so the two panes are one object in two renderings: the
+tree shows the backbone, this shows every pair the tree had to discard. Until
+2026-10-29 the pane was built on a different matrix -- single linkage over all
+cross-family pairs -- and a reader who found two families adjacent here and far apart
+in the tree had no way to reconcile them.
+
+**Do not go back to a node-link diagram.** Three were drawn against this data first,
+and the matrix beats them on grounds that are not taste:
+
+- **It needs no threshold.** A node-link diagram has to decide which edges to draw, so
+  it needs an `EDGE_CUTOFF`, and no value of it is defensible. The matrix shows all
+  6,216 pairs. The constant survives only to count neighbours and pick which cells get
+  an individual tooltip.
+- **A hub reads as a stripe.** GCF-31 is within 0.50 of two thirds of all other
+  families -- the grab-bag signature recorded for GCF-27 above -- and a full-length
+  line across every block is unmissable where 75 chords from one node are a dense patch.
+- **Sub-block structure survives.** The Decarboxylase group is plainly not one thing.
+  Neither the ring nor the arc showed that at all.
+
+The three that lost, so they are not retried: **Fruchterman-Reingold** failed twice --
+plain FR walks weakly-connected nodes into the clamp and draws them in rows along the
+frame, and adding gravity made it worse, 89 of 112 pinned. The cause is the hub, so
+*any* force layout resolves to a sunburst and the tuning only picks how ugly. **A ring**
+fixed that and shipped briefly, but it orders by class, so most edges are within-class
+chords bundled unreadably against the rim while the interesting cross-class ones must
+be picked out of the crossings. **An arc diagram**, the ring unrolled, is better on the
+long-range edges and fits a page better, but bundles the same dense local block and
+still has to threshold.
+
+**The ramp is clipped at 0.9 and binned by tenths, because that is where the data is.**
+Representative distances here: median **0.945**, 74% at 0.9 or above, only 5% below
+0.556. A linear ramp over [0, 1] spends nearly all its range on pairs that are simply
+unrelated. One shade per tenth up to 0.9 and blank beyond matches the decile histogram,
+is one sentence to explain, and holds the drawn cells to about a quarter of the square
+-- which is also what keeps the SVG inlinable.
+
+**`RAMP[0]` is the DARKEST.** The list is ordered the way `shade()` indexes it, so dark
+means similar. Writing it light-first and indexing by distance draws the figure inside
+out -- the dense 0.8-0.9 shoulder goes black and the close blocks fade to nothing. That
+was shipped for one render and caught only by looking at the PNG.
+
+**Every family is labelled on BOTH axes**, down the left edge and rotated above the
+columns, with the class names above those. 7 px text in an 8 px pitch is a dense table
+rather than a collision -- verified at a minimum pitch of 8.0 px on each axis, and the
+longest rotated label clears the class strip by 11 px. The ten largest families and
+anything near a quarter of the run are darker and semibold, so what a reader came
+looking for still stands out from the other hundred.
+
+Naming both axes is what lets a cell be read in from either direction, and it is the
+thing that earns the redundant lower triangle its place. **An earlier version of this
+file said rotated column labels "would roughly triple the figure's height" and that was
+simply wrong**: the longest label is 7 characters, 29 px rotated, **3%** of a 988 px
+figure. That number came from reasoning about HORIZONTAL labels along the top -- where
+28 px of text over an 8 px column really is impossible -- and carrying the conclusion
+across to rotated ones without measuring. Measure the thing you are about to rule out.
+
+**`cell` stays at 8 px, and bigger is worse.** The report's content column is about
+1040 px at a 1440-wide window (body padding 40, a 224 px nav rail, 30 px pane padding,
+8 px figure padding), and the SVG is `width:100%` with `max-width`. A 9 px cell makes
+the figure 1116 px wide, which then scales DOWN to 0.93 and renders the 7 px row labels
+at 6.5 px. 8 px is the largest cell that still lets every label render 1:1. Class names
+are gated on measured width (`run >= 5.0 * len(name)`), not on family count, because a
+4-family span is 32 px and cannot hold "Decarboxylase".
+
+**Cells are emitted as one path per shade bin, not as 12,544 rects.** Individual rects
+with their own fill is over a megabyte of SVG inlined in the report; per-bin paths with
+integer coordinates give 201 kB with all 224 axis labels. Only the pairs within `EDGE_CUTOFF`
+get real elements, so tooltips exist exactly where they are worth the bytes.
+
+`family_network()` also returns how many of the n(n-1)/2 representative pairs the
+database holds a comparison for. Unmeasured cells get their own sand fill and the
+caption counts them: on a merged partitioned database only within-partition pairs
+exist, and a missing cell means *not measured*, not *far apart* -- the trap the
+all-BGCs tree fell into by substituting a constant for 42.9% of its matrix silently.
+
+**Representatives are stable under the pipeline's pin**, which is what makes a
+centre-based figure safe: `bigscape_determinism/` measured 2 of 5 family centres moving
+between identical runs *unpinned* and **0 with `PYTHONHASHSEED=0`**, which all four
+BiG-SCAPE processes set. Every difference it saw was at distance >= 0.66 and **0 of
+6,319 comparisons below 0.5 changed**. Do not cite the unpinned figure as an argument
+against centre-based figures; it nearly blocked this one.
+
+A cell below the 0.30 family cutoff is legitimate: BiG-SCAPE 2 clusters by affinity
+propagation, NOT single linkage, so near-identical regions can land in different
+families.
+
+Measured on the GenBank Enterobacterales database: 112 families, all 6,216
+representative pairs measured and drawn, 3,350 cells inked, all 112 families named on
+both axes, 201 kB of SVG, 1,020 px tall, 0.22 s --
+the query is 6,216 indexed lookups rather than a scan of all 1,088,550 distance rows.
+Byte-identical across three processes under `PYTHONHASHSEED=random`.
+
+### The execution timeline was removed from the resources pane
+
+On a screened run one process dominates the wall clock so completely that the Gantt
+chart carries no information: `FETCH_RENAME_SCREEN` was 53,981 of 54,058 tasks and
+spans essentially the whole run, so its bar *is* the chart. The per-process table says
+the same thing in numbers that can be read. `generate_gantt_chart_html()` is kept and
+still exported for ad-hoc use on a run with a flatter profile.
 
 ### `utils/domain_functions.py` — Pfam accession → biosynthetic role
 
