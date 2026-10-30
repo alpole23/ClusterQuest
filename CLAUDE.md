@@ -209,7 +209,7 @@ Gene Cluster Family (GCF) clustering.
 | `bigscape_include_singletons` | true | Include unclustered BGCs |
 | `bigscape_mix` | false | Allow mixing BGC classes in same GCF |
 | `bigscape_reference_dir` | `assets/phosphonate_reference_bgcs` | Characterised clusters measured by `BIGSCAPE_REFERENCES`; `""` disables |
-| `bigscape_min_bgc_length` | `0` | Exclude region records shorter than this (bp). `0` is BiG-SCAPE's own default. **Off by default because it removes data** — see below |
+| `bigscape_min_bgc_length` | `2000` | Exclude region records shorter than this (bp) — about two bacterial genes, below any functional BGC. Removes 2 of 1,476 regions on GenBank Enterobacterales and dissolves a 66-region artefact family; see below |
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -2462,19 +2462,26 @@ case on that family is d(a,b) = 0.982 against d(a,c) + d(b,c) = 0.170.
 exemplar of ≤3 genes — holding **97 of 1,476 regions**. 397 of 1,476 regions (27%) are
 contig-edge overall, so the raw material is plentiful.
 
-**Nothing legitimate is lost by excluding short records on this data.** Every region
-under 8 kb is contig-edge (37 of 37), and 51 of the 52 under 10 kb:
+**The default is 2000, and raising it buys nothing.** Re-clustered from the stored
+distances at each threshold:
 
-| `bigscape_min_bgc_length` | regions excluded | all contig-edge? | bad exemplars caught |
-|---:|---:|---|---:|
-| 0 (default) | 0 | — | 0 of 5 |
-| 5,000 | 15 (1.0%) | yes, 15 of 15 | 4 of 5 |
-| 10,000 | 52 (3.5%) | 51 of 52 | 5 of 5 |
+| `bigscape_min_bgc_length` | regions dropped | families | GCF-31's 66 members become |
+|---:|---:|---:|---|
+| 0 | 0 | 112 | **1 family of 66, 18 genera** |
+| **2,000** | **2** (1 and 3 CDS) | **126** | **18 families, largest 24** |
+| 3,000 | 6 | 125 | 18 families, largest 24 |
+| 5,000 | 15 | 132 | 18 families, largest 24 |
+| 10,000 | 52 | 127 | 18 families, largest 24 |
 
-It is **off by default** for the same reason `pepm_prescreen` and `bigscape_partition`
-are: it removes data from the analysis, and the published 112-family result was
-measured without it. Turn it on deliberately. The report's family matrix detects
-stub-anchored families and names them, so a run that leaves this at 0 still says so.
+The whole effect comes from removing the single 1,001 bp one-CDS record. Everything
+above 2,000 discards more data for no further benefit — 5,000 would drop regions of
+5 CDS, and **a phosphonate BGC can be five genes**, so partial clusters are worth
+keeping. 2000 bp is about two bacterial genes, which cannot be a functional BGC by
+any reading, and that is the only claim the default needs to carry.
+
+**Note the family count goes UP, 112 to 126.** That is the artefact resolving: the
+sink was holding 66 unrelated regions together, and they are 18 separate families.
+Any figure or table quoting 112 families was measured at `bigscape_min_bgc_length = 0`.
 
 **Do not read taxonomic breadth off a stub-anchored family.** GCF-31 spanning 18
 genera looks like spectacular cross-taxon distribution and is a broken contig.

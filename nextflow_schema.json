@@ -114,8 +114,8 @@
         },
         "bigscape_min_bgc_length": {
             "type": "integer",
-            "description": "Exclude region records shorter than this (bp) from clustering. 0 keeps BiG-SCAPE's own default and every result produced so far. Why it exists: a contig-edge fragment carrying only the hallmark gene is within the family cutoff of EVERY clus",
-            "default": 0,
+            "description": "Exclude region records shorter than this (bp) from clustering. 2000 bp is about two bacterial genes, which cannot be a functional BGC by any reading -- while partial clusters are worth keeping, since a phosphonate BGC can be five genes. It ",
+            "default": 2000,
             "x-group": "BiG-SCAPE Clustering Options"
         },
         "bigscape_mix": {
