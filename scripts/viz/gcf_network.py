@@ -109,6 +109,11 @@ _UNMEASURED = '#f3ece2'
 # content column (~1040 px at a 1440 window), and `width:100%` then scales the whole
 # figure DOWN -- so a 9 px cell renders the 7 px row labels at 6.5 px and reads worse
 # than an 8 px cell at 1:1. 8 is the largest cell that keeps every label legible.
+# A region with this few CDS, on a contig edge, is an assembly fragment rather than a
+# cluster. BiG-SCAPE's --min-bgc-length would exclude them; this run used 0, so they
+# are flagged in the figure instead of silently anchoring a family.
+STUB_CDS = 3
+
 CELL_MAX, CELL_MIN, BODY_MAX = 8, 3, 900
 PAD_L, PAD_T = 92, 76          # row labels left; class names, strip, column labels above
 
@@ -134,7 +139,9 @@ def family_network(db_path, cutoff=0.3):
     db = sqlite3.connect(f'file:{db_path}?mode=ro', uri=True)
     try:
         rows = db.execute(
-            """SELECT f.id, f.center_id, g.path, g.organism
+            """SELECT f.id, f.center_id, g.path, g.organism,
+                      (SELECT COUNT(*) FROM cds c WHERE c.gbk_id = g.id),
+                      r.contig_edge
                  FROM family f
                  JOIN bgc_record r ON r.id = f.center_id
                  LEFT JOIN gbk g ON g.id = r.gbk_id
@@ -142,10 +149,15 @@ def family_network(db_path, cutoff=0.3):
         if len(rows) < 2:
             return {}, {}, {}, 0, 0
 
-        fam_of_centre = {int(cid): fid for fid, cid, _, _ in rows}
+        fam_of_centre = {int(cid): fid for fid, cid, _, _, _, _ in rows}
         reps = {fid: (label_from_path(path or ''),
                       (organism or '').strip() or _organism_from_path(path))
-                for fid, _, path, organism in rows}
+                for fid, _, path, organism, _, _ in rows}
+        # A family whose exemplar is an assembly fragment is not a family. See the
+        # module docstring: on this run GCF-31's exemplar is a 1-CDS contig-edge stub
+        # carrying only pepM, and 66 regions from 18 genera collapsed onto it.
+        stubs = {fid for fid, _, _, _, n_cds, edge in rows
+                 if (n_cds or 0) <= STUB_CDS and edge}
         sizes = collections.Counter(
             f for (f,) in db.execute(
                 """SELECT bf.family_id FROM bgc_record_family bf
@@ -168,7 +180,7 @@ def family_network(db_path, cutoff=0.3):
         db.close()
 
     n = len(reps)
-    return dict(sizes), reps, measured, len(measured), n * (n - 1) // 2
+    return dict(sizes), reps, measured, len(measured), n * (n - 1) // 2, stubs
 
 
 def _organism_from_path(path):
@@ -223,7 +235,7 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     edge_cutoff  what "near" means when counting a family's neighbours. It does NOT
                  decide what is drawn; every measured pair is.
     """
-    size, reps, dist, measured, want = family_network(db_path, cutoff)
+    size, reps, dist, measured, want, stubs = family_network(db_path, cutoff)
     if len(size) < 2:
         return ''
     classes, colors, hrefs = classes or {}, colors or {}, hrefs or {}
@@ -399,9 +411,30 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     if hub and hub[1] >= hub_at:
         hub_note = (f' <strong>GCF-{_html.escape(str(hub[0]))}</strong> is the long '
                     f'stripe &mdash; it sits within {edge_cutoff:g} of {hub[1]} of '
-                    f'them. A family near almost everything is usually a loose one '
-                    f'rather than a central one, so check its cohesion before reading '
-                    f'anything into that row.')
+                    f'them.')
+        if hub[0] in stubs:
+            hub_note += (' <strong>Its exemplar is an assembly fragment</strong> '
+                         '&mdash; a contig-edge record of a few genes &mdash; so it '
+                         'resembles everything that shares those genes, and the '
+                         'breadth of that row is an artefact rather than chemistry.')
+        else:
+            hub_note += (' A family near almost everything may be a loose one, so '
+                         'check its cohesion before reading anything into that row.')
+
+    stub_note = ''
+    if stubs:
+        shown = ', '.join(f'GCF-{f}' for f in sorted(stubs)[:8])
+        held = sum(size.get(f, 0) for f in stubs)
+        stub_note = (
+            f'<p style="color:#8a5a2b;font-size:.88em;max-width:78ch;">'
+            f'<strong>{len(stubs)}</strong> famil{"y is" if len(stubs) == 1 else "ies are"} '
+            f'anchored on an <strong>assembly fragment</strong>: a contig-edge exemplar '
+            f'of at most {STUB_CDS} genes ({shown}), together holding '
+            f'<strong>{held}</strong> of {sum(size.values()):,} regions. A fragment '
+            f'carrying only the hallmark gene is close to every cluster that carries '
+            f'it, so these families collect unrelated regions and their taxonomic '
+            f'breadth means nothing. Exclude them with BiG-SCAPE&rsquo;s '
+            f'<code>--min-bgc-length</code>, which this run left at 0.</p>')
 
     gap_note = ''
     if want and measured < want:
@@ -451,6 +484,7 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         <code>docs/comparisons/bigscape_cutoff_sweep/</code>.
     </p>
     {gap_note}
+    {stub_note}
     <div style="margin:10px 0 14px;font-size:.88em;color:#444;">{legend}</div>
     <div style="border:1px solid #e3e6e4;border-radius:10px;padding:8px;background:#fff;">
         {''.join(parts)}
