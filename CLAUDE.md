@@ -209,6 +209,7 @@ Gene Cluster Family (GCF) clustering.
 | `bigscape_include_singletons` | true | Include unclustered BGCs |
 | `bigscape_mix` | false | Allow mixing BGC classes in same GCF |
 | `bigscape_reference_dir` | `assets/phosphonate_reference_bgcs` | Characterised clusters measured by `BIGSCAPE_REFERENCES`; `""` disables |
+| `bigscape_min_bgc_length` | `0` | Exclude region records shorter than this (bp). `0` is BiG-SCAPE's own default. **Off by default because it removes data** — see below |
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -2433,6 +2434,70 @@ A bare `-resume` afterwards binds to a preview — which executes nothing, so it
 nothing — and silently restarts from the first uncached stage. This is not theoretical:
 it cost hours of re-running here, with no error and no warning, and it is the reason to
 resume by UUID *every* time rather than only when you remember having run a preview.
+
+### A family can be an assembly fragment, and `--min-bgc-length` is the guard
+
+Found 2026-10-29 while asking why GCF-31 was the long stripe in the report's family
+matrix, within 0.50 of **75 of 112** families. The answer is not biology.
+
+**Its exemplar is a contig-edge record of 1,001 bp with ONE CDS carrying ONE domain:
+PF13714, pepM.** Every phosphonate BGC carries pepM by construction — that is what the
+pre-screen selects on — so that fragment is within 0.30 of almost anything, affinity
+propagation made it a family centre, and **66 regions from 18 genera** piled onto it.
+
+The geometry is the tell, and it is worth recognising again:
+
+| | |
+|---|---:|
+| members within 0.30 of the exemplar | **65 of 65** (median 0.170) |
+| median distance between those members | **0.922** |
+| member pairs violating the triangle inequality through it | **88%** |
+
+A perfect star — everything near the centre, nothing near anything else. Only possible
+because **BiG-SCAPE distance is not a metric**: each member aligns to a different part
+of what it shares, and with a one-gene centre there is only one thing to share. Worst
+case on that family is d(a,b) = 0.982 against d(a,c) + d(b,c) = 0.170.
+
+**Five families are built this way** — GCF-23, 24, 26, 31, 59, all with a contig-edge
+exemplar of ≤3 genes — holding **97 of 1,476 regions**. 397 of 1,476 regions (27%) are
+contig-edge overall, so the raw material is plentiful.
+
+**Nothing legitimate is lost by excluding short records on this data.** Every region
+under 8 kb is contig-edge (37 of 37), and 51 of the 52 under 10 kb:
+
+| `bigscape_min_bgc_length` | regions excluded | all contig-edge? | bad exemplars caught |
+|---:|---:|---|---:|
+| 0 (default) | 0 | — | 0 of 5 |
+| 5,000 | 15 (1.0%) | yes, 15 of 15 | 4 of 5 |
+| 10,000 | 52 (3.5%) | 51 of 52 | 5 of 5 |
+
+It is **off by default** for the same reason `pepm_prescreen` and `bigscape_partition`
+are: it removes data from the analysis, and the published 112-family result was
+measured without it. Turn it on deliberately. The report's family matrix detects
+stub-anchored families and names them, so a run that leaves this at 0 still says so.
+
+**Do not read taxonomic breadth off a stub-anchored family.** GCF-31 spanning 18
+genera looks like spectacular cross-taxon distribution and is a broken contig.
+
+### BiG-SCAPE options never invalidated their own cache
+
+Fixing the above surfaced a latent bug of the kind "Cache Invalidation" above already
+documents. **Every BiG-SCAPE option was interpolated into the process script body** —
+`--gcf-cutoffs`, `--alignment-mode`, `--classify`, all of them — and Nextflow hashes
+the *unevaluated* script plus the declared input values. So changing
+`bigscape_cutoffs` and resuming silently served the previous clustering, with no error
+and no warning.
+
+`Utils.bigscapeOptsHash(params)` is now passed to `BIGSCAPE` and `BIGSCAPE_PARTITION`
+as a **`val` input**, which is the spelling that works. Verified: the digest moves for
+a changed cutoff, mix flag or minimum length, and is stable across repeated calls with
+the same options. `bigscape_min_bgc_length` is only included in the digest when set, so
+results produced before this existed keep their hash — the same reasoning as
+`antismash_phosphonate_neighbourhood`.
+
+**Adding the input invalidates the BiG-SCAPE cache once**, because the process input
+cardinality changed. That is cheap here: `BIGSCAPE` was 0.07% of the GenBank run's CPU,
+7 m 21 s for 1,476 regions.
 
 ### BiG-SCAPE Partitioning (`--bigscape_partition`)
 

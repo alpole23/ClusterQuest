@@ -24,6 +24,36 @@ class Utils {
      * @param params The Nextflow params object
      * @return MD5 hash string of the parameter configuration
      */
+    /**
+     * Digest of every option that changes what BiG-SCAPE computes.
+     *
+     * This exists because the options are INTERPOLATED into the process script body,
+     * and Nextflow hashes the unevaluated script plus declared input values -- so
+     * changing `bigscape_cutoffs` or any sibling never invalidated the cached task
+     * and `-resume` silently served the previous clustering. The same trap as the
+     * `# scripts-version:` comment; see "Cache Invalidation" in CLAUDE.md. Passing
+     * this as a `val` input is the spelling that works.
+     *
+     * Only options that change the OUTPUT belong here. `--cores` does not.
+     */
+    static String bigscapeOptsHash(params) {
+        def relevant = [
+            "cutoffs=${params.bigscape_cutoffs ?: '0.30'}",
+            "alignment_mode=${params.bigscape_alignment_mode ?: 'auto'}",
+            "classify=${params.bigscape_classify ?: ''}",
+            "include_singletons=${params.bigscape_include_singletons ?: false}",
+            "mix=${params.bigscape_mix ?: false}",
+            "mibig_version=${params.bigscape_mibig_version ?: ''}",
+        ]
+        // Only when set, so every result produced before this option existed keeps
+        // its hash and stays resumable -- the same reasoning as the antiSMASH
+        // neighbourhood above.
+        if (params.bigscape_min_bgc_length) {
+            relevant << "min_bgc_length=${params.bigscape_min_bgc_length}"
+        }
+        return md5(relevant.sort().join(";"))
+    }
+
     static String antismashParamsHash(params) {
         // Collect relevant antiSMASH parameters into a sorted string
         def relevantParams = [
