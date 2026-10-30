@@ -16,11 +16,31 @@
 set -euo pipefail
 
 AS=${AS:-/home/alexp/enterobacterales/results/antismash_results/Enterobacterales}
-PFAM=${PFAM:?set PFAM to Pfam-A.hmm (release 38.2, as nextflow.config pins)}
 CORES=${CORES:-16}
 REF=${REF:-/home/alexp/enterobacterales/results/bigscape_results/Enterobacterales/Enterobacterales.db}
 
+# Pfam lives under the run's ${outdir}/databases, which was on the external drive.
+# Find it rather than hardcoding a guess:
+#     find /mnt/bigdisk -name Pfam-A.hmm
+PFAM=${PFAM:?set PFAM to Pfam-A.hmm -- try: find /mnt/bigdisk -name Pfam-A.hmm}
+
 export PYTHONHASHSEED=0          # see docs/comparisons/bigscape_determinism/
+
+# --- preflight: fail now, not 20 minutes in -------------------------------
+[ -d "$AS" ]   || { echo "antiSMASH results not found: $AS" >&2; exit 1; }
+[ -f "$PFAM" ] || { echo "Pfam not found: $PFAM" >&2; exit 1; }
+[ -f "$REF" ]  || { echo "reference database not found: $REF" >&2; exit 1; }
+command -v bigscape >/dev/null || { echo "bigscape not on PATH -- activate its env" >&2; exit 1; }
+python3 -c "import Bio" 2>/dev/null || { echo "biopython missing (trim needs it)" >&2; exit 1; }
+# hmmpress writes next to the .hmm; BiG-SCAPE presses it if the .h3* are absent,
+# which needs write permission on that directory.
+if [ ! -f "${PFAM}.h3i" ] && [ ! -w "$(dirname "$PFAM")" ]; then
+    echo "Pfam is not pressed and $(dirname "$PFAM") is not writable." >&2
+    echo "Copy Pfam-A.hmm somewhere writable and point PFAM at the copy." >&2
+    exit 1
+fi
+echo "preflight OK -- $(ls "$AS" | wc -l) genome directories, Pfam at $PFAM"
+echo
 
 run_arm () {
     local name=$1; shift

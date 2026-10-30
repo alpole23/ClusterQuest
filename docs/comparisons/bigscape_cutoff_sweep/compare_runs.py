@@ -14,10 +14,56 @@ import argparse
 import collections
 import os
 import sqlite3
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'scripts'))
-from viz.cutoff_comparison import agreement, shape          # noqa: E402
+# Deliberately self-contained. An earlier version imported agreement() and shape()
+# from scripts/viz/cutoff_comparison.py, which lives on an unmerged branch -- so this
+# script raised ModuleNotFoundError on main and would have failed at exactly the
+# moment it was needed. A comparison record has to run from a clean checkout.
+
+
+def _comb2(n):
+    return n * (n - 1) // 2
+
+
+def shape(member):
+    """Family-count statistics for one {record: family} map."""
+    sizes = collections.Counter(member.values())
+    vals = sorted(sizes.values())
+    return {
+        'regions': len(member),
+        'families': len(sizes),
+        'largest': vals[-1] if vals else 0,
+        'singletons': sum(1 for v in vals if v == 1),
+        'median': vals[len(vals) // 2] if vals else 0,
+    }
+
+
+def agreement(a, b):
+    """Co-membership change from clustering `a` to clustering `b`.
+
+    `split` is pairs together in A and apart in B; `merged` is the reverse. ARI is
+    the standard contingency-table form -- 1,476 regions is 1.09 million pairs and
+    the closed form is O(n + k1*k2).
+    """
+    shared = sorted(set(a) & set(b))
+    if len(shared) < 2:
+        return None
+    ct = collections.Counter((a[r], b[r]) for r in shared)
+    ra = collections.Counter(a[r] for r in shared)
+    rb = collections.Counter(b[r] for r in shared)
+    n = len(shared)
+    both = sum(_comb2(v) for v in ct.values())
+    sa = sum(_comb2(v) for v in ra.values())
+    sb = sum(_comb2(v) for v in rb.values())
+    total = _comb2(n)
+    expected = sa * sb / total if total else 0.0
+    denom = 0.5 * (sa + sb) - expected
+    return {
+        'n': n,
+        'split': sa - both,
+        'merged': sb - both,
+        'ari': (both - expected) / denom if denom else 1.0,
+    }
 
 
 def memberships(db_path):
