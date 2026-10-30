@@ -2,6 +2,25 @@
 """Gene diagram SVG generation for BGC visualization."""
 
 
+def _n(v):
+    """A pixel coordinate, rounded to 0.1 px and with a trailing '.0' dropped.
+
+    The polygon builders below interpolate raw Python floats, so `arrow_height / 3`
+    reached the SVG as `39.333333333333336` -- 18 characters to place an arrow edge
+    on a diagram that is 900 px wide and served at `max-width:100%`. On the GenBank
+    Enterobacterales report that cost **354,300 characters** across 2,891 polygons,
+    with those two values alone appearing 4,446 times each; the whole pane holds only
+    five distinct y coordinates. Rounding displaces an edge by at most 0.05 px.
+
+    Note the ordering is load-bearing in the terser spelling of this
+    (`f'{v:.1f}'.rstrip('0').rstrip('.')`): it reads as though it would turn 10.0 into
+    1, and it does not, because the '.' stops the zero-strip. This spelling avoids
+    making a reader work that out.
+    """
+    s = f'{v:.1f}'
+    return s[:-2] if s.endswith('.0') else s
+
+
 def generate_gene_svg(genes, region_start, region_end, width=900, height=80):
     """Generate SVG gene diagram for a BGC with proper arrow shapes.
 
@@ -56,20 +75,20 @@ def generate_gene_svg(genes, region_start, region_end, width=900, height=80):
                 # Shape: rectangle body + triangular arrowhead pointing right
                 body_end = gene_end - arrow_tip_width
                 points = (
-                    f"{gene_start},{gene_y - body_half_height} "  # Top-left of body
-                    f"{body_end},{gene_y - body_half_height} "    # Top-right of body
-                    f"{body_end},{gene_y - half_height} "         # Top of arrowhead base
-                    f"{gene_end},{gene_y} "                       # Arrow tip
-                    f"{body_end},{gene_y + half_height} "         # Bottom of arrowhead base
-                    f"{body_end},{gene_y + body_half_height} "    # Bottom-right of body
-                    f"{gene_start},{gene_y + body_half_height}"   # Bottom-left of body
+                    f"{_n(gene_start)},{_n(gene_y - body_half_height)} "  # Top-left of body
+                    f"{_n(body_end)},{_n(gene_y - body_half_height)} "    # Top-right of body
+                    f"{_n(body_end)},{_n(gene_y - half_height)} "         # Top of arrowhead base
+                    f"{_n(gene_end)},{_n(gene_y)} "                       # Arrow tip
+                    f"{_n(body_end)},{_n(gene_y + half_height)} "         # Bottom of arrowhead base
+                    f"{_n(body_end)},{_n(gene_y + body_half_height)} "    # Bottom-right of body
+                    f"{_n(gene_start)},{_n(gene_y + body_half_height)}"   # Bottom-left of body
                 )
             else:
                 # Small gene: simple triangle pointing right
                 points = (
-                    f"{gene_start},{gene_y - half_height} "
-                    f"{gene_end},{gene_y} "
-                    f"{gene_start},{gene_y + half_height}"
+                    f"{_n(gene_start)},{_n(gene_y - half_height)} "
+                    f"{_n(gene_end)},{_n(gene_y)} "
+                    f"{_n(gene_start)},{_n(gene_y + half_height)}"
                 )
         else:  # Reverse strand (left-pointing arrow)
             if gene_width > arrow_tip_width:
@@ -77,20 +96,20 @@ def generate_gene_svg(genes, region_start, region_end, width=900, height=80):
                 # Shape: triangular arrowhead pointing left + rectangle body
                 body_start = gene_start + arrow_tip_width
                 points = (
-                    f"{gene_start},{gene_y} "                     # Arrow tip
-                    f"{body_start},{gene_y - half_height} "       # Top of arrowhead base
-                    f"{body_start},{gene_y - body_half_height} "  # Top-left of body
-                    f"{gene_end},{gene_y - body_half_height} "    # Top-right of body
-                    f"{gene_end},{gene_y + body_half_height} "    # Bottom-right of body
-                    f"{body_start},{gene_y + body_half_height} "  # Bottom-left of body
-                    f"{body_start},{gene_y + half_height}"        # Bottom of arrowhead base
+                    f"{_n(gene_start)},{_n(gene_y)} "                     # Arrow tip
+                    f"{_n(body_start)},{_n(gene_y - half_height)} "       # Top of arrowhead base
+                    f"{_n(body_start)},{_n(gene_y - body_half_height)} "  # Top-left of body
+                    f"{_n(gene_end)},{_n(gene_y - body_half_height)} "    # Top-right of body
+                    f"{_n(gene_end)},{_n(gene_y + body_half_height)} "    # Bottom-right of body
+                    f"{_n(body_start)},{_n(gene_y + body_half_height)} "  # Bottom-left of body
+                    f"{_n(body_start)},{_n(gene_y + half_height)}"        # Bottom of arrowhead base
                 )
             else:
                 # Small gene: simple triangle pointing left
                 points = (
-                    f"{gene_end},{gene_y - half_height} "
-                    f"{gene_start},{gene_y} "
-                    f"{gene_end},{gene_y + half_height}"
+                    f"{_n(gene_end)},{_n(gene_y - half_height)} "
+                    f"{_n(gene_start)},{_n(gene_y)} "
+                    f"{_n(gene_end)},{_n(gene_y + half_height)}"
                 )
 
         # The two genes a reader is actually looking for: the pepM hallmark and the
@@ -109,7 +128,7 @@ def generate_gene_svg(genes, region_start, region_end, width=900, height=80):
         if mark:
             cx = (gene_start + gene_end) / 2
             svg_parts.append(
-                f'<text x="{cx}" y="{gene_y - arrow_height / 2 - 4}" font-size="8.5" '
+                f'<text x="{_n(cx)}" y="{_n(gene_y - arrow_height / 2 - 4)}" font-size="8.5" '
                 f'font-weight="600" fill="#111" text-anchor="middle">{mark}</text>')
 
     svg_parts.append('</svg>')
