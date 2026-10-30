@@ -254,5 +254,171 @@
       "reorient the BGCs": "Already handled by BiG-SCAPE -- see orientation_is_not_the_cause."
     },
     "to_make_it_permanent": "A trim step before BIGSCAPE in subworkflows/clustering.nf, parameterised as something like bigscape_window_up / bigscape_window_down, with the default left at the current symmetric behaviour until the measured run justifies changing it. That is a code change and belongs on a branch."
+  },
+  "MEASURED_RESULT_2026-10-29": {
+    "headline": "The asymmetric window does what it was predicted to do to the DISTANCES and does NOT do what was predicted to the FAMILIES. GCF-1/GCF-2 fall from 0.680 to 0.237 -- inside the 0.30 cutoff, in the same connected component -- and affinity propagation still splits them. The flank was the cause of the inflated distance; AP is the cause of the split, and they are separate problems.",
+    "run": "trim_regions.py + bigscape 2.0.1, PYTHONHASHSEED=0, --gcf-cutoffs 0.2,0.3,0.4, --alignment-mode auto --include-singletons --classify category, 16 cores, 1,476 regions, Pfam 38.2. antiSMASH was NOT re-run; detection stays at 10 kb.",
+    "distances_collapsed_as_predicted": {
+      "note": "median over all cross-family pairs; components are 1-(0.20*J + 0.05*A + 0.75*DSS)",
+      "GCF-1 / GCF-2 (P. ananatis / allii)": {
+        "reference": {
+          "d": 0.68,
+          "J": 0.312,
+          "DSS": 0.323
+        },
+        "asym": {
+          "d": 0.237,
+          "J": 0.769,
+          "DSS": 0.76
+        }
+      },
+      "GCF-16 / GCF-18 (Pect. atro / punj)": {
+        "reference": {
+          "d": 0.349,
+          "J": 0.714,
+          "DSS": 0.63
+        },
+        "asym": {
+          "d": 0.171,
+          "J": 0.867,
+          "DSS": 0.817
+        }
+      },
+      "GCF-1 / GCF-4 (Pantoea / Photorhabdus)": {
+        "reference": {
+          "d": 0.576
+        },
+        "asym": {
+          "d": 0.539
+        },
+        "note": "barely moves -- a different genus and genuinely more distant"
+      }
+    },
+    "family_shape": {
+      "reference -10/+10": {
+        "0.20": [
+          164,
+          186,
+          97
+        ],
+        "0.30": [
+          112,
+          186,
+          43
+        ],
+        "0.40": [
+          84,
+          186,
+          21
+        ]
+      },
+      "sym8 -8/+8": {
+        "0.20": [
+          153,
+          201,
+          91
+        ],
+        "0.30": [
+          106,
+          202,
+          42
+        ],
+        "0.40": [
+          81,
+          202,
+          22
+        ]
+      },
+      "asym -0/+10": {
+        "0.20": [
+          143,
+          186,
+          71
+        ],
+        "0.30": [
+          89,
+          186,
+          29
+        ],
+        "0.40": [
+          67,
+          198,
+          12
+        ]
+      },
+      "asym2 -1/+10": {
+        "0.20": [
+          140,
+          186,
+          73
+        ],
+        "0.30": [
+          93,
+          202,
+          33
+        ],
+        "0.40": [
+          72,
+          202,
+          17
+        ]
+      },
+      "format": "[families, largest, singletons]",
+      "vs_reference_at_0.30": {
+        "sym8": "ARI 0.9048, 61 members moved",
+        "asym": "ARI 0.8877, 68 moved",
+        "asym2": "ARI 0.8527, 84 moved"
+      }
+    },
+    "acceptance_test_FAILED": {
+      "pre_registered": "Among the 15 families sharing an identical rule core, asym should give ~11 distinct groups where the reference gives 14 and core-only gives 1.",
+      "actual": {
+        "reference": 15,
+        "sym8": 14,
+        "asym": 14,
+        "asym2": 13
+      },
+      "and": "GCF-1/2/4 remain 3 separate groups in every arm. asym2 is worse than asym -- it contaminates GCF-3, which has a genuinely different core.",
+      "why_the_proxy_was_wrong": "The prediction came from modal domain-SET Jaccard, which is the JI term -- 20% of the weight. BiG-SCAPE is 75% DSS, the sequence similarity of shared domains. Trimming the flank raised J from 0.31 to 0.77 AND DSS from 0.32 to 0.76, so the distance did collapse; the proxy was right about the direction and useless about the clustering, because clustering is AP's, not the distance's."
+    },
+    "AP_preference_cannot_rescue_it": {
+      "test": "Re-ran generate_families on the asym distances at preference 0.0 / -1 / -2 / -5 / -10.",
+      "result": [
+        [
+          0.0,
+          89,
+          186,
+          "3 groups, GCF-3 apart"
+        ],
+        [
+          -1.0,
+          75,
+          273,
+          "3 groups, GCF-3 CONTAMINATED"
+        ],
+        [
+          -2.0,
+          68,
+          359,
+          "2 groups, GCF-3 contaminated"
+        ],
+        [
+          -5.0,
+          58,
+          473,
+          "2 groups, contaminated"
+        ],
+        [
+          -10.0,
+          54,
+          473,
+          "2 groups, contaminated"
+        ]
+      ],
+      "format": "[preference, families, largest, outcome]",
+      "reading": "GCF-1/2/4 only merge at preference <= -2.0, and by then GCF-3 -- 20 core domains against 4, genuinely different chemistry -- has been swallowed and the largest family has ballooned to 359-473. There is no preference that merges the species splits without destroying a real distinction. Confirms the earlier call that this lever is blunt."
+    },
+    "what_to_conclude": "Adopt the asymmetric window for the DISTANCES, not for the family counts. It makes every distance-based artefact honest -- the family matrix, the centre tree, reference distances -- and on the matrix a reader can now SEE GCF-1 and GCF-2 at 0.237 and judge for themselves, which is what that figure is for. Family assignment remains affinity propagation's and no parameter reachable from the pipeline changes that. Merging the species splits would need a different clustering step over the corrected distances, not a different BiG-SCAPE setting.",
+    "do_not_adopt": "asym2 (-1/+10). It is strictly worse than asym: more families, larger maximum, and it contaminates GCF-3. The 1 kb of upstream slack buys nothing."
   }
 }
