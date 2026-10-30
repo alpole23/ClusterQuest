@@ -98,7 +98,11 @@ BINS = 9
 # shoulder goes black and the close blocks fade to nothing.
 RAMP = ['#17455a', '#2c6173', '#42788d', '#5b8fa4', '#78a5b7',
         '#97bac8', '#b4cdd7', '#cfdfe5', '#e7eef1']
-_DIAGONAL = '#d2dcdf'      # a reading guide, not a measurement: a family to itself
+# The diagonal is a family against itself, which is distance 0.0 -- so it takes
+# RAMP[0] like any other zero. It was drawn in a separate pale grey as "a reading
+# guide, not a measurement", and that silently contradicted the ramp: a key reading
+# "0.0 identical" beside a pale diagonal says the identical cells are not identical.
+_DIAGONAL = RAMP[0]
 _UNMEASURED = '#f3ece2'
 
 # cell stays at 8 deliberately. A bigger cell makes the SVG wider than the report's
@@ -269,7 +273,7 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     for k in sorted(buckets):
         parts.append(f'<path d="{"".join(buckets[k])}" fill="{RAMP[k]}"/>')
     parts.append(f'<path d="{"".join(f"M{x0(i)} {y0(i)}h{cell}v{cell}h-{cell}z" for i in range(n))}" '
-                 f'fill="{_DIAGONAL}"/>')
+                 f'fill="{_DIAGONAL}"><title>each family against itself: 0.000</title></path>')
 
     # Individual elements only for the pairs a reader would chase, so the tooltips
     # exist where they are worth the bytes.
