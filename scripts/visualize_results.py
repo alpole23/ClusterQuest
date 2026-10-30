@@ -652,10 +652,21 @@ def main():
 
     if args.counts or args.tabulation:
         print(f"Generating HTML report...")
-        generate_html_report(args.outdir, args.taxon, table_header, table_rows, stats, tree_html,
-                            bigscape_stats_html,
-                            phylo_tree_generated,
-                            genome_table, resource_usage_html, phylo_tree_data,
+        # Everything past the first five goes by KEYWORD. This call used to pass
+        # phylo_tree_generated, genome_table, resource_usage_html and
+        # phylo_tree_data positionally; inserting gcf_network_html into the
+        # signature silently shifted all four onto the wrong parameters, and the
+        # only reason it surfaced is that gcf_network_html was ALSO passed by
+        # keyword, which raised TypeError. Had it not been, the report would have
+        # rendered with the network slot holding a boolean. Do not reintroduce
+        # positional arguments into a thirty-parameter signature.
+        generate_html_report(args.outdir, args.taxon, table_header, table_rows, stats,
+                            tree_html=tree_html,
+                            bigscape_stats_html=bigscape_stats_html,
+                            phylo_tree_generated=phylo_tree_generated,
+                            genome_table=genome_table,
+                            resource_usage_html=resource_usage_html,
+                            phylo_tree_data=phylo_tree_data,
                             taxonomy_genome_json=taxonomy_genome_json,
                             pepm_summary=pepm_summary,
                             branch_point_path=args.branch_point,
