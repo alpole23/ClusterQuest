@@ -227,5 +227,32 @@
       },
       "reading": "Three of the four (1, 2, 4) have IDENTICAL core content and differ only in flank; GCF-3 has a genuinely different core and belongs apart. So the splitting is real but its cause is the flank, as the asymmetric-window section concludes -- not orientation."
     }
+  },
+  "how_to_fix_the_splitting": {
+    "the_test_that_decides_it": "Take the 15 families that share an identical rule core (GCF-7,8,9,11,12,13,14,15,16,17,18,19,20,65,69 -- 593 BGCs, Pectobacterium / Lonsdalea / Brenneria) and ask how many DISTINCT domain profiles survive at each comparison window. The right window keeps the tailoring differences and drops the host flank.",
+    "result": {
+      "rule core only": {
+        "median_pairwise_jaccard": 1.0,
+        "distinct_of_15": 1
+      },
+      "core -0 / +10 kb (cassette)": {
+        "median_pairwise_jaccard": 0.67,
+        "distinct_of_15": 11
+      },
+      "region as run, -10 / +10": {
+        "median_pairwise_jaccard": 0.5,
+        "distinct_of_15": 14
+      }
+    },
+    "reading": "Core-only erases every tailoring difference -- 15 families collapse to ONE profile. The region as run keeps 14 of 15 apart, but the extra distinctions come from upstream host context, which is the over-splitting. The asymmetric cassette window keeps 11 of 15, which is the behaviour wanted: tailoring differences preserved, species-driven splits collapsed.",
+    "recommended": "Compare on core -0 / +10 kb. Detection stays at 10 kb symmetric; this is a re-cut for comparison only (trim_regions.py --up 0 --down 10, oriented on pepM). +10 rather than +8 because the cassette reaches 9,792 bp past the core in the worst pantaphos member.",
+    "rejected_and_why": {
+      "lower the cutoff": "The cutoff is not the knob. Largest family is 186 at 0.20, 0.30 and 0.40 alike, GCF-1 and GCF-2 never merge, and loosening 0.20 -> 0.30 SPLIT 7,094 co-membership pairs because merging components drops them below DENSITY 0.85 and flips AP's preference from -5.0 back to 0.0.",
+      "lower the AP preference in config.yml": "Blunt in the wrong direction. It makes fewer families everywhere, merging real tailoring differences along with the species splits. It treats the symptom.",
+      "--record-type proto_core": "Same failure as core-only grouping above: median 4 domains, all 15 families collapse to one profile.",
+      "group families post hoc by identical core content": "Tried and measured, and it is the 1-of-15 row. It passes a naive acceptance test (GCF-1+2+4 together, GCF-3 apart, GCF-16 apart; 112 families -> 76 groups at representative distance 0.5) but it merges 15 genuinely distinct Pectobacterium chemistries into one. Usable as a coarse 'chemistry class' label ALONGSIDE families, never as a replacement.",
+      "reorient the BGCs": "Already handled by BiG-SCAPE -- see orientation_is_not_the_cause."
+    },
+    "to_make_it_permanent": "A trim step before BIGSCAPE in subworkflows/clustering.nf, parameterised as something like bigscape_window_up / bigscape_window_down, with the default left at the current symmetric behaviour until the measured run justifies changing it. That is a code change and belongs on a branch."
   }
 }
