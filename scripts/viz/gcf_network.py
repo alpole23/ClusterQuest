@@ -426,6 +426,18 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         <strong>{lonely}</strong> of <strong>{n}</strong> families have no other
         family within {edge_cutoff:g}.{hub_note}
     </p>
+    <p style="color:#777;font-size:.88em;max-width:78ch;">
+        <strong>A dark off-diagonal cell is worth taking seriously.</strong> Some
+        families here carry an <em>identical</em> rule core and separate only on
+        flanking chromosomal context, which differs by host species &mdash; so they
+        are one chemistry reported as several. Measured on GenBank Enterobacterales,
+        the two largest <em>Pantoea</em> pantaphos families sit 0.680 apart over the
+        whole region and <strong>0.237</strong> apart over the biosynthetic cassette
+        alone. Families are affinity propagation&rsquo;s, and it splits inside a
+        connected component whatever the cutoff; this matrix shows the distances so
+        that judgement stays with the reader. See
+        <code>docs/comparisons/bigscape_cutoff_sweep/</code>.
+    </p>
     {gap_note}
     <div style="margin:10px 0 14px;font-size:.88em;color:#444;">{legend}</div>
     <div style="border:1px solid #e3e6e4;border-radius:10px;padding:8px;background:#fff;">
