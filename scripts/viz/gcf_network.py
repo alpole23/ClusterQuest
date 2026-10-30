@@ -362,15 +362,23 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
                      f'fill="{RAMP[k]}"/>')
     parts.append(f'<rect x="{PAD_L + BINS * 26 + 6}" y="{key_y}" width="26" '
                  f'height="9" fill="#fbfcfc" stroke="#dfe4e6"/>')
-    for lab, x, anchor in ((f'0.0', PAD_L, 'start'),
+    # Numbers alone are not a key. The first reader of this figure read the ramp
+    # backwards -- reasonably, since "dark" reads as "more" and the quantity being
+    # shown is DISsimilarity, so more distance is lighter. The ends say what they
+    # mean in words.
+    for lab, x, anchor in ((f'0.0 identical', PAD_L, 'start'),
                            (f'{BLANK_AT:g}', PAD_L + BINS * 26, 'end'),
-                           (f'≥ {BLANK_AT:g}', PAD_L + BINS * 26 + 38, 'start')):
+                           (f'≥ {BLANK_AT:g} unrelated',
+                            PAD_L + BINS * 26 + 38, 'start')):
         parts.append(f'<text x="{x}" y="{key_y + 20}" text-anchor="{anchor}" '
                      f'font-size="9" font-family="system-ui,-apple-system,sans-serif" '
                      f'fill="#66777e">{lab}</text>')
     parts.append(f'<text x="{PAD_L - 40}" y="{key_y + 7}" text-anchor="end" '
                  f'font-size="9" font-family="system-ui,-apple-system,sans-serif" '
                  f'fill="#66777e">distance</text>')
+    parts.append(f'<text x="{PAD_L - 40}" y="{key_y + 20}" text-anchor="end" '
+                 f'font-size="9" font-family="system-ui,-apple-system,sans-serif" '
+                 f'fill="#8b979d">darker = closer</text>')
     parts.append('</svg>')
 
     lonely = sum(1 for f in order if degree.get(f, 0) == 0)
