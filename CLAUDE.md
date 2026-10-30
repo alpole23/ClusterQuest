@@ -209,6 +209,7 @@ Gene Cluster Family (GCF) clustering.
 | `bigscape_include_singletons` | true | Include unclustered BGCs |
 | `bigscape_mix` | false | Allow mixing BGC classes in same GCF |
 | `bigscape_reference_dir` | `assets/phosphonate_reference_bgcs` | Characterised clusters measured by `BIGSCAPE_REFERENCES`; `""` disables |
+| `bigscape_min_bgc_length` | `2000` | Exclude region records shorter than this (bp) — about two bacterial genes, below any functional BGC. Removes 2 of 1,476 regions on GenBank Enterobacterales and dissolves a 66-region artefact family; see below |
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -2433,6 +2434,77 @@ A bare `-resume` afterwards binds to a preview — which executes nothing, so it
 nothing — and silently restarts from the first uncached stage. This is not theoretical:
 it cost hours of re-running here, with no error and no warning, and it is the reason to
 resume by UUID *every* time rather than only when you remember having run a preview.
+
+### A family can be an assembly fragment, and `--min-bgc-length` is the guard
+
+Found 2026-10-29 while asking why GCF-31 was the long stripe in the report's family
+matrix, within 0.50 of **75 of 112** families. The answer is not biology.
+
+**Its exemplar is a contig-edge record of 1,001 bp with ONE CDS carrying ONE domain:
+PF13714, pepM.** Every phosphonate BGC carries pepM by construction — that is what the
+pre-screen selects on — so that fragment is within 0.30 of almost anything, affinity
+propagation made it a family centre, and **66 regions from 18 genera** piled onto it.
+
+The geometry is the tell, and it is worth recognising again:
+
+| | |
+|---|---:|
+| members within 0.30 of the exemplar | **65 of 65** (median 0.170) |
+| median distance between those members | **0.922** |
+| member pairs violating the triangle inequality through it | **88%** |
+
+A perfect star — everything near the centre, nothing near anything else. Only possible
+because **BiG-SCAPE distance is not a metric**: each member aligns to a different part
+of what it shares, and with a one-gene centre there is only one thing to share. Worst
+case on that family is d(a,b) = 0.982 against d(a,c) + d(b,c) = 0.170.
+
+**Five families are built this way** — GCF-23, 24, 26, 31, 59, all with a contig-edge
+exemplar of ≤3 genes — holding **97 of 1,476 regions**. 397 of 1,476 regions (27%) are
+contig-edge overall, so the raw material is plentiful.
+
+**The default is 2000, and raising it buys nothing.** Re-clustered from the stored
+distances at each threshold:
+
+| `bigscape_min_bgc_length` | regions dropped | families | GCF-31's 66 members become |
+|---:|---:|---:|---|
+| 0 | 0 | 112 | **1 family of 66, 18 genera** |
+| **2,000** | **2** (1 and 3 CDS) | **126** | **18 families, largest 24** |
+| 3,000 | 6 | 125 | 18 families, largest 24 |
+| 5,000 | 15 | 132 | 18 families, largest 24 |
+| 10,000 | 52 | 127 | 18 families, largest 24 |
+
+The whole effect comes from removing the single 1,001 bp one-CDS record. Everything
+above 2,000 discards more data for no further benefit — 5,000 would drop regions of
+5 CDS, and **a phosphonate BGC can be five genes**, so partial clusters are worth
+keeping. 2000 bp is about two bacterial genes, which cannot be a functional BGC by
+any reading, and that is the only claim the default needs to carry.
+
+**Note the family count goes UP, 112 to 126.** That is the artefact resolving: the
+sink was holding 66 unrelated regions together, and they are 18 separate families.
+Any figure or table quoting 112 families was measured at `bigscape_min_bgc_length = 0`.
+
+**Do not read taxonomic breadth off a stub-anchored family.** GCF-31 spanning 18
+genera looks like spectacular cross-taxon distribution and is a broken contig.
+
+### BiG-SCAPE options never invalidated their own cache
+
+Fixing the above surfaced a latent bug of the kind "Cache Invalidation" above already
+documents. **Every BiG-SCAPE option was interpolated into the process script body** —
+`--gcf-cutoffs`, `--alignment-mode`, `--classify`, all of them — and Nextflow hashes
+the *unevaluated* script plus the declared input values. So changing
+`bigscape_cutoffs` and resuming silently served the previous clustering, with no error
+and no warning.
+
+`Utils.bigscapeOptsHash(params)` is now passed to `BIGSCAPE` and `BIGSCAPE_PARTITION`
+as a **`val` input**, which is the spelling that works. Verified: the digest moves for
+a changed cutoff, mix flag or minimum length, and is stable across repeated calls with
+the same options. `bigscape_min_bgc_length` is only included in the digest when set, so
+results produced before this existed keep their hash — the same reasoning as
+`antismash_phosphonate_neighbourhood`.
+
+**Adding the input invalidates the BiG-SCAPE cache once**, because the process input
+cardinality changed. That is cheap here: `BIGSCAPE` was 0.07% of the GenBank run's CPU,
+7 m 21 s for 1,476 regions.
 
 ### BiG-SCAPE Partitioning (`--bigscape_partition`)
 

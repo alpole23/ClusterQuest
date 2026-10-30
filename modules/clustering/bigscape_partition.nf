@@ -26,6 +26,7 @@ process BIGSCAPE_PARTITION {
 
     input:
     val taxon
+    val opts_hash
     tuple val(part_id), path(gbks)
     path pfam_db
     path partitions
@@ -78,6 +79,7 @@ LAYOUT
         --pfam-path \$PFAM_PATH \\
         --alignment-mode ${params.bigscape_alignment_mode} \\
         --gcf-cutoffs ${params.bigscape_cutoffs} \\
+        ${params.bigscape_min_bgc_length ? "--min-bgc-length ${params.bigscape_min_bgc_length}" : ''} \\
         ${params.bigscape_include_singletons ? '--include-singletons' : ''} \\
         ${params.bigscape_mix ? '--mix' : ''} \\
         --cores ${task.cpus} \\
@@ -104,6 +106,7 @@ LAYOUT
             --pfam-path \$PFAM_PATH \\
             --alignment-mode ${params.bigscape_alignment_mode} \\
             --gcf-cutoffs ${params.bigscape_cutoffs} \\
+            ${params.bigscape_min_bgc_length ? "--min-bgc-length ${params.bigscape_min_bgc_length}" : ''} \\
             ${params.bigscape_include_singletons ? '--include-singletons' : ''} \\
             ${params.bigscape_mix ? '--mix' : ''} \\
             ${params.bigscape_classify ? "--classify ${params.bigscape_classify}" : ''} \\

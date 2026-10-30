@@ -112,6 +112,12 @@
             "default": "",
             "x-group": "BiG-SCAPE Clustering Options"
         },
+        "bigscape_min_bgc_length": {
+            "type": "integer",
+            "description": "Exclude region records shorter than this (bp) from clustering. 2000 bp is about two bacterial genes, which cannot be a functional BGC by any reading -- while partial clusters are worth keeping, since a phosphonate BGC can be five genes. It ",
+            "default": 2000,
+            "x-group": "BiG-SCAPE Clustering Options"
+        },
         "bigscape_mix": {
             "type": "boolean",
             "description": "Allow mixing BGC classes in same GCF",
@@ -242,7 +248,7 @@
         },
         "metadata_shard_threshold": {
             "type": "integer",
-            "description": "Record count above which NCBI_FETCH_METADATA splits its fetch by release date. NCBI cannot hold one stream open long enough for a whole domain: 3,350,527 records failed four times at 0.29-1.31 GB of ~1.72 GB, while 149,539 fetch cleanly in ~4.5 min. Below the threshold the fetch is a single call, exactly as before. 0 disables sharding.",
+            "description": "Accessions fetched per FETCH_RENAME_SCREEN task. Sets transient disk (batch x download_max_forks x ~8.7 MB, about 440 MB at the defaults) and, less obviously, the FAILURE RATE. NCBI returns `Internal error (invalid zip archive)` for a share",
             "default": 100000,
             "x-group": "Download Genome Options"
         },

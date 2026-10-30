@@ -60,7 +60,8 @@ workflow CLUSTERING {
                 def ref_dir_f = have_refs ? file(ref_dir) : file('NO_REFERENCE_DIR')
                 def ref_ver = have_refs ? Utils.dirHash(ref_dir) : 'none'
 
-                BIGSCAPE_PARTITION(taxon, partition_ch, pfam_db_ch,
+                BIGSCAPE_PARTITION(taxon, Utils.bigscapeOptsHash(params),
+                                   partition_ch, pfam_db_ch,
                                    PARTITION_BGCS.out.partitions,
                                    ref_dir_f, ref_ver)
                 MERGE_BIGSCAPE(taxon,
@@ -87,7 +88,8 @@ workflow CLUSTERING {
                     reference_summary_ch   = PARTITION_REFERENCE_DISTANCES.out.summary
                 }
             } else {
-                BIGSCAPE(taxon, antismash_results, pfam_db_ch)
+                BIGSCAPE(taxon, Utils.bigscapeOptsHash(params),
+                         antismash_results, pfam_db_ch)
                 bigscape_db_ch  = BIGSCAPE.out.bigscape_db
                 bigscape_dir_ch = BIGSCAPE.out.bigscape_dir
             }

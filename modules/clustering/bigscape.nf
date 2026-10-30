@@ -6,6 +6,7 @@ process BIGSCAPE {
 
     input:
     val taxon
+    val opts_hash
     path antismash_results
     path pfam_db
     
@@ -18,6 +19,9 @@ process BIGSCAPE {
     def cutoffs = params.bigscape_cutoffs ?: "0.30"
     def alignment_mode = params.bigscape_alignment_mode ?: "auto"
     def mibig_version = params.bigscape_mibig_version ? "--mibig-version ${params.bigscape_mibig_version}" : ""
+    // opts_hash is a declared input purely so a changed BiG-SCAPE option
+    // invalidates this task; interpolated values never would.
+    def min_len = params.bigscape_min_bgc_length ? "--min-bgc-length ${params.bigscape_min_bgc_length}" : ""
     def classify = params.bigscape_classify ? "--classify ${params.bigscape_classify}" : ""
     def include_singletons = params.bigscape_include_singletons ? "--include-singletons" : ""
     def mix = params.bigscape_mix ? "--mix" : ""
@@ -63,6 +67,7 @@ process BIGSCAPE {
         --pfam-path \$PFAM_PATH \
         --alignment-mode ${alignment_mode} \
         --gcf-cutoffs ${cutoffs} \
+        ${min_len} \
         ${include_singletons} \
         ${mix} \
         ${mibig_version} \
