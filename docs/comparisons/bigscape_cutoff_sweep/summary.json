@@ -168,5 +168,64 @@
     "the_proposal": "Compare on core -0 / +10 kb. Keeps the entire cassette, so BGCs that differ in tailoring content still separate -- which is the point of having a neighbourhood at all -- while removing about half the window, all of it the divergent flank. Measured on a 9-region sample it drops 10.67 CDS per region against 3.67 for symmetric 8 kb: roughly 3x the flank removed, with no cassette loss.",
     "how_to_do_it": "antiSMASH has no asymmetric neighbourhood option, and it does not need one -- this is a re-cut for COMPARISON only, so detection stays at 10 kb symmetric. trim_regions.py --up 0 --down 10 orients on pepM and emits GBKs BiG-SCAPE accepts (verified 9 of 9, both strands). run_windows.sh runs the symmetric and asymmetric arms side by side.",
     "status": "PREPARED, NOT RUN -- still needs Pfam from the external drive."
+  },
+  "orientation_is_not_the_cause": {
+    "hypothesis_tested": "BGCs with the same core gene content are split into different families because they sit in opposite orientations.",
+    "verdict": "REFUTED. Orientation has no measurable effect on distance or on family assignment. Do not re-investigate this.",
+    "why_bigscape_is_immune": "Two mechanisms, both in big_scape/comparison/lcs.py. (1) Domains within a minus-strand CDS are read in the GENE's 5'->3' direction, not the contig's -- applied to every record, always. (2) The LCS is computed forward AND against the reversed list, and candidate matching blocks are ranked with core-containing blocks taking precedence (`longest_core`/`central_core` over `longest`/`central`), where core is antiSMASH's gene_kind in ('biosynthetic','catabolic'). So the orientation chosen for a pair is the one that aligns the rule-triggering core. All 1,476 regions carry at least one core gene (4,438 biosynthetic CDS; top domains PF13714 pepM 1,479, PF02775, PF02776), so the core anchor fires everywhere.",
+    "evidence": {
+      "families_are_orientation_mixed": "No family is orientation-pure. Minority strand fraction across the ten largest families runs 23-49%; GCF-1 is 95 plus-strand against 91 minus. If orientation drove assignment, families would be pure.",
+      "same_core_pairs_in_the_pantaphos_block": {
+        "note": "268 regions, families 1/2/3/4, restricted to pairs with IDENTICAL core domain content",
+        "same_orientation": {
+          "pairs": 11030,
+          "split_into_different_families_pct": 33.8,
+          "median_within_family": 0.001,
+          "median_across_families": 0.576
+        },
+        "opposite_orientation": {
+          "pairs": 11108,
+          "split_into_different_families_pct": 33.4,
+          "median_within_family": 0.001,
+          "median_across_families": 0.576
+        }
+      },
+      "distance_by_quantile": "Same-core pairs, same vs opposite orientation, differ by at most 0.002 at any of p5/p25/p50/p75/p90/p95/p99, and that one is at the median where the distribution is steep. Maxima 0.879 against 0.840.",
+      "opposite_strand_pairs_not_depleted": "48.8% of pairs inside the 0.30 cutoff are opposite-strand against a 50.0% background; 700 of 6,120 exact-zero-distance pairs required reversal."
+    },
+    "what_the_four_pantaphos_families_actually_split_on": {
+      "GCF-1": {
+        "n": 186,
+        "core_domains": 4,
+        "region_domains": 19,
+        "organism": "Pantoea ananatis"
+      },
+      "GCF-2": {
+        "n": 29,
+        "core_domains": 4,
+        "region_domains": 23,
+        "organism": "P. allii / agglomerans",
+        "core_identical_to_GCF-1": true,
+        "region_jaccard_to_GCF-1": 0.31
+      },
+      "GCF-3": {
+        "n": 21,
+        "core_domains": 20,
+        "region_domains": 36,
+        "organism": "P. agglomerans",
+        "core_identical_to_GCF-1": false,
+        "region_jaccard_to_GCF-1": 0.22,
+        "note": "GENUINELY different -- 20 core domains against 4. Correctly separated."
+      },
+      "GCF-4": {
+        "n": 32,
+        "core_domains": 4,
+        "region_domains": 12,
+        "organism": "Photorhabdus laumondii / Xenorhabdus",
+        "core_identical_to_GCF-1": true,
+        "region_jaccard_to_GCF-1": 0.41
+      },
+      "reading": "Three of the four (1, 2, 4) have IDENTICAL core content and differ only in flank; GCF-3 has a genuinely different core and belongs apart. So the splitting is real but its cause is the flank, as the asymmetric-window section concludes -- not orientation."
+    }
   }
 }
