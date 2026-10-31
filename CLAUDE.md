@@ -575,10 +575,31 @@ and never globs: only the drawn regions are committed, so a glob would return a 
 distribution and draw a wrong panel with no error. `--rebuild-gains` refreshes it from a
 live run.
 
-**Measured and projected must not look alike.** Figure 3 carries Enterobacterales at 46x,
-which is the panel's strongest point and also the only one whose without-screen arm was
-never run (1,349,507 antiSMASH runs, ~30,100 CPU-h). It is drawn hatched and captioned
-"PROJECTED, not run" rather than filled like the four measured pairs.
+**Measured and projected must not look alike, and the headline must rest on the
+measured one.** Figure 3 carries Enterobacterales at 46x, which is its strongest number
+and also the only one whose without-screen arm was never run (1,349,507 antiSMASH runs,
+~30,100 CPU-h). It is drawn hatched and captioned "PROJECTED, not run", and the figure
+title now reads "cuts antiSMASH compute threefold on a full taxon" -- the measured
+Erwiniaceae pair. A title of "up to 46x" made the figure's loudest claim the one number
+that was never run.
+
+**Figure 3 shows ONE measured example, and it is a full taxon** (changed 2026-10-31). It
+used to carry five datasets ordered by prevalence, under the claim that the saving
+tracks how dilute the taxon is. That claim was confounded: **two of the five --
+Actinomycetes (323 genomes) and B. fragilis (136) -- are curated test sets**, assembled
+to probe screen sensitivity on a held-out clade, not full taxa. They supplied the two
+endpoints the trend rested on, 9.0x and 1.1x, so a monotonic reading of five points was
+really a reading of two hand-picked ones. Erwiniaceae is the only full taxon at
+meaningful scale where BOTH arms were genuinely run: 4,508 -> 1,497 CPU-min, 3.0x.
+B. fragilis stays in panel B only, labelled "held-out clade", because it makes no
+prevalence claim there and it is the probe that found the pseudogene blind spot --
+dropping it would delete the figure's only admission that the screen ever missed
+anything.
+
+**Figure 2 lost its panel F** (2026-10-31), the distribution placing each example within
+its clade. Five panels, A-E. `panel_distribution()` and the `--no-distribution` flag are
+gone with it; `gain_distribution()` and `--rebuild-gains` stay, since
+`docs/comparisons/figure_inputs/gene_gains.tsv` is still committed.
 
 **That point moved from RefSeq to GenBank on 2026-10-17**, and the way it moved is the
 lesson. Retention fell 0.84% -> 0.11% at 8.9x the input, but the saving only went 32x ->

@@ -42,11 +42,21 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # Re-measuring would mean eight runs, the screen-off arms of which are the expensive
 # ones (Erwiniaceae alone is 2,771 genomes through antiSMASH, ~61 CPU-h), to move
 # numbers by a few percent and change no conclusion.
+# ONE measured example, and it is a FULL TAXON.
+#
+# This panel used to carry five datasets ordered by prevalence, under the claim that
+# the saving tracks how dilute the taxon is. That claim was confounded: two of the
+# five -- Actinomycetes (323 genomes) and B. fragilis (136) -- are CURATED TEST SETS,
+# assembled to probe screen sensitivity on a held-out clade, not full taxa. They
+# supplied the two endpoints the trend rested on, 9.0x and 1.1x, so a monotonic
+# reading of five points was really a reading of two hand-picked ones. Removing them
+# removes the trend, and the trend was not the claim worth making.
+#
+# What is left is the claim the screen actually supports: on a full taxon, run both
+# ways, it costs a fraction of the compute and finds the same BGCs. Erwiniaceae is
+# the only full taxon at meaningful scale where BOTH arms were genuinely run.
 COST = [
-    ('Actinomycetes\n323 genomes\n9.6% positive', 1618.8, 179.4, 12.7),
-    ('Erwiniaceae\n2,771 genomes\n11% positive', 4508.0, 1497.0, 91.0),
-    ('P. ananatis\n344 genomes\n56% positive', 603.0, 346.0, 10.5),
-    ('B. fragilis\n136 genomes\n72% positive', 277.4, 247.3, 3.6),
+    ('Erwiniaceae\n2,771 genomes\n11% BGC-positive', 4508.0, 1497.0, 91.0),
 ]
 
 # Enterobacterales is kept OUT of COST and drawn separately, because one of its two
@@ -70,18 +80,28 @@ ENTERO = ('Enterobacterales\n1,349,507 genomes\n0.11% positive', 1808119.0, 3894
 
 # (clade, regions found with the screen OFF, with it ON). The Bacteroides pair is
 # the pre-fix number; see PSEUDO_NOTE.
+# Panel B answers a different question from panel A, so it keeps a second dataset.
+#
+# Erwiniaceae is the full taxon, run both ways: 333 regions either way, 298/298
+# sensitivity, and the screened arm recovered all 333 with identical nucleotide
+# sequences (5,845,237 bases). B. fragilis STAYS even though it is a curated
+# held-out clade, because that is exactly its job -- it supplies no prevalence
+# claim, it is the probe that found the pseudogene blind spot, and dropping it
+# would delete the figure's only admission that the screen ever missed anything.
+# It is labelled as held-out so it cannot be read as a taxon measurement.
 DETECT = [
-    ('Actinomycetes\n323 genomes', 32, 32),
-    ('P. ananatis\n344 genomes', 226, 226),
-    ('B. fragilis\n136 genomes', 143, 141),
+    ('Erwiniaceae\n2,771 genomes\nfull taxon', 333, 333),
+    ('B. fragilis\n136 genomes\nheld-out clade', 143, 141),
 ]
 BACT_FIXED = 143
 
 
 def panel_cost(ax):
-    # Enterobacterales goes FIRST, not last: the panel is ordered by prevalence,
-    # lowest first, and at 0.11% positive it is the most dilute taxon measured.
-    # Appending it would have broken the ordering the panel's whole claim rests on.
+    # Erwiniaceae is the measurement; Enterobacterales is drawn beside it as the
+    # scale this is for, hatched and labelled, because its without-screen arm was
+    # never run -- 1.35 M antiSMASH invocations at the 80.4 CPU-s/genome measured
+    # here, ~30,100 CPU-h that was not spent and will not be. A projected bar beside
+    # a measured pair must never read as a second measurement.
     lab_e, eoff, eon = ENTERO
     w = 0.36
     ax.bar(0 - w / 2, eoff, w, color='none', edgecolor=BEFORE, hatch='///', lw=1.2)
@@ -89,7 +109,7 @@ def panel_cost(ax):
     ax.text(0, eoff * 1.9, f'{eoff / eon:.0f}x less', ha='center', fontsize=9.5,
             color=AFTER, fontweight='bold')
     ax.text(0, eoff * 0.55, 'without-screen arm\nPROJECTED, not run',
-            ha='center', va='top', fontsize=6.6, color=BEFORE, style='italic')
+            ha='center', va='top', fontsize=7.4, color=BEFORE, style='italic')
 
     labels = [c[0] for c in COST]
     off = [c[1] for c in COST]
@@ -99,7 +119,7 @@ def panel_cost(ax):
     b2 = ax.bar([i + w / 2 for i in x], on, w, label='pre-screen + antiSMASH', color=AFTER)
     ax.set_yscale('log')
     ax.set_ylabel('total pipeline CPU-minutes (log)')
-    ax.set_title('The saving tracks how dilute the taxon is', pad=24)
+    ax.set_title('One full taxon, run both ways', pad=24)
     bar_values(ax, list(b1) + list(b2), fmt='{:,.0f}', dy=0.0)
     for i, (_, o, n, screen) in zip(x, COST):
         ax.text(i, eoff * 1.9, f'{o / n:.1f}x less',
@@ -160,9 +180,11 @@ def main():
     for ax, letter in zip(axes, 'AB'):
         panel_label(ax, letter, dx=-0.13, dy=1.19)
 
-    fig.suptitle('The pepM pre-screen removes up to 46× the compute '
-                 'without removing a single BGC',
-                 fontsize=11.5, fontweight='bold', y=1.01)
+    # The headline rests on the MEASURED pair. The 46x is projected and is
+    # labelled as such inside panel A; putting it in the title would make the
+    # figure's loudest claim the one number that was never run.
+    fig.suptitle('The pepM pre-screen cuts antiSMASH compute threefold on a full taxon \u2014 and costs no BGCs',
+                 fontsize=11.5, fontweight='bold', y=0.995)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     save(fig, args.outdir, 'fig2_prescreen')
 
