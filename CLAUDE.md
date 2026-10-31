@@ -575,10 +575,47 @@ and never globs: only the drawn regions are committed, so a glob would return a 
 distribution and draw a wrong panel with no error. `--rebuild-gains` refreshes it from a
 live run.
 
-**Measured and projected must not look alike.** Figure 3 carries Enterobacterales at 46x,
-which is the panel's strongest point and also the only one whose without-screen arm was
-never run (1,349,507 antiSMASH runs, ~30,100 CPU-h). It is drawn hatched and captioned
-"PROJECTED, not run" rather than filled like the four measured pairs.
+**Figure 3 reports antiSMASH CPU-minutes, not total pipeline CPU-minutes** (changed
+2026-10-31), and the distinction is the figure's correctness. The Erwiniaceae totals
+4,508 -> 1,497 carry **741 and 655 CPU-min of GTDB-Tk**, which the screen does not
+touch, and the screen-on arm additionally has `RECOVER_ORFS` (90 min) that the
+screen-off arm predates. Comparing totals mixes the screen with two unrelated changes.
+`docs/comparisons/pepm_prescreen/summary.json` says so in its own caveats: *"antiSMASH
+CPU-minutes are comparable; task counts are not."* On antiSMASH CPU the two measured
+full taxa are:
+
+| | genomes | % positive | screen off | screen on | |
+|---|---:|---:|---:|---:|---:|
+| Erwiniaceae | 2,771 | 11% | 3,680 | 569 | **6.5x** |
+| *P. ananatis* | 344 | 56% | 529 | 311 | **1.7x** |
+
+*P. ananatis* is the **controlled** pair -- one taxon, one code version
+(`controlled_pantoea_ananatis/`, 2026-09-17) -- and is the better evidence of the two
+even though its ratio is smaller. The Erwiniaceae arms are different code versions.
+Note the top-level `pepm_prescreen/summary.json` still claims "a controlled A/B on one
+taxon with one code version has not been run"; that caveat is **stale**, the controlled
+run is in its own subdirectory beside it.
+
+**Enterobacterales is no longer in Figure 3.** Its 46x needed a projected arm --
+1,349,507 antiSMASH runs at the measured 80.4 CPU-s/genome, ~30,100 CPU-h that were
+never spent -- and a projected bar beside measured ones invites the reading it should
+not get however it is hatched. The projection belongs in the text.
+
+**Figure 3 shows only full taxa** (changed 2026-10-31). It used to carry five datasets
+ordered by prevalence, under the claim that the saving tracks how dilute the taxon is.
+That claim was confounded: **two of the five -- Actinomycetes (323 genomes) and
+B. fragilis (136) -- are curated test sets**, assembled to probe screen sensitivity on
+a held-out clade, not full taxa. They supplied the two endpoints the trend rested on,
+9.0x and 1.1x, so a monotonic reading of five points was really a reading of two
+hand-picked ones. The trend is gone; the claim is now cost-at-equal-yield. B. fragilis
+and its pseudogene blind spot move to manuscript section 2.4, which already covered the
+clade -- a bar beside a taxon measurement cannot carry the caveat that makes it
+meaningful.
+
+**Figure 2 lost its panel F** (2026-10-31), the distribution placing each example within
+its clade. Five panels, A-E. `panel_distribution()` and the `--no-distribution` flag are
+gone with it; `gain_distribution()` and `--rebuild-gains` stay, since
+`docs/comparisons/figure_inputs/gene_gains.tsv` is still committed.
 
 **That point moved from RefSeq to GenBank on 2026-10-17**, and the way it moved is the
 lesson. Retention fell 0.84% -> 0.11% at 8.9x the input, but the saving only went 32x ->
@@ -2471,6 +2508,23 @@ case on that family is d(a,b) = 0.982 against d(a,c) + d(b,c) = 0.170.
 **Five families are built this way** — GCF-23, 24, 26, 31, 59, all with a contig-edge
 exemplar of ≤3 genes — holding **97 of 1,476 regions**. 397 of 1,476 regions (27%) are
 contig-edge overall, so the raw material is plentiful.
+
+**It is NOT a CLI flag.** BiG-SCAPE has no `--min-bgc-length`. The minimum lives in
+its `config.yml` as `MIN_BGC_LENGTH` and is applied with `--config-file-path`, and
+`BigscapeConfig.parse_config()` reads every key with `config["KEY"]` rather than
+`.get()` -- so a partial config raises `KeyError`. The module copies the bundled
+`config.yml` out of the installed package, patches the one line with `sed`, verifies
+the patch took, and passes the copy. When the parameter is 0 no config is written and
+no flag is passed, so the stock path is untouched.
+
+**This was shipped as `--min-bgc-length 2000` first and it cost a validation run.**
+Nextflow accepted it, it reached BiG-SCAPE, and the run died with `Error: No such
+option '--min-bgc-length'` after 134 tasks had completed. The flag was taken from the
+`min_bgc_length` column of BiG-SCAPE's own `run` table and never checked against
+`bigscape cluster --help`. **Check the tool's interface, not the database column it
+writes.** Verified three ways before re-landing: `parse_config` accepts the patched
+file, a real `bigscape cluster` run records `min_bgc_length = 2000` in its `run` table,
+and at 99,000 bp it refuses with "No GBKs remain after length constraint".
 
 **The default is 2000, and raising it buys nothing.** Re-clustered from the stored
 distances at each threshold:

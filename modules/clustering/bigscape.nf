@@ -21,7 +21,7 @@ process BIGSCAPE {
     def mibig_version = params.bigscape_mibig_version ? "--mibig-version ${params.bigscape_mibig_version}" : ""
     // opts_hash is a declared input purely so a changed BiG-SCAPE option
     // invalidates this task; interpolated values never would.
-    def min_len = params.bigscape_min_bgc_length ? "--min-bgc-length ${params.bigscape_min_bgc_length}" : ""
+    def min_len = (params.bigscape_min_bgc_length ?: 0) as Integer
     def classify = params.bigscape_classify ? "--classify ${params.bigscape_classify}" : ""
     def include_singletons = params.bigscape_include_singletons ? "--include-singletons" : ""
     def mix = params.bigscape_mix ? "--mix" : ""
@@ -34,6 +34,25 @@ process BIGSCAPE {
     # 8-14% of distances differed between identical runs, and family centres moved.
     export PYTHONHASHSEED=0
     
+    # BiG-SCAPE has NO --min-bgc-length option. The minimum lives in its config.yml
+    # as MIN_BGC_LENGTH, applied via --config-file-path, and parse_config() reads
+    # every key with config["KEY"] rather than .get(), so a partial file raises
+    # KeyError -- the bundled config must be copied and patched, not replaced.
+    #
+    # Writing this as a CLI flag cost a validation run: `--min-bgc-length 2000` was
+    # accepted by nextflow, reached bigscape, and died with "No such option" after
+    # 134 tasks had completed. The flag was never checked against `bigscape cluster
+    # --help`. Check the tool, not the database column it writes.
+    CFG=""
+    if [ "${min_len}" -gt 0 ]; then
+        BUNDLED=\$(python -c "import big_scape, pathlib; print(pathlib.Path(big_scape.__file__).parent / 'config.yml')")
+        sed "s/^MIN_BGC_LENGTH:.*/MIN_BGC_LENGTH: ${min_len}/" "\$BUNDLED" > bigscape_config.yml
+        grep -q "^MIN_BGC_LENGTH: ${min_len}\$" bigscape_config.yml || {
+            echo "ERROR: could not set MIN_BGC_LENGTH in the BiG-SCAPE config" >&2; exit 1; }
+        CFG="--config-file-path bigscape_config.yml"
+        echo "MIN_BGC_LENGTH set to ${min_len} bp via bigscape_config.yml"
+    fi
+
     echo "Running BiG-SCAPE on ${taxon}"
     echo "Using Pfam database: \$PFAM_PATH"
     echo "Using ${task.cpus} cores"

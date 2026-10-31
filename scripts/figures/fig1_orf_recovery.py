@@ -348,55 +348,6 @@ def rebuild_gains(pairs):
         w.writerows(rows)
 
 
-def panel_distribution(ax, clade_gains, highlights):
-    """Per-region gains, one row per SOURCE RUN, with every example marked.
-
-    Rows are keyed on the run, not on the panel: three of the panels above come
-    from the same Erwiniaceae before/after pair, and giving each its own row
-    drew one distribution three times over and printed "117/333 gained" thrice
-    as though they were independent measurements.
-    """
-    ytick, ylab = [], []
-    for row, (clade, gains, marks) in enumerate(clade_gains):
-        vals = sorted(gains.values())
-        y = len(clade_gains) - row - 1
-        ytick.append(y)
-        n_gained = sum(1 for v in vals if v > 0)
-        ylab.append(f'{clade}\n{n_gained}/{len(vals)} gained')
-        # Deterministic beeswarm: spread each tied group about its own row, so
-        # the height of a column reads as its count. Cycling i % 5 instead
-        # stacked every value into the same five rows and looked like dashes.
-        from collections import Counter
-        seen, counts = Counter(), Counter(vals)
-        ys = []
-        for v in vals:
-            k, n = seen[v], counts[v]
-            seen[v] += 1
-            offset = 0.0 if n == 1 else (k / (n - 1) - 0.5) * min(0.62, 0.05 * n)
-            ys.append(y + offset)
-        ax.scatter(vals, ys, s=11, color='#c3ccd6', edgecolor='none',
-                   zorder=2, alpha=0.85)
-        # Several panels can share one run, so a row carries several markers.
-        for i, (letter, key) in enumerate(marks):
-            if key not in gains:
-                continue
-            ax.scatter([gains[key]], [y], s=95, color=ACCENT, zorder=5,
-                       edgecolor='white', lw=1.2)
-            ax.annotate(f'{letter}  +{gains[key]}', xy=(gains[key], y),
-                        xytext=(gains[key], y + (0.30 if i % 2 == 0 else -0.42)),
-                        ha='center', fontsize=7.6,
-                        color=ACCENT, fontweight='bold')
-    ax.set_yticks(ytick)
-    ax.set_yticklabels(ylab, fontsize=8)
-    ax.set_xlabel('genes gained by ORF recovery, per BGC region')
-    ax.set_ylim(-0.55, len(clade_gains) - 0.25)
-    ax.axvline(0, color='#c9ced6', lw=0.9, zorder=1)
-    ax.set_title('Where each example sits in its clade', loc='left',
-                 fontsize=9.5, pad=6)
-    for side in ('left', 'top', 'right'):
-        ax.spines[side].set_visible(False)
-
-
 def legend_handles(used):
     import matplotlib.patches as mpatches
     h = [mpatches.Patch(facecolor=CATEGORY_COLOR[c], edgecolor='white',
@@ -410,8 +361,6 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--outdir', default='docs/figures')
-    ap.add_argument('--no-distribution', action='store_true',
-                    help='omit the panel placing each example within its clade')
     ap.add_argument('--rebuild-gains', action='store_true',
                     help='recompute docs/comparisons/figure_inputs/gene_gains.tsv '
                          'from live run directories, then exit')
@@ -513,26 +462,9 @@ def main():
         letter = 'ABCDEF'[len(clades)]
         rows.setdefault(ROW_NAME.get(short, short), (gains, []))[1].append((letter, key))
         clades.append((title, bdir / key, adir / key))
-    clade_gains = [(name, gains, marks) for name, (gains, marks) in rows.items()]
-
-    # Enterobacterales appears in the DISTRIBUTION only, with no gene diagram above.
-    # It is 1,303 regions against the 228 of the largest illustrated clade, and at 56%
-    # gaining a gene it is the strongest evidence in the figure that recovery is not a
-    # rare-case fix -- but drawing a seventh panel for it would crowd six already, and
-    # the distribution is where a number that size belongs. The row carries no marker
-    # because no panel above draws from it.
-    entero = gain_distribution('enterobacterales')
-    if entero:
-        clade_gains.append(('Enterobacterales\n(RefSeq)', entero, []))
-
-    nrows = len(clades) + (0 if args.no_distribution else 1)
-    dist_h = max(1.7, 0.62 * len(clade_gains)) if not args.no_distribution else 0
-    fig, axes = plt.subplots(nrows, 1, figsize=(11.6, 2.15 * len(clades) + dist_h + 1.4),
-                             squeeze=False,
-                             gridspec_kw={'height_ratios':
-                                          [2.15] * len(clades) +
-                                          ([max(1.7, 0.62 * len(clade_gains))]
-                                           if not args.no_distribution else [])})
+    fig, axes = plt.subplots(len(clades), 1,
+                             figsize=(11.6, 2.15 * len(clades) + 1.4), squeeze=False,
+                             gridspec_kw={'height_ratios': [2.15] * len(clades)})
     used = []
     for ax, (name, before, after) in zip(axes[:, 0], clades):
         nb, na = draw_clade(ax, name, before, after, transferred)
@@ -542,10 +474,7 @@ def main():
                 used.append(g['category'])
     order = [c for c in CATEGORY_COLOR if c in used]
 
-    if not args.no_distribution:
-        panel_distribution(axes[len(clades), 0], clade_gains, {})
-
-    for ax, letter in zip(axes[:, 0], 'ABCDEF'):
+    for ax, letter in zip(axes[:, 0], 'ABCDE'):
         panel_label(ax, letter, dx=-0.175, dy=1.22)
 
     axes[-1, 0].legend(handles=legend_handles(order), loc='upper center',

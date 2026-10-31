@@ -51,6 +51,25 @@ process BIGSCAPE_PARTITION {
     export PFAM_PATH=\$(readlink -f ${pfam_db})/Pfam-A.hmm
     export PYTHONHASHSEED=0  # see BIGSCAPE: load order decides pair orientation
 
+    # BiG-SCAPE has NO --min-bgc-length option. The minimum lives in its config.yml
+    # as MIN_BGC_LENGTH, applied via --config-file-path, and parse_config() reads
+    # every key with config["KEY"] rather than .get(), so a partial file raises
+    # KeyError -- the bundled config must be copied and patched, not replaced.
+    #
+    # Writing this as a CLI flag cost a validation run: `--min-bgc-length 2000` was
+    # accepted by nextflow, reached bigscape, and died with "No such option" after
+    # 134 tasks had completed. The flag was never checked against `bigscape cluster
+    # --help`. Check the tool, not the database column it writes.
+    CFG=""
+    if [ "${(params.bigscape_min_bgc_length ?: 0) as Integer}" -gt 0 ]; then
+        BUNDLED=\$(python -c "import big_scape, pathlib; print(pathlib.Path(big_scape.__file__).parent / 'config.yml')")
+        sed "s/^MIN_BGC_LENGTH:.*/MIN_BGC_LENGTH: ${(params.bigscape_min_bgc_length ?: 0) as Integer}/" "\$BUNDLED" > bigscape_config.yml
+        grep -q "^MIN_BGC_LENGTH: ${(params.bigscape_min_bgc_length ?: 0) as Integer}\$" bigscape_config.yml || {
+            echo "ERROR: could not set MIN_BGC_LENGTH in the BiG-SCAPE config" >&2; exit 1; }
+        CFG="--config-file-path bigscape_config.yml"
+        echo "MIN_BGC_LENGTH set to ${(params.bigscape_min_bgc_length ?: 0) as Integer} bp via bigscape_config.yml"
+    fi
+
     # Rebuild <genome>/<region>.gbk from the manifest's genome column.
     mkdir -p part_input
     python - <<'LAYOUT'
@@ -79,7 +98,7 @@ LAYOUT
         --pfam-path \$PFAM_PATH \\
         --alignment-mode ${params.bigscape_alignment_mode} \\
         --gcf-cutoffs ${params.bigscape_cutoffs} \\
-        ${params.bigscape_min_bgc_length ? "--min-bgc-length ${params.bigscape_min_bgc_length}" : ''} \\
+        \$CFG \\
         ${params.bigscape_include_singletons ? '--include-singletons' : ''} \\
         ${params.bigscape_mix ? '--mix' : ''} \\
         --cores ${task.cpus} \\
@@ -106,7 +125,7 @@ LAYOUT
             --pfam-path \$PFAM_PATH \\
             --alignment-mode ${params.bigscape_alignment_mode} \\
             --gcf-cutoffs ${params.bigscape_cutoffs} \\
-            ${params.bigscape_min_bgc_length ? "--min-bgc-length ${params.bigscape_min_bgc_length}" : ''} \\
+            \$CFG \\
             ${params.bigscape_include_singletons ? '--include-singletons' : ''} \\
             ${params.bigscape_mix ? '--mix' : ''} \\
             ${params.bigscape_classify ? "--classify ${params.bigscape_classify}" : ''} \\
