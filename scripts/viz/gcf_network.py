@@ -237,6 +237,13 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
                               class_order=(), hrefs=None, edge_cutoff=EDGE_CUTOFF):
     """Inline SVG of the family distance matrix, or '' when there is nothing to draw.
 
+    **No longer in the report** -- it showed all 6,216 pairs honestly and was too
+    dense to read, and a reader cannot work around density. Kept and exported for
+    ad-hoc use, the same treatment generate_gantt_chart_html() got: it is still the
+    right tool for a specific question, such as finding everything near one family.
+    The report shows generate_close_family_network_html() instead, which answers the
+    question a reader actually arrives with.
+
     classes      {family_id: coupling class} -- orders the axes and colours the
                  strips; anything missing or sentinel takes the neutral grey and
                  sits in the unclassified group, never a colour that reads as a class.

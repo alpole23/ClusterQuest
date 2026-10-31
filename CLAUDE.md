@@ -3101,6 +3101,13 @@ that nothing else in that process needed.
 
 `viz/gcf_network.py` shows the same distances as a shape, which cannot be sorted.
 
+**The report shows the close-pair network; the matrix is no longer in it.** The matrix
+showed all 6,216 pairs honestly and was too dense to read, and density is a failure a
+reader cannot work around. `generate_gcf_network_html()` is kept and exported for
+ad-hoc use -- the same treatment `generate_gantt_chart_html()` got -- because it is
+still the right tool for a specific question such as "what is near GCF-1". Everything
+below about the matrix describes that standalone function.
+
 **It is a distance matrix over family representatives** -- one row and one column per
 family, the cell being the measured BiG-SCAPE distance between the two
 `family.center_id` medoids, darker the closer. Rows and columns are grouped by
