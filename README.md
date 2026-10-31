@@ -9,6 +9,10 @@ ClusterQuest is a Nextflow DSL2 pipeline for discovering phosphonate biosyntheti
 
 ![Pipeline Overview](docs/pipeline_overview.png)
 
+**New to this?** [How ClusterQuest works](docs/how_it_works.md) walks through every
+stage in plain language — what it is looking for, why the steps are in the order they
+are, and what you get at the end. No Nextflow or Python needed.
+
 ## Features
 
 - **Automated genome retrieval** from NCBI by taxon name (species, genus, family, order, or higher)

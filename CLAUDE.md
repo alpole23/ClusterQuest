@@ -19,7 +19,7 @@ nextflow run main.nf -profile slurm                        # HPC execution
 
 ## Operational traps
 
-Six ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Seven ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -64,6 +64,17 @@ the **run**, not the task. It killed a Bacteria GenBank run ~8,800 fetch batches
 the downloads had already succeeded, and left thirty-odd unkillable processes that only a
 VM restart cleared. Use `sync -f .`, which flushes just the filesystem holding the work
 directory.
+
+**`COLLECT_VERSIONS` searched the wrong directory for two months, and said nothing.**
+It looked for executables under `${workDir}/conda`, which stopped being where they live
+the day `conda.cacheDir` moved to `~/.clusterquest/conda` so environments would survive
+a change of work directory. Nothing failed: `find_executable` returned None, every tool
+was recorded as `"not installed"`, and the report printed that in its own header. Runs
+from that period cannot say what they were produced against -- which is the whole point
+of `software_versions.json` and of pinning the databases below. It now searches the
+configured cache AND the legacy path AND `PATH`. **When you move where something lives,
+grep for the old path**: a reader that silently finds nothing is worse than one that
+crashes.
 
 **Changing `-w` re-solves every conda environment, so pin transitive dependencies.**
 Nextflow caches conda environments *inside the work directory*. Point `-w` somewhere new
@@ -208,6 +219,7 @@ Gene Cluster Family (GCF) clustering.
 | `bigscape_include_singletons` | true | Include unclustered BGCs |
 | `bigscape_mix` | false | Allow mixing BGC classes in same GCF |
 | `bigscape_reference_dir` | `assets/phosphonate_reference_bgcs` | Characterised clusters measured by `BIGSCAPE_REFERENCES`; `""` disables |
+| `bigscape_min_bgc_length` | `2000` | Exclude region records shorter than this (bp) — about two bacterial genes, below any functional BGC. Removes 2 of 1,476 regions on GenBank Enterobacterales and dissolves a 66-region artefact family; see below |
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -525,7 +537,8 @@ cluster. At full depth the same order gives 72 families from 1,303 BGCs, largest
 
 ### Paper figures (`scripts/figures/`, output in `docs/figures/`)
 
-Four figures, each regenerating with one command and no live run directory:
+Six figures from five scripts, each regenerating with one command and no live run
+directory:
 
 | script | manuscript | shows |
 |---|---|---|
@@ -533,6 +546,25 @@ Four figures, each regenerating with one command and no live run directory:
 | `fig1_orf_recovery.py` | Figure 2 | ORF recovery across clades + a gain distribution |
 | `fig2_prescreen.py` | Figure 3 | pre-screen CPU saving and detection neutrality |
 | `fig3_partitioning.py` | Figure 4 | BiG-SCAPE partitioning: runtime, memory, families |
+| `fig5_architecture.py` | Figure 5 | the three mechanisms, one panel each |
+| `fig5_architecture.py` | Figure S1 | stages, artefacts, the funnel and the CPU strip |
+
+**Figures 5 and S1 moved from the RefSeq run to the GenBank run on 2026-10-28**, and
+read `docs/comparisons/enterobacterales_genbank/summary.json`. The switch strengthens
+the claim rather than restating it: at 8.9x the input and an eighth the retention,
+fetch-and-screen goes **40.4% -> 91.2%** of CPU and antiSMASH **29.3% -> 4.0%**.
+
+Two things do NOT transfer, and the panel that cites them says so. **Peak disk and peak
+memory were never sampled on the GenBank run**, and cannot be recovered after the fact:
+RefSeq's 150 GB came from a `df` poll every 60 s (`disk_samples.tsv`, 2,608 samples),
+while a Nextflow trace records `rchar`/`wchar` -- bytes MOVED, not bytes held. To get a
+figure at this scale, start a sampler alongside a future run; do not try to reconstruct
+one from a finished one.
+
+**Sum CACHED tasks as well as COMPLETED when costing a resumed run.** The GenBank run
+was resumed four times, so a cached entry carries the realtime of the session that
+actually executed it. COMPLETED alone gives 705.2 CPU-h against the true 1,547.2 --
+the fetch stage, which is almost all of the cache, is undercounted by more than half.
 
 **Inputs are committed, and that was not free.** Figures 1 and 2 read region GenBanks
 that used to come from six A/B run directories under `results_*/`, which is gitignored and
@@ -564,6 +596,37 @@ Output is byte-deterministic across processes — `utils/plotting` pins `svg.has
 `canonicalise_svg` rewrites clip-path ids. The committed SVGs were found stale once,
 produced by older script versions and never refreshed; regenerate all four after touching
 any of them.
+
+### Measured: GenBank Enterobacterales (2026-10-16) — the inversion completes
+
+1,349,504 genomes, same box, screen on, recovery on, GTDB-Tk on, unpartitioned.
+**54,058 tasks, 0 failed, 1,547.2 CPU-h.** Data:
+`docs/comparisons/enterobacterales_genbank/summary.json`.
+
+| | RefSeq · 150,690 | GenBank · 1,349,504 |
+|---|---:|---:|
+| passed the pepM screen | 1,309 (0.87%) | **1,530 (0.113%)** |
+| regions / BGC-positive genomes | 1,303 / 1,261 | 1,476 / 1,427 |
+| families / largest / singletons | 72 / 186 / 16 | **112** / 186 / 43 |
+| `FETCH_RENAME_SCREEN` | 40.4% of CPU | **91.2%** |
+| `ANTISMASH` | 29.3% | **4.0%** |
+| `BIGSCAPE` | 0.7% | **0.07%** |
+
+**8.9x the input bought 1.17x the surviving genomes**, because GenBank's extra ~1.2 M
+assemblies are overwhelmingly more clinical *E. coli*, *Salmonella* and *Klebsiella*.
+That is the measured version of what `enterobacterales_genbank/PREDICTIONS.md` guessed.
+
+**The largest family does not move: 186 either way.** It is the pantaphos family, already
+saturated in RefSeq. The 40 extra families and 27 extra singletons are new chemistry from
+clades RefSeq did not sample, not growth of what was there -- the same shape as the
+component-rarefaction result for partitioning, where new diversity adds components beside
+the dense cluster rather than enlarging it.
+
+**Wall clock is per session, not a single figure.** The run was resumed four times; the
+session that completed it took 2 d 0 h 15 m, matching the timeline report's own elapsed,
+and total active runtime across all sessions is at least 2 d 5 h 1 m. The ~2.6-day gap
+between Oct 11 and Oct 14 is idle and is not runtime. Do not quote submit-to-complete
+across a resumed run as a wall time; it spans the gaps.
 
 ### Measured: BiG-SCAPE scaling (2026-08-30)
 
@@ -1288,6 +1351,77 @@ catabolic phosphonate genes, so the C-P lyase operon *phnGHIJKLMNP* gets its own
 PF01979, PF07969, PF00625, PF12706, PF13238). It is registered in `CATEGORIES` and
 **excluded from `ELABORATION`** — scavenging phosphorus is not tailoring a product. A
 family needs ≥4 of the 9 to be called catabolic.
+
+### The cutoff is not the knob, and the neighbourhood is why
+
+Measured 2026-10-29 on the GenBank Enterobacterales database --
+`docs/comparisons/bigscape_cutoff_sweep/`. Two questions that turn out to be one.
+
+**`antismash_phosphonate_neighbourhood` could not have been 8.** Over the 169 complete
+(non contig-edge) members of the pantaphos family, the distance from the rule core to
+the furthest downstream CDS is p0 **9,189** / p50 9,318 / p100 **9,792** bp. 8 kb and
+9 kb both clip the terminal gene in **every** member; 10 kb clears the worst case by
+208 bp. That terminal gene is an ATP-grasp domain protein wherever it is annotated --
+the second ATP-grasp already recorded as missing at 5 kb. A 603 bp spread across 169
+genomes is a conserved cluster boundary, not arbitrary flanking DNA. And 10 kb is not
+itself clipping: at NEIGHBOURHOOD 20 on LMG 5342 the downstream flank beyond the
+cluster is 10.8 kb.
+
+**But that flank is 79% of what BiG-SCAPE compares**, and it is what splits one
+chemistry into several families. Median domains per record: **4 inside the rule core,
+19 across the whole region.** Compare the closest family pairs by Pfam content, whole
+region against core only:
+
+| pair | rep distance | region J | **core J** | organisms |
+|---|---:|---:|---:|---|
+| GCF-1 / GCF-2 | 0.020 | 0.312 | **1.000** | *P. ananatis* / *P. allii* |
+| GCF-16 / GCF-18 | 0.045 | 0.619 | **1.000** | *Pectobacterium atrosepticum* / *punjabense* |
+| GCF-15 / GCF-16 | 0.048 | 0.682 | **1.000** | *P. polaris* / *atrosepticum* |
+| GCF-11 / GCF-16 | 0.051 | 0.800 | **1.000** | *P. brasiliense* / *atrosepticum* |
+
+Six of the nine closest pairs have **identical** rule-core domain content. The control
+holds: GCF-1 / GCF-16, *Pantoea* against *Pectobacterium* and a genuinely different
+chemistry, has core J **0.167**, so the core metric discriminates rather than calling
+everything the same.
+
+**Raising the cutoff does not fix it.** Swept at 0.20 / 0.30 / 0.40 by calling
+`big_scape.network.families.generate_families` unchanged against a copy of the finished
+database (the real AP step, real parameters; validated at 0.30 against production at
+ARI 0.9982 with **2 of 1,476** members moving -- the same two
+`bigscape_reproducibility/` found oscillating between identical runs):
+
+| cutoff | families | largest | singletons | cross-genus families |
+|---|---:|---:|---:|---:|
+| 0.20 | 164 | **186** | 97 | 5 |
+| 0.30 | 112 | **186** | 43 | 9 |
+| 0.40 | 84 | **186** | 21 | 12 |
+
+**The largest family is 186 at every cutoff**, and GCF-1 and GCF-2 never merge despite
+representatives 0.020 apart. The dense 13-family block (751 BGCs) goes 14 -> 13 -> 12.
+Affinity propagation is the splitter; the threshold only builds the components it runs
+inside.
+
+**Worse, the cutoff is not monotone.** Loosening 0.20 -> 0.30 **split 7,094**
+co-membership pairs while merging only 1,848. The mechanism is in BiG-SCAPE's own
+config: AP preference swaps from 0.0 to `DENSE_PREFERENCE` **-5.0** once a component's
+density reaches `DENSITY` 0.85, which makes it split *less*. Loosening the cutoff merges
+components, which *lowers* their density, which flips them out of the dense regime and
+makes AP split them *more*. At 0.20 there are components of 125 nodes at density 0.99
+and 124 at 0.97; by 0.30 they have been absorbed into components of 598 at 0.39 and 296
+at 0.34. **Do not treat `bigscape_cutoffs` as a dial from "split" to "merged".**
+
+Not settled: whether a core-weighted or asymmetric comparison clusters better. A naive
+trim is not the answer either -- the ablation in the HGT section above trimmed to core
++/- 2 kb and got Jaccard 0.259 against control while discarding real tailoring
+chemistry. Cutoffs above 0.40 were not swept, and given the density flip they could go
+either way.
+
+**Reusing a finished database to re-cluster is cheap and worth knowing about.** All
+1,088,550 comparisons are already stored, so only the AP step re-runs -- seconds, no
+Pfam, no re-scan. The CLI path cannot do this: `run_bigscape.py` asserts a Pfam HMM and
+presses it before it ever checks what is already scanned, although `pfam_info` is only
+needed for output generation. `recluster.py` in the comparison directory calls
+`generate_families` directly instead.
 
 ### Which families to trust
 
@@ -2311,6 +2445,77 @@ nothing — and silently restarts from the first uncached stage. This is not the
 it cost hours of re-running here, with no error and no warning, and it is the reason to
 resume by UUID *every* time rather than only when you remember having run a preview.
 
+### A family can be an assembly fragment, and `--min-bgc-length` is the guard
+
+Found 2026-10-29 while asking why GCF-31 was the long stripe in the report's family
+matrix, within 0.50 of **75 of 112** families. The answer is not biology.
+
+**Its exemplar is a contig-edge record of 1,001 bp with ONE CDS carrying ONE domain:
+PF13714, pepM.** Every phosphonate BGC carries pepM by construction — that is what the
+pre-screen selects on — so that fragment is within 0.30 of almost anything, affinity
+propagation made it a family centre, and **66 regions from 18 genera** piled onto it.
+
+The geometry is the tell, and it is worth recognising again:
+
+| | |
+|---|---:|
+| members within 0.30 of the exemplar | **65 of 65** (median 0.170) |
+| median distance between those members | **0.922** |
+| member pairs violating the triangle inequality through it | **88%** |
+
+A perfect star — everything near the centre, nothing near anything else. Only possible
+because **BiG-SCAPE distance is not a metric**: each member aligns to a different part
+of what it shares, and with a one-gene centre there is only one thing to share. Worst
+case on that family is d(a,b) = 0.982 against d(a,c) + d(b,c) = 0.170.
+
+**Five families are built this way** — GCF-23, 24, 26, 31, 59, all with a contig-edge
+exemplar of ≤3 genes — holding **97 of 1,476 regions**. 397 of 1,476 regions (27%) are
+contig-edge overall, so the raw material is plentiful.
+
+**The default is 2000, and raising it buys nothing.** Re-clustered from the stored
+distances at each threshold:
+
+| `bigscape_min_bgc_length` | regions dropped | families | GCF-31's 66 members become |
+|---:|---:|---:|---|
+| 0 | 0 | 112 | **1 family of 66, 18 genera** |
+| **2,000** | **2** (1 and 3 CDS) | **126** | **18 families, largest 24** |
+| 3,000 | 6 | 125 | 18 families, largest 24 |
+| 5,000 | 15 | 132 | 18 families, largest 24 |
+| 10,000 | 52 | 127 | 18 families, largest 24 |
+
+The whole effect comes from removing the single 1,001 bp one-CDS record. Everything
+above 2,000 discards more data for no further benefit — 5,000 would drop regions of
+5 CDS, and **a phosphonate BGC can be five genes**, so partial clusters are worth
+keeping. 2000 bp is about two bacterial genes, which cannot be a functional BGC by
+any reading, and that is the only claim the default needs to carry.
+
+**Note the family count goes UP, 112 to 126.** That is the artefact resolving: the
+sink was holding 66 unrelated regions together, and they are 18 separate families.
+Any figure or table quoting 112 families was measured at `bigscape_min_bgc_length = 0`.
+
+**Do not read taxonomic breadth off a stub-anchored family.** GCF-31 spanning 18
+genera looks like spectacular cross-taxon distribution and is a broken contig.
+
+### BiG-SCAPE options never invalidated their own cache
+
+Fixing the above surfaced a latent bug of the kind "Cache Invalidation" above already
+documents. **Every BiG-SCAPE option was interpolated into the process script body** —
+`--gcf-cutoffs`, `--alignment-mode`, `--classify`, all of them — and Nextflow hashes
+the *unevaluated* script plus the declared input values. So changing
+`bigscape_cutoffs` and resuming silently served the previous clustering, with no error
+and no warning.
+
+`Utils.bigscapeOptsHash(params)` is now passed to `BIGSCAPE` and `BIGSCAPE_PARTITION`
+as a **`val` input**, which is the spelling that works. Verified: the digest moves for
+a changed cutoff, mix flag or minimum length, and is stable across repeated calls with
+the same options. `bigscape_min_bgc_length` is only included in the digest when set, so
+results produced before this existed keep their hash — the same reasoning as
+`antismash_phosphonate_neighbourhood`.
+
+**Adding the input invalidates the BiG-SCAPE cache once**, because the process input
+cardinality changed. That is cheap here: `BIGSCAPE` was 0.07% of the GenBank run's CPU,
+7 m 21 s for 1,476 regions.
+
 ### BiG-SCAPE Partitioning (`--bigscape_partition`)
 
 **Off by default.** Validated at 185-518 BGCs, not at the scale that needs it, and never
@@ -2830,6 +3035,281 @@ within-partition distances, so 25 of 1,302 have none: 61 members inflated by a m
 GCF-11 rising from 12th to 3rd is worth noting: the lab picked that cluster for
 characterisation on independent grounds, and the unbiased axis agrees with them where
 the reference-based one did not.
+
+### The report never knew which cutoff it was reporting on
+
+`params.bigscape_cutoffs` has always existed and nine module call sites honour it --
+BiG-SCAPE itself, centers, partition, references, annotation transfer, branch point,
+biosynthetic profile. **`VISUALIZE_RESULTS` was passed no cutoff at all**, so the five
+report sections that filter `family.cutoff = ?` each defaulted to `0.3`:
+`generate_rarefaction_curve`, `gcf_coupling_classes`, `build_gcf_support_rows`,
+`build_coupling_table_rows` and the GCF network.
+
+So a run with `bigscape_cutoffs = "0.50"` clustered at 0.50 and then reported on
+families that matched nothing: the rarefaction curve, the coupling enzyme table, the
+GCF badge colours, the per-family support rows and the network all came back EMPTY,
+and none of them said why. Sections that render as nothing look like sections the run
+had no data for.
+
+`--bigscape_cutoff` is now passed from the module as the first comma-separated value,
+the same way `gcf_annotation_transfer`, `branch_point_prediction` and
+`biosynthetic_profile` already took it. `visualize_results.py` also checks the cutoffs
+the database actually holds and warns, naming them, when the one it was given is not
+among them -- because the failure is five empty sections rather than an error.
+
+### Multi-cutoff reports
+
+`bigscape_cutoffs = "0.20,0.30,0.50"` clusters at all three and the report now shows
+all three, with **one selector at the top of the page**.
+
+**The database is authoritative about which cutoffs exist, not the parameter.**
+`db_cutoffs()` reads `SELECT DISTINCT cutoff FROM family`; `--bigscape_cutoff` only
+names which one is primary. A resumed run, or a reused database, can hold a set the
+current params no longer name, and the sections have rows for what is in the database.
+
+**Only three sections follow the selector**: the family network, the rarefaction curve
+and the coupling enzyme table. They are pure reads of the BiG-SCAPE database (the
+coupling table joins the per-region annotation onto family membership, which is
+answerable at any cutoff from the same file). Everything else -- characterisation,
+branch point, biosynthetic profile, consensus gene content, annotation transfer -- is
+produced by processes that take ONE cutoff, so those panes stay at the primary and
+**the selector says so in its own label**. A control that silently governs three of
+twelve panes is worse than no control: a reader who moves it, sees the characterisation
+table stay put and is not told why is right to distrust the page.
+
+Making the rest switchable means fanning seven processes out over the cutoff list.
+Compute is not the obstacle -- all of `BGC_ANALYSIS` was 1.3 CPU-h of 1,547 on the
+GenBank run -- the report size and the code are.
+
+**The mechanism is still pure CSS.** The cutoff radios are emitted as siblings of the
+panes, before them, so `#cutN:checked ~ .tab-content .cut-N` reaches blocks inside any
+pane; the visible pills live in a `.cutbar` div that is deliberately NOT adjacent to a
+radio, or `.tabs input:checked + label` would style them as nav items. `MAX_CUTOFFS`
+in `viz/report_assets.py` generates two rules per cutoff and is a real ceiling, like
+`MAX_PANES`.
+
+**`Cutoff comparison` is its own pane and is NOT cutoff-aware**, deliberately: it
+exists to show the cutoffs together. It reports shape per cutoff (families, largest,
+singletons, median, regions in a family of more than one) and, between consecutive
+cutoffs, co-membership **split and merged separately** plus the ARI. Split and merged
+are different problems -- a merge joins chemistry the tighter cutoff kept apart, a
+split breaks a family you may already have written about -- and the ARI hides which
+direction the change went.
+
+With one cutoff nothing changes: no selector is emitted, no comparison pane, and the
+switchable sections render exactly as before.
+
+### The GCF network replaced the isolation column
+
+`isolation` -- the median distance from each member to the nearest region outside its
+family -- survived the withdrawal of the composite novelty score as a published column,
+and was removed on 2026-10-29. It measured something real, but a per-family number
+headed "isolation" sitting beside the reference identity reads as a novelty rank
+however the tooltip is worded, which is the same failure the composite was withdrawn
+for. It also cost `GCF_CHARACTERISATION` an input -- the whole BiG-SCAPE database --
+that nothing else in that process needed.
+
+`viz/gcf_network.py` shows the same distances as a shape, which cannot be sorted.
+
+**The report shows the close-pair network; the matrix is no longer in it.** The matrix
+showed all 6,216 pairs honestly and was too dense to read, and density is a failure a
+reader cannot work around. `generate_gcf_network_html()` is kept and exported for
+ad-hoc use -- the same treatment `generate_gantt_chart_html()` got -- because it is
+still the right tool for a specific question such as "what is near GCF-1". Everything
+below about the matrix describes that standalone function.
+
+**It is a distance matrix over family representatives** -- one row and one column per
+family, the cell being the measured BiG-SCAPE distance between the two
+`family.center_id` medoids, darker the closer. Rows and columns are grouped by
+coupling class and sorted by size inside each group; a bar down the left edge carries
+family size, which is the one thing a matrix cannot put in the cells.
+
+**It is the same matrix the family-centre tree is built on** (`bgc_gcf_tree.py`,
+Biosynthetic phylogeny pane), so the two panes are one object in two renderings: the
+tree shows the backbone, this shows every pair the tree had to discard. Until
+2026-10-29 the pane was built on a different matrix -- single linkage over all
+cross-family pairs -- and a reader who found two families adjacent here and far apart
+in the tree had no way to reconcile them.
+
+**Do not go back to a node-link diagram.** Three were drawn against this data first,
+and the matrix beats them on grounds that are not taste:
+
+- **It needs no threshold.** A node-link diagram has to decide which edges to draw, so
+  it needs an `EDGE_CUTOFF`, and no value of it is defensible. The matrix shows all
+  6,216 pairs. The constant survives only to count neighbours and pick which cells get
+  an individual tooltip.
+- **A hub reads as a stripe.** GCF-31 is within 0.50 of two thirds of all other
+  families -- the grab-bag signature recorded for GCF-27 above -- and a full-length
+  line across every block is unmissable where 75 chords from one node are a dense patch.
+- **Sub-block structure survives.** The Decarboxylase group is plainly not one thing.
+  Neither the ring nor the arc showed that at all.
+
+The three that lost, so they are not retried: **Fruchterman-Reingold** failed twice --
+plain FR walks weakly-connected nodes into the clamp and draws them in rows along the
+frame, and adding gravity made it worse, 89 of 112 pinned. The cause is the hub, so
+*any* force layout resolves to a sunburst and the tuning only picks how ugly. **A ring**
+fixed that and shipped briefly, but it orders by class, so most edges are within-class
+chords bundled unreadably against the rim while the interesting cross-class ones must
+be picked out of the crossings. **An arc diagram**, the ring unrolled, is better on the
+long-range edges and fits a page better, but bundles the same dense local block and
+still has to threshold.
+
+**The ramp is clipped at 0.9 and binned by tenths, because that is where the data is.**
+Representative distances here: median **0.945**, 74% at 0.9 or above, only 5% below
+0.556. A linear ramp over [0, 1] spends nearly all its range on pairs that are simply
+unrelated. One shade per tenth up to 0.9 and blank beyond matches the decile histogram,
+is one sentence to explain, and holds the drawn cells to about a quarter of the square
+-- which is also what keeps the SVG inlinable.
+
+**`RAMP[0]` is the DARKEST.** The list is ordered the way `shade()` indexes it, so dark
+means similar. Writing it light-first and indexing by distance draws the figure inside
+out -- the dense 0.8-0.9 shoulder goes black and the close blocks fade to nothing. That
+was shipped for one render and caught only by looking at the PNG.
+
+**Dark = close was re-examined and kept**, after a reader read the ramp the other way.
+Rendered all three ways on the real data: reversing it while keeping the blank is the
+worst of the options, because dark then marks the 0.8-0.9 shoulder while the 1.0% of
+pairs under 0.3 become the palest marks on the page. Reversing it with nothing blanked
+is self-consistent -- relationships read as white holes in a dark field -- but at 1.0%
+signal the ink belongs where the signal is. Keep dark = close.
+
+**The diagonal is BLANK, and blank is a third channel rather than a shade.** It was
+RAMP[0] briefly, on the argument that a family against itself is 0.0 and must take the
+colour of any other zero. True of the number, wrong for the figure: it made the
+strongest ink on an almost empty page the one cell carrying no information. The three
+channels are now white for not-applicable, `_BACKDROP` (a faint neutral tint, so white
+reads as deliberate rather than as unpainted canvas) for measured-and-unrelated, and
+RAMP for measured-and-related. The key carries a swatch for each.
+
+**Every family is labelled on BOTH axes**, down the left edge and rotated above the
+columns, with the class names above those. 7 px text in an 8 px pitch is a dense table
+rather than a collision -- verified at a minimum pitch of 8.0 px on each axis, and the
+longest rotated label clears the class strip by 11 px. The ten largest families and
+anything near a quarter of the run are darker and semibold, so what a reader came
+looking for still stands out from the other hundred.
+
+Naming both axes is what lets a cell be read in from either direction, and it is the
+thing that earns the redundant lower triangle its place. **An earlier version of this
+file said rotated column labels "would roughly triple the figure's height" and that was
+simply wrong**: the longest label is 7 characters, 29 px rotated, **3%** of a 988 px
+figure. That number came from reasoning about HORIZONTAL labels along the top -- where
+28 px of text over an 8 px column really is impossible -- and carrying the conclusion
+across to rotated ones without measuring. Measure the thing you are about to rule out.
+
+**`cell` stays at 8 px, and bigger is worse.** The report's content column is about
+1040 px at a 1440-wide window (body padding 40, a 224 px nav rail, 30 px pane padding,
+8 px figure padding), and the SVG is `width:100%` with `max-width`. A 9 px cell makes
+the figure 1116 px wide, which then scales DOWN to 0.93 and renders the 7 px row labels
+at 6.5 px. 8 px is the largest cell that still lets every label render 1:1. Class names
+are gated on measured width (`run >= 5.0 * len(name)`), not on family count, because a
+4-family span is 32 px and cannot hold "Decarboxylase".
+
+**Cells are emitted as one path per shade bin, not as 12,544 rects.** Individual rects
+with their own fill is over a megabyte of SVG inlined in the report; per-bin paths with
+integer coordinates give 201 kB with all 224 axis labels. Only the pairs within `EDGE_CUTOFF`
+get real elements, so tooltips exist exactly where they are worth the bytes.
+
+`family_network()` also returns how many of the n(n-1)/2 representative pairs the
+database holds a comparison for. Unmeasured cells get their own sand fill and the
+caption counts them: on a merged partitioned database only within-partition pairs
+exist, and a missing cell means *not measured*, not *far apart* -- the trap the
+all-BGCs tree fell into by substituting a constant for 42.9% of its matrix silently.
+
+**Representatives are stable under the pipeline's pin**, which is what makes a
+centre-based figure safe: `bigscape_determinism/` measured 2 of 5 family centres moving
+between identical runs *unpinned* and **0 with `PYTHONHASHSEED=0`**, which all four
+BiG-SCAPE processes set. Every difference it saw was at distance >= 0.66 and **0 of
+6,319 comparisons below 0.5 changed**. Do not cite the unpinned figure as an argument
+against centre-based figures; it nearly blocked this one.
+
+A cell below the 0.30 family cutoff is legitimate: BiG-SCAPE 2 clusters by affinity
+propagation, NOT single linkage, so near-identical regions can land in different
+families.
+
+Measured on the GenBank Enterobacterales database: 112 families, all 6,216
+representative pairs measured and drawn, 3,350 cells inked, all 112 families named on
+both axes, 201 kB of SVG, 1,020 px tall, 0.22 s --
+the query is 6,216 indexed lookups rather than a scan of all 1,088,550 distance rows.
+Byte-identical across three processes under `PYTHONHASHSEED=random`.
+
+### The close-pair network, the matrix's companion
+
+The matrix shows all 6,216 pairs and makes a reader scan a row to answer "what sits
+next to GCF-16". `generate_close_family_network_html` answers that directly, as a
+node-link figure in the same pane.
+
+**It exists only because the data is legible at one threshold.** Draw every family
+pair closer than `CLOSE_CUTOFF` and you get **39 of 112 families in nine separate
+clusters**, largest 14 — small enough that each component gets its own ring and no
+global layout is needed, which is exactly why this is drawable where the full graph
+is not:
+
+| threshold | edges | nodes | components | largest |
+|---:|---:|---:|---:|---:|
+| 0.25 | 51 | 30 | 8 | 9 |
+| **0.30** | **65** | **39** | **9** | **14** |
+| 0.35 | 115 | 62 | 6 | 23 |
+| 0.50 | 257 | 99 | 4 | **79** |
+
+One step looser and the groups merge into a 23-family mass; at 0.50 it is the 79-node
+hairball that a node-link view of all 6,216 pairs always becomes. **Do not raise
+`CLOSE_CUTOFF` to show more.**
+
+**0.30 is not chosen for looks — it is the family cutoff.** Every edge joins two
+families BiG-SCAPE separated while placing them closer than the boundary it separates
+families at, which is affinity propagation splitting inside a connected component. An
+arbitrary 0.25 or 0.35 would draw as well and mean less.
+
+**Stub-anchored families are excluded from the graph, not merely marked.** Drawing
+them hollow was not enough: **three of the nine groups existed only because a stub held
+them together** — seven families hanging off GCF-31, four off GCF-26, two off GCF-24 —
+and ten non-stub families lose every edge when the stubs go. A fragment carrying just
+the hallmark gene is within the cutoff of anything carrying it, so it manufactures
+groups out of unrelated families. Excluding them gives **26 families in six groups**
+instead of 39 in nine, and the six are real.
+
+**Connectors between groups are SHARED CHEMISTRY, not distance** (`CHEMISTRY_J`, 0.60).
+Two groups are joined when some family in one shares at least 60% of its biosynthetic
+domain repertoire with some family in the other — Jaccard over the `domains` column of
+`biosynthetic_profile.tsv`, scored **family-pair and never over a group consensus**.
+
+Distance is the wrong axis for this question and the data shows it inverted: GCF-1 and
+GCF-3 sit **0.199** apart — inside the family cutoff — and share **48%** of their
+repertoire, while GCF-1 and GCF-6 sit **0.548** apart and share **75%**. So no distance
+band at any threshold is the criterion. A naive 0.30–0.40 band also fails on ink: the
+pantaphos group would gain 1 connector and GCF-31's artefact 23.
+
+0.60 is mid-plateau — every cut from 0.51 to 0.75 draws the same connectors. The
+criterion was chosen by measuring five candidates against three pre-set ground truths
+and was independently reproduced by a second domain-set definition built from the
+SQLite core plus 10 kb, which found the same connector and no others.
+
+**The known blind spot is in the caption, and must stay there.** Jaccard is bounded by
+`min(|A|,|B|) / max(|A|,|B|)`, so a family with few recognised domains cannot reach
+0.60 however related it is — GCF-46 with 3 domains caps at 0.300 against the 10-domain
+pantaphos families. *Read a missing line as "nothing recognised", never as "nothing
+there."*
+
+On GenBank Enterobacterales this draws exactly one connector: the pantaphos group
+(GCF-1/2/3) to the *Photorhabdus*/*Xenorhabdus* group (GCF-4/5/6) at **0.75**, anchored
+on GCF-1/GCF-4, over the nine shared domains pepM, HMGL-like, Bac_luciferase/HEPD,
+Aconitase, Aconitase_C, HCS_D2, MFS_1, ATP-grasp_4 and Methyltransf_25. All six
+possible family pairs between the two groups qualify, both groups have
+`pantaphos_LMG5342` as their nearest characterised reference, and both carry the same
+branch-point call.
+
+On GenBank Enterobacterales the figure shows the session's findings at a glance: the
+*Pantoea* pantaphos triangle GCF-1/2/3, the 14-family *Pectobacterium* block around
+GCF-16, and GCF-31 hollow with six spokes. Byte-identical across processes under
+`PYTHONHASHSEED=random`; layout is deterministic by construction, no seeded RNG.
+
+### The execution timeline was removed from the resources pane
+
+On a screened run one process dominates the wall clock so completely that the Gantt
+chart carries no information: `FETCH_RENAME_SCREEN` was 53,981 of 54,058 tasks and
+spans essentially the whole run, so its bar *is* the chart. The per-process table says
+the same thing in numbers that can be read. `generate_gantt_chart_html()` is kept and
+still exported for ad-hoc use on a run with a flatter profile.
 
 ### `utils/domain_functions.py` — Pfam accession → biosynthetic role
 

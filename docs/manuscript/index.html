@@ -576,9 +576,28 @@ Downloading a million genomes into one directory before the first screen can run
   tightly around a modal bitscore of 514, so this is closer to one well-replicated test than
   to 98 independent ones. The pseudogene finding is robust to this; a claim that the screen
   generalises across divergent pepMs would need a genus- or phylum-scale set.</li>
-  <li><strong>The 10 kb neighbourhood is tuned to one cluster.</strong> It was chosen because
-  it captures HiVir completely. The flank is symmetric, so it also admits 10 kb of upstream
-  context the cluster does not contain, and the value is not a general claim.</li>
+  <li><strong>The 10 kb neighbourhood is tuned to one cluster, and 10 kb is a floor rather
+  than a round number.</strong> It was chosen because it captures HiVir completely, which is
+  now measured: across the 169 complete members of the pantaphos family the cassette reaches
+  <span class="num">9,189</span>&ndash;<span class="num">9,792</span>&nbsp;bp past the rule
+  core, so 8&nbsp;kb and 9&nbsp;kb both clip its terminal ATP-grasp. The flank is symmetric,
+  so the window also admits ~10&nbsp;kb of upstream context the cluster does not contain
+  &mdash; and that context dominates the comparison: a median of 4 Pfam domains lie inside
+  the rule core against 19 across the whole region, so <strong>79%</strong> of what
+  BiG-SCAPE compares is flanking sequence. The value is a floor for this chemistry, not a
+  general claim.</li>
+  <li><strong>Family counts are an upper bound on distinct chemistries.</strong> Because the
+  comparison is dominated by flank, and flank is conserved within a host species but
+  divergent between them, BiG-SCAPE separates clusters that share an identical rule core.
+  Three of the four <em>Pantoea</em> pantaphos families carry the same core domain content
+  and differ only in chromosomal context; the two largest sit <span class="num">0.680</span>
+  apart over the whole region and <span class="num">0.237</span> apart over the biosynthetic
+  cassette alone. This is not fixed by the cutoff &mdash; the largest family is 186 members
+  at 0.20, 0.30 and 0.40 alike, because BiG-SCAPE&nbsp;2 assigns families by affinity
+  propagation within a connected component rather than by thresholding, and propagation
+  splits whatever the threshold admits. Reported family counts should therefore be read as
+  an upper bound, and the per-family distance matrix in the pipeline report as the means of
+  checking any particular pair.</li>
   <li><strong>Partitioning is validated at 185–518 BGCs, not at the scale that requires
   it</strong>, and has not been run on a cluster scheduler.</li>
   <li><strong>Gene categories are antiSMASH's own.</strong> Region GenBank files carry no Pfam

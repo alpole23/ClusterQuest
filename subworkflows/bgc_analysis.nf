@@ -185,7 +185,6 @@ workflow BGC_ANALYSIS {
                     // vanishing. It is the heatmap's replacement, so losing it
                     // silently is worse than losing two of its columns.
                     coupling_support_ch,
-                    CLUSTERING.out.bigscape_db,
                     PHYLOGENY.out.summary,
                     Utils.scriptsHash(projectDir, ['analysis/gcf_characterisation.py'])
                 )

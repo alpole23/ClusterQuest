@@ -1,0 +1,7 @@
+# run_windows.sh writes its arms here: three BiG-SCAPE output trees (~440 MB each,
+# a 153 MB SQLite db apiece) and three sets of trimmed region GenBanks (~120 MB).
+# The findings live in summary.json; the arms are reproducible from the scripts.
+sym8/
+asym/
+asym2/
+*_input/

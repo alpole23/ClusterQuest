@@ -80,6 +80,7 @@ process VISUALIZE_RESULTS {
     """
     python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${reference_summary_arg} ${branch_point_arg} ${bioprofile_arg} \\
         ${consensus_arg} ${per_cds_arg} \\
-        ${transfer_summary_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}"
+        ${transfer_summary_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}" \\
+        --bigscape_cutoff ${(params.bigscape_cutoffs.toString().split(',')[0]).trim()}
     """
 }
