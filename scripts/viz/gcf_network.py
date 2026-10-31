@@ -98,11 +98,22 @@ BINS = 9
 # shoulder goes black and the close blocks fade to nothing.
 RAMP = ['#17455a', '#2c6173', '#42788d', '#5b8fa4', '#78a5b7',
         '#97bac8', '#b4cdd7', '#cfdfe5', '#e7eef1']
-# The diagonal is a family against itself, which is distance 0.0 -- so it takes
-# RAMP[0] like any other zero. It was drawn in a separate pale grey as "a reading
-# guide, not a measurement", and that silently contradicted the ramp: a key reading
-# "0.0 identical" beside a pale diagonal says the identical cells are not identical.
-_DIAGONAL = RAMP[0]
+# The diagonal is left BLANK, and blank here is a third thing rather than a shade.
+#
+# It was RAMP[0] for a while, on the argument that a family against itself is
+# distance 0.0 and must take the colour of any other zero. That is true of the
+# number and wrong for the figure: only 1.0% of pairs are under 0.3, so with dark
+# meaning close the diagonal became the strongest ink on an almost empty page while
+# carrying no information at all. It drew the eye to the one thing nobody needs to
+# look up.
+#
+# So the figure now has three channels, and the background carries a faint neutral
+# tint so that white reads as deliberate rather than as unpainted canvas:
+#   white        not applicable -- a family against itself, or nothing measured
+#   _BACKDROP    measured and unrelated, at or beyond BLANK_AT
+#   RAMP         measured and related, one shade per tenth
+_DIAGONAL = '#ffffff'
+_BACKDROP = '#f1f3f2'
 _UNMEASURED = '#f3ece2'
 
 # cell stays at 8 deliberately. A bigger cell makes the SVG wider than the report's
@@ -263,7 +274,7 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
              f'enzyme class. '
              f'Darker means more similar; a cell is blank at {BLANK_AT:g} or beyond.">',
              f'<rect x="{PAD_L}" y="{PAD_T}" width="{body}" height="{body}" '
-             f'fill="#fbfcfc"/>']
+             f'fill="{_BACKDROP}"/>']
 
     # Cells, collected per shade and emitted as ONE path each. 112 squared is 12,544
     # elements; as individual rects with their own fill that is over a megabyte of
@@ -377,7 +388,10 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         parts.append(f'<rect x="{PAD_L + k * 26}" y="{key_y}" width="26" height="9" '
                      f'fill="{RAMP[k]}"/>')
     parts.append(f'<rect x="{PAD_L + BINS * 26 + 6}" y="{key_y}" width="26" '
-                 f'height="9" fill="#fbfcfc" stroke="#dfe4e6"/>')
+                 f'height="9" fill="{_BACKDROP}" stroke="#dfe4e6"/>')
+    # and a white swatch for the third channel, so the diagonal is explained
+    parts.append(f'<rect x="{PAD_L + BINS * 26 + 140}" y="{key_y}" width="26" '
+                 f'height="9" fill="#ffffff" stroke="#dfe4e6"/>')
     # Numbers alone are not a key. The first reader of this figure read the ramp
     # backwards -- reasonably, since "dark" reads as "more" and the quantity being
     # shown is DISsimilarity, so more distance is lighter. The ends say what they
@@ -385,7 +399,8 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     for lab, x, anchor in ((f'0.0 identical', PAD_L, 'start'),
                            (f'{BLANK_AT:g}', PAD_L + BINS * 26, 'end'),
                            (f'≥ {BLANK_AT:g} unrelated',
-                            PAD_L + BINS * 26 + 38, 'start')):
+                            PAD_L + BINS * 26 + 38, 'start'),
+                           ('same family', PAD_L + BINS * 26 + 172, 'start')):
         parts.append(f'<text x="{x}" y="{key_y + 20}" text-anchor="{anchor}" '
                      f'font-size="9" font-family="system-ui,-apple-system,sans-serif" '
                      f'fill="#66777e">{lab}</text>')

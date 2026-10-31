@@ -3149,6 +3149,21 @@ means similar. Writing it light-first and indexing by distance draws the figure 
 out -- the dense 0.8-0.9 shoulder goes black and the close blocks fade to nothing. That
 was shipped for one render and caught only by looking at the PNG.
 
+**Dark = close was re-examined and kept**, after a reader read the ramp the other way.
+Rendered all three ways on the real data: reversing it while keeping the blank is the
+worst of the options, because dark then marks the 0.8-0.9 shoulder while the 1.0% of
+pairs under 0.3 become the palest marks on the page. Reversing it with nothing blanked
+is self-consistent -- relationships read as white holes in a dark field -- but at 1.0%
+signal the ink belongs where the signal is. Keep dark = close.
+
+**The diagonal is BLANK, and blank is a third channel rather than a shade.** It was
+RAMP[0] briefly, on the argument that a family against itself is 0.0 and must take the
+colour of any other zero. True of the number, wrong for the figure: it made the
+strongest ink on an almost empty page the one cell carrying no information. The three
+channels are now white for not-applicable, `_BACKDROP` (a faint neutral tint, so white
+reads as deliberate rather than as unpainted canvas) for measured-and-unrelated, and
+RAMP for measured-and-related. The key carries a swatch for each.
+
 **Every family is labelled on BOTH axes**, down the left edge and rotated above the
 columns, with the class names above those. 7 px text in an 8 px pitch is a dense table
 rather than a collision -- verified at a minimum pitch of 8.0 px on each axis, and the
