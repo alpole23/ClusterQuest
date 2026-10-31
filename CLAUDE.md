@@ -3200,6 +3200,43 @@ both axes, 201 kB of SVG, 1,020 px tall, 0.22 s --
 the query is 6,216 indexed lookups rather than a scan of all 1,088,550 distance rows.
 Byte-identical across three processes under `PYTHONHASHSEED=random`.
 
+### The close-pair network, the matrix's companion
+
+The matrix shows all 6,216 pairs and makes a reader scan a row to answer "what sits
+next to GCF-16". `generate_close_family_network_html` answers that directly, as a
+node-link figure in the same pane.
+
+**It exists only because the data is legible at one threshold.** Draw every family
+pair closer than `CLOSE_CUTOFF` and you get **39 of 112 families in nine separate
+clusters**, largest 14 — small enough that each component gets its own ring and no
+global layout is needed, which is exactly why this is drawable where the full graph
+is not:
+
+| threshold | edges | nodes | components | largest |
+|---:|---:|---:|---:|---:|
+| 0.25 | 51 | 30 | 8 | 9 |
+| **0.30** | **65** | **39** | **9** | **14** |
+| 0.35 | 115 | 62 | 6 | 23 |
+| 0.50 | 257 | 99 | 4 | **79** |
+
+One step looser and the groups merge into a 23-family mass; at 0.50 it is the 79-node
+hairball that a node-link view of all 6,216 pairs always becomes. **Do not raise
+`CLOSE_CUTOFF` to show more.**
+
+**0.30 is not chosen for looks — it is the family cutoff.** Every edge joins two
+families BiG-SCAPE separated while placing them closer than the boundary it separates
+families at, which is affinity propagation splitting inside a connected component. An
+arbitrary 0.25 or 0.35 would draw as well and mean less.
+
+**Stub-anchored families are drawn hollow with a dashed rim.** GCF-31's star is the
+visible artefact — a fragment that resembles everything carrying pepM — and a reader
+must not take its spokes for chemistry. See the `--min-bgc-length` section above.
+
+On GenBank Enterobacterales the figure shows the session's findings at a glance: the
+*Pantoea* pantaphos triangle GCF-1/2/3, the 14-family *Pectobacterium* block around
+GCF-16, and GCF-31 hollow with six spokes. Byte-identical across processes under
+`PYTHONHASHSEED=random`; layout is deterministic by construction, no seeded RNG.
+
 ### The execution timeline was removed from the resources pane
 
 On a screened run one process dominates the wall clock so completely that the Gantt

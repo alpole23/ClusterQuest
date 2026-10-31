@@ -30,7 +30,8 @@ from utils.parsers import parse_trace_file
 from utils.report_lint import check_report
 from utils.trace import aggregate_trace_by_process, generate_resource_usage_html
 from viz.clustering import generate_bigscape_stats_html, generate_gcf_visualization_html
-from viz.gcf_network import generate_gcf_network_html
+from viz.gcf_network import (generate_gcf_network_html,
+                             generate_close_family_network_html)
 from viz.cutoff_comparison import build_cutoff_comparison_section
 from utils.constants import COUPLING_COLORS, COUPLING_ORDER
 from viz.gcf_pages import create_gcf_pages, family_meta
@@ -638,10 +639,17 @@ def main():
     if bigscape_db_for_coupling:
         print("Building GCF network...")
         for _cut in (report_cutoffs or [args.bigscape_cutoff]):
+            # The matrix and its companion travel together: the matrix shows all
+            # pairs, the close-pair network answers "what sits next to this family"
+            # without scanning a row. Both switch with the cutoff selector.
             network_by_cutoff[_cut] = generate_gcf_network_html(
                 str(bigscape_db_for_coupling), cutoff=_cut,
                 classes=classes_by_cutoff.get(_cut) or {}, colors=COUPLING_COLORS,
-                class_order=COUPLING_ORDER, hrefs=gcf_hrefs)
+                class_order=COUPLING_ORDER, hrefs=gcf_hrefs) + \
+                generate_close_family_network_html(
+                    str(bigscape_db_for_coupling), cutoff=_cut,
+                    classes=classes_by_cutoff.get(_cut) or {}, colors=COUPLING_COLORS,
+                    hrefs=gcf_hrefs)
         gcf_network_html = network_by_cutoff.get(args.bigscape_cutoff, '')
 
     cutoff_comparison_html = ''
