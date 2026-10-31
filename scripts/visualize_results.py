@@ -649,7 +649,7 @@ def main():
                 generate_close_family_network_html(
                     str(bigscape_db_for_coupling), cutoff=_cut,
                     classes=classes_by_cutoff.get(_cut) or {}, colors=COUPLING_COLORS,
-                    hrefs=gcf_hrefs)
+                    hrefs=gcf_hrefs, profile_path=args.biosynthetic_profile)
         gcf_network_html = network_by_cutoff.get(args.bigscape_cutoff, '')
 
     cutoff_comparison_html = ''

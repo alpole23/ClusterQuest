@@ -3243,9 +3243,43 @@ families BiG-SCAPE separated while placing them closer than the boundary it sepa
 families at, which is affinity propagation splitting inside a connected component. An
 arbitrary 0.25 or 0.35 would draw as well and mean less.
 
-**Stub-anchored families are drawn hollow with a dashed rim.** GCF-31's star is the
-visible artefact — a fragment that resembles everything carrying pepM — and a reader
-must not take its spokes for chemistry. See the `--min-bgc-length` section above.
+**Stub-anchored families are excluded from the graph, not merely marked.** Drawing
+them hollow was not enough: **three of the nine groups existed only because a stub held
+them together** — seven families hanging off GCF-31, four off GCF-26, two off GCF-24 —
+and ten non-stub families lose every edge when the stubs go. A fragment carrying just
+the hallmark gene is within the cutoff of anything carrying it, so it manufactures
+groups out of unrelated families. Excluding them gives **26 families in six groups**
+instead of 39 in nine, and the six are real.
+
+**Connectors between groups are SHARED CHEMISTRY, not distance** (`CHEMISTRY_J`, 0.60).
+Two groups are joined when some family in one shares at least 60% of its biosynthetic
+domain repertoire with some family in the other — Jaccard over the `domains` column of
+`biosynthetic_profile.tsv`, scored **family-pair and never over a group consensus**.
+
+Distance is the wrong axis for this question and the data shows it inverted: GCF-1 and
+GCF-3 sit **0.199** apart — inside the family cutoff — and share **48%** of their
+repertoire, while GCF-1 and GCF-6 sit **0.548** apart and share **75%**. So no distance
+band at any threshold is the criterion. A naive 0.30–0.40 band also fails on ink: the
+pantaphos group would gain 1 connector and GCF-31's artefact 23.
+
+0.60 is mid-plateau — every cut from 0.51 to 0.75 draws the same connectors. The
+criterion was chosen by measuring five candidates against three pre-set ground truths
+and was independently reproduced by a second domain-set definition built from the
+SQLite core plus 10 kb, which found the same connector and no others.
+
+**The known blind spot is in the caption, and must stay there.** Jaccard is bounded by
+`min(|A|,|B|) / max(|A|,|B|)`, so a family with few recognised domains cannot reach
+0.60 however related it is — GCF-46 with 3 domains caps at 0.300 against the 10-domain
+pantaphos families. *Read a missing line as "nothing recognised", never as "nothing
+there."*
+
+On GenBank Enterobacterales this draws exactly one connector: the pantaphos group
+(GCF-1/2/3) to the *Photorhabdus*/*Xenorhabdus* group (GCF-4/5/6) at **0.75**, anchored
+on GCF-1/GCF-4, over the nine shared domains pepM, HMGL-like, Bac_luciferase/HEPD,
+Aconitase, Aconitase_C, HCS_D2, MFS_1, ATP-grasp_4 and Methyltransf_25. All six
+possible family pairs between the two groups qualify, both groups have
+`pantaphos_LMG5342` as their nearest characterised reference, and both carry the same
+branch-point call.
 
 On GenBank Enterobacterales the figure shows the session's findings at a glance: the
 *Pantoea* pantaphos triangle GCF-1/2/3, the 14-family *Pectobacterium* block around
