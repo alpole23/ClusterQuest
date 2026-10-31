@@ -3101,6 +3101,13 @@ that nothing else in that process needed.
 
 `viz/gcf_network.py` shows the same distances as a shape, which cannot be sorted.
 
+**The report shows the close-pair network; the matrix is no longer in it.** The matrix
+showed all 6,216 pairs honestly and was too dense to read, and density is a failure a
+reader cannot work around. `generate_gcf_network_html()` is kept and exported for
+ad-hoc use -- the same treatment `generate_gantt_chart_html()` got -- because it is
+still the right tool for a specific question such as "what is near GCF-1". Everything
+below about the matrix describes that standalone function.
+
 **It is a distance matrix over family representatives** -- one row and one column per
 family, the cell being the measured BiG-SCAPE distance between the two
 `family.center_id` medoids, darker the closer. Rows and columns are grouped by
@@ -3148,6 +3155,21 @@ is one sentence to explain, and holds the drawn cells to about a quarter of the 
 means similar. Writing it light-first and indexing by distance draws the figure inside
 out -- the dense 0.8-0.9 shoulder goes black and the close blocks fade to nothing. That
 was shipped for one render and caught only by looking at the PNG.
+
+**Dark = close was re-examined and kept**, after a reader read the ramp the other way.
+Rendered all three ways on the real data: reversing it while keeping the blank is the
+worst of the options, because dark then marks the 0.8-0.9 shoulder while the 1.0% of
+pairs under 0.3 become the palest marks on the page. Reversing it with nothing blanked
+is self-consistent -- relationships read as white holes in a dark field -- but at 1.0%
+signal the ink belongs where the signal is. Keep dark = close.
+
+**The diagonal is BLANK, and blank is a third channel rather than a shade.** It was
+RAMP[0] briefly, on the argument that a family against itself is 0.0 and must take the
+colour of any other zero. True of the number, wrong for the figure: it made the
+strongest ink on an almost empty page the one cell carrying no information. The three
+channels are now white for not-applicable, `_BACKDROP` (a faint neutral tint, so white
+reads as deliberate rather than as unpainted canvas) for measured-and-unrelated, and
+RAMP for measured-and-related. The key carries a swatch for each.
 
 **Every family is labelled on BOTH axes**, down the left edge and rotated above the
 columns, with the class names above those. 7 px text in an 8 px pitch is a dense table
@@ -3199,6 +3221,77 @@ representative pairs measured and drawn, 3,350 cells inked, all 112 families nam
 both axes, 201 kB of SVG, 1,020 px tall, 0.22 s --
 the query is 6,216 indexed lookups rather than a scan of all 1,088,550 distance rows.
 Byte-identical across three processes under `PYTHONHASHSEED=random`.
+
+### The close-pair network, the matrix's companion
+
+The matrix shows all 6,216 pairs and makes a reader scan a row to answer "what sits
+next to GCF-16". `generate_close_family_network_html` answers that directly, as a
+node-link figure in the same pane.
+
+**It exists only because the data is legible at one threshold.** Draw every family
+pair closer than `CLOSE_CUTOFF` and you get **39 of 112 families in nine separate
+clusters**, largest 14 — small enough that each component gets its own ring and no
+global layout is needed, which is exactly why this is drawable where the full graph
+is not:
+
+| threshold | edges | nodes | components | largest |
+|---:|---:|---:|---:|---:|
+| 0.25 | 51 | 30 | 8 | 9 |
+| **0.30** | **65** | **39** | **9** | **14** |
+| 0.35 | 115 | 62 | 6 | 23 |
+| 0.50 | 257 | 99 | 4 | **79** |
+
+One step looser and the groups merge into a 23-family mass; at 0.50 it is the 79-node
+hairball that a node-link view of all 6,216 pairs always becomes. **Do not raise
+`CLOSE_CUTOFF` to show more.**
+
+**0.30 is not chosen for looks — it is the family cutoff.** Every edge joins two
+families BiG-SCAPE separated while placing them closer than the boundary it separates
+families at, which is affinity propagation splitting inside a connected component. An
+arbitrary 0.25 or 0.35 would draw as well and mean less.
+
+**Stub-anchored families are excluded from the graph, not merely marked.** Drawing
+them hollow was not enough: **three of the nine groups existed only because a stub held
+them together** — seven families hanging off GCF-31, four off GCF-26, two off GCF-24 —
+and ten non-stub families lose every edge when the stubs go. A fragment carrying just
+the hallmark gene is within the cutoff of anything carrying it, so it manufactures
+groups out of unrelated families. Excluding them gives **26 families in six groups**
+instead of 39 in nine, and the six are real.
+
+**Connectors between groups are SHARED CHEMISTRY, not distance** (`CHEMISTRY_J`, 0.60).
+Two groups are joined when some family in one shares at least 60% of its biosynthetic
+domain repertoire with some family in the other — Jaccard over the `domains` column of
+`biosynthetic_profile.tsv`, scored **family-pair and never over a group consensus**.
+
+Distance is the wrong axis for this question and the data shows it inverted: GCF-1 and
+GCF-3 sit **0.199** apart — inside the family cutoff — and share **48%** of their
+repertoire, while GCF-1 and GCF-6 sit **0.548** apart and share **75%**. So no distance
+band at any threshold is the criterion. A naive 0.30–0.40 band also fails on ink: the
+pantaphos group would gain 1 connector and GCF-31's artefact 23.
+
+0.60 is mid-plateau — every cut from 0.51 to 0.75 draws the same connectors. The
+criterion was chosen by measuring five candidates against three pre-set ground truths
+and was independently reproduced by a second domain-set definition built from the
+SQLite core plus 10 kb, which found the same connector and no others.
+
+**The known blind spot is in the caption, and must stay there.** Jaccard is bounded by
+`min(|A|,|B|) / max(|A|,|B|)`, so a family with few recognised domains cannot reach
+0.60 however related it is — GCF-46 with 3 domains caps at 0.300 against the 10-domain
+pantaphos families. *Read a missing line as "nothing recognised", never as "nothing
+there."*
+
+On GenBank Enterobacterales this draws exactly one connector: the pantaphos group
+(GCF-1/2/3) to the *Photorhabdus*/*Xenorhabdus* group (GCF-4/5/6) at **0.75**, anchored
+on GCF-1/GCF-4, over the nine shared domains pepM, HMGL-like, Bac_luciferase/HEPD,
+Aconitase, Aconitase_C, HCS_D2, MFS_1, ATP-grasp_4 and Methyltransf_25. All six
+possible family pairs between the two groups qualify, both groups have
+`pantaphos_LMG5342` as their nearest characterised reference, and both carry the same
+branch-point call.
+
+On GenBank Enterobacterales the figure shows the session's findings at a glance: the
+*Pantoea* pantaphos triangle GCF-1/2/3, the 14-family *Pectobacterium* block around
+GCF-16, and GCF-31 hollow with six spokes. Byte-identical across processes under
+`PYTHONHASHSEED=random`; layout is deterministic by construction, no seeded RNG.
 
 ### The execution timeline was removed from the resources pane
 

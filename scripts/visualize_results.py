@@ -30,7 +30,8 @@ from utils.parsers import parse_trace_file
 from utils.report_lint import check_report
 from utils.trace import aggregate_trace_by_process, generate_resource_usage_html
 from viz.clustering import generate_bigscape_stats_html, generate_gcf_visualization_html
-from viz.gcf_network import generate_gcf_network_html
+from viz.gcf_network import (generate_gcf_network_html,
+                             generate_close_family_network_html)
 from viz.cutoff_comparison import build_cutoff_comparison_section
 from utils.constants import COUPLING_COLORS, COUPLING_ORDER
 from viz.gcf_pages import create_gcf_pages, family_meta
@@ -638,10 +639,16 @@ def main():
     if bigscape_db_for_coupling:
         print("Building GCF network...")
         for _cut in (report_cutoffs or [args.bigscape_cutoff]):
-            network_by_cutoff[_cut] = generate_gcf_network_html(
+            # The close-pair network only. The 112x112 distance matrix that used to
+            # sit above it is gone from the report: it showed every pair honestly and
+            # was too dense to read, which is the failure a reader cannot work around.
+            # generate_gcf_network_html() is kept and still exported for ad-hoc use --
+            # it is the right tool for a specific question like "what is near GCF-1",
+            # the same treatment generate_gantt_chart_html() got.
+            network_by_cutoff[_cut] = generate_close_family_network_html(
                 str(bigscape_db_for_coupling), cutoff=_cut,
                 classes=classes_by_cutoff.get(_cut) or {}, colors=COUPLING_COLORS,
-                class_order=COUPLING_ORDER, hrefs=gcf_hrefs)
+                hrefs=gcf_hrefs, profile_path=args.biosynthetic_profile)
         gcf_network_html = network_by_cutoff.get(args.bigscape_cutoff, '')
 
     cutoff_comparison_html = ''

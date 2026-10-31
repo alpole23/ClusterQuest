@@ -73,6 +73,7 @@ regions at most 2 members change family between runs, both boundary members of a
 78-member family, which cannot move that family's medoid.
 """
 import collections
+import csv
 import html as _html
 import math
 import os
@@ -98,11 +99,22 @@ BINS = 9
 # shoulder goes black and the close blocks fade to nothing.
 RAMP = ['#17455a', '#2c6173', '#42788d', '#5b8fa4', '#78a5b7',
         '#97bac8', '#b4cdd7', '#cfdfe5', '#e7eef1']
-# The diagonal is a family against itself, which is distance 0.0 -- so it takes
-# RAMP[0] like any other zero. It was drawn in a separate pale grey as "a reading
-# guide, not a measurement", and that silently contradicted the ramp: a key reading
-# "0.0 identical" beside a pale diagonal says the identical cells are not identical.
-_DIAGONAL = RAMP[0]
+# The diagonal is left BLANK, and blank here is a third thing rather than a shade.
+#
+# It was RAMP[0] for a while, on the argument that a family against itself is
+# distance 0.0 and must take the colour of any other zero. That is true of the
+# number and wrong for the figure: only 1.0% of pairs are under 0.3, so with dark
+# meaning close the diagonal became the strongest ink on an almost empty page while
+# carrying no information at all. It drew the eye to the one thing nobody needs to
+# look up.
+#
+# So the figure now has three channels, and the background carries a faint neutral
+# tint so that white reads as deliberate rather than as unpainted canvas:
+#   white        not applicable -- a family against itself, or nothing measured
+#   _BACKDROP    measured and unrelated, at or beyond BLANK_AT
+#   RAMP         measured and related, one shade per tenth
+_DIAGONAL = '#ffffff'
+_BACKDROP = '#f1f3f2'
 _UNMEASURED = '#f3ece2'
 
 # cell stays at 8 deliberately. A bigger cell makes the SVG wider than the report's
@@ -225,6 +237,13 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
                               class_order=(), hrefs=None, edge_cutoff=EDGE_CUTOFF):
     """Inline SVG of the family distance matrix, or '' when there is nothing to draw.
 
+    **No longer in the report** -- it showed all 6,216 pairs honestly and was too
+    dense to read, and a reader cannot work around density. Kept and exported for
+    ad-hoc use, the same treatment generate_gantt_chart_html() got: it is still the
+    right tool for a specific question, such as finding everything near one family.
+    The report shows generate_close_family_network_html() instead, which answers the
+    question a reader actually arrives with.
+
     classes      {family_id: coupling class} -- orders the axes and colours the
                  strips; anything missing or sentinel takes the neutral grey and
                  sits in the unclassified group, never a colour that reads as a class.
@@ -263,7 +282,7 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
              f'enzyme class. '
              f'Darker means more similar; a cell is blank at {BLANK_AT:g} or beyond.">',
              f'<rect x="{PAD_L}" y="{PAD_T}" width="{body}" height="{body}" '
-             f'fill="#fbfcfc"/>']
+             f'fill="{_BACKDROP}"/>']
 
     # Cells, collected per shade and emitted as ONE path each. 112 squared is 12,544
     # elements; as individual rects with their own fill that is over a megabyte of
@@ -377,7 +396,10 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         parts.append(f'<rect x="{PAD_L + k * 26}" y="{key_y}" width="26" height="9" '
                      f'fill="{RAMP[k]}"/>')
     parts.append(f'<rect x="{PAD_L + BINS * 26 + 6}" y="{key_y}" width="26" '
-                 f'height="9" fill="#fbfcfc" stroke="#dfe4e6"/>')
+                 f'height="9" fill="{_BACKDROP}" stroke="#dfe4e6"/>')
+    # and a white swatch for the third channel, so the diagonal is explained
+    parts.append(f'<rect x="{PAD_L + BINS * 26 + 140}" y="{key_y}" width="26" '
+                 f'height="9" fill="#ffffff" stroke="#dfe4e6"/>')
     # Numbers alone are not a key. The first reader of this figure read the ramp
     # backwards -- reasonably, since "dark" reads as "more" and the quantity being
     # shown is DISsimilarity, so more distance is lighter. The ends say what they
@@ -385,7 +407,8 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     for lab, x, anchor in ((f'0.0 identical', PAD_L, 'start'),
                            (f'{BLANK_AT:g}', PAD_L + BINS * 26, 'end'),
                            (f'≥ {BLANK_AT:g} unrelated',
-                            PAD_L + BINS * 26 + 38, 'start')):
+                            PAD_L + BINS * 26 + 38, 'start'),
+                           ('same family', PAD_L + BINS * 26 + 172, 'start')):
         parts.append(f'<text x="{x}" y="{key_y + 20}" text-anchor="{anchor}" '
                      f'font-size="9" font-family="system-ui,-apple-system,sans-serif" '
                      f'fill="#66777e">{lab}</text>')
@@ -489,4 +512,312 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
     <div style="border:1px solid #e3e6e4;border-radius:10px;padding:8px;background:#fff;">
         {''.join(parts)}
     </div>
+    '''
+
+
+# ---------------------------------------------------------------------------
+# The close-pair network: the matrix's companion, not its replacement
+#
+# The matrix answers "how does everything relate" and makes you scan a row to
+# answer "what sits next to GCF-16". This answers the second question directly,
+# and it only exists because the data makes it legible: draw every family pair
+# closer than CLOSE_CUTOFF and you get 39 of 112 families in NINE separate little
+# clusters, largest 14. One step looser and it blobs -- 0.35 gives a 23-node mass,
+# 0.50 a 79-node hairball, which is the hairball a node-link view of all 6,216
+# pairs always becomes. So this is not "the network done right"; it is the one
+# threshold at which a node-link view of this data says something.
+#
+# CLOSE_CUTOFF is 0.30 because that is the FAMILY cutoff. Every edge here joins two
+# families that BiG-SCAPE separated while placing them closer than the boundary it
+# separates families at -- affinity propagation splitting inside a connected
+# component. That is the whole point of the figure, and why a arbitrary 0.25 or
+# 0.35 would be a worse choice even if it drew more nicely.
+CLOSE_CUTOFF = 0.30
+
+# Two groups get a connector when some family in one shares at least this much of its
+# biosynthetic repertoire with some family in the other -- Jaccard over the `domains`
+# column of biosynthetic_profile.tsv, scored FAMILY-PAIR and never over a group
+# consensus. Distance is the wrong axis for this question: BiG-SCAPE distance is 75%
+# DSS, the sequence similarity of shared domains, and on the pair that matters the two
+# rank opposite ways. GCF-1 and GCF-3 sit 0.199 apart -- inside the family cutoff --
+# and share 48% of their repertoire; GCF-1 and GCF-6 sit 0.548 apart and share 75%.
+# So no distance band at any threshold is the criterion.
+#
+# 0.60 is mid-plateau: every cut from 0.51 to 0.75 draws exactly the same connectors.
+#
+# Known blind spot, stated in the caption because silence must not read as evidence:
+# Jaccard is bounded by min(|A|,|B|)/max(|A|,|B|), so a family with a small profile
+# cannot reach 0.60 against a large one however related it is. GCF-46 with 3 domains
+# caps at 0.300 against the 10-domain pantaphos families. Read a small profile as
+# "nothing recognised", never as "nothing there".
+CHEMISTRY_J = 0.60
+
+
+def biosynthetic_profiles(path):
+    """{family_id: frozenset(pfam accession)} from biosynthetic_profile.tsv."""
+    out = {}
+    try:
+        with open(path, encoding='utf-8') as fh:
+            for row in csv.DictReader(fh, delimiter='\t'):
+                doms = {d.split('(')[0] for d in (row.get('domains') or '').split(';') if d}
+                if doms:
+                    out[int(row['gcf'])] = frozenset(doms)
+    except Exception as exc:                       # the figure is still worth drawing
+        print(f'Warning: no biosynthetic profiles ({exc})')   # without the connectors
+    return out
+
+CW = 1040
+GAP = 34                    # clear space between neighbouring component rings
+PAD = 26                    # margin inside the canvas, so a ring cannot touch the edge
+
+
+def _components(edges):
+    """[[family, ...], ...] -- connected components, each sorted, largest first."""
+    parent = {}
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for a, b in edges:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+    out = collections.defaultdict(list)
+    for n in {n for e in edges for n in e}:
+        out[find(n)].append(n)
+    return sorted((sorted(v) for v in out.values()), key=lambda c: (-len(c), c))
+
+
+def generate_close_family_network_html(db_path, cutoff=0.3, classes=None, colors=None,
+                                       hrefs=None, close_cutoff=CLOSE_CUTOFF,
+                                       profile_path=None):
+    """Small-multiples node-link view of the family pairs inside `close_cutoff`.
+
+    Returns '' when no pair is that close, which is the common case on a taxon
+    whose families are genuinely distinct.
+    """
+    size, reps, dist, _measured, _want, stubs = family_network(db_path, cutoff)
+    if not size:
+        return ''
+    classes, colors, hrefs = classes or {}, colors or {}, hrefs or {}
+
+    # Stub-anchored families are excluded from the GRAPH, not merely drawn hollow.
+    # Drawing them hollow was not enough: measured on GenBank Enterobacterales, three
+    # of the nine groups existed ONLY because a stub held them together -- seven
+    # families hanging off GCF-31, four off GCF-26, two off GCF-24 -- and ten
+    # non-stub families lose every edge when the stubs go. A fragment carrying just
+    # the hallmark gene is within the cutoff of anything that carries it, so it
+    # manufactures groups out of unrelated families. Excluding them leaves the groups
+    # that are real.
+    close = {k: v for k, v in dist.items()
+             if v < close_cutoff and k[0] not in stubs and k[1] not in stubs}
+    if not close:
+        return ''
+    comps = _components(close)
+    n_dropped = len({f for k, v in dist.items() if v < close_cutoff for f in k}) \
+        - len({f for k in close for f in k})
+
+    # Connectors between groups: shared biosynthetic repertoire, family-pair scored.
+    profiles = biosynthetic_profiles(profile_path) if profile_path else {}
+    where = {f: i for i, c in enumerate(comps) for f in c}
+    links = {}
+    for a, pa in profiles.items():
+        for b, pb in profiles.items():
+            if a >= b or a not in where or b not in where or where[a] == where[b]:
+                continue
+            j = len(pa & pb) / len(pa | pb)
+            if j >= CHEMISTRY_J:
+                key = (min(where[a], where[b]), max(where[a], where[b]))
+                if j > links.get(key, (0.0,))[0]:
+                    links[key] = (j, a, b, sorted(pa & pb))
+    biggest = max(size.values())
+
+    # Each component is its own ring, radius set by how many nodes it holds, and the
+    # rings are packed into a grid. Disconnected components need no shared layout --
+    # that is exactly why this is drawable where the full graph is not.
+    # Pack components into rows by their ACTUAL width, not into a fixed number of
+    # equal columns. The first version used three equal thirds, and a 14-node ring
+    # needs 364 px against a 347 px third, so two of its nodes were laid out at
+    # x = -4 and fell outside the viewBox -- invisible, with nothing to say they were
+    # missing. The guard at the end of this function exists so that cannot recur.
+    cells = []
+    for comp in comps:
+        n = len(comp)
+        r = 0.0 if n == 1 else max(34.0, 13.0 * n)
+        node_r = 7.0 + 15.0 * math.sqrt(max(size[f] for f in comp) / biggest)
+        cells.append((comp, r, r + node_r))          # half-width including the node
+    rows, row, used = [], [], 0.0
+    for cell in cells:
+        w = cell[2] * 2 + GAP
+        if row and used + w > CW - 2 * PAD:
+            rows.append(row); row, used = [], 0.0
+        row.append(cell); used += w
+    if row:
+        rows.append(row)
+
+    parts, y0, labelled, placed, geom = [], 40.0, [], [], {}
+    for row in rows:
+        rh = max(c[2] for c in row) * 2 + 76
+        total = sum(c[2] * 2 for c in row) + GAP * (len(row) - 1)
+        x = (CW - total) / 2.0
+        for comp, r, half in row:
+            cx = x + half
+            x += half * 2 + GAP
+            cy = y0 + rh / 2 - 10
+            geom[comps.index(comp)] = (cx, cy, half)
+            pos = {}
+            for j, f in enumerate(comp):
+                a = (2 * math.pi * j / len(comp)) - math.pi / 2
+                pos[f] = (cx + r * math.cos(a), cy + r * math.sin(a))
+            # edges first, so a node never sits under a line
+            for (a, b), d in sorted(((k, v) for k, v in close.items()
+                                     if k[0] in pos and k[1] in pos),
+                                    key=lambda kv: -kv[1]):
+                (x1, y1), (x2, y2) = pos[a], pos[b]
+                w = (close_cutoff - d) / close_cutoff
+                parts.append(
+                    f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
+                    f'stroke="#43606d" stroke-opacity="{0.25 + 0.6 * w:.2f}" '
+                    f'stroke-width="{0.8 + 3.4 * w:.2f}"><title>'
+                    f'GCF-{a} &#8211; GCF-{b}: {d:.3f}</title></line>')
+            for f in comp:
+                px, py = pos[f]
+                rad = 7.0 + 15.0 * math.sqrt(size[f] / biggest)
+                placed.append((px, py, rad))
+                cls = _clean(classes.get(f))
+                label, organism = reps.get(f, ('', ''))
+                tip = (f'GCF-{f}: {size[f]} BGC{"s" if size[f] != 1 else ""}'
+                       f'{", " + cls if cls else ""}')
+                if label:
+                    tip += f'; representative {label}'
+                    if organism:
+                        tip += f' ({organism})'
+                node = (f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{rad:.1f}" '
+                        f'fill="{colors.get(cls, _CLASS_FALLBACK)}" fill-opacity="0.95" '
+                        f'stroke="#17333f" stroke-width="1.1">'
+                        f'<title>{_html.escape(tip)}</title></circle>')
+                href = hrefs.get(f)
+                parts.append(f'<a href="{_html.escape(href)}">{node}</a>' if href else node)
+                parts.append(
+                    f'<text x="{px:.1f}" y="{py + rad + 9:.1f}" text-anchor="middle" '
+                    f'font-size="8" font-family="system-ui,-apple-system,sans-serif" '
+                    f'fill="#2b3f49">GCF-{_html.escape(str(f))}</text>')
+                labelled.append(f)
+        y0 += rh
+
+    # Connectors between rings, drawn last so they sit over the rings rather than
+    # under a node, and dashed so they never read as a within-group edge: these join
+    # GROUPS on shared chemistry, not representatives on measured distance.
+    for (ga, gb), (j, fa, fb, shared) in sorted(links.items()):
+        if ga not in geom or gb not in geom:
+            continue
+        ax, ay, ar = geom[ga]
+        bx, by, br = geom[gb]
+        dx, dy = bx - ax, by - ay
+        L = math.hypot(dx, dy) or 1.0
+        x1, y1 = ax + dx / L * ar, ay + dy / L * ar
+        x2, y2 = bx - dx / L * br, by - dy / L * br
+        # Label ABOVE both rings, not at the midpoint: the rings it joins are
+        # adjacent, so a midpoint label is wider than the gap and lands on the node
+        # labels underneath. The value alone; the shared domains are in the tooltip.
+        mx = (x1 + x2) / 2.0
+        my = min(ay - ar, by - br) - 8.0
+        parts.append(
+            f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
+            f'stroke="#b4682a" stroke-width="2.2" stroke-dasharray="7 4" '
+            f'stroke-opacity="0.85"><title>'
+            f'GCF-{fa} and GCF-{fb} share {len(shared)} biosynthetic domains '
+            f'(Jaccard {j:.2f}): {", ".join(shared)}</title></line>')
+        parts.append(
+            f'<text x="{mx:.1f}" y="{my:.1f}" text-anchor="middle" font-size="9" '
+            f'font-family="system-ui,-apple-system,sans-serif" fill="#8a4a18" '
+            f'font-weight="600">shared chemistry {j:.2f}</text>')
+
+    H = y0 + 14
+
+    # Nothing may be laid out off the canvas. Two nodes once were, at x = -4, and the
+    # figure simply showed 12 of 14 with no sign that two were missing.
+    out = [(x, y) for x, y, r in placed if x - r < 0 or x + r > CW or y - r < 0]
+    if out:
+        raise AssertionError(f'{len(out)} node(s) laid out off-canvas: {out[:4]}')
+
+    svg = (f'<svg viewBox="0 0 {CW} {H:.0f}" width="100%" '
+           f'style="max-width:{CW}px;height:auto;display:block;margin:0 auto;" '
+           f'role="img" aria-label="{len(comps)} clusters of gene cluster families '
+           f'that lie closer than {close_cutoff:g} BiG-SCAPE distance, the cutoff '
+           f'that separates families.">' + ''.join(parts) + '</svg>')
+
+    # A legend, because the hollow convention is invented here and nothing else in
+    # the report uses it. The first reader asked what the dashed circles meant.
+    used_cls = [c for c in dict.fromkeys(_clean(classes.get(f)) for f in labelled) if c]
+    legend = ''.join(
+        f'<span style="display:inline-block;margin:0 14px 6px 0;white-space:nowrap;">'
+        f'<span style="display:inline-block;width:11px;height:11px;border-radius:50%;'
+        f'background:{colors.get(c, _CLASS_FALLBACK)};border:1px solid #17333f;'
+        f'vertical-align:-1px;"></span>&nbsp;{_html.escape(c)}</span>'
+        for c in used_cls)
+    if links:
+        legend += (
+            '<span style="display:inline-block;margin:0 14px 6px 0;white-space:nowrap;">'
+            '<span style="display:inline-block;width:22px;border-top:2.5px dashed '
+            '#b4682a;vertical-align:4px;"></span>&nbsp;shared biosynthetic repertoire '
+            'between groups</span>')
+    legend += ('<span style="display:inline-block;margin:0 14px 6px 0;color:#777;'
+               'white-space:nowrap;">circle size = BGCs in the family; '
+               'line weight = how close</span>')
+
+    drop_note = ''
+    if n_dropped:
+        drop_note = (f' A further <strong>{n_dropped}</strong> are excluded because '
+                     f'their only links run through a family whose exemplar is an '
+                     f'assembly fragment &mdash; within the cutoff of anything '
+                     f'carrying the hallmark gene, so it manufactures groups out of '
+                     f'unrelated families.')
+    link_note = ''
+    if links:
+        link_note = (
+            f'<p style="color:#555;max-width:78ch;"><strong>The dashed orange lines '
+            f'are shared chemistry, not distance.</strong> Two groups are joined when '
+            f'a family in one shares at least <strong>{CHEMISTRY_J:g}</strong> of its '
+            f'biosynthetic domain repertoire with a family in the other &mdash; the '
+            f'same measure the biosynthetic profile table reports, so a line is '
+            f'checkable against a table in this report. Distance would be the wrong '
+            f'axis: BiG-SCAPE distance is three quarters sequence similarity, and here '
+            f'the two rank opposite ways &mdash; GCF-1 and GCF-3 sit 0.199 apart and '
+            f'share 48% of their repertoire, while GCF-1 and GCF-6 sit 0.548 apart and '
+            f'share 75%. Hover a line for the shared domains. The measure cannot '
+            f'exceed the ratio of the two repertoire sizes, so a family with few '
+            f'recognised domains cannot reach the threshold however related it is: '
+            f'<em>read a missing line as nothing recognised, never as nothing '
+            f'there.</em></p>')
+
+    return f'''
+    <h3>Families Closer Than the Cutoff</h3>
+    <p style="color:#555;max-width:78ch;margin-bottom:4px;">
+        <strong>{len(labelled)}</strong> of <strong>{len(size)}</strong> families lie
+        within <strong>{close_cutoff:g}</strong> of another family &mdash; closer than
+        the cutoff that is supposed to separate families &mdash; and they fall into
+        <strong>{len(comps)}</strong> separate groups. Each group is drawn on its own;
+        a line is the measured distance between two family representatives, thicker
+        and darker the closer. Node size is family size, colour is coupling enzyme
+        class. Hover for the numbers{', click for the family page' if hrefs else ''}.
+    </p>
+    <p style="color:#777;font-size:.88em;max-width:78ch;">
+        This is the companion to the matrix, not a replacement: the matrix shows all
+        {len(dist):,} pairs and makes you scan a row, this answers &ldquo;what sits
+        next to this family&rdquo; directly. It is only drawable because the data
+        cooperates at this one threshold &mdash; at 0.35 the groups merge into a
+        23-family mass and at 0.50 into a single hairball of 79, which is what a
+        node-link view of all {len(dist):,} pairs always becomes. Every edge here
+        joins two families that BiG-SCAPE separated while placing them closer than its
+        own family boundary, which is affinity propagation splitting inside a
+        connected component rather than a threshold decision.{drop_note}
+    </p>
+    <div style="margin:10px 0 14px;font-size:.88em;color:#444;">{legend}</div>
+    <div style="border:1px solid #e3e6e4;border-radius:10px;padding:8px;background:#fff;">
+        {svg}
+    </div>
+    {link_note}
     '''
