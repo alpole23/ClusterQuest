@@ -490,3 +490,173 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
         {''.join(parts)}
     </div>
     '''
+
+
+# ---------------------------------------------------------------------------
+# The close-pair network: the matrix's companion, not its replacement
+#
+# The matrix answers "how does everything relate" and makes you scan a row to
+# answer "what sits next to GCF-16". This answers the second question directly,
+# and it only exists because the data makes it legible: draw every family pair
+# closer than CLOSE_CUTOFF and you get 39 of 112 families in NINE separate little
+# clusters, largest 14. One step looser and it blobs -- 0.35 gives a 23-node mass,
+# 0.50 a 79-node hairball, which is the hairball a node-link view of all 6,216
+# pairs always becomes. So this is not "the network done right"; it is the one
+# threshold at which a node-link view of this data says something.
+#
+# CLOSE_CUTOFF is 0.30 because that is the FAMILY cutoff. Every edge here joins two
+# families that BiG-SCAPE separated while placing them closer than the boundary it
+# separates families at -- affinity propagation splitting inside a connected
+# component. That is the whole point of the figure, and why a arbitrary 0.25 or
+# 0.35 would be a worse choice even if it drew more nicely.
+CLOSE_CUTOFF = 0.30
+
+CW, CH = 1040, 150          # per-component cell; height grows with the biggest ring
+COLS = 3
+
+
+def _components(edges):
+    """[[family, ...], ...] -- connected components, each sorted, largest first."""
+    parent = {}
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for a, b in edges:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+    out = collections.defaultdict(list)
+    for n in {n for e in edges for n in e}:
+        out[find(n)].append(n)
+    return sorted((sorted(v) for v in out.values()), key=lambda c: (-len(c), c))
+
+
+def generate_close_family_network_html(db_path, cutoff=0.3, classes=None, colors=None,
+                                       hrefs=None, close_cutoff=CLOSE_CUTOFF):
+    """Small-multiples node-link view of the family pairs inside `close_cutoff`.
+
+    Returns '' when no pair is that close, which is the common case on a taxon
+    whose families are genuinely distinct.
+    """
+    size, reps, dist, _measured, _want, stubs = family_network(db_path, cutoff)
+    if not size:
+        return ''
+    classes, colors, hrefs = classes or {}, colors or {}, hrefs or {}
+
+    close = {k: v for k, v in dist.items() if v < close_cutoff}
+    if not close:
+        return ''
+    comps = _components(close)
+    biggest = max(size.values())
+
+    # Each component is its own ring, radius set by how many nodes it holds, and the
+    # rings are packed into a grid. Disconnected components need no shared layout --
+    # that is exactly why this is drawable where the full graph is not.
+    cells = []
+    for comp in comps:
+        n = len(comp)
+        r = 0.0 if n == 1 else max(34.0, 13.0 * n)
+        cells.append((comp, r))
+    rows, row = [], []
+    for cell in cells:
+        row.append(cell)
+        if len(row) == COLS:
+            rows.append(row); row = []
+    if row:
+        rows.append(row)
+
+    parts, y0, labelled = [], 40.0, []
+    for row in rows:
+        rh = max(c[1] for c in row) * 2 + 92
+        for i, (comp, r) in enumerate(row):
+            cx = (CW / len(row)) * (i + 0.5)
+            cy = y0 + rh / 2 - 14
+            pos = {}
+            for j, f in enumerate(comp):
+                a = (2 * math.pi * j / len(comp)) - math.pi / 2
+                pos[f] = (cx + r * math.cos(a), cy + r * math.sin(a))
+            # edges first, so a node never sits under a line
+            for (a, b), d in sorted(((k, v) for k, v in close.items()
+                                     if k[0] in pos and k[1] in pos),
+                                    key=lambda kv: -kv[1]):
+                (x1, y1), (x2, y2) = pos[a], pos[b]
+                w = (close_cutoff - d) / close_cutoff
+                parts.append(
+                    f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
+                    f'stroke="#43606d" stroke-opacity="{0.25 + 0.6 * w:.2f}" '
+                    f'stroke-width="{0.8 + 3.4 * w:.2f}"><title>'
+                    f'GCF-{a} &#8211; GCF-{b}: {d:.3f}</title></line>')
+            for f in comp:
+                x, y = pos[f]
+                rad = 7.0 + 15.0 * math.sqrt(size[f] / biggest)
+                cls = _clean(classes.get(f))
+                label, organism = reps.get(f, ('', ''))
+                tip = (f'GCF-{f}: {size[f]} BGC{"s" if size[f] != 1 else ""}'
+                       f'{", " + cls if cls else ""}')
+                if label:
+                    tip += f'; representative {label}'
+                    if organism:
+                        tip += f' ({organism})'
+                if f in stubs:
+                    tip += ' — exemplar is an assembly fragment'
+                # A stub-anchored family is drawn hollow: its edges are an artefact
+                # of a fragment that resembles everything carrying the hallmark gene,
+                # and a reader must not take its neighbours for chemistry.
+                fill = '#ffffff' if f in stubs else colors.get(cls, _CLASS_FALLBACK)
+                dash = ' stroke-dasharray="3 2"' if f in stubs else ''
+                node = (f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{rad:.1f}" fill="{fill}" '
+                        f'fill-opacity="0.95" stroke="{colors.get(cls, _CLASS_FALLBACK) if f in stubs else "#17333f"}" '
+                        f'stroke-width="{2.0 if f in stubs else 1.1}"{dash}>'
+                        f'<title>{_html.escape(tip)}</title></circle>')
+                href = hrefs.get(f)
+                parts.append(f'<a href="{_html.escape(href)}">{node}</a>' if href else node)
+                parts.append(
+                    f'<text x="{x:.1f}" y="{y + rad + 9:.1f}" text-anchor="middle" '
+                    f'font-size="8" font-family="system-ui,-apple-system,sans-serif" '
+                    f'fill="#2b3f49">GCF-{_html.escape(str(f))}</text>')
+                labelled.append(f)
+        y0 += rh
+    H = y0 + 14
+
+    svg = (f'<svg viewBox="0 0 {CW} {H:.0f}" width="100%" '
+           f'style="max-width:{CW}px;height:auto;display:block;margin:0 auto;" '
+           f'role="img" aria-label="{len(comps)} clusters of gene cluster families '
+           f'that lie closer than {close_cutoff:g} BiG-SCAPE distance, the cutoff '
+           f'that separates families.">' + ''.join(parts) + '</svg>')
+
+    n_stub = len({f for f in labelled if f in stubs})
+    stub_note = ''
+    if n_stub:
+        stub_note = (f' <strong>{n_stub}</strong> of them are drawn hollow because '
+                     f'their exemplar is an assembly fragment &mdash; those edges are '
+                     f'an artefact, not chemistry.')
+
+    return f'''
+    <h3>Families Closer Than the Cutoff</h3>
+    <p style="color:#555;max-width:78ch;margin-bottom:4px;">
+        <strong>{len(labelled)}</strong> of <strong>{len(size)}</strong> families lie
+        within <strong>{close_cutoff:g}</strong> of another family &mdash; closer than
+        the cutoff that is supposed to separate families &mdash; and they fall into
+        <strong>{len(comps)}</strong> separate groups. Each group is drawn on its own;
+        a line is the measured distance between two family representatives, thicker
+        and darker the closer. Node size is family size, colour is coupling enzyme
+        class. Hover for the numbers{', click for the family page' if hrefs else ''}.
+    </p>
+    <p style="color:#777;font-size:.88em;max-width:78ch;">
+        This is the companion to the matrix, not a replacement: the matrix shows all
+        {len(dist):,} pairs and makes you scan a row, this answers &ldquo;what sits
+        next to this family&rdquo; directly. It is only drawable because the data
+        cooperates at this one threshold &mdash; at 0.35 the groups merge into a
+        23-family mass and at 0.50 into a single hairball of 79, which is what a
+        node-link view of all {len(dist):,} pairs always becomes. Every edge here
+        joins two families that BiG-SCAPE separated while placing them closer than its
+        own family boundary, which is affinity propagation splitting inside a
+        connected component rather than a threshold decision.{stub_note}
+    </p>
+    <div style="border:1px solid #e3e6e4;border-radius:10px;padding:8px;background:#fff;">
+        {svg}
+    </div>
+    '''
