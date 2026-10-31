@@ -19,7 +19,7 @@ nextflow run main.nf -profile slurm                        # HPC execution
 
 ## Operational traps
 
-Seven ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Eight ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
