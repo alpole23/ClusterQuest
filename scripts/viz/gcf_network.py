@@ -511,8 +511,9 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
 # 0.35 would be a worse choice even if it drew more nicely.
 CLOSE_CUTOFF = 0.30
 
-CW, CH = 1040, 150          # per-component cell; height grows with the biggest ring
-COLS = 3
+CW = 1040
+GAP = 34                    # clear space between neighbouring component rings
+PAD = 26                    # margin inside the canvas, so a ring cannot touch the edge
 
 
 def _components(edges):
@@ -555,25 +556,35 @@ def generate_close_family_network_html(db_path, cutoff=0.3, classes=None, colors
     # Each component is its own ring, radius set by how many nodes it holds, and the
     # rings are packed into a grid. Disconnected components need no shared layout --
     # that is exactly why this is drawable where the full graph is not.
+    # Pack components into rows by their ACTUAL width, not into a fixed number of
+    # equal columns. The first version used three equal thirds, and a 14-node ring
+    # needs 364 px against a 347 px third, so two of its nodes were laid out at
+    # x = -4 and fell outside the viewBox -- invisible, with nothing to say they were
+    # missing. The guard at the end of this function exists so that cannot recur.
     cells = []
     for comp in comps:
         n = len(comp)
         r = 0.0 if n == 1 else max(34.0, 13.0 * n)
-        cells.append((comp, r))
-    rows, row = [], []
+        node_r = 7.0 + 15.0 * math.sqrt(max(size[f] for f in comp) / biggest)
+        cells.append((comp, r, r + node_r))          # half-width including the node
+    rows, row, used = [], [], 0.0
     for cell in cells:
-        row.append(cell)
-        if len(row) == COLS:
-            rows.append(row); row = []
+        w = cell[2] * 2 + GAP
+        if row and used + w > CW - 2 * PAD:
+            rows.append(row); row, used = [], 0.0
+        row.append(cell); used += w
     if row:
         rows.append(row)
 
-    parts, y0, labelled = [], 40.0, []
+    parts, y0, labelled, placed = [], 40.0, [], []
     for row in rows:
-        rh = max(c[1] for c in row) * 2 + 92
-        for i, (comp, r) in enumerate(row):
-            cx = (CW / len(row)) * (i + 0.5)
-            cy = y0 + rh / 2 - 14
+        rh = max(c[2] for c in row) * 2 + 76
+        total = sum(c[2] * 2 for c in row) + GAP * (len(row) - 1)
+        x = (CW - total) / 2.0
+        for comp, r, half in row:
+            cx = x + half
+            x += half * 2 + GAP
+            cy = y0 + rh / 2 - 10
             pos = {}
             for j, f in enumerate(comp):
                 a = (2 * math.pi * j / len(comp)) - math.pi / 2
@@ -590,8 +601,9 @@ def generate_close_family_network_html(db_path, cutoff=0.3, classes=None, colors
                     f'stroke-width="{0.8 + 3.4 * w:.2f}"><title>'
                     f'GCF-{a} &#8211; GCF-{b}: {d:.3f}</title></line>')
             for f in comp:
-                x, y = pos[f]
+                px, py = pos[f]
                 rad = 7.0 + 15.0 * math.sqrt(size[f] / biggest)
+                placed.append((px, py, rad))
                 cls = _clean(classes.get(f))
                 label, organism = reps.get(f, ('', ''))
                 tip = (f'GCF-{f}: {size[f]} BGC{"s" if size[f] != 1 else ""}'
@@ -601,31 +613,59 @@ def generate_close_family_network_html(db_path, cutoff=0.3, classes=None, colors
                     if organism:
                         tip += f' ({organism})'
                 if f in stubs:
-                    tip += ' — exemplar is an assembly fragment'
+                    tip += ' \u2014 exemplar is an assembly fragment'
                 # A stub-anchored family is drawn hollow: its edges are an artefact
                 # of a fragment that resembles everything carrying the hallmark gene,
                 # and a reader must not take its neighbours for chemistry.
                 fill = '#ffffff' if f in stubs else colors.get(cls, _CLASS_FALLBACK)
                 dash = ' stroke-dasharray="3 2"' if f in stubs else ''
-                node = (f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{rad:.1f}" fill="{fill}" '
-                        f'fill-opacity="0.95" stroke="{colors.get(cls, _CLASS_FALLBACK) if f in stubs else "#17333f"}" '
+                edge = colors.get(cls, _CLASS_FALLBACK) if f in stubs else '#17333f'
+                node = (f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{rad:.1f}" fill="{fill}" '
+                        f'fill-opacity="0.95" stroke="{edge}" '
                         f'stroke-width="{2.0 if f in stubs else 1.1}"{dash}>'
                         f'<title>{_html.escape(tip)}</title></circle>')
                 href = hrefs.get(f)
                 parts.append(f'<a href="{_html.escape(href)}">{node}</a>' if href else node)
                 parts.append(
-                    f'<text x="{x:.1f}" y="{y + rad + 9:.1f}" text-anchor="middle" '
+                    f'<text x="{px:.1f}" y="{py + rad + 9:.1f}" text-anchor="middle" '
                     f'font-size="8" font-family="system-ui,-apple-system,sans-serif" '
                     f'fill="#2b3f49">GCF-{_html.escape(str(f))}</text>')
                 labelled.append(f)
         y0 += rh
+
     H = y0 + 14
+
+    # Nothing may be laid out off the canvas. Two nodes once were, at x = -4, and the
+    # figure simply showed 12 of 14 with no sign that two were missing.
+    out = [(x, y) for x, y, r in placed if x - r < 0 or x + r > CW or y - r < 0]
+    if out:
+        raise AssertionError(f'{len(out)} node(s) laid out off-canvas: {out[:4]}')
 
     svg = (f'<svg viewBox="0 0 {CW} {H:.0f}" width="100%" '
            f'style="max-width:{CW}px;height:auto;display:block;margin:0 auto;" '
            f'role="img" aria-label="{len(comps)} clusters of gene cluster families '
            f'that lie closer than {close_cutoff:g} BiG-SCAPE distance, the cutoff '
            f'that separates families.">' + ''.join(parts) + '</svg>')
+
+    # A legend, because the hollow convention is invented here and nothing else in
+    # the report uses it. The first reader asked what the dashed circles meant.
+    used_cls = [c for c in dict.fromkeys(_clean(classes.get(f)) for f in labelled) if c]
+    legend = ''.join(
+        f'<span style="display:inline-block;margin:0 14px 6px 0;white-space:nowrap;">'
+        f'<span style="display:inline-block;width:11px;height:11px;border-radius:50%;'
+        f'background:{colors.get(c, _CLASS_FALLBACK)};border:1px solid #17333f;'
+        f'vertical-align:-1px;"></span>&nbsp;{_html.escape(c)}</span>'
+        for c in used_cls)
+    if any(f in stubs for f in labelled):
+        legend += (
+            '<span style="display:inline-block;margin:0 14px 6px 0;white-space:nowrap;">'
+            '<span style="display:inline-block;width:11px;height:11px;border-radius:50%;'
+            'background:#fff;border:2px dashed #7b8a92;vertical-align:-1px;"></span>'
+            '&nbsp;exemplar is an assembly fragment &mdash; its edges are an artefact'
+            '</span>')
+    legend += ('<span style="display:inline-block;margin:0 14px 6px 0;color:#777;'
+               'white-space:nowrap;">circle size = BGCs in the family; '
+               'line weight = how close</span>')
 
     n_stub = len({f for f in labelled if f in stubs})
     stub_note = ''
@@ -656,6 +696,7 @@ def generate_close_family_network_html(db_path, cutoff=0.3, classes=None, colors
         own family boundary, which is affinity propagation splitting inside a
         connected component rather than a threshold decision.{stub_note}
     </p>
+    <div style="margin:10px 0 14px;font-size:.88em;color:#444;">{legend}</div>
     <div style="border:1px solid #e3e6e4;border-radius:10px;padding:8px;background:#fff;">
         {svg}
     </div>
