@@ -575,26 +575,42 @@ and never globs: only the drawn regions are committed, so a glob would return a 
 distribution and draw a wrong panel with no error. `--rebuild-gains` refreshes it from a
 live run.
 
-**Measured and projected must not look alike, and the headline must rest on the
-measured one.** Figure 3 carries Enterobacterales at 46x, which is its strongest number
-and also the only one whose without-screen arm was never run (1,349,507 antiSMASH runs,
-~30,100 CPU-h). It is drawn hatched and captioned "PROJECTED, not run", and the figure
-title now reads "cuts antiSMASH compute threefold on a full taxon" -- the measured
-Erwiniaceae pair. A title of "up to 46x" made the figure's loudest claim the one number
-that was never run.
+**Figure 3 reports antiSMASH CPU-minutes, not total pipeline CPU-minutes** (changed
+2026-10-31), and the distinction is the figure's correctness. The Erwiniaceae totals
+4,508 -> 1,497 carry **741 and 655 CPU-min of GTDB-Tk**, which the screen does not
+touch, and the screen-on arm additionally has `RECOVER_ORFS` (90 min) that the
+screen-off arm predates. Comparing totals mixes the screen with two unrelated changes.
+`docs/comparisons/pepm_prescreen/summary.json` says so in its own caveats: *"antiSMASH
+CPU-minutes are comparable; task counts are not."* On antiSMASH CPU the two measured
+full taxa are:
 
-**Figure 3 shows ONE measured example, and it is a full taxon** (changed 2026-10-31). It
-used to carry five datasets ordered by prevalence, under the claim that the saving
-tracks how dilute the taxon is. That claim was confounded: **two of the five --
-Actinomycetes (323 genomes) and B. fragilis (136) -- are curated test sets**, assembled
-to probe screen sensitivity on a held-out clade, not full taxa. They supplied the two
-endpoints the trend rested on, 9.0x and 1.1x, so a monotonic reading of five points was
-really a reading of two hand-picked ones. Erwiniaceae is the only full taxon at
-meaningful scale where BOTH arms were genuinely run: 4,508 -> 1,497 CPU-min, 3.0x.
-B. fragilis stays in panel B only, labelled "held-out clade", because it makes no
-prevalence claim there and it is the probe that found the pseudogene blind spot --
-dropping it would delete the figure's only admission that the screen ever missed
-anything.
+| | genomes | % positive | screen off | screen on | |
+|---|---:|---:|---:|---:|---:|
+| Erwiniaceae | 2,771 | 11% | 3,680 | 569 | **6.5x** |
+| *P. ananatis* | 344 | 56% | 529 | 311 | **1.7x** |
+
+*P. ananatis* is the **controlled** pair -- one taxon, one code version
+(`controlled_pantoea_ananatis/`, 2026-09-17) -- and is the better evidence of the two
+even though its ratio is smaller. The Erwiniaceae arms are different code versions.
+Note the top-level `pepm_prescreen/summary.json` still claims "a controlled A/B on one
+taxon with one code version has not been run"; that caveat is **stale**, the controlled
+run is in its own subdirectory beside it.
+
+**Enterobacterales is no longer in Figure 3.** Its 46x needed a projected arm --
+1,349,507 antiSMASH runs at the measured 80.4 CPU-s/genome, ~30,100 CPU-h that were
+never spent -- and a projected bar beside measured ones invites the reading it should
+not get however it is hatched. The projection belongs in the text.
+
+**Figure 3 shows only full taxa** (changed 2026-10-31). It used to carry five datasets
+ordered by prevalence, under the claim that the saving tracks how dilute the taxon is.
+That claim was confounded: **two of the five -- Actinomycetes (323 genomes) and
+B. fragilis (136) -- are curated test sets**, assembled to probe screen sensitivity on
+a held-out clade, not full taxa. They supplied the two endpoints the trend rested on,
+9.0x and 1.1x, so a monotonic reading of five points was really a reading of two
+hand-picked ones. The trend is gone; the claim is now cost-at-equal-yield. B. fragilis
+and its pseudogene blind spot move to manuscript section 2.4, which already covered the
+clade -- a bar beside a taxon measurement cannot carry the caveat that makes it
+meaningful.
 
 **Figure 2 lost its panel F** (2026-10-31), the distribution placing each example within
 its clade. Five panels, A-E. `panel_distribution()` and the `--no-distribution` flag are

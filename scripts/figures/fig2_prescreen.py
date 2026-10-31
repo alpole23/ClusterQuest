@@ -42,90 +42,65 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # Re-measuring would mean eight runs, the screen-off arms of which are the expensive
 # ones (Erwiniaceae alone is 2,771 genomes through antiSMASH, ~61 CPU-h), to move
 # numbers by a few percent and change no conclusion.
-# ONE measured example, and it is a FULL TAXON.
+# TWO measured full taxa, compared on antiSMASH CPU -- the thing the screen acts on.
 #
-# This panel used to carry five datasets ordered by prevalence, under the claim that
-# the saving tracks how dilute the taxon is. That claim was confounded: two of the
-# five -- Actinomycetes (323 genomes) and B. fragilis (136) -- are CURATED TEST SETS,
-# assembled to probe screen sensitivity on a held-out clade, not full taxa. They
-# supplied the two endpoints the trend rested on, 9.0x and 1.1x, so a monotonic
-# reading of five points was really a reading of two hand-picked ones. Removing them
-# removes the trend, and the trend was not the claim worth making.
+# This panel reports ANTISMASH CPU-minutes, not total pipeline CPU-minutes, and the
+# change matters. The Erwiniaceae totals (4,508 -> 1,497) carry 741 and 655 CPU-min of
+# GTDB-Tk, which the screen does not touch, and the screen-on arm additionally has
+# RECOVER_ORFS (90 min) that the screen-off arm predates. Comparing totals mixes the
+# screen with two unrelated changes; docs/comparisons/pepm_prescreen/summary.json says
+# so directly -- "antiSMASH CPU-minutes are comparable; task counts are not".
 #
-# What is left is the claim the screen actually supports: on a full taxon, run both
-# ways, it costs a fraction of the compute and finds the same BGCs. Erwiniaceae is
-# the only full taxon at meaningful scale where BOTH arms were genuinely run.
+# Both rows are full taxa run BOTH ways. Earlier versions of this panel carried five
+# datasets ordered by prevalence; two of them (Actinomycetes 323, B. fragilis 136) were
+# curated probes rather than taxa and supplied the endpoints the trend rested on, so
+# the trend is gone and the claim is now just cost-at-equal-yield.
+#
+# Enterobacterales is NOT here. Its 46x needed a projected arm -- 1.35 M antiSMASH runs
+# that were never performed -- and a projected bar beside measured ones invites exactly
+# the reading it should not get. The projection belongs in the text.
+#
+# (clade, antiSMASH CPU-min screen off, screen on, the screen's own CPU-min)
 COST = [
-    ('Erwiniaceae\n2,771 genomes\n11% BGC-positive', 4508.0, 1497.0, 91.0),
+    ('Erwiniaceae\n2,771 genomes\n11% BGC-positive', 3680.1, 568.9, 91.3),
+    ('P. ananatis\n344 genomes\n56% BGC-positive', 528.7, 311.3, 10.5),
 ]
-
-# Enterobacterales is kept OUT of COST and drawn separately, because one of its two
-# bars would be projected. The screened arm is measured: 1,349,507 GenBank genomes, the
-# whole run 649 CPU-h. The without-screen arm is 1,349,507 antiSMASH runs at the 80.4
-# CPU-s/genome this project measures, ~30,100 CPU-h, which was not spent and will not be.
-# Putting a projected bar beside four measured pairs would read as a fifth measurement.
-# It is annotated instead, on the same axes, marked as projected.
-#
-# Updated 2026-10-17 from the RefSeq run (150,690 genomes, 0.84% positive, 32x) to the
-# GenBank run at 8.9x the input. The claim gets stronger but NOT in proportion to the
-# retention difference: retention fell 0.84% -> 0.11%, yet the saving only goes 32x ->
-# 46x, because the screened arm's cost is dominated by FETCH_RENAME_SCREEN (589 of
-# 649 CPU-h). The screen saves antiSMASH time; it does not save download time.
-#
-# CPU-minutes. 649 CPU-h is actual consumption (realtime x %cpu), matching how the
-# RefSeq baseline was derived -- the allocation-based figure reads 755 CPU-h and is not
-# comparable, because cpus/task changed from 4 to 1 mid-run. See
-# docs/comparisons/enterobacterales_genbank/PREDICTIONS.md.
-ENTERO = ('Enterobacterales\n1,349,507 genomes\n0.11% positive', 1808119.0, 38940.0)
 
 # (clade, regions found with the screen OFF, with it ON).
-# Panel B is the same full taxon as panel A, and only that.
+# Panel B carries the same two taxa as panel A, and only those.
 #
-# B. fragilis was here as the held-out-clade sensitivity probe, and it is where the
-# pseudogene blind spot was found. It is a CURATED set, not a taxon, so it is written
-# up in the manuscript text instead of being drawn beside a taxon measurement -- a bar
-# chart cannot carry the caveat that makes it meaningful.
+# B. fragilis was here as the held-out-clade sensitivity probe and is where the
+# pseudogene blind spot was found. It is a curated set, not a taxon, so it is written
+# up in the manuscript text instead -- a bar beside a taxon measurement cannot carry
+# the caveat that makes it meaningful.
 DETECT = [
-    ('Erwiniaceae\n2,771 genomes\nfull taxon', 333, 333),
+    ('Erwiniaceae\n2,771 genomes', 333, 333),
+    ('P. ananatis\n344 genomes', 226, 226),
 ]
 
-
 def panel_cost(ax):
-    # Erwiniaceae is the measurement; Enterobacterales is drawn beside it as the
-    # scale this is for, hatched and labelled, because its without-screen arm was
-    # never run -- 1.35 M antiSMASH invocations at the 80.4 CPU-s/genome measured
-    # here, ~30,100 CPU-h that was not spent and will not be. A projected bar beside
-    # a measured pair must never read as a second measurement.
-    lab_e, eoff, eon = ENTERO
-    w = 0.36
-    ax.bar(0 - w / 2, eoff, w, color='none', edgecolor=BEFORE, hatch='///', lw=1.2)
-    ax.bar(0 + w / 2, eon, w, color=AFTER)
-    ax.text(0, eoff * 1.9, f'{eoff / eon:.0f}x less', ha='center', fontsize=9.5,
-            color=AFTER, fontweight='bold')
-    ax.text(0, eoff * 0.55, 'without-screen arm\nPROJECTED, not run',
-            ha='center', va='top', fontsize=7.4, color=BEFORE, style='italic')
-
     labels = [c[0] for c in COST]
     off = [c[1] for c in COST]
     on = [c[2] for c in COST]
-    x = [i + 1 for i in range(len(labels))]
+    x = list(range(len(labels)))
+    w = 0.36
     b1 = ax.bar([i - w / 2 for i in x], off, w, label='antiSMASH only', color=BEFORE)
     b2 = ax.bar([i + w / 2 for i in x], on, w, label='pre-screen + antiSMASH', color=AFTER)
     ax.set_yscale('log')
-    ax.set_ylabel('total pipeline CPU-minutes (log)')
-    ax.set_title('One full taxon, run both ways', pad=24)
+    ax.set_ylabel('antiSMASH CPU-minutes (log)')
+    ax.set_title('Two full taxa, each run both ways', pad=24)
     bar_values(ax, list(b1) + list(b2), fmt='{:,.0f}', dy=0.0)
+    top = max(off)
     for i, (_, o, n, screen) in zip(x, COST):
-        ax.text(i, eoff * 1.9, f'{o / n:.1f}x less',
-                ha='center', fontsize=9, color=AFTER, fontweight='bold')
-        ax.text(i, eoff * 0.75, f'screening work: {screen:.0f}',
+        ax.text(i, top * 3.4, f'{o / n:.1f}x less', ha='center', fontsize=9.5,
+                color=AFTER, fontweight='bold')
+        ax.text(i, top * 2.1, f'the screen itself cost {screen:.0f} CPU-min',
                 ha='center', fontsize=7.2, color=FAINT)
-    ax.set_xticks([0] + x)
-    ax.set_xticklabels([lab_e] + labels, fontsize=8)
-    ax.set_xlim(-0.6, len(labels) + 0.6)
-    ax.set_ylim(40, eoff * 5.5)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=8)
+    ax.set_xlim(-0.8, len(labels) - 1 + 0.8)
+    ax.set_ylim(40, top * 7.5)
     ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, -0.19))
-
 
 def panel_detection(ax):
     labels = [d[0] for d in DETECT]
@@ -169,8 +144,10 @@ def main():
     # The headline rests on the MEASURED pair. The 46x is projected and is
     # labelled as such inside panel A; putting it in the title would make the
     # figure's loudest claim the one number that was never run.
-    fig.suptitle('The pepM pre-screen cuts antiSMASH compute threefold on a full taxon \u2014 and costs no BGCs',
-                 fontsize=11.5, fontweight='bold', y=0.995)
+    # Reports the measured range on antiSMASH CPU. The Enterobacterales 46x is
+    # deliberately absent: its without-screen arm was never run.
+    fig.suptitle('The pepM pre-screen cuts antiSMASH compute 1.7\u20136.5\u00d7 on full taxa \u2014 and finds every BGC',
+                 fontsize=11.5, fontweight='bold', y=1.01)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     save(fig, args.outdir, 'fig2_prescreen')
 
