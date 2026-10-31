@@ -78,22 +78,16 @@ COST = [
 # docs/comparisons/enterobacterales_genbank/PREDICTIONS.md.
 ENTERO = ('Enterobacterales\n1,349,507 genomes\n0.11% positive', 1808119.0, 38940.0)
 
-# (clade, regions found with the screen OFF, with it ON). The Bacteroides pair is
-# the pre-fix number; see PSEUDO_NOTE.
-# Panel B answers a different question from panel A, so it keeps a second dataset.
+# (clade, regions found with the screen OFF, with it ON).
+# Panel B is the same full taxon as panel A, and only that.
 #
-# Erwiniaceae is the full taxon, run both ways: 333 regions either way, 298/298
-# sensitivity, and the screened arm recovered all 333 with identical nucleotide
-# sequences (5,845,237 bases). B. fragilis STAYS even though it is a curated
-# held-out clade, because that is exactly its job -- it supplies no prevalence
-# claim, it is the probe that found the pseudogene blind spot, and dropping it
-# would delete the figure's only admission that the screen ever missed anything.
-# It is labelled as held-out so it cannot be read as a taxon measurement.
+# B. fragilis was here as the held-out-clade sensitivity probe, and it is where the
+# pseudogene blind spot was found. It is a CURATED set, not a taxon, so it is written
+# up in the manuscript text instead of being drawn beside a taxon measurement -- a bar
+# chart cannot carry the caveat that makes it meaningful.
 DETECT = [
     ('Erwiniaceae\n2,771 genomes\nfull taxon', 333, 333),
-    ('B. fragilis\n136 genomes\nheld-out clade', 143, 141),
 ]
-BACT_FIXED = 143
 
 
 def panel_cost(ax):
@@ -143,28 +137,20 @@ def panel_detection(ax):
     b2 = ax.bar([i + w / 2 for i in x], on, w, label='pre-screen + antiSMASH', color=AFTER)
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels, fontsize=8)
+    # A single pair stretched across the full axis reads as a bar chart with a
+    # missing series. Hold the bars to the middle instead.
+    ax.set_xlim(-1.4, len(labels) - 1 + 1.4)
     ax.set_ylabel('phosphonate BGC regions detected')
-    ax.set_title('and costs no BGCs — once a blind spot was closed', pad=24)
+    ax.set_title('and finds every BGC the unscreened run finds', pad=24)
     ax.set_ylim(0, max(off) * 1.46)
     bar_values(ax, list(b1) + list(b2), fmt='{:.0f}')
 
     for i, (_, o, n) in enumerate(DETECT):
-        if o == n:
-            ax.text(i, max(off) * 1.31, 'identical', ha='center', fontsize=8.5,
-                    color=GOOD, fontweight='bold')
-            ax.text(i, max(off) * 1.22, '100% sensitivity', ha='center',
-                    fontsize=7.2, color=FAINT)
-        else:
-            # Do NOT draw the corrected bar. 143 against 141 is 1.4% of this axis,
-            # an invisible mark pretending to be evidence. State it in words.
-            ax.text(i, max(off) * 1.31, f'−{o - n} before fix', ha='center',
-                    fontsize=8.5, color=ACCENT, fontweight='bold')
-            ax.text(i, max(off) * 1.22, f'{BACT_FIXED}/{o} after fix', ha='center',
-                    fontsize=7.6, color=GOOD, fontweight='bold')
-            ax.annotate('pseudogene pepM carries\nno /translation',
-                        xy=(i + w / 2, n), xytext=(i - 0.05, max(off) * 0.74),
-                        ha='center', fontsize=7.2, color=ACCENT,
-                        arrowprops=dict(arrowstyle='->', color=ACCENT, lw=0.9))
+        assert o == n, f'unexpected detection difference in {DETECT[i][0]}'
+        ax.text(i, max(off) * 1.31, 'identical', ha='center', fontsize=8.5,
+                color=GOOD, fontweight='bold')
+        ax.text(i, max(off) * 1.22, '100% sensitivity', ha='center',
+                fontsize=7.2, color=FAINT)
     ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, -0.19))
 
 

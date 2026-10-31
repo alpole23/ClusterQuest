@@ -2493,6 +2493,23 @@ case on that family is d(a,b) = 0.982 against d(a,c) + d(b,c) = 0.170.
 exemplar of ≤3 genes — holding **97 of 1,476 regions**. 397 of 1,476 regions (27%) are
 contig-edge overall, so the raw material is plentiful.
 
+**It is NOT a CLI flag.** BiG-SCAPE has no `--min-bgc-length`. The minimum lives in
+its `config.yml` as `MIN_BGC_LENGTH` and is applied with `--config-file-path`, and
+`BigscapeConfig.parse_config()` reads every key with `config["KEY"]` rather than
+`.get()` -- so a partial config raises `KeyError`. The module copies the bundled
+`config.yml` out of the installed package, patches the one line with `sed`, verifies
+the patch took, and passes the copy. When the parameter is 0 no config is written and
+no flag is passed, so the stock path is untouched.
+
+**This was shipped as `--min-bgc-length 2000` first and it cost a validation run.**
+Nextflow accepted it, it reached BiG-SCAPE, and the run died with `Error: No such
+option '--min-bgc-length'` after 134 tasks had completed. The flag was taken from the
+`min_bgc_length` column of BiG-SCAPE's own `run` table and never checked against
+`bigscape cluster --help`. **Check the tool's interface, not the database column it
+writes.** Verified three ways before re-landing: `parse_config` accepts the patched
+file, a real `bigscape cluster` run records `min_bgc_length = 2000` in its `run` table,
+and at 99,000 bp it refuses with "No GBKs remain after length constraint".
+
 **The default is 2000, and raising it buys nothing.** Re-clustered from the stored
 distances at each threshold:
 
