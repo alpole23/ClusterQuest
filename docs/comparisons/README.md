@@ -84,16 +84,30 @@ genomes, one commit, GTDB-Tk off both arms, `pepm_prescreen` the only differing 
 **1,598 antiSMASH CPU-minutes saved for 68.8 spent**, and the screen loses nothing: the
 same 335 regions in the same 22 families.
 
-**This supersedes the "6.5x" that stood here until 2026-11-01, and the correction is not
-small.** The old pair's screen-off arm gave antiSMASH **one task per genome** while its
-screen-on arm batched 50 per task, so close to half the apparent saving was antiSMASH
-start-up paid 2,771 times over, not screening. Both arms here batch identically. The
-screen's own cost moves the same way, 91.3 → 68.8, because it is now measured as the
-arm-to-arm delta of `FETCH_RENAME_SCREEN` (115 identical tasks each side) rather than as a
-`PEPM_PRESCREEN` stage total.
+**This supersedes the "6.5x" that stood here until 2026-11-01.** Two distinct things
+separate the figures, and neither is what was first written down:
 
-The general lesson: **a CPU ratio between two runs measures the parameter you changed only
-if task granularity is held fixed.** Check the task counts, not just the parameter diff.
+| | basis | ANTISMASH off → on | ratio |
+|---|---|---|---|
+| old pair (2026-08/09) | `realtime × cpus` | 3,680.1 → 568.9 | 6.47× |
+| controlled pair | `realtime × cpus` | 3,450.8 → 629.1 | **5.49×** |
+| controlled pair | `realtime × %cpu` | 1,984.4 → 386.1 | **5.14×** |
+
+Controlling the experiment moves 6.47 → 5.49; changing the accounting basis moves
+5.49 → 5.14. The old pair was internally consistent but uncontrolled — its screen-on arm
+batched antiSMASH and ran `RECOVER_ORFS`, its screen-off arm did neither, GTDB-Tk differed.
+
+**A retracted explanation.** This file briefly blamed antiSMASH task granularity. That is
+wrong: `modules/analysis/antismash.nf` loops `for GENOME in ${genomes}` and invokes
+antiSMASH once per genome even inside a batched task, so batching amortises Nextflow task
+overhead and nothing of antiSMASH's own start-up. Like-for-like, antiSMASH per-genome cost
+barely moved between the two eras — 43.3 → 41.6 CPU-s on `× %cpu`, 80.1 → 72.3 on
+`× cpus`. The apparent "80.4 → 41.6 CPU-s/genome" collapse was purely the unit mismatch.
+
+The general lesson: **a CPU figure is meaningless until you name its basis, and two ratios
+are comparable only on the same basis and the same code.** `pepm_prescreen/summary.json` is
+`realtime × cpus`; `controlled_erwiniaceae/summary.json` is `realtime × %cpu`; both
+reproduce exactly from their own traces, and nothing may be read across them.
 
 **Controlled, 2026-09-17 — `pepm_prescreen/controlled_pantoea_ananatis/`.** 344 *P. ananatis*
 genomes, one code version, screen off vs on:
@@ -119,9 +133,10 @@ sequences are identical; the annotation on four of them is not.
 **The uncontrolled 2026-08/09 pair — `pepm_prescreen/summary.json` — is superseded and its
 ratio is withdrawn.** Its two sides are different code: the screen-off side is the
 2026-08-29 benchmark run, the screen-on side is 2026-09-15, which also batches antiSMASH
-and adds ORF recovery. The batching is the fatal one — it is what made "6.5x" out of a
-real 5.1x. The file is kept as the historical record of what was measured, with its own
-`superseded_by` note; nothing should be quoted from it.
+and adds ORF recovery. Those code differences, not task granularity, are what separate its
+6.47× from the controlled 5.49× on the same basis. The file is kept as the historical record
+of what was measured, with its own `superseded_by` and `cpu_accounting_basis` notes; nothing
+should be quoted from it.
 
 The validation matrix in `CLAUDE.md` records 333 BGCs and ARI 1.0000 with the screen on or
 off; that matrix's own per-pair data was never stored.

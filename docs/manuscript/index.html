@@ -395,12 +395,15 @@ selection. Only full taxa, each run both ways, are reported here.</p>
   <p>The screen decides which genomes antiSMASH sees and nothing else, so antiSMASH CPU is the
 quantity it acts on. Whole-pipeline totals for the <em>Erwiniaceae</em> pair are 2,287 and
 498 CPU-minutes, a larger-looking 4.6×, but that figure also folds in ORF recovery
-(257 → 14 CPU-minutes), which shrinks only because it too runs on the screened subset. A
-previous version of this work compared whole-run totals across arms that additionally
-differed in GTDB-Tk and in whether ORF recovery existed at all, and reported 6.5× for
-<em>Erwiniaceae</em>; re-run as a controlled pair the figure is 5.1×. Ratios between runs
-measure the parameter under test only when everything else is held fixed, and task
-  granularity counts as everything else.</p>
+(257 → 14 CPU-minutes), which shrinks only because it too runs on the screened subset.</p>
+  <p>CPU-minutes here are <span class="mono">realtime × %cpu</span>, the CPU actually
+  consumed, throughout. A previous version of this work reported 6.5× for
+  <em>Erwiniaceae</em> from a pair whose arms differed in antiSMASH batching, in whether ORF
+  recovery existed at all, and in GTDB-Tk, and which was aggregated as
+  <span class="mono">realtime × cpus</span>, the cores reserved rather than used. Re-run as
+  a controlled pair the figure is 5.49× on that same basis and 5.1× on this one. A CPU ratio
+  is not interpretable until its basis is named, and two ratios are comparable only on the
+  same basis and the same code.</p>
 </div>
 
 <h3><span class="num">2.4</span>A held-out clade exposed a sensitivity failure</h3>

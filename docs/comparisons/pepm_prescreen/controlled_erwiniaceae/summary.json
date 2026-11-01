@@ -2,9 +2,10 @@
   "question": "Controlled: what does the pepM pre-screen cost and change on a dilute full taxon, one taxon, one code version?",
   "date": "2026-11-01",
   "method": "2,863 Erwiniaceae genomes, run end-to-end twice on the same commit, identical except pepm_prescreen. GTDB-Tk off in both arms. Params passed in JSON files (run_erwin_screen_{off,on}.json, committed here), never on the CLI: `--pepm_prescreen false` arrives as the string \"false\", which is truthy in Groovy. bigscape_min_bgc_length=2000 from nextflow.config, confirmed applied in both databases.",
-  "why_this_run_exists": "It supersedes the uncontrolled Erwiniaceae pair that stood behind the '6.5x' claim. That pair's screen-off arm gave antiSMASH ONE TASK PER GENOME while its screen-on arm batched 50 genomes per task, so close to half the apparent saving was antiSMASH start-up paid 2,771 times over rather than screening. Here both arms batch identically: 57x50+13 genomes off, 6x50+8 on.",
+  "why_this_run_exists": "It supersedes the uncontrolled Erwiniaceae pair behind the \"6.5x\" claim. That pair was internally consistent -- both arms realtime x cpus -- but its two sides were different code: the screen-on arm batched antiSMASH and ran RECOVER_ORFS, the screen-off arm did neither, and GTDB-Tk differed. Controlling that moves 6.47x -> 5.49x on the same basis; reporting on realtime x %cpu moves it further to 5.14x.",
   "controls_verified": [
-    "antiSMASH task granularity identical (50 genomes per task, both arms)",
+    "both arms aggregated on the same basis (realtime x %cpu) from the committed traces",
+    "antiSMASH task granularity identical (50 genomes per task, both arms) -- held fixed as good practice, though it is not what drove the old discrepancy",
     "FETCH_RENAME_SCREEN: 115 tasks in both arms, same genomes fetched",
     "pepm_prescreen is the only differing parameter",
     "GTDB-Tk off in both arms",
@@ -42,7 +43,7 @@
   "the_screens_own_cost": {
     "cpu_minutes": 68.8,
     "how_measured": "FETCH_RENAME_SCREEN is 83.1 CPU-min with the screen on against 14.3 with it off. The screen is no longer a separately timed stage -- a rejected genome is deleted before its output is declared, so it never reaches publishDir -- so its cost is the arm-to-arm delta of the fused process. Both arms run 115 such tasks over the same genomes, so the delta is the screening work and nothing else.",
-    "supersedes": "91.3 CPU-min, which was a PEPM_PRESCREEN stage total from the older uncontrolled pair",
+    "supersedes": "91.3 CPU-min, which was a PEPM_PRESCREEN stage total from the older pair AND on the other accounting basis (realtime x cpus). On realtime x cpus the screen here costs 8.6 CPU-min, not 68.8 -- the two numbers are not comparable.",
     "return": "23x (1,598 antiSMASH CPU-min saved for 68.8 spent)"
   },
   "sensitivity": {
@@ -68,5 +69,7 @@
     "run_erwin_screen_off.json": "params, screen-off arm",
     "run_erwin_screen_on.json": "params, screen-on arm"
   },
-  "cached_realtimes_cross_checked": "These CPU sums come from CACHED trace rows, so they rest on CACHED carrying the realtime of the session that actually ran each task. Checked independently against .nextflow/history, which the launcher writes separately from the trace observer: the screen-off original (session 8f15d50e, 2026-10-31 17:35) ran 314.2 min wall for 2,287.2 CPU-min = 7.28 mean parallelism, the screen-on original (session 90f5f78d, 16:23) 72.5 min wall for 497.7 CPU-min = 6.87, on a 16-core box. Two runs of very different length and composition agreeing on ~7 is not what stale, zeroed, or resume-length (17-22 s) realtimes would produce. The Nextflow cache DB could not be queried directly -- no JVM is installed outside the pipeline's conda envs."
+  "cached_realtimes_cross_checked": "These CPU sums come from CACHED trace rows, so they rest on CACHED carrying the realtime of the session that actually ran each task. Checked independently against .nextflow/history, which the launcher writes separately from the trace observer: the screen-off original (session 8f15d50e, 2026-10-31 17:35) ran 314.2 min wall for 2,287.2 CPU-min = 7.28 mean parallelism, the screen-on original (session 90f5f78d, 16:23) 72.5 min wall for 497.7 CPU-min = 6.87, on a 16-core box. Two runs of very different length and composition agreeing on ~7 is not what stale, zeroed, or resume-length (17-22 s) realtimes would produce. The Nextflow cache DB could not be queried directly -- no JVM is installed outside the pipeline's conda envs.",
+  "cpu_accounting_basis": "realtime x %cpu (ACTUAL CPU utilisation). The superseded pepm_prescreen/summary.json uses realtime x cpus (ALLOCATED cores) instead, so no figure here may be compared with a figure there. On realtime x cpus this run is ANTISMASH 3,450.8 -> 629.1 CPU-min, 5.49x.",
+  "a_retracted_explanation": "An earlier version of this file blamed antiSMASH task granularity (2,760 one-genome tasks vs 7 batched). That is WRONG: modules/analysis/antismash.nf loops \"for GENOME in ${genomes}\" and invokes antiSMASH once per genome even inside a batched task, so batching amortises Nextflow task overhead only. Like-for-like, antiSMASH per-genome cost barely moved between the two eras: 43.3 -> 41.6 CPU-s/genome on realtime x %cpu, 80.1 -> 72.3 on realtime x cpus. The apparent \"80.4 -> 41.6\" collapse was entirely the unit mismatch above."
 }

@@ -30,24 +30,25 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # that ordering is the whole point of the panel.
 #
 # BOTH rows are now controlled A/B pairs: one taxon, one code version, one differing
-# parameter. That was not true before 2026-11-01, and the correction is large.
+# parameter, both arms aggregated on the same basis. That was not true before 2026-11-01.
 #
-# The old Erwiniaceae row read 3,680 -> 569 CPU-min (6.5x). Its screen-off arm was an
-# older run that gave antiSMASH ONE TASK PER GENOME, while the screen-on arm batched
-# 50 genomes per task. Close to half the apparent saving was antiSMASH start-up paid
-# 2,771 times over, not screening. Re-run both ways on 2026-11-01 at identical
-# granularity (57x50+13 genomes off, 6x50+8 on), the honest figure is 1,984 -> 386,
-# 5.14x. The screen's own cost falls the same way: the 91.3 CPU-min attributed to a
-# separate PEPM_PRESCREEN stage is, measured as the delta between two arms whose fetch
-# work is identical (115 FETCH_RENAME_SCREEN tasks each), 68.8 CPU-min.
+# The old Erwiniaceae row read 3,680 -> 569 CPU-min (6.5x). It was internally consistent --
+# both its arms are realtime x cpus -- but UNCONTROLLED: its screen-on arm batched antiSMASH
+# and ran RECOVER_ORFS, its screen-off arm did neither, and GTDB-Tk differed. Re-run as a
+# controlled pair the figure is 3,450.8 -> 629.1 = 5.49x on that same basis, or
+# 1,984.4 -> 386.1 = 5.14x on realtime x %cpu, which is what this figure plots.
 #
-# P. ananatis needed no correction -- its arms always batched the same way (7 antiSMASH
-# tasks off, 4 on, 50 genomes each) -- which is why its 1.7x moved the headline range's
-# floor and not its ceiling.
+# A RETRACTED EXPLANATION, left here because it was published: this comment briefly blamed
+# antiSMASH task granularity (2,760 one-genome tasks against 7 batched ones). That is wrong.
+# modules/analysis/antismash.nf loops "for GENOME in ${genomes}" and invokes antiSMASH once
+# per genome even inside a batched task, so batching amortises Nextflow task overhead and
+# nothing of antiSMASH's own start-up. Like-for-like, antiSMASH per-genome cost barely moved
+# between the two eras: 43.3 -> 41.6 CPU-s on x %cpu, 80.1 -> 72.3 on x cpus. The apparent
+# "80.4 -> 41.6" collapse was entirely a unit mismatch between two summary.json files.
 #
-# The lesson generalises past this figure: a CPU ratio between two runs is only a
-# measurement of the thing you changed if task granularity is held fixed. Check the
-# task counts, not just the parameter diff.
+# THE RULE THIS LEAVES: a CPU figure is meaningless until you name its basis, and two ratios
+# are comparable only on the same basis and the same code. This figure is realtime x %cpu
+# throughout. P. ananatis needed no correction -- 1.7x is a within-pair ratio on one basis.
 #
 # Screening cost is reported as what the screening WORK costs, not as a stage: the
 # screen runs inside FETCH_RENAME_SCREEN rather than as its own timed task, so on

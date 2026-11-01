@@ -596,27 +596,45 @@ full taxa are:
 `/mnt/bigdisk/clusterquest/erwin_screen_{off,on}/`; *P. ananatis*
 `controlled_pantoea_ananatis/`, 2026-09-17).
 
-**The old Erwiniaceae row (3,680 -> 569, "6.5x") was inflated and is withdrawn.** Its
-screen-off arm was an older run that gave antiSMASH **one task per genome**, while its
-screen-on arm batched 50 genomes per task. Close to half the apparent saving was
-antiSMASH start-up paid 2,771 times over, not screening. Re-run at identical
-granularity -- 57x50+13 genomes off, 6x50+8 on, 115 identical `FETCH_RENAME_SCREEN`
-tasks on both arms, `pepm_prescreen` the only differing parameter -- the honest ratio
-is **5.14x**. The screen's own cost moves the same way: **68.8 CPU-min**, measured as
-the arm-to-arm delta, not the 91.3 once attributed to a separate `PEPM_PRESCREEN`
-stage. Whole-pipeline CPU is 2,287 -> 498 (4.60x), which also sweeps in `RECOVER_ORFS`
-(257 -> 14) because it too only sees screened genomes.
+**The old Erwiniaceae row (3,680 -> 569, "6.5x") is superseded, for a reason that is
+NOT the one first recorded here.** An earlier version of this entry blamed antiSMASH task
+granularity -- the old screen-off arm ran 2,760 one-genome tasks against the screen-on
+arm's 7 batched ones -- and claimed start-up was paid 2,771 times over. **That is wrong.**
+`modules/analysis/antismash.nf` runs `for GENOME in ${genomes}; do ... antismash ... done`:
+a batched task still invokes antiSMASH once per genome, so batching amortises Nextflow task
+overhead and nothing of antiSMASH's own start-up.
 
-*P. ananatis* needed no correction: its arms always batched identically (7 antiSMASH
-tasks off, 4 on, 50 genomes each). That is why the correction moved the headline
-range's ceiling, 6.5x -> 5.1x, and left its floor alone.
+What actually happened is two separate things, measured:
 
-**Generalise this past the figure: a CPU ratio between two runs measures the thing you
-changed only if task granularity is held fixed.** Check the task counts, not just the
-parameter diff. The trap is quiet -- both arms completed, both produced correct
-science, and the ratio was simply wrong by ~25%.
+| | basis | ANTISMASH off -> on | ratio |
+|---|---|---|---|
+| old pair (2026-08/09) | `realtime x cpus` | 3,680.1 -> 568.9 | 6.47x |
+| controlled pair (2026-11-01) | `realtime x cpus` | 3,450.8 -> 629.1 | **5.49x** |
+| controlled pair (2026-11-01) | `realtime x %cpu` | 1,984.4 -> 386.1 | **5.14x** |
 
-Two traps in reading these traces, both hit on 2026-11-01:
+So **controlling the experiment** moves 6.47 -> 5.49, and **changing the accounting basis**
+moves 5.49 -> 5.14. The old pair was internally consistent -- both its arms are
+`realtime x cpus` -- but uncontrolled: its screen-on arm batched antiSMASH and ran
+RECOVER_ORFS, its screen-off arm did neither, and GTDB-Tk differed. That confound is the
+reason it is superseded.
+
+**The two summary.json files use different CPU accounting, and nothing may be compared
+across them.** `pepm_prescreen/summary.json` is `realtime x cpus` (allocated cores);
+`controlled_erwiniaceae/summary.json` is `realtime x %cpu` (actual utilisation). Both
+reproduce exactly from their own traces. The giveaways in the old file are mechanical:
+GTDB-Tk 741.5 CPU-min / 92.7 min realtime = 8.00, exactly its allocated cpus, and an NCBI
+download at 4.00, which no network fetch achieves.
+
+**This produced a phantom "antiSMASH got 2x faster".** 80.4 CPU-s/genome (old, `x cpus`)
+against 41.6 (new, `x %cpu`) looked like a collapse in per-genome cost. Like-for-like
+there is almost no change: **43.3 -> 41.6 CPU-s/genome** on `x %cpu`, **80.1 -> 72.3** on
+`x cpus`. Nothing about antiSMASH's cost changed between August and November.
+
+**Rule: every CPU figure must state its basis, and no ratio may cross bases.** Prefer
+`realtime x %cpu` for "compute consumed" and `realtime x cpus` for "cores you must
+reserve"; say which, in the file that records the number.
+
+Two trace-reading traps found doing this, also recorded:
 - **Sum `CACHED` as well as `COMPLETED`.** After a `-resume`, the trace is rewritten
   and nearly every row is `CACHED`, carrying the realtime of the session that actually
   ran it. Filtering to `COMPLETED` returned one task and a `ZeroDivisionError`.

@@ -101,9 +101,10 @@ Panel A is ordered by BGC prevalence rather than by clade, because the saving is
 monotonic in it: 9.0× at 9.6% positive, 3.0× at 11%, 1.7× at 56%, 1.1× at 72%.
 Bars are **total pipeline CPU-minutes**. Elsewhere in this repository the
 *Erwiniaceae* saving is quoted as 5.1×, which is the antiSMASH-only figure
-from the controlled 2026-11-01 pair (1,984 → 386 CPU-min; the superseded
-uncontrolled pair read 3,680 → 569 and 6.5×, inflated by one-task-per-genome
-antiSMASH on its screen-off arm). On whole-run totals it is 4.6×, and this figure uses
+from the controlled 2026-11-01 pair on a `realtime × %cpu` basis (1,984 → 386
+CPU-min). The superseded uncontrolled pair read 3,680 → 569 and 6.5×, which is a
+`realtime × cpus` figure from arms that differed in code; the controlled pair on
+that same basis is 5.49×. On whole-run totals it is 4.6×, and this figure uses
 totals throughout so the four clades are comparable.
 
 The *B. fragilis* bar is the one place neutrality failed: the screen returned

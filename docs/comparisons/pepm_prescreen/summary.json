@@ -242,5 +242,6 @@
   ],
   "antismash_cpu_reduction": "6.5x",
   "net_cpu_min_saved": 3011.7,
-  "superseded_by": "controlled_erwiniaceae/summary.json (2026-11-01). The ratio recorded here, \"6.5x\", is WITHDRAWN. The screen-off arm gave antiSMASH one task per genome while the screen-on arm batched 50 per task, so close to half the apparent saving was antiSMASH start-up paid 2,771 times over rather than screening. Re-run at identical granularity the figure is 1,984.4 -> 386.1 CPU-min, 5.14x, and the screen's own cost is 68.8 CPU-min rather than the 91.3 here. This file is kept as the record of what was measured; do not quote it."
+  "superseded_by": "controlled_erwiniaceae/summary.json (2026-11-01). The \"6.5x\" here is internally consistent -- both arms are realtime x cpus -- but UNCONTROLLED: the screen-on arm batched antiSMASH and ran RECOVER_ORFS, the screen-off arm did neither, and GTDB-Tk differed. Re-run as a controlled pair the figure is 5.49x on this same basis, or 5.14x on realtime x %cpu, which is what is now reported. Kept as the record of what was measured; do not quote it.",
+  "cpu_accounting_basis": "realtime x cpus (ALLOCATED cores). Verified by reproducing every process total in this file from docs/benchmark_data/trace_Erwiniaceae_clean.tsv. Note GTDB-Tk 741.5 CPU-min over 92.7 min realtime = exactly 8.00, its allocated cpus. controlled_erwiniaceae/summary.json uses realtime x %cpu instead; nothing may be compared across the two files."
 }
