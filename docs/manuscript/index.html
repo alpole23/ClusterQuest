@@ -511,16 +511,20 @@ one without changing a single cluster assignment. The runtime crossover is proje
 <h3><span class="num">2.6</span>Projected cost at one million genomes</h3>
 
 <div class="stat-row">
-  <div class="stat"><span class="v">~5,400</span><span class="k">CPU-hours</span></div>
+  <div class="stat"><span class="v">~5,200</span><span class="k">CPU-hours</span></div>
   <div class="stat"><span class="v">~2 TB</span><span class="k">storage</span></div>
   <div class="stat"><span class="v">~9.5 days</span><span class="k">elapsed, bandwidth-bound</span></div>
 </div>
 
-<p>Extrapolated from a measured 2,758-genome <em>Erwiniaceae</em> run with pinned databases.</p>
+<p>Extrapolated from the controlled 2,863-genome <em>Erwiniaceae</em> pair with pinned
+databases, at that run's 11% pepM retention. CPU-hours throughout this section are
+<span class="mono">realtime × %cpu</span> — the CPU actually consumed, not the cores
+reserved. The two differ by about a factor of two on this pipeline, and mixing them is how
+an earlier version of this section came to overstate the screen's value.</p>
 
 <p><strong>Elapsed time used to be a scheduling problem and is now a bandwidth one.</strong>
 At one antiSMASH job per genome and a 20 jobs/min submission limit, submission alone took
-833 h against 55 h of compute. Batching removed that: at 50 genomes per job, and with only
+833 h against 29 h of compute. Batching removed that: at 50 genomes per job, and with only
 the ~110,000 screened genomes reaching antiSMASH, submission is about two hours and compute
 about six. What is left is the download, which no amount of batching or concurrency helps,
 because the limit is the network rather than the scheduler — measured here at 98 genomes per
@@ -554,33 +558,54 @@ the machine the run will happen on.</p>
 <div class="table-wrap">
   <table>
     <caption><span class="fignum">Table 4.</span> Projected CPU-hours at one million
-    genomes, by stage, with and without the pre-screen. Per-stage rates are measured on the
-    <em>Erwiniaceae</em> run; retention is that run's 11%.</caption>
+    genomes, by stage, with and without the pre-screen, as
+    <span class="mono">realtime × %cpu</span>. Fetch, screen, antiSMASH, ORF recovery and
+    protein pool are per-genome rates from the controlled <em>Erwiniaceae</em> pair at its
+    11% retention; GTDB-Tk and BiG-SCAPE are from their own scaling benchmarks, which are
+    quadratic in BGC count rather than linear in genomes and so cannot be taken from this
+    run.</caption>
     <thead>
       <tr><th>Stage</th><th class="num">antiSMASH only</th><th class="num">+ pre-screen</th></tr>
     </thead>
     <tbody>
-      <tr><td>NCBI download</td><td class="num">312</td><td class="num">312</td></tr>
-      <tr><td>pepM pre-screen</td><td class="num">—</td><td class="num">250</td></tr>
-      <tr><td>antiSMASH</td><td class="num">22,328</td><td class="num">2,456</td></tr>
+      <tr><td>NCBI fetch + rename</td><td class="num">83</td><td class="num">83</td></tr>
+      <tr><td>pepM pre-screen</td><td class="num">—</td><td class="num">400</td></tr>
+      <tr><td>antiSMASH</td><td class="num">11,552</td><td class="num">2,298</td></tr>
+      <tr><td>ORF recovery</td><td class="num">1,498</td><td class="num">83</td></tr>
+      <tr><td>protein pool</td><td class="num">68</td><td class="num">6</td></tr>
       <tr><td>GTDB-Tk <span class="mono">(BGC-positive genomes only)</span></td><td class="num">1,271</td><td class="num">1,271</td></tr>
       <tr><td>BiG-SCAPE</td><td class="num">1,090</td><td class="num">1,090</td></tr>
-      <tr class="total"><td>Total CPU-hours</td><td class="num">25,001</td><td class="num">5,379</td></tr>
+      <tr class="total"><td>Total CPU-hours</td><td class="num">15,563</td><td class="num">5,232</td></tr>
     </tbody>
   </table>
 </div>
 
-<p><strong>The screen is worth 4.6× on the whole projection because antiSMASH is 89% of
-it.</strong> Only that row moves: the screen decides which genomes antiSMASH sees and nothing
-else. The download is unchanged, since a genome must be fetched to be screened. BiG-SCAPE is
-unchanged, since the screen is detection-neutral and the same BGCs reach it. GTDB-Tk is
-unchanged because it already ran on BGC-positive genomes only, which is a subset of what the
-screen keeps — the two filters do not compound.</p>
+<p><strong>The screen is worth 3.0× on the whole projection, because antiSMASH is 74% of
+it.</strong> Two rows move. antiSMASH moves because the screen decides which genomes it
+sees, which is the point. ORF recovery moves with it — 1,498 to 83 CPU-hours — because it
+too runs only on genomes that passed, and that is a consequence of screening rather than a
+second saving to claim credit for. Fetch is unchanged, since a genome must be fetched to be
+screened. BiG-SCAPE is unchanged, since the screen is detection-neutral and the same BGCs
+reach it. GTDB-Tk is unchanged because it already ran on BGC-positive genomes only, a subset
+of what the screen keeps — the two filters do not compound.</p>
 
-<p>An earlier version of this section gave ~24,100 CPU-hours, which was the unscreened figure
-assembled from measurements taken at different times; recomputed from per-stage rates it is
-~25,001, and the stage table above is given so the arithmetic can be checked rather than
-taken on trust.</p>
+<p>The screen's own 400 CPU-hours are the largest single cost it adds and are paid on every
+genome, including the 89% it discards. It still returns 23 CPU-hours of antiSMASH saved
+per CPU-hour spent, or 26 against every stage it touches.</p>
+
+<div class="flagbox">
+  <span class="label">Correction</span>
+  <p>Two earlier versions of this table were wrong, and in the same way. One gave ~24,100
+  CPU-hours unscreened, assembled from measurements taken at different times; a second gave
+  ~25,001 with a 4.6× saving. Both drew their antiSMASH rate from a run aggregated as
+  <span class="mono">realtime × cpus</span> — cores reserved — while other rows were actual
+  CPU, so the largest row was inflated against the rest by roughly the ratio of allocated to
+  used cores. Rebuilt on one basis from the controlled pair, the unscreened total is
+  <strong>15,563</strong> CPU-hours and the saving <strong>3.0×</strong>, not 4.6×. The
+  screened total barely moves (5,379 → 5,232), because the screened arm was always the one
+  measured in a way closer to actual CPU. The stage table is given so the arithmetic can be
+  checked rather than taken on trust.</p>
+</div>
 
 <p><strong>Storage is set by what is never written, not by what is deleted.</strong> Three
 changes take the projection from 49.6 TB to ~2 TB. Publishing by hard link rather than copy,
