@@ -1,0 +1,6 @@
+{
+  "taxon": "Erwiniaceae",
+  "run_gtdbtk": false,
+  "pepm_prescreen": true,
+  "outdir": "/mnt/bigdisk/clusterquest/erwin_screen_on"
+}
