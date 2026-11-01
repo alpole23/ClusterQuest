@@ -371,10 +371,15 @@ def generate_gcf_network_html(db_path, cutoff=0.3, classes=None, colors=None,
             if organism:
                 tip += f' ({organism})'
         strong = f in named
+        # Built outside the f-string: a backslash inside an f-string EXPRESSION is a
+        # SyntaxError before Python 3.12 (PEP 701), and the pipeline's antiSMASH env
+        # runs 3.11. This parsed fine locally and killed VISUALIZE_RESULTS on a real
+        # run. tests/check_python_floor.py now compiles every script at the floor.
+        weight = ' font-weight="600"' if strong else ''
+        fill = '#1d3440' if strong else '#7b8a92'
         style = (f'dominant-baseline="middle" font-size="7" '
                  f'font-family="system-ui,-apple-system,sans-serif" '
-                 f'fill="{"#1d3440" if strong else "#7b8a92"}"'
-                 f'{" font-weight=\"600\"" if strong else ""}')
+                 f'fill="{fill}"{weight}')
         name = f'GCF-{_html.escape(str(f))}'
         title = f'<title>{_html.escape(tip)}</title>'
         href = hrefs.get(f)
