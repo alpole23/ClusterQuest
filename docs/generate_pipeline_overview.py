@@ -94,7 +94,7 @@ stage(SX, Y['dl'], SW, SH, C['genome'], 'DOWNLOAD_GENOMES',
 
 stage(SX, Y['screen'], SW, SH, C['prescreen'], 'PEPM_PRESCREEN',
       'DIAMOND vs 7 curated PEP mutase references',
-      '2,771 → 306 genomes at 298/298 sensitivity (Erwiniaceae)')
+      '2,863 → 308 genomes at 335/335 sensitivity (Erwiniaceae)')
 
 stage(SX, Y['as_'], SW, SH, C['bgc'], 'ANTISMASH_ANALYSIS',
       'phosphonate rule  ·  KnownClusterBlast vs MIBiG',

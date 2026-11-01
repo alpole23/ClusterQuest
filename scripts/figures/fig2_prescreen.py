@@ -5,15 +5,12 @@ Note what this figure does NOT claim. The screen does not *find* more BGCs --
 it cannot, since it only decides which genomes antiSMASH sees. Its design goal
 is to be detection-neutral while removing most of the compute, so the evidence
 that matters is that the BGC count is UNCHANGED. Panel B is therefore a
-negative result presented as one, and the Bacteroides pair is included
-precisely because it is the case where neutrality initially failed: a
-pseudogene-flagged pepM carries no /translation, so the screen dropped two
-genomes until parse_genome was taught to translate such a CDS itself.
+negative result presented as one.
 
-The screening cost annotations read "screening work", not "screen stage": the
-screen was its own stage when these were measured and now runs inside
-FETCH_RENAME_SCREEN, so the work is the same and the accounting boundary is not.
-See the comment on COST.
+Both taxa are controlled A/B pairs -- one taxon, one code version, one differing
+parameter, identical antiSMASH task granularity. The last condition is the one
+that was missing before 2026-11-01 and that cost the old Erwiniaceae row most of
+its headline ratio; see the comment on COST.
 
 Sources, all committed under docs/comparisons/pepm_prescreen/.
 
@@ -32,24 +29,36 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # Ordered by BGC prevalence, lowest first: the saving is monotonic in it, and
 # that ordering is the whole point of the panel.
 #
-# The fourth column was measured when the screen was its own stage, PEPM_PRESCREEN,
-# and could be read straight off the trace. It no longer is: the screen now runs
-# inside FETCH_RENAME_SCREEN, so that a genome the screen rejects is deleted before
-# its output is declared and never reaches publishDir. The screen does the same work
-# on the same genomes for the same verdicts -- verified identical on P. ananatis
-# (193 of 344) and Winslowiella -- but it is no longer a separately timed task, so
-# these figures are labelled as what the screening WORK costs rather than as a stage.
-# Re-measuring would mean eight runs, the screen-off arms of which are the expensive
-# ones (Erwiniaceae alone is 2,771 genomes through antiSMASH, ~61 CPU-h), to move
-# numbers by a few percent and change no conclusion.
-# TWO measured full taxa, compared on antiSMASH CPU -- the thing the screen acts on.
+# BOTH rows are now controlled A/B pairs: one taxon, one code version, one differing
+# parameter. That was not true before 2026-11-01, and the correction is large.
+#
+# The old Erwiniaceae row read 3,680 -> 569 CPU-min (6.5x). Its screen-off arm was an
+# older run that gave antiSMASH ONE TASK PER GENOME, while the screen-on arm batched
+# 50 genomes per task. Close to half the apparent saving was antiSMASH start-up paid
+# 2,771 times over, not screening. Re-run both ways on 2026-11-01 at identical
+# granularity (57x50+13 genomes off, 6x50+8 on), the honest figure is 1,984 -> 386,
+# 5.14x. The screen's own cost falls the same way: the 91.3 CPU-min attributed to a
+# separate PEPM_PRESCREEN stage is, measured as the delta between two arms whose fetch
+# work is identical (115 FETCH_RENAME_SCREEN tasks each), 68.8 CPU-min.
+#
+# P. ananatis needed no correction -- its arms always batched the same way (7 antiSMASH
+# tasks off, 4 on, 50 genomes each) -- which is why its 1.7x moved the headline range's
+# floor and not its ceiling.
+#
+# The lesson generalises past this figure: a CPU ratio between two runs is only a
+# measurement of the thing you changed if task granularity is held fixed. Check the
+# task counts, not just the parameter diff.
+#
+# Screening cost is reported as what the screening WORK costs, not as a stage: the
+# screen runs inside FETCH_RENAME_SCREEN rather than as its own timed task, so on
+# Erwiniaceae it is an arm-to-arm delta and on P. ananatis (measured 2026-09-17, when
+# PEPM_PRESCREEN still existed) it is a stage total.
 #
 # This panel reports ANTISMASH CPU-minutes, not total pipeline CPU-minutes, and the
-# change matters. The Erwiniaceae totals (4,508 -> 1,497) carry 741 and 655 CPU-min of
-# GTDB-Tk, which the screen does not touch, and the screen-on arm additionally has
-# RECOVER_ORFS (90 min) that the screen-off arm predates. Comparing totals mixes the
-# screen with two unrelated changes; docs/comparisons/pepm_prescreen/summary.json says
-# so directly -- "antiSMASH CPU-minutes are comparable; task counts are not".
+# change matters. Whole-pipeline CPU for the controlled Erwiniaceae pair is 2,287 -> 498
+# (4.60x), which mixes in RECOVER_ORFS -- itself 18x cheaper with the screen on, because
+# it too only sees screened genomes. GTDB-Tk is off in both arms. Comparing totals
+# attributes to the screen work the screen did not do.
 #
 # Both rows are full taxa run BOTH ways. Earlier versions of this panel carried five
 # datasets ordered by prevalence; two of them (Actinomycetes 323, B. fragilis 136) were
@@ -62,7 +71,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 #
 # (clade, antiSMASH CPU-min screen off, screen on, the screen's own CPU-min)
 COST = [
-    ('Erwiniaceae\n2,771 genomes\n11% BGC-positive', 3680.1, 568.9, 91.3),
+    ('Erwiniaceae\n2,863 genomes\n11% BGC-positive', 1984.4, 386.1, 68.8),
     ('P. ananatis\n344 genomes\n56% BGC-positive', 528.7, 311.3, 10.5),
 ]
 
@@ -74,7 +83,7 @@ COST = [
 # up in the manuscript text instead -- a bar beside a taxon measurement cannot carry
 # the caveat that makes it meaningful.
 DETECT = [
-    ('Erwiniaceae\n2,771 genomes', 333, 333),
+    ('Erwiniaceae\n2,863 genomes', 335, 335),
     ('P. ananatis\n344 genomes', 226, 226),
 ]
 
@@ -146,7 +155,7 @@ def main():
     # figure's loudest claim the one number that was never run.
     # Reports the measured range on antiSMASH CPU. The Enterobacterales 46x is
     # deliberately absent: its without-screen arm was never run.
-    fig.suptitle('The pepM pre-screen cuts antiSMASH compute 1.7\u20136.5\u00d7 on full taxa \u2014 and finds every BGC',
+    fig.suptitle('The pepM pre-screen cuts antiSMASH compute 1.7\u20135.1\u00d7 on full taxa \u2014 and finds every BGC',
                  fontsize=11.5, fontweight='bold', y=1.01)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     save(fig, args.outdir, 'fig2_prescreen')

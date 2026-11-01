@@ -241,5 +241,6 @@
     "A controlled A/B on one taxon with one code version has not been run."
   ],
   "antismash_cpu_reduction": "6.5x",
-  "net_cpu_min_saved": 3011.7
+  "net_cpu_min_saved": 3011.7,
+  "superseded_by": "controlled_erwiniaceae/summary.json (2026-11-01). The ratio recorded here, \"6.5x\", is WITHDRAWN. The screen-off arm gave antiSMASH one task per genome while the screen-on arm batched 50 per task, so close to half the apparent saving was antiSMASH start-up paid 2,771 times over rather than screening. Re-run at identical granularity the figure is 1,984.4 -> 386.1 CPU-min, 5.14x, and the screen's own cost is 68.8 CPU-min rather than the 91.3 here. This file is kept as the record of what was measured; do not quote it."
 }

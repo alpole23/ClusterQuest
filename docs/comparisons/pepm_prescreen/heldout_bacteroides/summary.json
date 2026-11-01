@@ -111,7 +111,7 @@
       "off": 136,
       "on": 97
     },
-    "note": "The screen saves 11% here, against 6.5x on Erwiniaceae and 7.3x on the actinomycete set. That is the expected behaviour, not a disappointment: the saving is proportional to how dilute the taxon is, and at 72% BGC-positive there is almost nothing to remove. This clade was chosen to test sensitivity, and its cost figures are reported so the savings claim is not quietly generalised from the two dilute clades alone.",
+    "note": "The screen saves 11% here, against 5.1x on Erwiniaceae and 7.3x on the actinomycete set. That is the expected behaviour, not a disappointment: the saving is proportional to how dilute the taxon is, and at 72% BGC-positive there is almost nothing to remove. This clade was chosen to test sensitivity, and its cost figures are reported so the savings claim is not quietly generalised from the two dilute clades alone.",
     "caveat": "These traces are from the screened arm running the PRE-FIX code, which passed 97 genomes. With the fix it passes 100, so antiSMASH cost would rise by roughly 3 genomes (~4 CPU-min). The arm was not re-run for that."
   }
 }

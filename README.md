@@ -105,7 +105,7 @@ Three things limit how large a taxon you can analyse, and each has one control.
 
 | Limit | Control | What it does |
 |-------|---------|--------------|
-| antiSMASH compute | `--pepm_prescreen` *(on)* | Skips genomes with no PEP mutase — 2,771 → 306 on Erwiniaceae, all 333 BGCs still recovered |
+| antiSMASH compute | `--pepm_prescreen` *(on)* | Skips genomes with no PEP mutase — 2,863 → 308 on Erwiniaceae, all 335 BGCs still recovered, antiSMASH CPU 5.1x lower |
 | BiG-SCAPE memory | `--bigscape_partition` *(off)* | Clusters in pepM-identity partitions instead of one job whose memory grows with the square of the BGC count |
 | Disk | `--publish_mode link` *(default)* | Hard-links published output to `work/` — ~16 MB per genome instead of ~52 |
 

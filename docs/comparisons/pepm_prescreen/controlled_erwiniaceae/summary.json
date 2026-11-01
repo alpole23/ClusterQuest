@@ -1,0 +1,71 @@
+{
+  "question": "Controlled: what does the pepM pre-screen cost and change on a dilute full taxon, one taxon, one code version?",
+  "date": "2026-11-01",
+  "method": "2,863 Erwiniaceae genomes, run end-to-end twice on the same commit, identical except pepm_prescreen. GTDB-Tk off in both arms. Params passed in JSON files (run_erwin_screen_{off,on}.json, committed here), never on the CLI: `--pepm_prescreen false` arrives as the string \"false\", which is truthy in Groovy. bigscape_min_bgc_length=2000 from nextflow.config, confirmed applied in both databases.",
+  "why_this_run_exists": "It supersedes the uncontrolled Erwiniaceae pair that stood behind the '6.5x' claim. That pair's screen-off arm gave antiSMASH ONE TASK PER GENOME while its screen-on arm batched 50 genomes per task, so close to half the apparent saving was antiSMASH start-up paid 2,771 times over rather than screening. Here both arms batch identically: 57x50+13 genomes off, 6x50+8 on.",
+  "controls_verified": [
+    "antiSMASH task granularity identical (50 genomes per task, both arms)",
+    "FETCH_RENAME_SCREEN: 115 tasks in both arms, same genomes fetched",
+    "pepm_prescreen is the only differing parameter",
+    "GTDB-Tk off in both arms",
+    "same commit, same conda environments"
+  ],
+  "genomes": 2863,
+  "genomes_reaching_antismash": {
+    "screen_off": 2863,
+    "screen_on": 308
+  },
+  "antismash_tasks": {
+    "screen_off": 58,
+    "screen_on": 7
+  },
+  "cpu_minutes": {
+    "screen_off": {
+      "ANTISMASH": 1984.4,
+      "RECOVER_ORFS": 257.4,
+      "FETCH_RENAME_SCREEN": 14.3,
+      "BUILD_PROTEIN_POOL": 11.7,
+      "BIGSCAPE": 9.7,
+      "total": 2287.2
+    },
+    "screen_on": {
+      "ANTISMASH": 386.1,
+      "FETCH_RENAME_SCREEN": 83.1,
+      "RECOVER_ORFS": 14.0,
+      "BIGSCAPE": 8.9,
+      "BUILD_PROTEIN_POOL": 0.9,
+      "total": 497.7
+    }
+  },
+  "antismash_cpu_reduction": "5.14x",
+  "whole_pipeline_cpu_reduction": "4.60x",
+  "the_screens_own_cost": {
+    "cpu_minutes": 68.8,
+    "how_measured": "FETCH_RENAME_SCREEN is 83.1 CPU-min with the screen on against 14.3 with it off. The screen is no longer a separately timed stage -- a rejected genome is deleted before its output is declared, so it never reaches publishDir -- so its cost is the arm-to-arm delta of the fused process. Both arms run 115 such tasks over the same genomes, so the delta is the screening work and nothing else.",
+    "supersedes": "91.3 CPU-min, which was a PEPM_PRESCREEN stage total from the older uncontrolled pair",
+    "return": "23x (1,598 antiSMASH CPU-min saved for 68.8 spent)"
+  },
+  "sensitivity": {
+    "regions": {
+      "screen_off": 335,
+      "screen_on": 335
+    },
+    "families_at_0.30": {
+      "screen_off": 22,
+      "screen_on": 22
+    },
+    "identical_region_count": true
+  },
+  "recover_orfs_also_shrinks": "257.4 -> 14.0 CPU-min (18x). RECOVER_ORFS only sees genomes that passed the screen, so this is a real downstream saving -- but it is NOT the screen acting on antiSMASH, which is why the headline ratio is quoted on antiSMASH CPU alone.",
+  "caveats": [
+    "antiSMASH CPU-minutes are the comparable column. Whole-pipeline totals fold in RECOVER_ORFS, whose asymmetry is intrinsic to screening rather than a separate effect.",
+    "2,863 genomes, not the 2,771 of the 2026-09 runs: the NCBI download grew. Counts are therefore not directly comparable to the older Erwiniaceae records.",
+    "The traces here were written by a -resume, which rewrites pipeline_trace.tsv in place. Nearly every row is CACHED and carries the realtime of the session that actually ran it, so any re-analysis must sum CACHED as well as COMPLETED."
+  ],
+  "files": {
+    "trace_screen_off.tsv": "Nextflow trace, screen-off arm",
+    "trace_screen_on.tsv": "Nextflow trace, screen-on arm",
+    "run_erwin_screen_off.json": "params, screen-off arm",
+    "run_erwin_screen_on.json": "params, screen-on arm"
+  }
+}

@@ -68,9 +68,32 @@ install silently re-download 153 GB.
 
 ### pepM pre-screen — `pepm_prescreen/`
 
-antiSMASH CPU-minutes over *Erwiniaceae*: **3,680 with the screen off, 569 with it on**
-(6.5x), against a screen costing **91 CPU-minutes**. Whole-run total falls from 4,508 to
-1,497 CPU-minutes. The screen sends 307 of 2,771 genomes to antiSMASH.
+**Controlled, 2026-11-01 — `pepm_prescreen/controlled_erwiniaceae/`.** 2,863 *Erwiniaceae*
+genomes, one commit, GTDB-Tk off both arms, `pepm_prescreen` the only differing parameter:
+
+| | screen off | screen on |
+|---|---:|---:|
+| genomes reaching antiSMASH | 2,863 | 308 |
+| antiSMASH tasks | 58 | 7 |
+| ANTISMASH | 1,984.4 CPU-min | **386.1** (5.14x) |
+| RECOVER_ORFS | 257.4 | 14.0 |
+| FETCH_RENAME_SCREEN | 14.3 | 83.1 (the screen costs **+68.8**) |
+| total | 2,287.2 | **497.7** (4.60x) |
+| regions / families at 0.30 | 335 / 22 | 335 / 22 |
+
+**1,598 antiSMASH CPU-minutes saved for 68.8 spent**, and the screen loses nothing: the
+same 335 regions in the same 22 families.
+
+**This supersedes the "6.5x" that stood here until 2026-11-01, and the correction is not
+small.** The old pair's screen-off arm gave antiSMASH **one task per genome** while its
+screen-on arm batched 50 per task, so close to half the apparent saving was antiSMASH
+start-up paid 2,771 times over, not screening. Both arms here batch identically. The
+screen's own cost moves the same way, 91.3 → 68.8, because it is now measured as the
+arm-to-arm delta of `FETCH_RENAME_SCREEN` (115 identical tasks each side) rather than as a
+`PEPM_PRESCREEN` stage total.
+
+The general lesson: **a CPU ratio between two runs measures the parameter you changed only
+if task granularity is held fixed.** Check the task counts, not just the parameter diff.
 
 **Controlled, 2026-09-17 — `pepm_prescreen/controlled_pantoea_ananatis/`.** 344 *P. ananatis*
 genomes, one code version, screen off vs on:
@@ -84,8 +107,8 @@ genomes, one code version, screen off vs on:
 | total | 603.0 | **346.0** |
 
 **257 CPU-minutes saved for 10.5 spent**, and the screen loses nothing: 226 BGCs either way,
-identical region set, all 226 base-for-base identical. The saving is smaller than the 6.5x
-below because this taxon is phosphonate-rich — 56% of its genomes carry a pepM against 11%
+identical region set, all 226 base-for-base identical. The saving is smaller than the 5.1x
+above because this taxon is phosphonate-rich — 56% of its genomes carry a pepM against 11%
 of Erwiniaceae — so the screen pays in proportion to how dilute the taxon is.
 
 It is not perfectly neutral, though: **4 of 226 BGCs each lost one recovered gene**
@@ -93,14 +116,12 @@ It is not perfectly neutral, though: **4 of 226 BGCs each lost one recovered gen
 only, 193 instead of 344, so ORF recovery is slightly weaker behind the screen. The BGC
 sequences are identical; the annotation on four of them is not.
 
-**The older pair below is confounded, and the confound is not small.** The two sides are different code: the
-screen-off side is the 2026-08-29 benchmark run, the screen-on side is 2026-09-15, which
-also batches antiSMASH and adds ORF recovery. antiSMASH CPU-minutes are comparable
-between them; task counts are not. The per-task traces of the 2026-09-09 validation runs,
-which *were* one code version with the screen off and on, are gone — their Nextflow cache
-index files no longer exist, so they cannot be rebuilt. It is kept because it is the only
-measurement at family scale — 2,771 genomes rather than 344 — and the controlled run above
-is what the claim now rests on.
+**The uncontrolled 2026-08/09 pair — `pepm_prescreen/summary.json` — is superseded and its
+ratio is withdrawn.** Its two sides are different code: the screen-off side is the
+2026-08-29 benchmark run, the screen-on side is 2026-09-15, which also batches antiSMASH
+and adds ORF recovery. The batching is the fatal one — it is what made "6.5x" out of a
+real 5.1x. The file is kept as the historical record of what was measured, with its own
+`superseded_by` note; nothing should be quoted from it.
 
 The validation matrix in `CLAUDE.md` records 333 BGCs and ARI 1.0000 with the screen on or
 off; that matrix's own per-pair data was never stored.
@@ -170,7 +191,7 @@ tests. What the run establishes beyond doubt is the pseudogene blind spot, which
 earlier validations were blind to because neither clade contains a pseudogenised pepM.
 
 Cost, for completeness: 277.4 -> 247.3 CPU-min, an **11%** saving for a screen costing
-3.6 — against 6.5x on Erwiniaceae and 7.3x on the actinomycetes. The saving tracks how
+3.6 — against 5.1x on Erwiniaceae and 7.3x on the actinomycetes. The saving tracks how
 dilute the taxon is, and at 72% positive there is almost nothing to remove.
 
 ### antiSMASH neighbourhood — `antismash_neighbourhood/`

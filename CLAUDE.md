@@ -576,25 +576,57 @@ distribution and draw a wrong panel with no error. `--rebuild-gains` refreshes i
 live run.
 
 **Figure 3 reports antiSMASH CPU-minutes, not total pipeline CPU-minutes** (changed
-2026-10-31), and the distinction is the figure's correctness. The Erwiniaceae totals
-4,508 -> 1,497 carry **741 and 655 CPU-min of GTDB-Tk**, which the screen does not
-touch, and the screen-on arm additionally has `RECOVER_ORFS` (90 min) that the
-screen-off arm predates. Comparing totals mixes the screen with two unrelated changes.
+2026-10-31), and the distinction is the figure's correctness. In the superseded
+Erwiniaceae pair the totals 4,508 -> 1,497 carried **741 and 655 CPU-min of GTDB-Tk**,
+which the screen does not touch, and the screen-on arm additionally had `RECOVER_ORFS`
+(90 min) that the screen-off arm predated. Comparing totals mixes the screen with
+unrelated changes; the 2026-11-01 controlled pair has GTDB-Tk off on both arms, but the
+`RECOVER_ORFS` asymmetry is real and intrinsic, so antiSMASH CPU remains the right
+column.
 `docs/comparisons/pepm_prescreen/summary.json` says so in its own caveats: *"antiSMASH
 CPU-minutes are comparable; task counts are not."* On antiSMASH CPU the two measured
 full taxa are:
 
 | | genomes | % positive | screen off | screen on | |
 |---|---:|---:|---:|---:|---:|
-| Erwiniaceae | 2,771 | 11% | 3,680 | 569 | **6.5x** |
+| Erwiniaceae | 2,863 | 11% | 1,984 | 386 | **5.1x** |
 | *P. ananatis* | 344 | 56% | 529 | 311 | **1.7x** |
 
-*P. ananatis* is the **controlled** pair -- one taxon, one code version
-(`controlled_pantoea_ananatis/`, 2026-09-17) -- and is the better evidence of the two
-even though its ratio is smaller. The Erwiniaceae arms are different code versions.
+**Both rows are now controlled pairs** (Erwiniaceae re-run both ways 2026-11-01,
+`/mnt/bigdisk/clusterquest/erwin_screen_{off,on}/`; *P. ananatis*
+`controlled_pantoea_ananatis/`, 2026-09-17).
+
+**The old Erwiniaceae row (3,680 -> 569, "6.5x") was inflated and is withdrawn.** Its
+screen-off arm was an older run that gave antiSMASH **one task per genome**, while its
+screen-on arm batched 50 genomes per task. Close to half the apparent saving was
+antiSMASH start-up paid 2,771 times over, not screening. Re-run at identical
+granularity -- 57x50+13 genomes off, 6x50+8 on, 115 identical `FETCH_RENAME_SCREEN`
+tasks on both arms, `pepm_prescreen` the only differing parameter -- the honest ratio
+is **5.14x**. The screen's own cost moves the same way: **68.8 CPU-min**, measured as
+the arm-to-arm delta, not the 91.3 once attributed to a separate `PEPM_PRESCREEN`
+stage. Whole-pipeline CPU is 2,287 -> 498 (4.60x), which also sweeps in `RECOVER_ORFS`
+(257 -> 14) because it too only sees screened genomes.
+
+*P. ananatis* needed no correction: its arms always batched identically (7 antiSMASH
+tasks off, 4 on, 50 genomes each). That is why the correction moved the headline
+range's ceiling, 6.5x -> 5.1x, and left its floor alone.
+
+**Generalise this past the figure: a CPU ratio between two runs measures the thing you
+changed only if task granularity is held fixed.** Check the task counts, not just the
+parameter diff. The trap is quiet -- both arms completed, both produced correct
+science, and the ratio was simply wrong by ~25%.
+
+Two traps in reading these traces, both hit on 2026-11-01:
+- **Sum `CACHED` as well as `COMPLETED`.** After a `-resume`, the trace is rewritten
+  and nearly every row is `CACHED`, carrying the realtime of the session that actually
+  ran it. Filtering to `COMPLETED` returned one task and a `ZeroDivisionError`.
+- **A resume overwrites `pipeline_trace.tsv`.** There are no rotated copies. The
+  per-task timings of the original run survive only because `CACHED` rows preserve
+  them -- copy the trace aside before resuming a run you intend to benchmark.
+
 Note the top-level `pepm_prescreen/summary.json` still claims "a controlled A/B on one
-taxon with one code version has not been run"; that caveat is **stale**, the controlled
-run is in its own subdirectory beside it.
+taxon with one code version has not been run"; that caveat is **stale**, two controlled
+runs now exist.
 
 **Enterobacterales is no longer in Figure 3.** Its 46x needed a projected arm --
 1,349,507 antiSMASH runs at the measured 80.4 CPU-s/genome, ~30,100 CPU-h that were
@@ -2298,7 +2330,7 @@ than count: one species, true positives clustered at a modal 514, so 98 positive
 98 independent tests.
 
 At 72% BGC-positive the screen saves only 11% here (277.4 -> 247.3 CPU-min for a screen
-costing 3.6), against 6.5x on Erwiniaceae and 7.3x on the actinomycetes. **The saving is
+costing 3.6), against 5.1x on Erwiniaceae and 7.3x on the actinomycetes. **The saving is
 proportional to how dilute the taxon is**, and this clade was chosen to test sensitivity,
 not savings. Data: `docs/comparisons/pepm_prescreen/heldout_bacteroides/`.
 
