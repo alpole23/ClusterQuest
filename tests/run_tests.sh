@@ -172,6 +172,20 @@ else
     fail "compileall reported errors"
 fi
 
+# Compiling with the DEVELOPER's python is not enough: it is the newest interpreter on
+# the box and accepts syntax the pipeline's conda environments reject. A backslash in an
+# f-string expression is legal from 3.12 and a SyntaxError before it, and that shipped to
+# a real run. This compiles every script at the OLDEST environment python.
+FLOOR_OUT="$("$SYS_PY" "$PROJECT_DIR/tests/check_python_floor.py" 2>&1)"
+FLOOR_RC=$?
+echo "$FLOOR_OUT" | grep -E "^ +(floor|[0-9]+ scripts)|^SKIP" | sed 's/^/ /'
+if [ "$FLOOR_RC" -eq 0 ]; then
+    pass "scripts compile at the oldest environment python"
+else
+    echo "$FLOOR_OUT" | grep "^FAIL" | sed 's/^/  /'
+    fail "scripts compile at the oldest environment python"
+fi
+
 # pyflakes, filtered to the findings that are bugs rather than tidiness.
 # compileall accepts a name used before it is assigned and check_undefined.py looks
 # at call targets, so neither catches it; a shipped `own_pid = float(own...)` placed

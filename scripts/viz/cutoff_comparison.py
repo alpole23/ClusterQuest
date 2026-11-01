@@ -114,20 +114,29 @@ def build_cutoff_comparison_section(db_path, primary=None):
     cuts = list(members)
     shapes = {c: shape(members[c]) for c in cuts}
 
-    rows = ''.join(
-        f'<tr{" style=\"background:#eef4f8;\"" if primary is not None and abs(c - primary) < 1e-9 else ""}>'
-        f'<td style="padding:7px 12px;font-variant-numeric:tabular-nums;">'
-        f'<strong>{c:g}</strong>'
-        f'{" <span style=\"color:#2c5aa0;font-size:.82em;\">primary</span>" if primary is not None and abs(c - primary) < 1e-9 else ""}</td>'
-        f'<td style="padding:7px 12px;text-align:right;font-variant-numeric:tabular-nums;">{shapes[c]["families"]}</td>'
-        f'<td style="padding:7px 12px;text-align:right;font-variant-numeric:tabular-nums;">{shapes[c]["largest"]}</td>'
-        f'<td style="padding:7px 12px;text-align:right;font-variant-numeric:tabular-nums;">{shapes[c]["singletons"]}</td>'
-        f'<td style="padding:7px 12px;text-align:right;font-variant-numeric:tabular-nums;">{shapes[c]["median"]}</td>'
-        f'<td style="padding:7px 12px;text-align:right;font-variant-numeric:tabular-nums;">'
-        f'{shapes[c]["in_multi"]} <span style="color:#888;font-size:.85em;">'
-        f'({100.0 * shapes[c]["in_multi"] / shapes[c]["regions"]:.0f}%)</span></td>'
-        f'</tr>'
-        for c in cuts)
+    def _row(c):
+        # Same PEP 701 constraint as viz/gcf_network.py: no backslash inside an
+        # f-string expression below Python 3.12. Build the fragments first.
+        is_primary = primary is not None and abs(c - primary) < 1e-9
+        tr = ' style="background:#eef4f8;"' if is_primary else ''
+        tag = (' <span style="color:#2c5aa0;font-size:.82em;">primary</span>'
+               if is_primary else '')
+        num = 'padding:7px 12px;text-align:right;font-variant-numeric:tabular-nums;'
+        s = shapes[c]
+        return (
+            f'<tr{tr}>'
+            f'<td style="padding:7px 12px;font-variant-numeric:tabular-nums;">'
+            f'<strong>{c:g}</strong>{tag}</td>'
+            f'<td style="{num}">{s["families"]}</td>'
+            f'<td style="{num}">{s["largest"]}</td>'
+            f'<td style="{num}">{s["singletons"]}</td>'
+            f'<td style="{num}">{s["median"]}</td>'
+            f'<td style="{num}">{s["in_multi"]} '
+            f'<span style="color:#888;font-size:.85em;">'
+            f'({100.0 * s["in_multi"] / s["regions"]:.0f}%)</span></td>'
+            f'</tr>')
+
+    rows = ''.join(_row(c) for c in cuts)
 
     pair_rows = ''
     for lo, hi in zip(cuts, cuts[1:]):
