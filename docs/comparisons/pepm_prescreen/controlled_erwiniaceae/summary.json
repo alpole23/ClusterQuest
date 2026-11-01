@@ -67,5 +67,6 @@
     "trace_screen_on.tsv": "Nextflow trace, screen-on arm",
     "run_erwin_screen_off.json": "params, screen-off arm",
     "run_erwin_screen_on.json": "params, screen-on arm"
-  }
+  },
+  "cached_realtimes_cross_checked": "These CPU sums come from CACHED trace rows, so they rest on CACHED carrying the realtime of the session that actually ran each task. Checked independently against .nextflow/history, which the launcher writes separately from the trace observer: the screen-off original (session 8f15d50e, 2026-10-31 17:35) ran 314.2 min wall for 2,287.2 CPU-min = 7.28 mean parallelism, the screen-on original (session 90f5f78d, 16:23) 72.5 min wall for 497.7 CPU-min = 6.87, on a 16-core box. Two runs of very different length and composition agreeing on ~7 is not what stale, zeroed, or resume-length (17-22 s) realtimes would produce. The Nextflow cache DB could not be queried directly -- no JVM is installed outside the pipeline's conda envs."
 }
