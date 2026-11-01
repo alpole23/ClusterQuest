@@ -86,7 +86,7 @@ process BIGSCAPE {
         --pfam-path \$PFAM_PATH \
         --alignment-mode ${alignment_mode} \
         --gcf-cutoffs ${cutoffs} \
-        ${min_len} \
+        \$CFG \
         ${include_singletons} \
         ${mix} \
         ${mibig_version} \
