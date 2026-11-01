@@ -222,7 +222,7 @@
   <p>We further show the corrections are not independent — recovered genes can match the
   detection rule, extending the cluster core and shifting the flank by 1.6 kb — and that the
   two clusters in this single genome require opposite fixes. We describe a pepM pre-screen
-  that removes up to 9× of the compute without losing a BGC, validate it on a clade
+  that cuts antiSMASH compute 5.1× on a dilute taxon without losing a BGC, validate it on a clade
   contributing none of its references, and report a sensitivity failure that only that
   held-out clade exposed. All figures regenerate from committed data.</p>
 </div>
@@ -309,20 +309,20 @@ annotated, completing a two-subunit enzyme, plus a GNAT-family N-acetyltransfera
 
 <h3><span class="num">2.2</span>ORF recovery is targeted, not indiscriminate</h3>
 
-<p>A correction that adds genes everywhere would be suspect. Applied across five clades
-(Figure 2), recovery instead fires in proportion to how incomplete the deposit is — and
-what it recovers tracks that too.</p>
+<p>A correction that adds genes everywhere would be suspect. Applied across four clades
+(Figure 2, Table 2), recovery instead fires in proportion to how incomplete the deposit is —
+and what it recovers tracks that too.</p>
 
 <figure>
-  <img src="fig2.svg" alt="Five phosphonate clusters from four clades shown before and after ORF recovery, with a panel placing each example within the distribution of per-region gene gains for its clade.">
+  <img src="fig2.svg" alt="Five phosphonate clusters from four clades shown before and after ORF recovery.">
   <figcaption><span class="fignum">Figure 2.</span> ORF recovery across five clusters and
   four clades, all at the 10 kb neighbourhood. <strong>A–B</strong>, recovery restores core
   and tailoring enzymes. <strong>C</strong>, the pantaphos cluster in the same genome as B,
   already well annotated. <strong>D</strong>, <em>S. griseus</em> — two ATP-grasp tailoring
   enzymes recovered. <strong>E</strong>, <em>B. fragilis</em> — a modern complete deposit,
-  where recovery adds hypotheticals only. <strong>F</strong> places each illustrated cluster
-  within its clade's distribution of per-region gains; the illustrated examples are the tail,
-  not the typical case.</figcaption>
+  where recovery adds hypotheticals only. The illustrated clusters are chosen to span the
+  range of deposit completeness, not to be typical of their clades; Table 2 gives the
+  per-clade rates.</figcaption>
 </figure>
 
 <div class="table-wrap">
@@ -355,30 +355,53 @@ finds is not the missing biosynthetic core of a 2012 deposit but the short and d
 reading frames a modern pipeline declines to call. A high recovery rate is therefore not by
 itself evidence that anything important was missing; the <em>P. ananatis</em> and
 <em>Winslowiella</em> panels, where recovery restores an AEP transaminase and both
-CDP-alcohol phosphatidyltransferases, are the cases that matter, and they are the tail of
-their own distribution rather than the typical case.</p>
+CDP-alcohol phosphatidyltransferases, are the cases that matter, and at 29% of regions
+gaining a gene they are the minority of their own clade rather than the typical case.</p>
 
 <h3><span class="num">2.3</span>A pepM pre-screen removes most of the compute at no cost in BGCs</h3>
 
 <p>Because every phosphonate BGC carries a pepM, a genome without one cannot contain the
-target. Establishing this costs ~0.9 CPU-s against antiSMASH's ~41 CPU-s, which is what makes
-order-scale analysis tractable. The screen is deliberately <em>detection-neutral</em> by
-design — it cannot find more BGCs, only fewer — so the evidence that matters is that the BGC
-count is unchanged (Figure 3).</p>
+target. Establishing this costs ~1.4 CPU-s against antiSMASH's ~42 CPU-s on the same
+genomes, which is what makes order-scale analysis tractable. The screen is deliberately
+<em>detection-neutral</em> by design — it cannot find more BGCs, only fewer — so the
+evidence that matters is that the BGC count is unchanged (Figure 3).</p>
 
 <figure>
-  <img src="fig3.svg" alt="Bar charts comparing total pipeline CPU-minutes and phosphonate BGC counts with and without the pepM pre-screen, across four clades ordered by BGC prevalence.">
-  <figcaption><span class="fignum">Figure 3.</span> The pepM pre-screen. <strong>A</strong>,
-  total pipeline CPU-minutes with and without the screen, across four clades ordered by BGC
-  prevalence — the saving is monotonic in how dilute the taxon is. <strong>B</strong>, BGC
-  regions detected; identical in two clades, and the one case where neutrality initially
-  failed is shown as such.</figcaption>
+  <img src="fig3.svg" alt="Bar charts comparing antiSMASH CPU-minutes and phosphonate BGC counts with and without the pepM pre-screen, on two full taxa each run both ways.">
+  <figcaption><span class="fignum">Figure 3.</span> The pepM pre-screen, on two full taxa
+  each run both ways. <strong>A</strong>, antiSMASH CPU-minutes with and without the screen.
+  Each pair is a controlled A/B — one taxon, one commit, identical antiSMASH batching, the
+  screen the only differing parameter — so the ratio is attributable to the screen alone.
+  <strong>B</strong>, phosphonate BGC regions detected: identical in both taxa.</figcaption>
 </figure>
 
-<p>The saving tracks prevalence exactly: 9.0× at 9.6% BGC-positive, 3.0× at 11%, 1.7× at 56%,
-1.1× at 72%. This is the expected behaviour rather than a disappointment, and it is reported
-across all four clades so that the headline figure is not generalised from the dilute ones
-alone.</p>
+<p>On <em>Erwiniaceae</em> — 2,863 genomes, 11% carrying a pepM — antiSMASH falls from
+1,984 to 386 CPU-minutes, <strong>5.1×</strong>, for a screen costing 69 CPU-minutes: a
+return of 23 to 1. Both arms find the same 335 regions in the same 22 families. On
+<em>P. ananatis</em> — 344 genomes, 56% pepM-positive — the same comparison gives
+<strong>1.7×</strong> (529 to 311 CPU-minutes) and the same 226 regions either way, all 226
+identical base for base.</p>
+
+<p>The screen therefore pays in proportion to how dilute the taxon is, which is what its
+mechanism predicts: it removes genomes, so it can only save what those genomes would have
+cost. We decline to put a trend line through two points. An earlier version of this section
+reported a monotonic relationship across four datasets, but two of the four were curated
+probes assembled to test sensitivity rather than taxa sampled for cost, and they supplied
+both endpoints of the trend; the relationship they described was an artefact of that
+selection. Only full taxa, each run both ways, are reported here.</p>
+
+<div class="notebox">
+  <span class="label">Why this figure reports antiSMASH CPU, not total CPU</span>
+  <p>The screen decides which genomes antiSMASH sees and nothing else, so antiSMASH CPU is the
+quantity it acts on. Whole-pipeline totals for the <em>Erwiniaceae</em> pair are 2,287 and
+498 CPU-minutes, a larger-looking 4.6×, but that figure also folds in ORF recovery
+(257 → 14 CPU-minutes), which shrinks only because it too runs on the screened subset. A
+previous version of this work compared whole-run totals across arms that additionally
+differed in GTDB-Tk and in whether ORF recovery existed at all, and reported 6.5× for
+<em>Erwiniaceae</em>; re-run as a controlled pair the figure is 5.1×. Ratios between runs
+measure the parameter under test only when everything else is held fixed, and task
+  granularity counts as everything else.</p>
+</div>
 
 <h3><span class="num">2.4</span>A held-out clade exposed a sensitivity failure</h3>
 
