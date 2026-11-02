@@ -4,8 +4,8 @@
 The honest claim, and the one the data supports: partitioning does NOT make
 clustering faster at any scale we have measured -- it is 1.7-3.7x SLOWER,
 because every partition re-pays BiG-SCAPE's fixed Pfam-load cost. What it buys
-is memory, and memory is the wall: at the ~121,000 BGCs a million genomes
-yields, one job needs ~3.0 TB, which is not a machine most groups have. It buys
+is memory, and memory is the wall: at the ~117,000 BGCs a million genomes
+yields, one job needs ~2.8 TB, which is not a machine most groups have. It buys
 that without changing the clustering: family counts are identical and, at the
 scales where BiG-SCAPE reproduces itself exactly, so is every membership.
 
@@ -84,7 +84,12 @@ FAMILIES = [
     ('Combined\n518 BGCs', 100, 100),
 ]
 
-TARGET_BGCS = 121_000          # BGCs a million genomes yields at observed prevalence
+TARGET_BGCS = 117_000          # BGCs a million genomes yields at the controlled
+                               # Erwiniaceae pair's measured 335 regions / 2,863 genomes
+                               # = 11.70 per 100. The 121,000 this was is 333/2,758 from
+                               # the superseded 2026-08 benchmark -- correct in KIND (this
+                               # stage does consume BGCs, unlike GTDB-Tk, which was priced
+                               # on the same number by mistake) but off the current basis.
 PARTITIONED_SHARE = 0.21       # largest component, Streptomyces-like diversity @0.60
 
 

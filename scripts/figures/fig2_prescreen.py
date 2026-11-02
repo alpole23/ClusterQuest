@@ -47,8 +47,18 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # "80.4 -> 41.6" collapse was entirely a unit mismatch between two summary.json files.
 #
 # THE RULE THIS LEAVES: a CPU figure is meaningless until you name its basis, and two ratios
-# are comparable only on the same basis and the same code. This figure is realtime x %cpu
-# throughout. P. ananatis needed no correction -- 1.7x is a within-pair ratio on one basis.
+# are comparable only on the same basis and the same code. Panel A is realtime x %cpu.
+#
+# AND A SECOND RETRACTION, 2026-11-01, of the line that used to sit here: it said "P. ananatis
+# needed no correction -- 1.7x is a within-pair ratio on one basis." The ratio is indeed
+# within-pair valid. But this panel plots ABSOLUTE CPU-minutes, and controlled_pantoea_ananatis
+# measured them as realtime x cpus (its summary.json method field says so), against Erwiniaceae's
+# realtime x %cpu. So the BAR HEIGHTS crossed bases even though each ratio did not -- the exact
+# error this file's own rule forbids, surviving because the rule was checked against the ratio
+# and not against the geometry. Its traces are gone (only tasks_*.tsv, realtime and cpus, no
+# %cpu), so it cannot be re-expressed, and P. ananatis is therefore OUT of panel A. Its 1.7x
+# stays in manuscript section 2.3 with its basis named. Panel B keeps it: region COUNTS have no
+# CPU basis, so the two-taxon detection-neutrality claim is unaffected.
 #
 # Screening cost is reported as what the screening WORK costs, not as a stage: the
 # screen runs inside FETCH_RENAME_SCREEN rather than as its own timed task, so on
@@ -61,23 +71,25 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 # it too only sees screened genomes. GTDB-Tk is off in both arms. Comparing totals
 # attributes to the screen work the screen did not do.
 #
-# Both rows are full taxa run BOTH ways. Earlier versions of this panel carried five
-# datasets ordered by prevalence; two of them (Actinomycetes 323, B. fragilis 136) were
-# curated probes rather than taxa and supplied the endpoints the trend rested on, so
-# the trend is gone and the claim is now just cost-at-equal-yield.
+# Earlier versions of this panel carried five datasets ordered by prevalence; two of them
+# (Actinomycetes 323, B. fragilis 136) were curated probes rather than taxa and supplied the
+# endpoints the trend rested on, so the trend is gone and the claim is now cost-at-equal-yield
+# on the one taxon whose cost is measured on this basis.
 #
 # Enterobacterales is NOT here. Its 46x needed a projected arm -- 1.35 M antiSMASH runs
 # that were never performed -- and a projected bar beside measured ones invites exactly
-# the reading it should not get. The projection belongs in the text.
+# the reading it should not get. The projection belongs in the text. P. ananatis is absent
+# from panel A for the same reason in a different variable: a bar on another accounting
+# basis beside measured ones invites the same bad reading, however the caption hedges.
 #
 # (clade, antiSMASH CPU-min screen off, screen on, the screen's own CPU-min)
 COST = [
     ('Erwiniaceae\n2,863 genomes\n11% BGC-positive', 1984.4, 386.1, 68.8),
-    ('P. ananatis\n344 genomes\n56% BGC-positive', 528.7, 311.3, 10.5),
 ]
 
 # (clade, regions found with the screen OFF, with it ON).
-# Panel B carries the same two taxa as panel A, and only those.
+# Panel B carries BOTH taxa, unlike panel A: these are region counts, which carry no CPU
+# accounting basis, so P. ananatis is directly comparable here and not there.
 #
 # B. fragilis was here as the held-out-clade sensitivity probe and is where the
 # pseudogene blind spot was found. It is a curated set, not a taxon, so it is written
@@ -98,7 +110,7 @@ def panel_cost(ax):
     b2 = ax.bar([i + w / 2 for i in x], on, w, label='pre-screen + antiSMASH', color=AFTER)
     ax.set_yscale('log')
     ax.set_ylabel('antiSMASH CPU-minutes (log)')
-    ax.set_title('Two full taxa, each run both ways', pad=24)
+    ax.set_title('A dilute taxon, run both ways', pad=24)
     bar_values(ax, list(b1) + list(b2), fmt='{:,.0f}', dy=0.0)
     top = max(off)
     for i, (_, o, n, screen) in zip(x, COST):
@@ -108,7 +120,9 @@ def panel_cost(ax):
                 ha='center', fontsize=7.2, color=FAINT)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=8)
-    ax.set_xlim(-0.8, len(labels) - 1 + 0.8)
+    # One pair stretched across the full axis reads as a chart with a series missing;
+    # hold it to the middle, as panel B already does.
+    ax.set_xlim(-1.4, len(labels) - 1 + 1.4)
     ax.set_ylim(40, top * 7.5)
     ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, -0.19))
 
@@ -156,7 +170,7 @@ def main():
     # figure's loudest claim the one number that was never run.
     # Reports the measured range on antiSMASH CPU. The Enterobacterales 46x is
     # deliberately absent: its without-screen arm was never run.
-    fig.suptitle('The pepM pre-screen cuts antiSMASH compute 1.7\u20135.1\u00d7 on full taxa \u2014 and finds every BGC',
+    fig.suptitle('The pepM pre-screen cuts antiSMASH compute 5.1\u00d7 on a dilute taxon \u2014 and finds every BGC',
                  fontsize=11.5, fontweight='bold', y=1.01)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     save(fig, args.outdir, 'fig2_prescreen')

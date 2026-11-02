@@ -201,7 +201,7 @@
   <p class="byline">A. Polidore, M. H. Medema, W. W. Metcalf</p>
   <p class="affil">ClusterQuest — <span class="mono">github.com/alpole23/ClusterQuest</span></p>
   <div class="meta-row">
-    <span>19 September 2026</span>
+    <span>19 September 2026 · revised 1 November 2026</span>
     <span>antiSMASH 8.0.4 · BiG-SCAPE 2.0.1 · GTDB r226 · Pfam 38.2</span>
   </div>
 </header>
@@ -367,20 +367,28 @@ genomes, which is what makes order-scale analysis tractable. The screen is delib
 evidence that matters is that the BGC count is unchanged (Figure 3).</p>
 
 <figure>
-  <img src="fig3.svg" alt="Bar charts comparing antiSMASH CPU-minutes and phosphonate BGC counts with and without the pepM pre-screen, on two full taxa each run both ways.">
-  <figcaption><span class="fignum">Figure 3.</span> The pepM pre-screen, on two full taxa
-  each run both ways. <strong>A</strong>, antiSMASH CPU-minutes with and without the screen.
-  Each pair is a controlled A/B — one taxon, one commit, identical antiSMASH batching, the
-  screen the only differing parameter — so the ratio is attributable to the screen alone.
-  <strong>B</strong>, phosphonate BGC regions detected: identical in both taxa.</figcaption>
+  <img src="fig3.svg" alt="Bar charts comparing antiSMASH CPU-minutes for Erwiniaceae, and phosphonate BGC counts for two taxa, with and without the pepM pre-screen.">
+  <figcaption><span class="fignum">Figure 3.</span> The pepM pre-screen on full taxa run both
+  ways. <strong>A</strong>, antiSMASH CPU-minutes with and without the screen, on
+  <em>Erwiniaceae</em>. It is a controlled A/B — one taxon, one commit, identical antiSMASH
+  batching, the screen the only differing parameter — so the ratio is attributable to the
+  screen alone. <em>P. ananatis</em> is deliberately absent from this panel: its run was
+  aggregated as <span class="mono">realtime × cpus</span> and cannot be re-expressed as
+  <span class="mono">realtime × %cpu</span>, so its bars would have crossed accounting bases
+  against these ones even though its own 1.7× ratio is internally valid. <strong>B</strong>,
+  phosphonate BGC regions detected, for both taxa: identical either way. Region counts carry
+  no CPU accounting basis, so <em>P. ananatis</em> is directly comparable here and not in
+  <strong>A</strong>.</figcaption>
 </figure>
 
 <p>On <em>Erwiniaceae</em> — 2,863 genomes, 11% carrying a pepM — antiSMASH falls from
 1,984 to 386 CPU-minutes, <strong>5.1×</strong>, for a screen costing 69 CPU-minutes: a
 return of 23 to 1. Both arms find the same 335 regions in the same 22 families. On
 <em>P. ananatis</em> — 344 genomes, 56% pepM-positive — the same comparison gives
-<strong>1.7×</strong> (529 to 311 CPU-minutes) and the same 226 regions either way, all 226
-identical base for base.</p>
+<strong>1.7×</strong> (529 to 311 CPU-minutes, on <span class="mono">realtime × cpus</span>)
+and the same 226 regions either way, all 226 identical base for base. That ratio is valid
+within its own pair, but its basis differs from every other CPU figure in this paper and its
+traces no longer exist, so it is reported here rather than plotted beside them.</p>
 
 <p>The screen therefore pays in proportion to how dilute the taxon is, which is what its
 mechanism predicts: it removes genomes, so it can only save what those genomes would have
@@ -396,8 +404,11 @@ selection. Only full taxa, each run both ways, are reported here.</p>
 quantity it acts on. Whole-pipeline totals for the <em>Erwiniaceae</em> pair are 2,287 and
 498 CPU-minutes, a larger-looking 4.6×, but that figure also folds in ORF recovery
 (257 → 14 CPU-minutes), which shrinks only because it too runs on the screened subset.</p>
-  <p>CPU-minutes here are <span class="mono">realtime × %cpu</span>, the CPU actually
-  consumed, throughout. A previous version of this work reported 6.5× for
+  <p>CPU-minutes for <em>Erwiniaceae</em>, and every projected figure in section 2.6, are
+  <span class="mono">realtime × %cpu</span>, the CPU actually consumed. The
+  <em>P. ananatis</em> pair above is the one exception in this paper and is labelled where it
+  appears; an earlier version of this note claimed a single basis throughout, which was wrong.
+  A previous version of this work reported 6.5× for
   <em>Erwiniaceae</em> from a pair whose arms differed in antiSMASH batching, in whether ORF
   recovery existed at all, and in GTDB-Tk, and which was aggregated as
   <span class="mono">realtime × cpus</span>, the cores reserved rather than used. Re-run as
@@ -448,7 +459,7 @@ caveat that makes it meaningful.</p>
       <tr><th>Validation set</th><th class="num">references from clade</th><th class="num">sensitivity</th><th class="num">false positives</th><th class="num">FP rate</th></tr>
     </thead>
     <tbody>
-      <tr><td><em>Erwiniaceae</em> (2,784 genomes)</td><td class="num">1 of 7</td><td class="num yes">299 / 299</td><td class="num">8 of 2,485</td><td class="num">0.32%</td></tr>
+      <tr><td><em>Erwiniaceae</em> (2,863 genomes)</td><td class="num">1 of 7</td><td class="num yes">300 / 300</td><td class="num">8 of 2,563</td><td class="num">0.31%</td></tr>
       <tr><td>Actinomycetes (323 genomes)</td><td class="num">6 of 7</td><td class="num yes">31 / 31</td><td class="num">23 of 292</td><td class="num">7.9%</td></tr>
       <tr><td><em>B. fragilis</em>, before fix</td><td class="num">0 of 7</td><td class="num no">96 / 98</td><td class="num">1 of 38</td><td class="num">2.6%</td></tr>
       <tr class="total"><td><em>B. fragilis</em>, after fix</td><td class="num">0 of 7</td><td class="num yes">98 / 98</td><td class="num">2 of 38</td><td class="num">5.3%</td></tr>
@@ -466,13 +477,24 @@ pepM, which is why two prior validations passed over this.</p>
 
 <p>BiG-SCAPE's all-pairs comparison is quadratic in both time and memory. Measured to 10,000
 BGCs, peak memory fits <span class="mono">GB = 1.80 + 2.04 × 10⁻⁷ n²</span>,
-projecting ~3.0 TB at the ~121,000 BGCs a million genomes would yield — a machine most
+projecting ~2.8 TB at the ~117,000 BGCs a million genomes would yield — a machine most
 groups do not have. The coefficient is the benchmark's <span class="mono">ru_maxrss</span>
 fit scaled by 1.58: BiG-SCAPE runs eleven processes and
 <span class="mono">ru_maxrss</span> reports only the largest, so summing resident set size
 across the process tree — counting each shared page once, by its proportional share —
 gives 1.58× the recorded figure, stably across five sizes. Partitioning on pepM identity
 bounds this, at a cost (Figure 4).</p>
+
+<div class="flagbox">
+  <span class="label">Known defect</span>
+  <p>The partition cap quoted in Table 4 — about 16,000 BGCs in a 64 GB allocation — inverts
+  the process-tree fit above, as it should. The shipped partitioner does not: it inverts the
+  unscaled <span class="mono">ru_maxrss</span> fit, and so admits about 20,300 BGCs into the
+  same allocation, roughly 1.27× what it holds. Partitioning is off by default, so no result
+  reported here is affected and nothing needs re-running — but the cap is the only thing
+  standing between a large run and an OOM kill, so the figure a reader should plan against is
+  16,000, not what the code currently derives.</p>
+</div>
 
 <figure>
   <img src="fig4.svg" alt="Three panels: BiG-SCAPE wall time with and without partitioning at three scales; peak memory versus BGC count with measured points and fitted curves; and gene cluster family counts showing no change.">
@@ -494,7 +516,10 @@ bounds this, at a cost (Figure 4).</p>
 
 <p>We report this as a trade rather than an improvement, because at every scale we could
 measure it is a runtime loss. Its value is that it converts an impossible job into a possible
-one without changing a single cluster assignment. The runtime crossover is projected near
+one without changing a cluster assignment beyond BiG-SCAPE's own run-to-run noise: identical
+at 185 and 518 BGCs, and at 1,302 BGCs three of 1,302 members move — the same three that move
+between two unpartitioned runs of the same input, so the disagreement is the tool's, not
+partitioning's. The runtime crossover is projected near
 10,000–12,000 BGCs, above anything we measured directly.</p>
 
 <div class="flagbox">
@@ -511,100 +536,161 @@ one without changing a single cluster assignment. The runtime crossover is proje
 <h3><span class="num">2.6</span>Projected cost at one million genomes</h3>
 
 <div class="stat-row">
-  <div class="stat"><span class="v">~5,200</span><span class="k">CPU-hours</span></div>
+  <div class="stat"><span class="v">~4,900</span><span class="k">CPU-hours</span></div>
   <div class="stat"><span class="v">~2 TB</span><span class="k">storage</span></div>
-  <div class="stat"><span class="v">~9.5 days</span><span class="k">elapsed, bandwidth-bound</span></div>
+  <div class="stat"><span class="v">3&ndash;11 days</span><span class="k">elapsed, fetch-bound</span></div>
 </div>
 
 <p>Extrapolated from the controlled 2,863-genome <em>Erwiniaceae</em> pair with pinned
-databases, at that run's 11% pepM retention. CPU-hours throughout this section are
+databases. That run fixes three different populations, and every projection below states
+which one it uses: <strong>308 of 2,863 genomes passed the screen (10.8%)</strong>,
+<strong>300 carried a BGC (10.5%)</strong>, and those yielded <strong>335 regions (11.7 per
+100 genomes)</strong>. CPU-hours throughout this section are
 <span class="mono">realtime × %cpu</span> — the CPU actually consumed, not the cores
 reserved. The two differ by about a factor of two on this pipeline, and mixing them is how
 an earlier version of this section came to overstate the screen's value.</p>
 
 <p><strong>Elapsed time used to be a scheduling problem and is now a bandwidth one.</strong>
 At one antiSMASH job per genome and a 20 jobs/min submission limit, submission alone took
-833 h against 29 h of compute. Batching removed that: at 50 genomes per job, and with only
-the ~110,000 screened genomes reaching antiSMASH, submission is about two hours and compute
-about six. What is left is the download, which no amount of batching or concurrency helps,
-because the limit is the network rather than the scheduler — measured here at 98 genomes per
-minute sustained over half an hour, with throughput peaking at two concurrent fetches and
-declining above it.</p>
+833 h against about 50 h of compute. Batching removed that: at 50 genomes per job, and with
+only the ~108,000 screened genomes reaching antiSMASH, submission is about two hours and
+compute about nine. What is left is the fetch, which no amount of batching or concurrency helps,
+because the limit is the link rather than the scheduler: across 2 to 12 concurrent fetches
+bandwidth moves only 22.4 to 24.7 MB/s, a 10% gain for six times the concurrency, and batches
+begin failing at eight. The reason not to raise the setting is those failures, not a decline
+in throughput — an earlier version of this paragraph reported a peak at two concurrent
+fetches, which was the shape seen by the same superseded WiFi probe discussed below. The only
+lever left is egress.</p>
 
 <div class="table-wrap">
   <table>
-    <caption><span class="fignum">Table 5.</span> Projected wall-clock at one million
-    genomes, on the SLURM profile's 200 concurrent jobs. GTDB-Tk and BiG-SCAPE follow
-    detection; the download dominates and barely overlaps.</caption>
+    <caption><span class="fignum">Table 4.</span> Projected wall-clock at one million
+    genomes, on the SLURM profile's 200 concurrent jobs at 2 cores each. The fetch is reported
+    separately from the compute because the two are properties of different machines — the
+    fetch of the run site's network egress, everything below it of the cluster — and summing a
+    measurement taken on one into a projection for the other is what the single critical-path
+    figure used to do. <strong>Every row here is derived from measured elapsed time and the
+    number of concurrent slots, never from dividing CPU-hours by a core count:</strong> the
+    CPU-hours of Table 5 are <span class="mono">realtime × %cpu</span>, and dividing those by
+    reserved cores is a ratio across the two accounting bases — which is how an earlier
+    version of this table arrived at 6 h for antiSMASH and 53 h for GTDB-Tk. antiSMASH
+    overlaps the fetch and is excluded from the critical path.</caption>
     <thead>
       <tr><th>Stage</th><th class="num">hours</th><th class="num">days</th><th>limited by</th></tr>
     </thead>
     <tbody>
-      <tr><td>NCBI download</td><td class="num">170</td><td class="num">7.1</td><td>network bandwidth</td></tr>
-      <tr><td>antiSMASH</td><td class="num">6</td><td class="num">0.3</td><td>400 cores</td></tr>
-      <tr><td>GTDB-Tk <span class="mono">(24 shards in parallel)</span></td><td class="num">53</td><td class="num">2.2</td><td>pplacer, single-threaded per shard</td></tr>
-      <tr><td>BiG-SCAPE <span class="mono">(partitioned)</span></td><td class="num">6</td><td class="num">0.3</td><td>largest partition, 8 cores</td></tr>
-      <tr class="total"><td>Critical path</td><td class="num">229</td><td class="num">9.5</td><td>74% of it download</td></tr>
+      <tr><td>NCBI fetch + screen</td><td class="num">41&ndash;237</td><td class="num">1.7&ndash;9.9</td><td>network egress at the run site</td></tr>
+      <tr><td>antiSMASH <span class="mono">(overlaps the fetch)</span></td><td class="num">9</td><td class="num">0.4</td><td>200 job slots &times; 50 genomes each</td></tr>
+      <tr><td>GTDB-Tk <span class="mono">(21 shards in parallel)</span></td><td class="num">34</td><td class="num">1.4</td><td>elapsed time of one full 5,000-genome shard</td></tr>
+      <tr><td>BiG-SCAPE <span class="mono">(largest partition)</span></td><td class="num">4</td><td class="num">0.2</td><td>~16,000 BGCs at a 64 GB allocation</td></tr>
+      <tr><td>Compute critical path</td><td class="num">37</td><td class="num">1.5</td><td>GTDB-Tk</td></tr>
+      <tr class="total"><td>Total elapsed</td><td class="num">78&ndash;274</td><td class="num">3.3&ndash;11.4</td><td>the fetch, at every rate measured</td></tr>
     </tbody>
   </table>
 </div>
 
-<p>The download figure is the one that travels least well. It is a property of this
-connection — about 264 Mbit/s — not of the pipeline, and a site with more egress would see it
-fall until GTDB-Tk became the limit at roughly two days. It is reported as measured rather
-than as a best case, because the measurement that matters for planning is the one taken on
-the machine the run will happen on.</p>
+<p><strong>The fetch is a band because three measurements of it disagree by 5.8×, and the
+span is the honest answer.</strong> The upper bound is what an order-scale run actually
+sustained end to end: 70.4 genomes per minute over 43 hours on 150,690 RefSeq
+<em>Enterobacterales</em> genomes, which is 237 hours at a million. The lower bound is a wired
+probe of the fused fetch-and-screen task, 22&ndash;25 MB/s against 3.38 MB per genome, which is
+41 hours — but it drew only complete-level assemblies, so it is biased toward larger,
+better-assembled genomes by an amount nobody has measured. Neither is a property of the
+pipeline. A site with more egress than either would see the fetch fall until GTDB-Tk became
+the limit at about two and a half days, which is the floor reachable without re-engineering
+the phylogeny stage.</p>
+
+<p>An earlier version of this table gave a single figure of 170 hours. That is one million
+divided by 98 genomes per minute, a rate measured over half an hour on a different clade,
+download-only and over WiFi, and since superseded by the 70.4 above — so the one row that
+dominated the critical path was the one row with no current measurement behind it. It is
+quoted here as a band rather than repaired to a better point estimate, because the quantity
+really does vary by a factor of six between sites and a point estimate invites the reading
+that it does not.</p>
 
 <div class="table-wrap">
   <table>
-    <caption><span class="fignum">Table 4.</span> Projected CPU-hours at one million
+    <caption><span class="fignum">Table 5.</span> Projected CPU-hours at one million
     genomes, by stage, with and without the pre-screen, as
-    <span class="mono">realtime × %cpu</span>. Fetch, screen, antiSMASH, ORF recovery and
-    protein pool are per-genome rates from the controlled <em>Erwiniaceae</em> pair at its
-    11% retention; GTDB-Tk and BiG-SCAPE are from their own scaling benchmarks, which are
-    quadratic in BGC count rather than linear in genomes and so cannot be taken from this
-    run.</caption>
+    <span class="mono">realtime × %cpu</span>. <strong>Each stage is priced against the
+    population it actually consumes, and they are not the same population:</strong> fetch and
+    the screen are paid on all 1,000,000 genomes, antiSMASH, ORF recovery and the protein pool
+    on the ~108,000 that pass the screen, GTDB-Tk on the ~105,000 that carry a BGC, and
+    BiG-SCAPE on the ~117,000 BGCs those yield. Per-genome rates are from the controlled
+    <em>Erwiniaceae</em> pair; GTDB-Tk and BiG-SCAPE from their own scaling benchmarks, which
+    are linear and quadratic in their own inputs rather than in genomes. BiG-SCAPE is quoted
+    unpartitioned, which is the conservative choice here: the row is identical in both columns,
+    so the lower partitioned figure would <em>raise</em> the ratio rather than lower
+    it.</caption>
     <thead>
       <tr><th>Stage</th><th class="num">antiSMASH only</th><th class="num">+ pre-screen</th></tr>
     </thead>
     <tbody>
       <tr><td>NCBI fetch + rename</td><td class="num">83</td><td class="num">83</td></tr>
       <tr><td>pepM pre-screen</td><td class="num">—</td><td class="num">400</td></tr>
-      <tr><td>antiSMASH</td><td class="num">11,552</td><td class="num">2,298</td></tr>
-      <tr><td>ORF recovery</td><td class="num">1,498</td><td class="num">83</td></tr>
+      <tr><td>antiSMASH</td><td class="num">11,552</td><td class="num">2,248</td></tr>
+      <tr><td>ORF recovery</td><td class="num">1,498</td><td class="num">81</td></tr>
       <tr><td>protein pool</td><td class="num">68</td><td class="num">6</td></tr>
-      <tr><td>GTDB-Tk <span class="mono">(BGC-positive genomes only)</span></td><td class="num">1,271</td><td class="num">1,271</td></tr>
-      <tr><td>BiG-SCAPE</td><td class="num">1,090</td><td class="num">1,090</td></tr>
-      <tr class="total"><td>Total CPU-hours</td><td class="num">15,563</td><td class="num">5,232</td></tr>
+      <tr><td>GTDB-Tk <span class="mono">(BGC-positive genomes only)</span></td><td class="num">1,108</td><td class="num">1,108</td></tr>
+      <tr><td>BiG-SCAPE <span class="mono">(unpartitioned)</span></td><td class="num">1,020</td><td class="num">1,020</td></tr>
+      <tr class="total"><td>Total CPU-hours</td><td class="num">15,330</td><td class="num">4,946</td></tr>
     </tbody>
   </table>
 </div>
 
-<p><strong>The screen is worth 3.0× on the whole projection, because antiSMASH is 74% of
+<p><strong>The screen is worth 3.1× on the whole projection, because antiSMASH is 75% of
 it.</strong> Two rows move. antiSMASH moves because the screen decides which genomes it
-sees, which is the point. ORF recovery moves with it — 1,498 to 83 CPU-hours — because it
+sees, which is the point. ORF recovery moves with it — 1,498 to 81 CPU-hours — because it
 too runs only on genomes that passed, and that is a consequence of screening rather than a
 second saving to claim credit for. Fetch is unchanged, since a genome must be fetched to be
 screened. BiG-SCAPE is unchanged, since the screen is detection-neutral and the same BGCs
-reach it. GTDB-Tk is unchanged because it already ran on BGC-positive genomes only, a subset
-of what the screen keeps — the two filters do not compound.</p>
+reach it. GTDB-Tk is unchanged because it already ran on BGC-positive genomes only, and
+those are a subset of what the screen keeps — 300 of the 308 on the controlled pair — so the
+two filters do not compound.</p>
 
 <p>The screen's own 400 CPU-hours are the largest single cost it adds and are paid on every
 genome, including the 89% it discards. It still returns 23 CPU-hours of antiSMASH saved
-per CPU-hour spent, or 26 against every stage it touches.</p>
+per CPU-hour spent, or 27 against every stage it touches.</p>
+
+<div class="flagbox">
+  <span class="label">The GTDB-Tk rows are an upper bound</span>
+  <p>Both GTDB-Tk figures — 1,108 CPU-hours here, 34 hours per shard in Table 4 — come from a
+  scaling benchmark run with <span class="mono">--skip_ani_screen</span>, which the phylogeny
+  module hardcoded at the time. It is now a parameter and the pipeline defaults it to
+  <em>off</em>, meaning the ANI screen runs. That screen classifies most genomes by average
+  nucleotide identity without ever reaching pplacer, and it was measured 3.2× faster on 450
+  GenBank genomes and about 10× faster on 2,530 RefSeq ones, for taxonomy identical at every
+  rank. So the real figures are smaller by some factor between one and ten, and nothing here
+  measures which: the screen's own cost is dominated by sketching GTDB's reference set, a
+  fixed cost per shard that 21 shards would pay 21 times. The unscreened figure is reported
+  because it is the one that was measured. It is the largest row the projection cannot yet
+  pin down, and it sits on the compute critical path.</p>
+</div>
 
 <div class="flagbox">
   <span class="label">Correction</span>
-  <p>Two earlier versions of this table were wrong, and in the same way. One gave ~24,100
-  CPU-hours unscreened, assembled from measurements taken at different times; a second gave
-  ~25,001 with a 4.6× saving. Both drew their antiSMASH rate from a run aggregated as
-  <span class="mono">realtime × cpus</span> — cores reserved — while other rows were actual
-  CPU, so the largest row was inflated against the rest by roughly the ratio of allocated to
-  used cores. Rebuilt on one basis from the controlled pair, the unscreened total is
-  <strong>15,563</strong> CPU-hours and the saving <strong>3.0×</strong>, not 4.6×. The
-  screened total barely moves (5,379 → 5,232), because the screened arm was always the one
-  measured in a way closer to actual CPU. The stage table is given so the arithmetic can be
-  checked rather than taken on trust.</p>
+  <p><strong>Three earlier versions of this table were wrong, in two distinct ways, and the
+  second way is the one worth learning from.</strong> Two of them mixed CPU accounting bases.
+  One gave ~24,100 CPU-hours unscreened, assembled from measurements taken at different times;
+  a second gave ~25,001 with a 4.6× saving. Both drew their antiSMASH rate from a run
+  aggregated as <span class="mono">realtime × cpus</span> — cores reserved — while other rows
+  were actual CPU, so the largest row was inflated against the rest by roughly the ratio of
+  allocated to used cores.</p>
+  <p>The third was rebuilt correctly on one basis, and then priced two stages against the
+  wrong <em>population</em>. It charged GTDB-Tk 1,271 CPU-hours at &ldquo;~121,000 BGC-positive
+  genomes&rdquo; — but 121,000 is not a count of genomes. It is the count of <em>BGCs</em>:
+  333 regions over 2,758 genomes, scaled to a million. The same run carried 108,049
+  BGC-positive genomes, so a count of clusters had been substituted for a count of genomes,
+  overstating that row by about 15%. It travelled undetected because 121,000 <em>is</em> the
+  right population for BiG-SCAPE, which does consume BGCs. Repriced at the controlled pair's
+  measured rates — 10.5% of genomes BGC-positive, 11.7 BGCs per 100 genomes — GTDB-Tk is
+  <strong>1,108</strong> CPU-hours and BiG-SCAPE <strong>1,020</strong>, giving an unscreened
+  total of <strong>15,330</strong> and a saving of <strong>3.1×</strong>.</p>
+  <p>Both errors are the same shape: a quantity used where a different quantity belonged, in a
+  number that carried a rate but not what the rate was multiplied by. Every row in Table 5 now
+  names its population, and every CPU figure in this section names its accounting basis, so
+  that the next such substitution is visible in the table rather than only in the
+  arithmetic.</p>
 </div>
 
 <p><strong>Storage is set by what is never written, not by what is deleted.</strong> Three
@@ -645,8 +731,9 @@ Downloading a million genomes into one directory before the first screen can run
   <li><strong>Family counts are an upper bound on distinct chemistries.</strong> Because the
   comparison is dominated by flank, and flank is conserved within a host species but
   divergent between them, BiG-SCAPE separates clusters that share an identical rule core.
-  Three of the four <em>Pantoea</em> pantaphos families carry the same core domain content
-  and differ only in chromosomal context; the two largest sit <span class="num">0.680</span>
+  Three of the four pantaphos families are <em>Pantoea</em> — the fourth is
+  <em>Photorhabdus</em>/<em>Xenorhabdus</em> — and those three carry the same core domain
+  content and differ only in chromosomal context; the two largest sit <span class="num">0.680</span>
   apart over the whole region and <span class="num">0.237</span> apart over the biosynthetic
   cassette alone. This is not fixed by the cutoff &mdash; the largest family is 186 members
   at 0.20, 0.30 and 0.40 alike, because BiG-SCAPE&nbsp;2 assigns families by affinity

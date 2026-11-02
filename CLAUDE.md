@@ -453,9 +453,19 @@ Measured directly instead, single shard, module flags, 8 vs 64 genomes:
 | 64 | 53.7 min | 63.5 min | 56.3 GB |
 
 **slope 0.630 CPU-min/genome, intercept 23.2 CPU-min.** The fixed cost is real but small;
-per-genome cost dominates above ~40 genomes. At the ~121,000 BGC-positive genomes a
-million-genome run yields, that is **~1,271 CPU-h**, against the 48 CPU-h the cost model
-had assumed — so the million-genome total moves from 22,868 to roughly 24,100 CPU-h, ~5%.
+per-genome cost dominates above ~40 genomes. At the **~104,800 BGC-positive genomes** a
+million-genome run yields, that is **~1,108 CPU-h** (0.630 x 104,785 + 23.2 x 21 shards),
+against the 48 CPU-h the cost model had assumed.
+
+**The ~121,000 this used to quote is a BGC count, not a genome count, and the error is the
+same shape as the CPU-basis one.** 121,000 is 333 regions / 2,758 genomes scaled to a million
+= 120,740 — correct for BiG-SCAPE, which consumes BGCs, and wrong for GTDB-Tk, which consumes
+BGC-POSITIVE GENOMES. That same run carried 298 of 2,758 = 108,049 of those, so the figure
+overstated GTDB-Tk by ~15%. The controlled pair gives 300 of 2,863 = **10.48%**, hence 104,800.
+**State the population as well as the rate** — a quantity used where a different quantity
+belongs is how both of this file's cost retractions happened. Note the per-shard wall-clock
+does NOT move: a full 5,000-genome shard is 0.630 x 5,000 + 23.2 = 52.9 h whatever the total,
+so only the CPU-h and the shard count (24 -> 21) change.
 
 Peak memory is set by the reference data, not by genome count (55.7 vs 56.3 GB), and sits
 close enough to this box's 56 GB that the figures may be memory-bound.
@@ -518,7 +528,7 @@ after the organism); and the ground truth is GTDB-Tk's own tree placement, so th
 whether the fast path reproduces the slow path, not whether either is taxonomically right.
 
 `GTDBTK_CLASSIFY` is sharded (`gtdbtk_shard_size`, default 5,000). Each shard re-pays only
-the 23.2 CPU-min intercept, so 20 shards cost ~7.7 CPU-h on ~1,271 — **0.6%**, which makes
+the 23.2 CPU-min intercept, so 21 shards cost ~8.1 CPU-h on ~1,108 — **0.7%**, which makes
 the sharding cheap insurance rather than a gamble. Data:
 `docs/comparisons/gtdbtk_scaling/`.
 
@@ -587,14 +597,29 @@ column.
 CPU-minutes are comparable; task counts are not."* On antiSMASH CPU the two measured
 full taxa are:
 
-| | genomes | % positive | screen off | screen on | |
-|---|---:|---:|---:|---:|---:|
-| Erwiniaceae | 2,863 | 11% | 1,984 | 386 | **5.1x** |
-| *P. ananatis* | 344 | 56% | 529 | 311 | **1.7x** |
+| | genomes | % positive | basis | screen off | screen on | |
+|---|---:|---:|---|---:|---:|---:|
+| Erwiniaceae | 2,863 | 11% | `realtime x %cpu` | 1,984 | 386 | **5.1x** |
+| *P. ananatis* | 344 | 56% | **`realtime x cpus`** | 529 | 311 | **1.7x** |
 
-**Both rows are now controlled pairs** (Erwiniaceae re-run both ways 2026-11-01,
+**Both rows are controlled pairs, but they are NOT on the same basis, and the two CPU-minute
+columns must never be compared across rows.** Each ratio is valid within its own pair;
+the absolute minutes are not comparable. `controlled_pantoea_ananatis/summary.json` says so in
+its `method` field -- "Timings are per-task realtime x cpus" -- and its traces no longer exist
+(the committed `tasks_*.tsv` carry realtime and cpus but no `%cpu`), so it CANNOT be
+re-expressed without re-running the pair. Erwiniaceae re-run both ways 2026-11-01,
 `/mnt/bigdisk/clusterquest/erwin_screen_{off,on}/`; *P. ananatis*
-`controlled_pantoea_ananatis/`, 2026-09-17).
+`controlled_pantoea_ananatis/`, 2026-09-17.
+
+**This put two accounting bases in one figure for a month, and the rule as written did not
+catch it.** `fig2_prescreen.py` plotted both taxa's ABSOLUTE CPU-minutes in panel A while its
+own header comment asserted "this figure is realtime x %cpu throughout. P. ananatis needed no
+correction -- 1.7x is a within-pair ratio on one basis." The ratio claim was true and the
+figure was still wrong: a grouped bar chart invites comparison of BAR HEIGHTS, and those
+crossed bases. **Check the geometry, not just the ratio** -- "is this ratio basis-internal"
+is a weaker test than "could a reader compare any two marks that sit on different bases".
+P. ananatis is now out of panel A and stays in panel B, because region COUNTS have no CPU
+basis. Same precedent as dropping the projected Enterobacterales bar.
 
 **The old Erwiniaceae row (3,680 -> 569, "6.5x") is superseded, for a reason that is
 NOT the one first recorded here.** An earlier version of this entry blamed antiSMASH task
@@ -831,12 +856,84 @@ removal of the directory output, which was emitted but never consumed.
 genome, **-65.3%**, measured like-for-like on 40 genomes present in both runs. I/O did not
 improve — ~3.2 GB per genome of small-file read+write is the shared-filesystem risk.
 
-**Projected to 1M genomes** at UIUC internal rates (`max(cores x $1.19, GB x $0.08)`
-per day, storage $8.75/TB/month): antiSMASH ~25,000 CPU-h / $1,240; GTDB-Tk in 50k
-batches 563 CPU-h / $30; BiG-SCAPE ~1,090 CPU-h / $54 (measured, above); storage ~16 TB
-with hard links and the raw-download publish dropped, plus 0.74 TB of BiG-SCAPE
-database / $145 per month. Compute is not the constraint
-at ~$1,320 — BiG-SCAPE's ~1.9 TB memory requirement is, and it forces partitioning.
+**Projected to 1M genomes, current figures (rebuilt 2026-11-01).** Every row is
+`realtime x %cpu` and every row names the population it is priced against, because
+conflating two populations is what broke the previous version. Manuscript section 2.6,
+Table 4.
+
+| stage | population it consumes | antiSMASH only | + pre-screen |
+|---|---|---:|---:|
+| NCBI fetch + rename | all 1,000,000 genomes | 83 | 83 |
+| pepM pre-screen | all 1,000,000 genomes | — | 400 |
+| `ANTISMASH` | ~108,000 screened | 11,552 | 2,248 |
+| `RECOVER_ORFS` | ~108,000 screened | 1,498 | 81 |
+| `BUILD_PROTEIN_POOL` | ~108,000 screened | 68 | 5 |
+| `GTDBTK_CLASSIFY` | ~105,000 **BGC-positive genomes** | 1,108 | 1,108 |
+| `BIGSCAPE` | ~117,000 **BGCs** (unpartitioned) | 1,020 | 1,020 |
+| **total CPU-h** | | **15,330** | **4,946** |
+
+**3.1x**, with antiSMASH 75% of the unscreened total. The three populations come from the
+controlled pair and are NOT interchangeable: 308 of 2,863 screened (10.8%), 300 BGC-positive
+(10.5%), 335 regions (11.7 per 100 genomes). See
+`docs/comparisons/pepm_prescreen/controlled_erwiniaceae/summary.json`,
+`populations_for_projection`.
+
+BiG-SCAPE is quoted **unpartitioned** on purpose. Equal partitions at the 64 GB cap would
+cost ~170 CPU-h rather than 1,020, but the row is identical in both columns, so a lower
+figure *raises* the 3.1x. Partition sizes are set by pepM identity and are heavily skewed, so
+there is no measured distribution to price. Keep the conservative row.
+
+**Wall clock is a band, not a number, and the band is the download.** Three measurements of
+the fetch disagree by 5.8x at a million genomes:
+
+| rate | provenance | 1M genomes |
+|---|---|---:|
+| ~408 genomes/min | wired fetch+screen probe, 22-25 MB/s over 3.38 MB/genome | **41 h** |
+| 98 genomes/min | **RETRACTED** — Erwiniaceae soak: WiFi, download-only, clade-specific | 170 h |
+| 70.4 genomes/min | RefSeq Enterobacterales, sustained end-to-end over 43 h | **237 h** |
+
+Manuscript Table 5 quoted the middle row as a single 170 h until 2026-11-01 — so the one row
+that was 74% of the critical path was the only row with no current measurement behind it. It
+now reports 41-237 h and says why. The wired probe drew complete-level assemblies only, so
+its bias is unmeasured; do not promote it to the headline.
+
+**Report fetch and compute separately.** The old table summed a download measured on this
+WSL2 box's home network into a critical path for a 200-job SLURM cluster. No machine has
+both. Compute critical path is **37 h** (GTDB-Tk 34 + BiG-SCAPE 4; antiSMASH's 9 h overlaps
+the fetch and is off the path), so total elapsed is **78-274 h = 3.3-11.4 days**.
+
+**NEVER derive wall-clock by dividing `realtime x %cpu` CPU-hours by a reserved core count.**
+That is a ratio across the two accounting bases, and it is the SAME error as the CPU one, one
+level up. It put three wrong numbers in manuscript Table 4 at once: antiSMASH 6 h (really 9),
+GTDB-Tk 53 h (really 34), BiG-SCAPE 6 h (really 4). Derive elapsed time from measured
+`realtime` and the number of concurrent slots instead:
+
+| stage | wrong way | right way | h |
+|---|---|---|---:|
+| antiSMASH | 2,248 CPU-h / 400 cores = 5.6 | realtime 0.6026 min/genome x 107,579 / 200 slots | **9.2** |
+| GTDB-Tk | 1,108 CPU-h / 21 shards = 52.8 | its own WALL fit, 28.33 + 0.3964 x 5,000 min | **33.5** |
+| BiG-SCAPE | 19.7 CPU-h / 8 cores = 2.5 | its own WALL fit, 182 + 4.939e-5 x n^2 s | **3.6** |
+
+BiG-SCAPE is the clearest tell: the benchmark's own rows achieve **5.56-6.13 effective cores
+of the 8 reserved**, so dividing CPU by 8 understates wall by ~40%. Both wall fits come from
+the same committed benchmarks as the CPU fits -- `docs/benchmark_data/bigscape_scaling.tsv`
+has a `wall_s` column beside `cpu_s`, and `gtdbtk_scaling/summary.json` records wall as well
+as CPU at N=8 and N=64. Use them.
+
+**The GTDB-Tk rows are an UPPER BOUND, not a measurement of the current default.** The
+0.630 CPU-min/genome fit was measured with `--skip_ani_screen`, which `gtdbtk.nf` hardcoded
+then. It is now `params.gtdbtk_skip_ani_screen` and `nextflow.config:428` defaults it to
+**false**, so the ANI screen runs -- measured 3.2x faster on 450 GenBank genomes and ~10x on
+2,530 RefSeq ones, for taxonomy identical at every rank. Nobody has re-measured the scaling
+on the fast path, and it will not simply divide: skani's sketch of GTDB's reference set is a
+fixed per-shard cost that 21 shards pay 21 times. **Re-measure before quoting GTDB-Tk as a
+bottleneck** -- it is the largest unpinned row in the projection and it sits on the critical
+path.
+
+At UIUC internal rates (`max(cores x $1.19, GB x $0.08)` per day, storage $8.75/TB/month):
+storage ~2 TB with hard links, the raw-download publish dropped and the screen keeping only
+~11%, plus 0.74 TB of BiG-SCAPE database / $145 per month. Compute is not the constraint —
+BiG-SCAPE's ~2.8 TB memory requirement at ~117,000 BGCs is, and it forces partitioning.
 
 ## Module & Script Organization
 

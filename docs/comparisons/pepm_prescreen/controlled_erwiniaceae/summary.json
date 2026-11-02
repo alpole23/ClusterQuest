@@ -71,5 +71,28 @@
   },
   "cached_realtimes_cross_checked": "These CPU sums come from CACHED trace rows, so they rest on CACHED carrying the realtime of the session that actually ran each task. Checked independently against .nextflow/history, which the launcher writes separately from the trace observer: the screen-off original (session 8f15d50e, 2026-10-31 17:35) ran 314.2 min wall for 2,287.2 CPU-min = 7.28 mean parallelism, the screen-on original (session 90f5f78d, 16:23) 72.5 min wall for 497.7 CPU-min = 6.87, on a 16-core box. Two runs of very different length and composition agreeing on ~7 is not what stale, zeroed, or resume-length (17-22 s) realtimes would produce. The Nextflow cache DB could not be queried directly -- no JVM is installed outside the pipeline's conda envs.",
   "cpu_accounting_basis": "realtime x %cpu (ACTUAL CPU utilisation). The superseded pepm_prescreen/summary.json uses realtime x cpus (ALLOCATED cores) instead, so no figure here may be compared with a figure there. On realtime x cpus this run is ANTISMASH 3,450.8 -> 629.1 CPU-min, 5.49x.",
-  "a_retracted_explanation": "An earlier version of this file blamed antiSMASH task granularity (2,760 one-genome tasks vs 7 batched). That is WRONG: modules/analysis/antismash.nf loops \"for GENOME in ${genomes}\" and invokes antiSMASH once per genome even inside a batched task, so batching amortises Nextflow task overhead only. Like-for-like, antiSMASH per-genome cost barely moved between the two eras: 43.3 -> 41.6 CPU-s/genome on realtime x %cpu, 80.1 -> 72.3 on realtime x cpus. The apparent \"80.4 -> 41.6\" collapse was entirely the unit mismatch above."
+  "a_retracted_explanation": "An earlier version of this file blamed antiSMASH task granularity (2,760 one-genome tasks vs 7 batched). That is WRONG: modules/analysis/antismash.nf loops \"for GENOME in ${genomes}\" and invokes antiSMASH once per genome even inside a batched task, so batching amortises Nextflow task overhead only. Like-for-like, antiSMASH per-genome cost barely moved between the two eras: 43.3 -> 41.6 CPU-s/genome on realtime x %cpu, 80.1 -> 72.3 on realtime x cpus. The apparent \"80.4 -> 41.6\" collapse was entirely the unit mismatch above.",
+  "populations_for_projection": {
+    "why": "Every stage prices against a DIFFERENT population, and conflating two of them is how the GTDB-Tk row came to be overstated by 15%. Counted from main_analysis_results/Erwiniaceae/region_counts.tsv in both arms.",
+    "total_genomes": 2863,
+    "screened_through": {
+      "n": 308,
+      "pct": 10.757,
+      "consumes": "antiSMASH, RECOVER_ORFS, BUILD_PROTEIN_POOL",
+      "at_1M": 107579
+    },
+    "bgc_positive_genomes": {
+      "n": 300,
+      "pct": 10.479,
+      "consumes": "GTDB-Tk (gtdbtk_bgc_genomes_only)",
+      "at_1M": 104785
+    },
+    "bgc_regions": {
+      "n": 335,
+      "pct_of_genomes": 11.701,
+      "consumes": "BiG-SCAPE",
+      "at_1M": 117010
+    },
+    "identical_in_both_arms": "308 screened is the screen-on arm's input; BGC-positive (300) and regions (335) are identical in BOTH arms, which is the detection-neutrality result."
+  }
 }

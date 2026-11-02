@@ -21,15 +21,18 @@
   },
   "projection_cpu_hours": {
     "1000_genomes": 11,
-    "121000_bgc_positive_genomes": 1271,
-    "note": "GTDB-Tk sees only BGC-positive genomes (gtdbtk_bgc_genomes_only). A million genomes yields ~121,000 of them, so 1,271 CPU-h is the figure that belongs in the cost model - not the 10,504 CPU-h a million genomes would cost if all were placed."
+    "104800_bgc_positive_genomes": 1108,
+    "basis": "0.630 x 104,785 + 23.2 x 21 shards = 66,511 CPU-min = 1,108 CPU-h. The population is BGC-POSITIVE GENOMES at the controlled Erwiniaceae pair's measured rate: 300 of 2,863 genomes = 10.48%, so ~104,800 at a million. GTDB-Tk sees only these (gtdbtk_bgc_genomes_only), not the 10,504 CPU-h a million genomes would cost if all were placed.",
+    "supersedes_121000": "An earlier version of this file gave 1,271 CPU-h at '~121,000 BGC-positive genomes'. 121,000 is NOT a genome count. It is the BGC count: 333 regions / 2,758 genomes on the 2026-08 Erwiniaceae benchmark = 120,740 at a million. That run's BGC-POSITIVE GENOME count was 298 / 2,758 = 108,049. So a count of clusters was substituted for a count of genomes, overstating GTDB-Tk by ~15%. The figure is correct for BiG-SCAPE, which does consume BGCs, and that is probably how it migrated. Same species of error as the realtime x cpus / realtime x %cpu mix-up: a quantity used where a different quantity belongs. State the POPULATION as well as the rate.",
+    "per_shard_wall_is_population_independent": "A full 5,000-genome shard costs 0.630 x 5,000 + 23.2 = 3,173 CPU-min = 52.9 h, whatever the total. So the wall-clock figure (~53 h) does not move when the population is corrected; only the CPU-h total and the shard count do (24 -> 21)."
   },
   "consequences": [
-    "The cost model assumed 48 CPU-h for GTDB-Tk. The measured figure is ~1,271 CPU-h, so total compute for a million genomes rises from 22,868 to roughly 24,100 CPU-h (+5%).",
+    "The cost model assumed 48 CPU-h for GTDB-Tk. The measured figure is ~1,108 CPU-h at the corrected population. Note the '22,868 -> 24,100 CPU-h' total this line used to quote is itself superseded twice over -- see the Correction box in docs/manuscript/index.html section 2.6; the current projection is 15,330 unscreened / 4,946 screened on realtime x %cpu.",
     "Sharding is cheap insurance after all: each shard re-pays only the 23.2 CPU-min intercept, so 20 shards add ~7.7 CPU-h to ~1,271 - about 0.6%.",
     "Peak memory was 55.7 and 56.3 GB at N=8 and N=64, i.e. set by the reference data rather than by genome count - and close enough to this box's 56 GB that the measurement may be memory-bound."
   ],
   "caveats": [
-    "Two points, both far below the 5,000-genome default shard size; the slope is assumed constant between them and is not verified at shard scale."
+    "Two points, both far below the 5,000-genome default shard size; the slope is assumed constant between them and is not verified at shard scale.",
+    "The 0.630 slope rests on two points (N=8, N=64), both far below the 5,000-genome shard size, and is unverified at shard scale. It is the dominant term in the 1,108 CPU-h figure."
   ]
 }
