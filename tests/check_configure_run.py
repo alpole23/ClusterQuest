@@ -102,6 +102,46 @@ def main():
     check('taxon' in dl, 'download asks for taxon')
     check('clustering' not in dl, 'download does not ask about clustering')
 
+    # 7. The database cache check builds the same paths the modules interpolate into
+    #    their storeDir. If a storeDir moves and this does not, the wizard reports a
+    #    database as cached that the run then downloads again -- 131 GB in the GTDB-Tk
+    #    case -- so compare them rather than trusting they agree.
+    fmt = {k: schema[k]['default'] for k in ('taxdump_date', 'pfam_release', 'gtdb_release')}
+    for db in cr.DATABASES:
+        mod = ROOT / 'modules' / 'databases' / f'{db["module"]}.nf'
+        if not mod.exists():
+            check(False, f'{db["module"]}.nf exists')
+            continue
+        text = mod.read_text()
+        store = re.search(r'storeDir\s+"\$\{params\.outdir\}/([^"]+)"', text)
+        outp = re.search(r'path\s+"([^"]+)",\s*emit', text) or re.search(r'path\s+"([^"]+)"', text)
+        if not (store and outp):
+            check(False, f'{db["module"]}: storeDir and output parsed')
+            continue
+        # Mirror Nextflow's interpolation, then normalise the trailing slash the
+        # directory outputs carry ("antismash/").
+        expected = f'{store.group(1)}/{outp.group(1)}'.rstrip('/')
+        for pname, pval in (('params.taxdump_date', fmt['taxdump_date']),
+                            ('params.pfam_release', fmt['pfam_release']),
+                            ('params.gtdb_release', fmt['gtdb_release'])):
+            expected = expected.replace('${' + pname + '}', str(pval))
+        got = db['path'].format(**fmt).rstrip('/')
+        check(got == expected, f'{db["module"]}: cache path matches storeDir',
+              '' if got == expected else f'wizard {got!r} vs module {expected!r}')
+
+    # 8. Every database's `needed` predicate must survive the answers a real interview
+    #    produces, including one where the optional keys were never asked.
+    for mode in ('download', 'bgc_analysis', 'full'):
+        minimal = {'workflow': mode, 'outdir': 'results'}
+        try:
+            [db['needed'](minimal) for db in cr.DATABASES]
+            ok = True
+        except Exception as exc:
+            ok = False
+            detail = f'{type(exc).__name__}: {exc}'
+        check(ok, f'database predicates tolerate a minimal {mode} interview',
+              '' if ok else detail)
+
     return 1 if FAIL else 0
 
 

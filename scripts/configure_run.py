@@ -220,6 +220,142 @@ WARNINGS = {
 }
 
 
+# Reference databases, with the storeDir path that decides whether one is fetched.
+# `storeDir` skips a download whenever its output path already exists, so the presence
+# of that exact path IS the cache check -- and a NEW outdir therefore re-downloads
+# everything, which is the trap CLAUDE.md records as "A new --outdir re-downloads all
+# 153 GB". This table exists so the interview can say that before the run starts rather
+# than discovering it ten minutes in.
+#
+# Sizes are MEASURED on 2026-11-02, not quoted from the modules -- download_antismash_dbs.nf
+# says "~50 GB" in its own header, which is the unpacked footprint and wrong for the
+# transfer by 60x. `download` is bytes over the wire, `disk` is what it occupies after
+# unpacking and pressing.
+DATABASES = [
+    dict(key='taxonkit', module='download_taxonkit_db',
+         path='databases/taxonkit/taxdump_{taxdump_date}',
+         needed=lambda a: a['workflow'] in ('download', 'full'),
+         download=77 * 2**20, disk=533 * 2**20,
+         note='NCBI taxonomy, for EXTRACT_TAXONOMY'),
+    dict(key='antiSMASH', module='download_antismash_dbs',
+         path='databases/antismash',
+         needed=lambda a: a['workflow'] in ('bgc_analysis', 'full'),
+         download=1_141 * 2**20, disk=5_600 * 2**20,
+         note='848 MB of archives plus Pfam 35.0; antiSMASH will not start without it'),
+    dict(key='Pfam {pfam_release}', module='download_pfam',
+         path='databases/pfam{pfam_release}',
+         needed=lambda a: (a['workflow'] in ('bgc_analysis', 'full')
+                           and a.get('clustering', 'bigscape') == 'bigscape'),
+         download=418 * 2**20, disk=4_500 * 2**20,
+         note='BiG-SCAPE needs it; from ftp.ebi.ac.uk, whose throughput varies a lot'),
+    dict(key='GTDB-Tk {gtdb_release}', module='download_gtdbtk_db',
+         path='databases/gtdbtk/release{gtdb_release}',
+         needed=lambda a: (a['workflow'] in ('bgc_analysis', 'full')
+                           and a.get('run_gtdbtk', True)),
+         download=131 * 2**30, disk=140 * 2**30,
+         note='measured at 7.1 MB/s on 2026-11-02: about 5.5 HOURS'),
+]
+
+
+def _gb(n):
+    return f'{n / 2**30:.1f} GB' if n >= 2**30 else f'{n / 2**20:.0f} MB'
+
+
+def database_report(answers, schema):
+    """What the chosen outdir already has, and what this run will fetch.
+
+    Returns (missing, cached, free_bytes). Every path is built from the same parameters
+    the modules interpolate into their storeDir, so a mismatch here means a mismatch
+    there -- keep them in step if a storeDir moves.
+    """
+    outdir = Path(str(answers['outdir'])).expanduser()
+    fmt = {k: answers.get(k, schema.get(k, {}).get('default'))
+           for k in ('taxdump_date', 'pfam_release', 'gtdb_release')}
+
+    cached, missing = [], []
+    for db in DATABASES:
+        if not db['needed'](answers):
+            continue
+        p = outdir / db['path'].format(**fmt)
+        (cached if p.exists() else missing).append((db, p, fmt))
+
+    try:
+        free = shutil.disk_usage(outdir if outdir.exists() else ROOT).free
+    except OSError:
+        free = None
+    return cached, missing, free
+
+
+def other_outdirs_with_caches(answers, schema):
+    """Sibling output directories that already hold the databases this run needs.
+
+    Pointing a new run at an outdir that already has them is the difference between
+    minutes and hours, and nothing else in the pipeline suggests it.
+    """
+    fmt = {k: answers.get(k, schema.get(k, {}).get('default'))
+           for k in ('taxdump_date', 'pfam_release', 'gtdb_release')}
+    chosen = Path(str(answers['outdir'])).expanduser().resolve()
+    wanted = [db for db in DATABASES if db['needed'](answers)]
+    if not wanted:
+        return []
+
+    out = []
+    for cand in sorted(ROOT.glob('results*')):
+        if not cand.is_dir() or cand.resolve() == chosen:
+            continue
+        have = sum(1 for db in wanted if (cand / db['path'].format(**fmt)).exists())
+        if have:
+            out.append((cand, have, len(wanted)))
+    return sorted(out, key=lambda t: -t[1])
+
+
+def report_databases(answers, schema):
+    """Print the cache report. Returns False if the user declines to continue."""
+    cached, missing, free = database_report(answers, schema)
+    if not (cached or missing):
+        return True
+
+    print('\n\033[1mReference databases\033[0m')
+    print(_wrap(f"storeDir is {answers['outdir']}/databases, and a database is fetched "
+                'only when its path is absent. A fresh output directory therefore '
+                're-downloads every one.', indent='  '))
+    print()
+    for db, p, fmt in cached:
+        print(f'  \033[32mcached\033[0m   {db["key"].format(**fmt)}')
+    for db, p, fmt in missing:
+        print(f'  \033[33mFETCH\033[0m    {db["key"].format(**fmt):16s} '
+              f'{_gb(db["download"]):>9s} download, {_gb(db["disk"]):>9s} on disk')
+        print(f'           {_wrap(db["note"], indent="").strip()}')
+
+    if not missing:
+        print('\n  Everything this run needs is already there.')
+        return True
+
+    dl = sum(db['download'] for db, _p, _f in missing)
+    disk = sum(db['disk'] for db, _p, _f in missing)
+    print(f'\n  total: \033[1m{_gb(dl)}\033[0m to download, '
+          f'\033[1m{_gb(disk)}\033[0m on disk')
+    if free is not None:
+        print(f'  free on this filesystem: {_gb(free)}')
+        if disk > free:
+            print(f'  \033[31mThat does not fit.\033[0m')
+        elif disk > free * 0.8:
+            print(f'  \033[33mThat is most of the remaining space.\033[0m')
+
+    alts = other_outdirs_with_caches(answers, schema)
+    if alts:
+        print('\n  These output directories already hold some of them:')
+        for cand, have, total in alts:
+            print(f'    {cand.name:28s} {have} of {total}')
+        print(_wrap('Answering outdir with one of those reuses its databases. They are '
+                    'pinned and identical across runs by construction, so sharing them '
+                    'is safe; CLAUDE.md also gives a symlink recipe for keeping results '
+                    'separate while sharing the cache.', indent='  '))
+
+    reply = input('\ncontinue with these downloads? [no] ').strip().lower()
+    return reply in ('y', 'yes')
+
+
 def load_schema():
     if not SCHEMA.exists():
         sys.exit(f'error: {SCHEMA} not found -- run this from the pipeline checkout')
@@ -428,6 +564,13 @@ def main():
 
     answers = interview(schema, args.advanced)
     summarise(answers, schema)
+
+    # After the interview, not during it: which databases are needed depends on
+    # clustering and run_gtdbtk, which are asked long after outdir.
+    if not report_databases(answers, schema):
+        print('\nnothing written. Re-run and answer outdir with a directory that '
+              'already holds the databases, or turn off what needs them.')
+        return 1
 
     out = args.out or default_outfile(answers)
     if out.exists():

@@ -27,10 +27,15 @@ are read from `nextflow_schema.json` at runtime, so it cannot drift from what th
 pipeline validates against; `tests/check_configure_run.py` checks the names and choice
 lists it states for itself.
 
-Prefer it to a long command line for two reasons beyond convenience: it writes real
+Prefer it to a long command line for three reasons beyond convenience: it writes real
 JSON booleans, which is the only safe way to pass them (see the first operational trap
-below), and the file it leaves is a record of exactly what was run, which can be
-committed beside a result and replayed.
+below); the file it leaves is a record of exactly what was run, which can be committed
+beside a result and replayed; and **it prices the reference databases before the run
+starts.** `storeDir` fetches a database only when its path is absent, so a fresh
+`outdir` re-downloads every one — the wizard reports which are cached, what the rest
+cost to download and on disk, whether they fit, and which other `results*` directories
+already hold them. Two real runs were lost on 2026-11-02 to a default `outdir` with no
+cache and `run_gtdbtk` left on, which is 131 GB and about 5.5 hours.
 
 ## Operational traps
 
