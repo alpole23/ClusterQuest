@@ -19,39 +19,37 @@ process DOWNLOAD_GTDBTK_DB {
     script:
     """
     echo "=============================================="
-    echo "GTDB-Tk Database Download (Split Package - Parallel)"
+    echo "GTDB-Tk Database Download"
     echo "=============================================="
-    echo "WARNING: This database is approximately 140 GB"
-    echo "Downloading 14 x 10GB split files in parallel for maximum speed"
+    echo "WARNING: this archive is ~132 GB and extracts to ~140 GB"
     echo ""
 
-    # AAU mirror split package - downloads all parts in parallel
-    BASE_URL="https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package"
+    # Mirror CHANGED 2026-11-02. This used to fetch a 14-part split package from
+    # data.gtdb.aau.ecogenomic.org, whose TLS certificate EXPIRED on 2026-10-27:
+    #
+    #     SSL/TLS handshake failure: certificate has expired
+    #
+    # All 14 parts failed at 0 B/s. That mirror also publishes the only copy of the
+    # split layout -- the same path 404s on the other two -- so moving mirrors means
+    # moving to the single full package, which is why the concatenation step is gone.
+    #
+    # Certificate expiry dates checked the same day:
+    #     data.gtdb.aau.ecogenomic.org   expired 2026-10-27   <- was hardcoded here
+    #     data.gtdb.ecogenomic.org       2026-11-23           <- used now
+    #     data.ace.uq.edu.au             2027-01-19           (404s on this path)
+    #
+    # A mirror's certificate will expire again. The symptom is the handshake error
+    # above on every part at once; check the dates with
+    #     echo | openssl s_client -connect <host>:443 -servername <host> \\
+    #       | openssl x509 -noout -dates
+    ARCHIVE_URL="https://data.gtdb.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/full_package/gtdbtk_r${params.gtdb_release}_data.tar.gz"
 
-    echo "Downloading from: \$BASE_URL"
+    echo "Downloading from: \$ARCHIVE_URL"
     echo "Started at: \$(date)"
     echo ""
 
-    # Create download list for aria2 (all 14 parts)
-    cat > download_list.txt << 'URLS'
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_aa
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ab
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ac
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ad
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ae
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_af
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ag
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ah
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ai
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_aj
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_ak
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_al
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_am
-https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_an
-URLS
-
-    # Same stale-CA guard as download_pfam.nf. aria2c reads SSL_CERT_FILE, and takes
-    # --ca-certificate as well; the environment variable covers both it and any helper.
+    # Same stale-CA guard as download_pfam.nf: a conda environment's CA bundle is
+    # frozen on the day it was solved. aria2c reads SSL_CERT_FILE.
     for _ca in /etc/ssl/certs/ca-certificates.crt \\
                /etc/pki/tls/certs/ca-bundle.crt \\
                "\${CONDA_PREFIX:-}/ssl/cacert.pem"; do
@@ -59,30 +57,22 @@ URLS
     done
     echo "CA bundle: \${SSL_CERT_FILE:-<none found; using the default>}"
 
-    # Download all 14 parts in parallel
-    # -j 14: download 14 files simultaneously
-    # -x 4: 4 connections per file (14 files x 4 = 56 total connections)
-    # -s 4: split each file into 4 segments
-    aria2c -j 14 -x 4 -s 4 -k 20M \\
+    # One file, so the parallelism is connections-per-file rather than files. The
+    # mirror advertises accept-ranges: bytes, which is what -x/-s need. --continue
+    # lets an interrupted 132 GB transfer resume instead of restarting.
+    aria2c -x 16 -s 16 -k 20M \\
+        --continue=true \\
+        --max-tries=0 \\
+        --retry-wait=10 \\
         --file-allocation=none \\
         --console-log-level=notice \\
-        --summary-interval=30 \\
-        -i download_list.txt
+        --summary-interval=60 \\
+        -o gtdbtk_data.tar.gz \\
+        "\$ARCHIVE_URL"
 
     echo ""
-    echo "All parts downloaded at: \$(date)"
-    echo "Part files:"
-    ls -lh gtdbtk_data.tar.gz.part_*
-
-    echo ""
-    echo "Concatenating split files..."
-    cat gtdbtk_data.tar.gz.part_* > gtdbtk_data.tar.gz
-
-    echo "Combined file size: \$(du -h gtdbtk_data.tar.gz)"
-
-    # Clean up split files
-    rm -f gtdbtk_data.tar.gz.part_*
-    rm -f download_list.txt
+    echo "Download finished at: \$(date)"
+    echo "Archive size: \$(du -h gtdbtk_data.tar.gz)"
 
     echo ""
     echo "Extracting database (this may take 30-60 minutes)..."
