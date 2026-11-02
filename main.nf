@@ -34,6 +34,30 @@ def validateParams() {
         errors << "Invalid clustering '${params.clustering}'. Valid options: ${validClustering.join(', ')}"
     }
 
+    // Validate assembly source. Unvalidated until 2026-11-02, so a typo reached the
+    // `datasets` CLI inside a task and failed there -- after metadata fetch had started
+    // and, at order scale, after a long queue wait. The CLI's own check is
+    // case-INSENSITIVE ('genbank' and 'GenBank' both work), so this is too, or it would
+    // reject values that work today.
+    //
+    // `all` is REJECTED although the CLI accepts it. It returns both GenBank and RefSeq,
+    // which is most genomes twice -- a GCA_ and a GCF_ accession for one assembly.
+    // Measured on Brenneria 2026-11-02: GenBank 60, RefSeq 58, all 119, of which 59 are
+    // the same assembly under both accessions. Both twins survive renaming, because the
+    // accession is appended when organism names collide, so both are screened, both
+    // reach antiSMASH and both enter BiG-SCAPE -- inflating family member counts in a
+    // way that reads as biological rather than as double counting. There is no question
+    // this pipeline asks that `all` answers better than one source alone.
+    def validAssemblySources = ['genbank', 'refseq']
+    if (!(params.assembly_source?.toString()?.toLowerCase() in validAssemblySources)) {
+        def extra = params.assembly_source?.toString()?.toLowerCase() == 'all'
+            ? " 'all' returns each assembly under both accessions, so it double-counts" +
+              " genomes; pick one source."
+            : ''
+        errors << "Invalid assembly_source '${params.assembly_source}'. Valid options: " +
+                  "GenBank, RefSeq (case-insensitive).${extra}"
+    }
+
     // Validate bigscape alignment mode
     def validAlignmentModes = ['auto', 'global', 'glocal']
     if (!(params.bigscape_alignment_mode in validAlignmentModes)) {

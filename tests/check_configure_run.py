@@ -49,8 +49,12 @@ def main():
     #    `validX` list per parameter; parse those and compare. A choice the pipeline
     #    rejects is worse than no choice list at all.
     main_nf = (ROOT / 'main.nf').read_text()
+    #    assembly_source is compared case-insensitively on purpose: main.nf lowercases
+    #    the value before testing it, because the `datasets` CLI accepts either casing,
+    #    while the wizard offers the documented spellings 'GenBank' and 'RefSeq'.
     for param, key in (('workflow', 'validWorkflows'),
                        ('clustering', 'validClustering'),
+                       ('assembly_source', 'validAssemblySources'),
                        ('bigscape_alignment_mode', 'validAlignmentModes'),
                        ('bigscape_classify', 'validClassify')):
         m = re.search(rf'def {key}\s*=\s*\[(.*?)\]', main_nf, re.S)
@@ -59,6 +63,9 @@ def main():
             continue
         allowed = set(re.findall(r"'([^']*)'", m.group(1)))
         offered = set(cr.CHOICES[param])
+        if param == 'assembly_source':
+            allowed = {a.lower() for a in allowed}
+            offered = {o.lower() for o in offered}
         bad = sorted(offered - allowed)
         check(not bad, f'{param} choices accepted by main.nf',
               f'rejected: {", ".join(repr(b) for b in bad)}' if bad else '')

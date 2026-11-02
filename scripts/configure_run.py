@@ -78,7 +78,13 @@ ASK, ADV = 'ask', 'advanced'
 CHOICES = {
     'workflow':                ['download', 'bgc_analysis', 'full'],
     'clustering':              ['bigscape', 'none'],
-    'assembly_source':         ['GenBank', 'RefSeq', 'all'],
+    # 'all' is deliberately NOT offered. It is both GenBank and RefSeq, which is most
+    # genomes twice -- a GCA_ and a GCF_ accession for one assembly. Measured on
+    # Brenneria: GenBank 60, RefSeq 58, all 119, of which 59 are the same assembly under
+    # both accessions. Both twins survive renaming, so both are screened, both reach
+    # antiSMASH and both land in BiG-SCAPE, inflating family member counts in a way that
+    # reads as biological. main.nf rejects it too.
+    'assembly_source':         ['GenBank', 'RefSeq'],
     'bigscape_alignment_mode': ['auto', 'global', 'glocal'],
     'bigscape_classify':       ['category', 'class', 'legacy', ''],
     'publish_mode':            ['link', 'copy', 'symlink'],
