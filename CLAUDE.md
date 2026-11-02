@@ -771,20 +771,30 @@ the whole 333-BGC runtime quadratically, fixed Pfam and database cost included.
 the first seven sizes (1.62 -> 3.40 GB) and an earlier draft concluded memory was not a
 constraint. It was measured over a range where the growth had not started. The local
 exponent runs 0.11 -> 0.29 -> 0.59 -> 1.27 -> 1.63 -> **2.01**: above ~4,000 BGCs it is
-exactly quadratic. Fit `GB = 1.14 + 1.29e-7*n^2` gives **~1.9 TB at 121,000 BGCs**, 4.3 TB
-at *Pantoea*-level BGC yield.
+exactly quadratic.
+
+**Two fits, and you must say which one you are using.** `GB = 1.14 + 1.29e-7*n^2` is
+fitted on `ru_maxrss`, which reports the max of any ONE process, and BiG-SCAPE runs
+eleven. Tree PSS — which divides each shared page by its sharers, so the shared Pfam
+data is counted once — is **1.58x higher**, stable at 1.51-1.65 over five sizes
+(`docs/comparisons/bigscape_partition_equivalence/memory_scaling_pss.tsv`). What the
+machine has to hold is the PSS figure: **`GB = 1.80 + 2.04e-7*n^2`**. The capacities
+below are on that corrected fit and are therefore **~26% lower** than the ru_maxrss
+ones published before 2026-11-02 (19,100 -> 15,060 at 48 GB, 22,100 -> 17,470 at 64 GB).
 
 | RAM budget | largest single BiG-SCAPE job |
 |-----------:|-----------------------------:|
-| 48 GB (`process_high` label) | 19,100 BGCs |
-| 64 GB (SLURM `withName: BIGSCAPE`) | 22,100 BGCs |
-| 128 GB | 31,400 BGCs |
-| 1 TB | 89,100 BGCs |
+| 16 GB (`process_high`, **local** profile) | 8,350 BGCs |
+| 48 GB (`process_high`, default label) | 15,060 BGCs |
+| 64 GB (SLURM `withName: BIGSCAPE`) | 17,470 BGCs |
+| 128 GB | 24,880 BGCs |
+| 1 TB | 70,820 BGCs |
 
 So a million genomes cannot be clustered in one pass. Partition by BGC class, or
-pre-cluster, before that point. **The 64 GB SLURM override caps the pipeline at ~22,000
-BGCs** — roughly 180,000 genomes at Erwiniaceae-level prevalence, which is where this will
-first bite.
+pre-cluster, before that point. **The 64 GB SLURM override caps the pipeline at ~17,500
+BGCs** — roughly 150,000 genomes at Erwiniaceae-level prevalence. **On this workstation
+the local profile gives BiG-SCAPE 16 GB, which caps it at ~8,350** — the binding limit
+here, and the one `scripts/figures/fig4_scalability.py` draws.
 
 **Database: ~0.74 TB at 121,000 BGCs.** Bytes per comparison converged to 101, so 7.3
 billion rows in one SQLite file (16.9 billion / 1.71 TB at the higher yield). Real, but a
@@ -2739,8 +2749,13 @@ matched pair, which an earlier `_min`/`_max` naming wrongly implied.
 
 **Partitioning is a net loss at small scale**, which is what the threshold is for: every
 partition re-pays BiG-SCAPE's fixed Pfam-load cost. Measured on identical inputs, 185 BGCs
-took **30 s as one job against 112 s across 19 partitions** (3.7x slower), and 518 BGCs
-took 93 s against 191 s (2.1x). Modelling the fixed cost against the quadratic term puts
+took **30 s as one job against 112 s summed across 19 partitions** (3.7x more compute),
+and 518 BGCs took 93 s against 191 s (2.1x). Those partitioned figures are
+`bigscape_seconds_partitioned`, accumulated in a serial loop (`total_s += secs` in
+`bench_bigscape_partitioned.py`), so they are the SUM of N subprocess elapsed times
+against one process's elapsed time — cumulative compute, not wall clock. **No
+partitioned wall time is committed anywhere in this repo**; under Nextflow the
+partitions run concurrently, so the real elapsed penalty is smaller and unmeasured. Modelling the fixed cost against the quadratic term puts
 the crossover near **10,000-12,000 BGCs**, hence the default. Below it, partitioning costs
 time and buys nothing, because memory is not yet a constraint either.
 
@@ -2759,16 +2774,23 @@ BiG-SCAPE's own noise floor. Two of the three movers are the two that
 --max_partition_size` should be read as invalidating the run's families, not as advisory.
 
 **The cap should follow the memory allocation, not a guess**, so it is derived by
-inverting the measured fit `GB = 1.14 + 1.29e-7*n^2` against `task.memory`:
+inverting the measured fit against `task.memory`. The code inverts the **ru_maxrss**
+fit `GB = 1.14 + 1.29e-7*n^2`, which is one process of eleven and therefore sizes
+partitions ~26% too large; the tree-PSS fit `GB = 1.80 + 2.04e-7*n^2` is what the
+machine actually holds. Both columns below, because the left one is what
+`partition_bgcs.py` currently computes and the right one is what it should:
 
-| RAM | largest partition |
-|----:|------------------:|
-| 16 GB | 10,700 BGCs |
-| 32 GB | 15,500 |
-| 48 GB | 19,100 |
-| 64 GB | 22,100 |
-| 128 GB | 31,400 |
-| 256 GB | 44,400 |
+| RAM | cap as derived (ru_maxrss) | cap it should be (tree PSS) |
+|----:|---------------------------:|----------------------------:|
+| 16 GB | 10,700 BGCs | **8,350 BGCs** |
+| 32 GB | 15,500 | **12,170** |
+| 48 GB | 19,100 | **15,060** |
+| 64 GB | 22,100 | **17,470** |
+| 128 GB | 31,400 | **24,880** |
+| 256 GB | 44,400 | **35,320** |
+
+The 0.85 margin absorbs part of the gap but not all of it: 0.85 against a required
+0.795 leaves the derived cap ~7% high. Latent, because partitioning is off by default.
 
 Those are at 85% of the allocation, not 100%, because **the fit is being extrapolated well
 past its data**: it was measured to 10,000 BGCs, and 128 GB implies ~31,000 — a 3.1x reach,
@@ -3879,17 +3901,25 @@ membership, while BiG-SCAPE families are transitively closed and 9% of same-fami
 sit below that cutoff, joined through a third BGC. **Treat a non-zero `lost` as
 disqualifying rather than as a damage budget**; zero remains a reliable all-clear.
 
-Applying the measured memory fit `GB = 1.14 + 1.29e-7*n^2` at 121,000 BGCs:
+Applying the tree-PSS memory fit `GB = 1.80 + 2.04e-7*n^2` at 121,000 BGCs:
 
 | | peak RAM |
 |---|---:|
-| one job, no partition | 1,890 GB |
-| Erwiniaceae-like split (71%) | 953 GB |
-| **Streptomyces-like split (21%)** | **84 GB** |
-| Streptomyces at 0.80 (14%) | 38 GB |
+| one job, no partition | 2,986 GB |
+| **Erwiniaceae-like split (71%)** | **1,506 GB** |
+| Streptomyces-like split (21%) | 133 GB |
+| Streptomyces at 0.80 (14%) | 60 GB |
 
-So a million genomes goes from *needing a 2 TB node that may not exist* to fitting the
-existing 128 GB `process_high_memory` allocation. **Judge partitioning on diversity, not
+**Read the 71% row, not the 21% one.** Every real taxon ever partitioned clusters near
+71% — *Erwiniaceae* 236/333 and 236/334, Enterobacterales RefSeq 942/1,302 = 72.4% — and
+the Streptomyces 38/185 = 20.5% is the outlier, measured on the one test set with no
+dominant pepM component. A million genomes therefore goes from needing a 3 TB node to
+needing a 1.5 TB node: **2.0x, not 22x**, and still not the 128 GB allocation.
+
+This table is where the error in the published Figure 4 came from. The table itself was
+right — it showed the share dependence — and the conclusion drawn from it picked the
+most favourable row. **A table that spans a range does not license quoting its best
+entry as the result.** **Judge partitioning on diversity, not
 BGC count** — the earlier "2x is not enough" verdict was measured on the one clade where
 it could not work.
 
