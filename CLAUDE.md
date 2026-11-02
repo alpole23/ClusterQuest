@@ -667,9 +667,9 @@ Two trace-reading traps found doing this, also recorded:
   per-task timings of the original run survive only because `CACHED` rows preserve
   them -- copy the trace aside before resuming a run you intend to benchmark.
 
-Note the top-level `pepm_prescreen/summary.json` still claims "a controlled A/B on one
-taxon with one code version has not been run"; that caveat is **stale**, two controlled
-runs now exist.
+The top-level `pepm_prescreen/summary.json` used to claim "a controlled A/B on one taxon
+with one code version has not been run". That caveat has been removed and the file now
+carries a `superseded_by` pointer to `controlled_erwiniaceae/summary.json` instead.
 
 **Enterobacterales is no longer in Figure 3.** Its 46x needed a projected arm --
 1,349,507 antiSMASH runs at the measured 80.4 CPU-s/genome, ~30,100 CPU-h that were
