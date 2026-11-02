@@ -11,15 +11,30 @@ conda activate nextflow    # Activate conda environment before running
 ## Quick Start
 
 ```bash
+python scripts/configure_run.py                            # ask, then write a params file
 nextflow run main.nf --taxon "Pantoea ananatis"           # Full pipeline
 nextflow run main.nf --workflow download --taxon "Streptomyces coelicolor"
 nextflow run main.nf --clustering bigscape                 # With clustering
 nextflow run main.nf -profile slurm                        # HPC execution
 ```
 
+`configure_run.py` asks `workflow` first and then only the parameters that mode
+consumes — a `download` run is never asked about BiG-SCAPE — gating each question on
+the answers before it. It writes a `-params-file` and offers to launch. `--advanced`
+adds the tuning knobs, `--list` shows which parameters each mode asks about, and
+`--print-only` writes the file without running anything. Types, defaults and help text
+are read from `nextflow_schema.json` at runtime, so it cannot drift from what the
+pipeline validates against; `tests/check_configure_run.py` checks the names and choice
+lists it states for itself.
+
+Prefer it to a long command line for two reasons beyond convenience: it writes real
+JSON booleans, which is the only safe way to pass them (see the first operational trap
+below), and the file it leaves is a record of exactly what was run, which can be
+committed beside a result and replayed.
+
 ## Operational traps
 
-Eight ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Nine ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -32,6 +47,15 @@ the first line, not the cascade, and never comment the call out to get past it.
 echo '{"taxon":"Enterobacterales","bigscape_partition":true}' > run.json
 nextflow run main.nf -params-file run.json
 ```
+
+**`params` is immutable at runtime, and assigning to it raises nothing.** Measured on
+26.04.3: inside a workflow body `params.taxon = 'X'` leaves `params.taxon` at its old
+value and throws no exception. So a script cannot adjust its own parameters — which is
+why `configure_run.py` is a wrapper that writes a params file rather than a prompt
+inside `main.nf`. Note a console IS attached under `nextflow run`
+(`System.console()` returns a `ProxyingConsole`), so the tempting design *appears*
+available: you can ask the question and silently fail to apply the answer. Every gate
+in the workflow body and every process directive reads `params`.
 
 **`-resume` by session UUID, not run name.** `-resume <run-name>` silently resumed a
 different session — a `-preview` test — reporting 0 cache hits and starting to re-download
