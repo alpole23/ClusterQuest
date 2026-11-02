@@ -29,8 +29,17 @@ process DOWNLOAD_TAXONKIT_DB {
     # rewritten daily, so with storeDir it would pin itself to whatever day the
     # pipeline first ran — this pipeline sat on a 2026-01-23 copy for seven
     # months that way. The archive is .zip; the live file is .tar.gz.
+    # See the note in download_pfam.nf: a stale conda CA bundle makes wget fail with
+    # exit 5, and `-q` hides the reason. Same fix, same reason.
+    for _ca in /etc/ssl/certs/ca-certificates.crt \\
+               /etc/pki/tls/certs/ca-bundle.crt \\
+               "\${CONDA_PREFIX:-}/ssl/cacert.pem"; do
+        if [ -r "\$_ca" ]; then export SSL_CERT_FILE="\$_ca"; break; fi
+    done
+    echo "CA bundle: \${SSL_CERT_FILE:-<none found; using the default>}"
+
     echo "Downloading taxdmp_${params.taxdump_date}.zip from NCBI FTP..."
-    wget -q --show-progress -O taxdmp.zip \\
+    wget --progress=dot:giga -O taxdmp.zip \\
         "https://ftp.ncbi.nih.gov/pub/taxonomy/taxdump_archive/taxdmp_${params.taxdump_date}.zip"
 
     echo ""

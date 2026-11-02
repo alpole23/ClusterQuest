@@ -50,6 +50,15 @@ https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${pa
 https://data.gtdb.aau.ecogenomic.org/releases/release${params.gtdb_release}/${params.gtdb_release}.0/auxillary_files/gtdbtk_package/split_package/gtdbtk_data.tar.gz.part_an
 URLS
 
+    # Same stale-CA guard as download_pfam.nf. aria2c reads SSL_CERT_FILE, and takes
+    # --ca-certificate as well; the environment variable covers both it and any helper.
+    for _ca in /etc/ssl/certs/ca-certificates.crt \\
+               /etc/pki/tls/certs/ca-bundle.crt \\
+               "\${CONDA_PREFIX:-}/ssl/cacert.pem"; do
+        if [ -r "\$_ca" ]; then export SSL_CERT_FILE="\$_ca"; break; fi
+    done
+    echo "CA bundle: \${SSL_CERT_FILE:-<none found; using the default>}"
+
     # Download all 14 parts in parallel
     # -j 14: download 14 files simultaneously
     # -x 4: 4 connections per file (14 files x 4 = 56 total connections)

@@ -26,10 +26,28 @@ process DOWNLOAD_PFAM {
     mkdir -p pfam${params.pfam_release}
     cd pfam${params.pfam_release}
 
+    # A conda environment's bundled CA store is fixed on the day the environment was
+    # solved and is never refreshed. This one carried a 2026-07-22 bundle that does not
+    # include the issuer ftp.ebi.ac.uk now presents, so wget died with
+    #     ERROR: cannot verify ftp.ebi.ac.uk's certificate ... Self-signed certificate
+    # and exit status 5 -- which `-q` SUPPRESSED, so the task failed with an empty
+    # .command.err and a bare "exit status (5)". Prefer the system store, which the OS
+    # keeps current; fall back to the environment's own. Note `wget --spider` does NOT
+    # reproduce the failure: it verifies nothing, so a HEAD probe passes while the real
+    # transfer fails.
+    for _ca in /etc/ssl/certs/ca-certificates.crt \\
+               /etc/pki/tls/certs/ca-bundle.crt \\
+               "\${CONDA_PREFIX:-}/ssl/cacert.pem"; do
+        if [ -r "\$_ca" ]; then export SSL_CERT_FILE="\$_ca"; break; fi
+    done
+    echo "CA bundle: \${SSL_CERT_FILE:-<none found; using the default>}"
+
     # Download Pfam-A HMM profiles
     if [ ! -f "Pfam-A.hmm.gz" ] && [ ! -f "Pfam-A.hmm" ]; then
         echo "Downloading Pfam-A.hmm..."
-        wget -q --show-progress https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam${params.pfam_release}/Pfam-A.hmm.gz
+        # NOT -q: it hid the certificate error above. dot:giga keeps the log short
+        # while leaving errors visible.
+        wget --progress=dot:giga https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam${params.pfam_release}/Pfam-A.hmm.gz
         echo "Extracting..."
         gunzip Pfam-A.hmm.gz
     else
