@@ -321,22 +321,24 @@ def _build_gcf_support_section(gcf_support_rows):
             </div>'''
 
 
-def build_bigscape_stats_section(bigscape_stats_html, taxon_clean, network_html=''):
-    """Network-level clustering numbers, the family network, and where to open
-    BiG-SCAPE's own output.
+def build_bigscape_stats_section(bigscape_stats_html, taxon_clean):
+    """Network-level clustering numbers, and where to open BiG-SCAPE's own output.
 
-    The per-family tables that used to sit in this block are their own sections
-    now. The GCF network is here rather than with the phylogeny because it is a
-    picture of BiG-SCAPE's distance matrix, not of biosynthesis -- and because this
-    pane was 3.9 KB of an 8.5 MB report, which is the wrong size for the one place a
-    reader goes to ask how the families relate to each other.
+    The per-family tables that used to sit in this block are their own sections now.
+
+    **The GCF network left this pane on 2026-11-02** for the GCF characterisation one.
+    It used to live here on the argument that it is a picture of BiG-SCAPE's distance
+    matrix rather than of biosynthesis, which is true and turned out not to be the
+    point: what a reader does with it is qualify the per-family table ("these two
+    families are closer than the cutoff that separated them"), and that table is two
+    groups away in the rail. Grouping by which instrument produced a figure rather than
+    by the question it answers is what put it here.
     """
-    if not (bigscape_stats_html or network_html):
+    if not bigscape_stats_html:
         return ''
     return f'''
             <div class="clustering-section">
                 {bigscape_stats_html}
-                {network_html}
                 <div class="info-box" style="margin-top: 20px;">
                     <p><strong>The interactive BiG-SCAPE output</strong> — the similarity
                     network, per-family alignments and the distance browser — is not
@@ -955,9 +957,31 @@ def _twin_cell(other, differing):
             f'Not counted against the rank.">~ GCF-{other}</span>')
 
 
+def _network_only_section(network_html):
+    """The characterisation pane with the network but no table.
+
+    Reached when `gcf_characterisation.tsv` is absent or empty but clustering still
+    ran. Returns '' when there is no network either, so the pane drops out of the rail
+    as it did before rather than opening onto a heading with nothing under it.
+    """
+    if not network_html or not network_html.strip():
+        return ''
+    return f'''
+    <div class="section">
+        <h3>GCF Characterisation</h3>
+        <p style="color:#555;max-width:88ch;font-size:.92em;">
+            The per-family table is not available for this run — it needs
+            <code>gcf_characterisation.tsv</code> from <code>GCF_CHARACTERISATION</code>.
+            The family network below is independent of it.
+        </p>
+        {network_html}
+    </div>'''
+
+
 def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
                                        gcf_hrefs=None, branch_point_path=None,
-                                       gcf_data=None, reference_summary=None):
+                                       gcf_data=None, reference_summary=None,
+                                       network_html=''):
     """Everything known about each family, on one row.
 
     Replaces the Novelty Assessment ranking. **There is no composite score, and no
@@ -968,8 +992,19 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
     anything characterised. Isolation outlived the composite as a published column and
     was dropped too (2026-10-29): a within-run median distance, headed "isolation" and
     printed beside the reference identity, reads as a novelty rank however the tooltip
-    is worded. The GCF network in the BiG-SCAPE pane shows the same between-family
-    distances as a shape, which cannot be mistaken for an ordering.
+    is worded. The GCF network below the table shows the same between-family distances
+    as a shape, which cannot be mistaken for an ordering.
+
+    `network_html` is the close-family network, moved here from the BiG-SCAPE statistics
+    pane on 2026-11-02. It belongs with the table it qualifies: "21 of 72 families lie
+    closer than the cutoff that separates them" is a caveat on every row above it, and a
+    reader deciding which family to trust should not have to find it two groups away.
+
+    One wrinkle to know about. On a multi-cutoff run the network is per-cutoff and
+    follows the selector, while the table above it is not and does not -- the selector's
+    note names the network for that reason. The mismatch predates this move (the table
+    never switched) and the default is a single cutoff, where no selector is drawn at
+    all. If the table is ever made per-cutoff, drop this paragraph.
 
     Two measures of "is this already known" sit side by side because they disagree,
     and in opposite units:
@@ -986,8 +1021,10 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
     """
     import csv as _csv
     from pathlib import Path as _Path
+    # The network does not depend on the ranking file, so a run that produced one but
+    # not the other still shows it rather than dropping it silently.
     if not ranking_path or not _Path(ranking_path).exists():
-        return ''
+        return _network_only_section(network_html)
 
     # Families that are chemically indistinguishable from another, from
     # BIOSYNTHETIC_PROFILE. Shown as an ANNOTATION, never folded into the score.
@@ -1049,7 +1086,7 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
 
     rows = list(_csv.DictReader(_Path(ranking_path).open(), delimiter='\t'))
     if not rows:
-        return ''
+        return _network_only_section(network_html)
 
     ranked = rows
 
@@ -1298,6 +1335,7 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
             <tbody>{body}</tbody>
         </table>
         </div>
+        {network_html}
     </div>'''
 
 
