@@ -77,6 +77,25 @@ def validateParams() {
         error "Please fix the above parameter errors and try again."
     }
 
+    // Run with nothing on the command line and every parameter is a default, which is
+    // legitimate -- and is also what someone who meant to configure the run looks like.
+    // Say what is about to happen and where the questions are. A notice, not a warning:
+    // the defaults are a real configuration, and CI runs this way on purpose.
+    //
+    // The prompts CANNOT live here. `params` is immutable at runtime -- assigning to it
+    // is a no-op that raises nothing -- so this script can ask a question and has no way
+    // to apply the answer. See the operational trap in CLAUDE.md.
+    //
+    // `--foo bar` is a pipeline parameter; `-profile local` is a Nextflow option and
+    // does not count as configuring the run, which is why the test is for a DOUBLE dash.
+    def cl = workflow.commandLine ?: ''
+    if (!(cl =~ /(^|\s)--\S/) && !cl.contains('-params-file')) {
+        log.info "No parameters given -- running defaults: " +
+                 "workflow=${params.workflow}, taxon=${params.taxon}, " +
+                 "outdir=${params.outdir}"
+        log.info "To be asked for them instead:  python scripts/configure_run.py"
+    }
+
     // Warnings
     if (params.run_gtdbtk) {
         log.warn "GTDB-Tk is enabled. This requires ~140 GB disk space and ~56-64 GB RAM."
