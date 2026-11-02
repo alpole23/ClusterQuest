@@ -6,32 +6,48 @@ Two figures from one generator, because they share the same facts and must not d
   fig5_mechanisms   main body. Three panels, one per mechanism, no stage overview.
   figS1_architecture  supplemental. Stages, data artefacts and the funnel in one view.
 
-Every number is measured on the Enterobacterales GenBank run (2026-10-16, 1,349,504
-genomes, 2 d 15 m, 0 failures) and sourced from
-docs/comparisons/enterobacterales_genbank/summary.json. Nothing here is illustrative.
+Every number is measured on the Enterobacterales RefSeq run (2026-09-27, 150,690
+genomes, 43.1 h, 6,098 tasks, 0 failures) and read at render time from that run's
+own records -- summary.json for the funnel, pipeline_trace.tsv.gz for every per-stage
+task count, elapsed span and CPU figure, disk_samples.tsv for every peak. Nothing
+here is illustrative and nothing is typed in by hand.
+
+WHY THIS RUN AND NOT THE LARGER ONE. These figures sat on the GenBank run (1,349,504
+genomes) from 2026-10-28 until 2026-11-02, which is 8.9x the input. That run has no
+committed trace and no disk or memory sampler, so it can support a funnel and a CPU
+share and nothing else -- and the brief for this figure is real data for EVERY step.
+Taking per-stage wall and memory from RefSeq while taking the funnel from GenBank
+would have put two runs in one spine, which is the same error class as mixing two CPU
+bases. So the whole figure is RefSeq and the footer gives GenBank's scale in words.
 
 The architecture has one defining fact and one surprise, and both figures carry them:
 
-  the funnel    1,349,504 genomes -> 1,530 pass the pepM screen (0.11%) -> 1,476
-                regions -> 112 families. 99.89% is discarded before anything
+  the funnel    150,690 genomes -> 1,309 pass the pepM screen (0.87%) -> 1,303
+                regions -> 72 families. 99.13% is discarded before anything
                 expensive runs.
-  the inversion cost runs opposite to intuition. Fetch-and-screen is 91.2% of CPU over
-                53,981 tasks; BiG-SCAPE, the one that is quadratic in both time and
-                memory, is 0.07%. Moving and filtering data costs more than analysing
-                it at this prevalence, which is why the screen is the architecture
-                rather than an optimisation.
+  the three     "Which stage is expensive" has three different right answers, so
+  answers       panel A draws three strips rather than picking one. Fetch-and-screen
+                is 75.4% of ELAPSED time and 68.2% of RESERVED cores but only 40.4%
+                of CPU USED; antiSMASH_ANALYSIS is 12.8% / 20.8% / 49.5%. The fetch
+                is network-bound on four allocated cores, so reserving them is most
+                of what it does. BiG-SCAPE -- quadratic in both time and memory -- is
+                0.7% of CPU used, because the funnel hands it 1,303 of 150,690.
 
-These figures were on the RefSeq run (150,690 genomes) until 2026-10-28. The switch
-strengthens the thesis rather than restating it: at 8.9x the input and an eighth the
-retention, fetch-and-screen goes 40.4% -> 91.2% and antiSMASH 29.3% -> 4.0%. The one
-thing lost is peak disk and peak memory, which only the RefSeq run sampled -- the
-panel that cites them now says so. See `not_measured` in the summary.
+A caveat the figure prints rather than hides: 72 families was measured at
+`bigscape_min_bgc_length = 0`, which was the default until 2026-10-30. The shipped
+default is 2,000 bp, this run contains exactly one region below it (1,001 bp, one
+CDS), and it was never re-clustered. On the GenBank run removing the equivalent
+record moved the count 112 -> 126, so this is not a rounding difference.
 
 Usage:
     python scripts/figures/fig5_architecture.py --outdir docs/figures
 """
 import argparse
+import csv
+import gzip
 import json
+import re
+from datetime import datetime
 from pathlib import Path
 
 from figure_style import (ACCENT, AFTER, BEFORE, FAINT, GOOD, INK,
@@ -39,7 +55,27 @@ from figure_style import (ACCENT, AFTER, BEFORE, FAINT, GOOD, INK,
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-MEASURED = ROOT / 'docs' / 'comparisons' / 'enterobacterales_genbank' / 'summary.json'
+RUN = ROOT / 'docs' / 'comparisons' / 'enterobacterales_refseq'
+MEASURED = RUN / 'summary.json'
+TRACE = RUN / 'pipeline_trace.tsv.gz'
+SAMPLES = RUN / 'disk_samples.tsv'
+
+# Which processes constitute each displayed stage. Written out rather than derived
+# from the trace's subworkflow prefix, for one reason: GET_ANTISMASH_VERSION carries
+# the ANTISMASH_ANALYSIS prefix and runs at t+0 beside the fetch, so a prefix rollup
+# reports that stage's elapsed span as 38.03 h rather than its true 5.51 h. A stage's
+# span has to be taken over the processes that do its work.
+STAGE_PROCS = {
+    'DOWNLOAD_GENOMES': ['NCBI_FETCH_METADATA', 'PEPM_MAKEDB', 'CREATE_NAME_MAP',
+                         'FETCH_RENAME_SCREEN', 'EXTRACT_TAXONOMY'],
+    'ANTISMASH_ANALYSIS': ['BUILD_PROTEIN_POOL', 'RECOVER_ORFS', 'ANTISMASH'],
+    'CLUSTERING  ∥  PHYLOGENY': ['BIGSCAPE', 'BIGSCAPE_REFERENCES', 'CLUSTERING_STATS',
+                                 'EXTRACT_GCF_REPRESENTATIVES', 'GENBANK_TO_FASTA',
+                                 'GTDBTK_CLASSIFY', 'MERGE_GTDBTK'],
+}
+# Everything not named above -- the small analysis and report processes -- rolls into
+# a single remainder segment, because a 0.3% stage cannot be drawn as a labelled box.
+REMAINDER = 'BGC_ANALYSIS + report'
 
 # Role colours. Deliberately few: a reader should not have to learn a key to follow
 # the flow, so hue marks the KIND of thing (compute / artefact / discard) and nothing
@@ -50,19 +86,116 @@ C_DISCARD = '#ebedef'
 C_GATE = '#f7ddcb'
 
 
+def _duration_s(text):
+    """Nextflow duration -> seconds. Spellings present: 'Nm Ns', 'Ns', 'Nms', 'Nm'."""
+    total = 0.0
+    for value, unit in re.findall(r'([\d.]+)\s*(ms|[dhms])', text or ''):
+        total += float(value) * {'ms': 0.001, 's': 1, 'm': 60,
+                                 'h': 3600, 'd': 86400}[unit]
+    return total
+
+
+def _stamp(text):
+    return datetime.strptime(text.strip(), '%Y-%m-%d %H:%M:%S.%f')
+
+
+def per_stage():
+    """Tasks, elapsed span and CPU on BOTH bases, per stage, from the raw trace.
+
+    Returns the stages in execution order plus the run totals. CACHED rows are summed
+    alongside COMPLETED ones: a cached entry carries the realtime of the session that
+    actually executed it, and dropping them undercounts every resumed stage.
+    """
+    rows = []
+    with gzip.open(TRACE, 'rt') as fh:
+        for r in csv.DictReader(fh, delimiter='\t'):
+            if r['status'] not in ('COMPLETED', 'CACHED'):
+                continue
+            rows.append({
+                'proc': r['name'].split(' (')[0].split(':')[-1],
+                'rt': _duration_s(r['realtime']),
+                'pct': float(r['%cpu'].rstrip('%')) / 100 if r['%cpu'].endswith('%') else 0.0,
+                'cpus': int(r['cpus']),
+                'start': _stamp(r['start']), 'end': _stamp(r['complete']),
+            })
+    t0 = min(r['start'] for r in rows)
+    named = {p for procs in STAGE_PROCS.values() for p in procs}
+
+    def roll(label, sel):
+        return {
+            'label': label, 'tasks': len(sel),
+            'cpu_used': sum(r['rt'] * r['pct'] for r in sel) / 3600,
+            'cpu_reserved': sum(r['rt'] * r['cpus'] for r in sel) / 3600,
+            'start_h': (min(r['start'] for r in sel) - t0).total_seconds() / 3600,
+            'end_h': (max(r['end'] for r in sel) - t0).total_seconds() / 3600,
+        }
+
+    stages = [roll(label, [r for r in rows if r['proc'] in procs])
+              for label, procs in STAGE_PROCS.items()]
+    stages.append(roll(REMAINDER, [r for r in rows if r['proc'] not in named]))
+    for s in stages:
+        s['wall_h'] = s['end_h'] - s['start_h']
+        s['scattered'] = False
+    # The remainder is a grab-bag, not a phase: GET_ANTISMASH_VERSION runs at t+0 and
+    # COLLECT_VERSIONS at t+42.93, so its "span" is the whole run and any peak sampled
+    # inside that window is the run's peak, not this work's. Only its CPU is meaningful.
+    stages[-1].update(scattered=True, wall_h=None)
+
+    return stages, {
+        'cpu_used': sum(s['cpu_used'] for s in stages),
+        'cpu_reserved': sum(s['cpu_reserved'] for s in stages),
+        'tasks': sum(s['tasks'] for s in stages),
+        'wall_h': max(s['end_h'] for s in stages),
+    }
+
+
+def peak_by_stage(stages):
+    """Peak system memory and work-directory occupancy inside each stage's window.
+
+    These are SYSTEM figures from a 60 s sampler, not per-task figures, and that is
+    the only instrument here that can be trusted. Nextflow's own `peak_rss` sums RSS
+    across the process tree: it reads 97 GB for GTDB-Tk and 18.7 GB for a BiG-SCAPE
+    job that ru_maxrss puts near 2 GB, on a machine with 56 GB of RAM. A figure that
+    printed those would be printing an artefact of the instrument.
+    """
+    samples = []
+    with open(SAMPLES) as fh:
+        for r in csv.DictReader(fh, delimiter='\t'):
+            samples.append({'h': float(r['elapsed_s']) / 3600,
+                            'mem': float(r['mem_used_gb']),
+                            'work': float(r['work_gb']),
+                            'out': float(r['out_gb'])})
+    for s in stages:
+        if s.get('scattered'):
+            s['peak_mem_gb'] = s['peak_work_gb'] = None
+            continue
+        win = [x for x in samples if s['start_h'] <= x['h'] < s['end_h']]
+        s['peak_mem_gb'] = max((x['mem'] for x in win), default=None)
+        s['peak_work_gb'] = max((x['work'] for x in win), default=None)
+    return {'mem': max(x['mem'] for x in samples),
+            'work': max(x['work'] for x in samples),
+            'out': max(x['out'] for x in samples)}
+
+
 def measured():
     """The run's own numbers, so the figure cannot drift from the record."""
     d = json.loads(MEASURED.read_text())
     f, r = d['found'], d['run']
     passed = int(str(f['passed_screen']).split()[0].replace(',', ''))
+    stages, totals = per_stage()
+    peaks = peak_by_stage(stages)
     return {
         'genomes': r['genomes'], 'screened': f['screened'], 'passed': passed,
         'regions': f['regions'], 'positive': f['bgc_positive_genomes'],
         'gcfs': f['gcfs'], 'wall': r['wall'], 'tasks': r['tasks'],
-        'cpu': d['the_cpu_shape_has_inverted']['measured'],
-        # Derived, never typed. These two appear in four places between the figures
-        # and were hardcoded as 0.87% / 99.1% from the RefSeq run; when the basis
-        # moved they were the only numbers that did not follow it.
+        'stages': stages, 'totals': totals, 'peaks': peaks,
+        # Panel B frames one FETCH_RENAME_SCREEN task and multiplies by how many ran.
+        # It was hardcoded to 53,981, the GenBank count, and did not follow the basis
+        # back when the figures moved.
+        'fetch_tasks': d['download']['batches'],
+        # Derived, never typed. These two appear in four places between the figures,
+        # and when the basis last moved they were the only numbers that did not
+        # follow it.
         'pass_pct': f'{100 * passed / f["screened"]:.2f}%',
         'drop_pct': f'{100 * (1 - passed / f["screened"]):.2f}%',
     }
@@ -180,7 +313,8 @@ def mech_screen(ax, m):
     ax.add_patch(Rectangle((0.05, 0.18), 0.90, 0.60, facecolor='none',
                            edgecolor=FAINT, linewidth=0.9, linestyle=(0, (4, 3)),
                            zorder=1))
-    ax.text(0.50, 0.825, 'one FETCH_RENAME_SCREEN task  ·  × 53,981',
+    ax.text(0.50, 0.825,
+            f"one FETCH_RENAME_SCREEN task  ·  × {m['fetch_tasks']:,}",
             ha='center', fontsize=8.0, color=FAINT, style='italic')
 
     box(ax, 0.075, 0.50, 0.145, 0.20, 'batch of 25\naccessions', C_ARTEFACT)
@@ -197,7 +331,8 @@ def mech_screen(ax, m):
     ax.text(0.868, 0.232, m['drop_pct'], ha='center', fontsize=8.6, color=FAINT)
     ax.text(0.50, 0.075,
             f'The {m["drop_pct"]} that fail the screen are never written rather than written\n'
-            'and deleted. Sampled on the RefSeq run: a 150 GB peak, outdir 30 GB.',
+            f"and deleted. Sampled across this run: a {m['peaks']['work']:.0f} GB "
+            f"work peak, outdir {m['peaks']['out']:.0f} GB.",
             ha='center', va='center', fontsize=7.6, color=INK, linespacing=1.5)
     ax.set_title('Screening is inside the fetch', pad=9, fontsize=9.5)
 
@@ -308,144 +443,167 @@ def figure_mechanisms(m, outdir):
 
 # ─── Supplemental figure ───────────────────────────────────────────────────
 
+# One display box per MEASURED stage, so a strip segment and the box above it are the
+# same thing. The previous version had five boxes against four CPU segments and needed
+# a seg_of indirection table to map between them; two of the boxes then shared a
+# segment, which is exactly the kind of near-correspondence a reader mis-reads.
 STAGES = [
-    ('DOWNLOAD_GENOMES', 'accessions → screened genomes', 'FETCH_RENAME_SCREEN'),
+    ('DOWNLOAD_GENOMES', 'fetch, rename, screen, discard',
+     'FETCH_RENAME_SCREEN', 'renamed .gbff', '#1b5e7e'),
     ('ANTISMASH_ANALYSIS', 'recovery, then detection',
-     'BUILD_PROTEIN_POOL · RECOVER_ORFS · ANTISMASH'),
-    ('CLUSTERING  ∥  PHYLOGENY', 'independent; run concurrently',
-     'BIGSCAPE · GTDBTK_CLASSIFY'),
-    ('BGC_ANALYSIS', 'coupling, branch point, consensus',
-     'GCF_CHARACTERISATION · …'),
-    ('VISUALIZE_RESULTS', 'the report', 'bgc_report.html'),
+     'BUILD_PROTEIN_POOL · RECOVER_ORFS · ANTISMASH', 'region .gbk', '#2f7d5d'),
+    ('CLUSTERING  ∥  PHYLOGENY', 'independent in the DAG',
+     'BIGSCAPE · GTDBTK_CLASSIFY', 'SQLite + GTDB .tsv', '#7fa8b8'),
+    ('BGC_ANALYSIS + report', 'coupling, branch point, consensus',
+     'GCF_CHARACTERISATION · VISUALIZE_RESULTS', 'bgc_report.html', ACCENT),
 ]
 
-ARTEFACTS = ['accessions.txt', 'renamed .gbff', 'region .gbk', 'SQLite + .tsv',
-             'bgc_report.html']
 
+def _strip(ax, stages, x0, span, y, h, key, total, caption, fmt):
+    """One proportional strip. Segments too narrow to label get a leader below.
 
-# Measured CPU per stage, rolled up from the per-process figures in
-# enterobacterales_genbank/summary.json: FETCH_RENAME_SCREEN 1,410.4 CPU-h +
-# NCBI_FETCH_METADATA 1.1, ANTISMASH 61.2 + RECOVER_ORFS 33.3, GTDBTK_CLASSIFY 38.2 +
-# BIGSCAPE 1.0, and a 1.3 CPU-h remainder across every report process. 1,547.2 total.
-#
-# Those are COMPLETED and CACHED tasks together. The run was resumed four times, so a
-# cached entry carries the realtime of the session that executed it and dropping them
-# undercounts the fetch stage by more than half (705.2 CPU-h against 1,547.2).
-#
-# One segment per stage box, so the strip can be read straight down from the stage it
-# belongs to. The widths are proportional and the boxes are not, so correspondence is
-# carried by COLOUR -- each stage box takes a tinted band in its segment's hue -- and by
-# a leader dropping from the box to its segment. Aligning the widths instead would mean
-# either distorting the shares or drawing a 0.9% stage box nothing could be written in.
-CPU_STAGES = [
-    ('DOWNLOAD_GENOMES',       91.23, '1,411.5 CPU-h', '53,985 tasks', '#1b5e7e'),
-    ('ANTISMASH_ANALYSIS',      6.11, '   94.6 CPU-h', 'recovery 2.2% + detection 4.0%', '#2f7d5d'),
-    ('CLUSTERING ∥ PHYLOGENY',  2.57, '   39.8 CPU-h', 'BiG-SCAPE 0.07% of it', '#7fa8b8'),
-    ('BGC_ANALYSIS + report',   0.09, '    1.3 CPU-h', '', ACCENT),
-]
+    Three of these are drawn, for elapsed time, CPU used and CPU reserved, because
+    they do NOT agree about which stage is the expensive one and a single strip would
+    have to pick a winner. Segment order is stage order in all three, so the eye can
+    track one stage down the three rows.
+    """
+    x, narrow = x0, 0
+    fig = ax.get_figure()
+    fig.canvas.draw()                       # a renderer must exist to measure
+    ax_px = ax.get_window_extent().width
+
+    def fits(text, seg, fs):
+        """Does `text` fit inside a segment `seg` wide, at font size `fs`?
+
+        Measured, not guessed at from a width threshold. A fixed threshold got both
+        ends wrong on one strip: 9.8% was dropped as too narrow while 10.7% was
+        labelled and overflowed, because the two differ by a percent and the label
+        lengths differ by three characters.
+        """
+        probe = ax.text(0, -1, text, fontsize=fs, fontweight='bold')
+        w = probe.get_window_extent(fig.canvas.get_renderer()).width
+        probe.remove()
+        return w <= seg * ax_px * 0.88
+
+    for s in stages:
+        value = s[key] or 0.0
+        seg = span * value / total
+        ax.add_patch(Rectangle((x, y), seg, h, facecolor=s['colour'],
+                               edgecolor='white', linewidth=1.0, zorder=3))
+        pct = f'{100 * value / total:.1f}%'
+        full = f'{pct}  ·  {fmt(value)}'
+        # Prefer share-and-value; fall back to the share alone, which is what the
+        # strip is for; drop the label only when even that will not fit.
+        text = full if fits(full, seg, 7.4) else (pct if fits(pct, seg, 7.0) else None)
+        if text:
+            ax.text(x + seg / 2, y + h / 2, text, ha='center', va='center',
+                    fontsize=7.4 if text is full else 7.0, color='white',
+                    fontweight='bold', zorder=4)
+        else:
+            narrow += 1
+        x += seg
+    if narrow:
+        # Named in the caption instead of leadered: with three strips stacked there is
+        # no room below a segment for a label that does not land in the strip beneath
+        # it, and the bottom strip's landed in the caption text.
+        ax.text(x0 + span, y - 0.014,
+                f'{narrow} segment too small to label' if narrow == 1
+                else f'{narrow} segments too small to label',
+                ha='right', va='top', fontsize=6.3, color=FAINT, zorder=8)
+    ax.text(x0 - 0.012, y + h / 2, caption, ha='right', va='center', fontsize=7.4,
+            color=INK, fontweight='bold', linespacing=1.3)
 
 
 def spine_with_cpu(ax, m):
-    """The stage flow, with the CPU strip directly beneath it on the same axes.
+    """The stage flow, with everything that was measured about each stage beneath it.
 
-    Three channels read downward for each stage: what data survives it, what it is, and
-    what artefact it emits -- then the strip, so the cost of a stage sits under the
-    stage itself rather than in a separate panel the reader has to hold in mind.
+    Six channels read downward for one stage: the data entering it, what it is, the
+    artefact it emits, its task count and sampled peaks, then three proportional
+    strips -- elapsed, CPU used, CPU reserved.
+
+    Segments under 1% of their strip are drawn but not labelled -- see _strip.
+
+    THE REASON THERE ARE THREE STRIPS. They disagree, and the disagreement is the
+    architectural fact. Fetch-and-screen is 75% of elapsed time and 68% of reserved
+    cores but only 40% of CPU actually used, because it is network-bound and sits on
+    four allocated cores achieving a fraction of one. antiSMASH_ANALYSIS is the
+    reverse: 13% of elapsed, 21% of reserved, 50% of CPU used. "Which stage is the
+    expensive one" has three different right answers, and an earlier version of this
+    figure drew the single strip that happened to support its caption.
     """
     blank(ax)
+    stages, totals = m['stages'], m['totals']
+    # Pair each measured stage with its display row. Both are in execution order and
+    # the assert keeps them that way: the measured labels come from STAGE_PROCS, and
+    # a rename there must not silently re-colour the strips.
+    assert len(stages) == len(STAGES), 'measured stages and display boxes diverged'
+    for s, (name, *_rest, colour) in zip(stages, STAGES):
+        assert s['label'].split()[0] == name.split()[0], (s['label'], name)
+        s['colour'] = colour
+
     n = len(STAGES)
-    w, gap = 0.150, 0.052
+    w, gap = 0.170, 0.055
     x0 = (1 - (n * w + (n - 1) * gap)) / 2
-    survivors = [f"{m['genomes']:,}\ngenomes", f"{m['passed']:,}\npass ({m['pass_pct']})",
-                 f"{m['regions']:,}\nregions", f"{m['gcfs']}\nfamilies", '']
-    # stage box -> CPU segment. CLUSTERING and PHYLOGENY share one box and one segment;
-    # BGC_ANALYSIS and VISUALIZE_RESULTS share the 0.9% remainder.
-    seg_of = [0, 1, 2, 3, 3]
-    for i, ((name, sub, inner), surv) in enumerate(zip(STAGES, survivors)):
+    entering = [f"{m['genomes']:,}\ngenomes",
+                f"{m['passed']:,} screened\n({m['pass_pct']} of input)",
+                f"{m['regions']:,}\nBGC regions",
+                f"{m['gcfs']} families *"]
+
+    for i, ((name, sub, inner, artefact, colour), s) in enumerate(zip(STAGES, stages)):
         x = x0 + i * (w + gap)
-        box(ax, x, 0.555, w, 0.225, '')
-        # A tinted band keyed to the stage's CPU segment, so the strip below can be
-        # read back to its stage by colour where the widths cannot line up.
-        ax.add_patch(Rectangle((x, 0.555), w, 0.028,
-                               facecolor=CPU_STAGES[seg_of[i]][4], edgecolor='none',
-                               zorder=5))
-        # Three slots inside the box, each measured to fit, so a long process list
-        # cannot run into the neighbouring stage the way it did in the first draft.
-        fit_text(ax, x, 0.730, w, 0.045, sub, fs=7.2, colour=FAINT)
-        fit_text(ax, x, 0.665, w, 0.058, name, fs=8.4, weight='bold')
-        fit_text(ax, x, 0.588, w, 0.070, inner, fs=6.8, colour=INK)
-        if surv:
-            box(ax, x, 0.835, w, 0.135, surv, C_ARTEFACT, fs=8.0)
-        ax.text(x + w / 2, 0.505, ARTEFACTS[i], ha='center', va='top', fontsize=7.2,
+        box(ax, x, 0.620, w, 0.215, '')
+        ax.add_patch(Rectangle((x, 0.620), w, 0.026, facecolor=colour,
+                               edgecolor='none', zorder=5))
+        fit_text(ax, x, 0.788, w, 0.042, sub, fs=7.2, colour=FAINT)
+        fit_text(ax, x, 0.728, w, 0.055, name, fs=8.4, weight='bold')
+        fit_text(ax, x, 0.652, w, 0.068, inner, fs=6.8, colour=INK)
+        box(ax, x, 0.880, w, 0.115, entering[i], C_ARTEFACT, fs=8.0)
+        ax.text(x + w / 2, 0.600, artefact, ha='center', va='top', fontsize=7.2,
                 color=FAINT)
+        # Task count and sampled peaks. The remainder stage reports neither: its
+        # processes are scattered across the whole run, so a window peak would be the
+        # run's peak rather than this work's.
+        if s.get('scattered'):
+            detail = f"{s['tasks']} tasks\nscattered across the run"
+        else:
+            detail = (f"{s['tasks']:,} tasks · {s['wall_h']:.1f} h\n"
+                      f"peak {s['peak_mem_gb']:.0f} GB RAM · "
+                      f"{s['peak_work_gb']:.0f} GB work")
+        ax.text(x + w / 2, 0.556, detail, ha='center', va='top', fontsize=6.9,
+                color=INK, linespacing=1.5)
         if i:
-            arrow(ax, (x - gap, 0.668), (x, 0.668), lw=1.3, colour=AFTER)
-    ax.text(x0 - 0.014, 0.900, 'surviving\ndata', ha='right', va='center',
-            fontsize=7.4, color=FAINT, linespacing=1.4)
-    ax.text(x0 - 0.014, 0.478, 'artefact', ha='right', va='center',
+            arrow(ax, (x - gap, 0.728), (x, 0.728), lw=1.3, colour=AFTER)
+
+    ax.text(x0 - 0.012, 0.938, 'data entering', ha='right', va='center',
+            fontsize=7.4, color=FAINT)
+    ax.text(x0 - 0.012, 0.590, 'artefact', ha='right', va='center',
+            fontsize=7.4, color=FAINT)
+    ax.text(x0 - 0.012, 0.533, 'measured', ha='right', va='center',
             fontsize=7.4, color=FAINT)
 
-    # ── the strip, directly beneath ────────────────────────────────────────
-    span, ys, hs = x0 + n * w + (n - 1) * gap - x0, 0.305, 0.105
-    x = x0
-    # Every narrow label is right-aligned on ONE column, set at the centre of the
-    # first segment too small to carry its own label. Leaders then fan out to the
-    # RIGHT of that column, so a lower label's leader cannot cross the text of the
-    # label above it -- which is what happened with each label over its own centre.
-    label_x, _x = None, x0
-    for _s in CPU_STAGES:
-        _w = span * _s[1] / 100.0
-        if _w <= 0.10 and label_x is None:
-            label_x = _x + _w / 2
-        _x += _w
-    narrow, labels = 0, []
-    for j, (name, share, cpuh, note, col) in enumerate(CPU_STAGES):
-        seg_w = span * share / 100.0
-        ax.add_patch(Rectangle((x, ys), seg_w, hs, facecolor=col,
-                               edgecolor='white', linewidth=1.0, zorder=3))
-        if seg_w > 0.10:
-            ax.text(x + seg_w / 2, ys + hs / 2, f'{share}%  ·  {cpuh.strip()}',
-                    ha='center', va='center', fontsize=7.6, color='white',
-                    fontweight='bold', zorder=4)
-            if note:
-                ax.text(x + seg_w / 2, ys - 0.048, note, ha='center', fontsize=6.9,
-                        color=FAINT, zorder=4)
-        else:
-            # Narrow segments crowd into the right-hand end and their labels overlap
-            # into an unreadable run of digits. Stagger by HOW MANY narrow segments
-            # have been drawn, not by the segment index: on the RefSeq run exactly two
-            # were narrow and `j % 2` happened to separate them, but at GenBank shares
-            # three are, and that formula put the first and third on the same line --
-            # rendering 'ANTISMASH_ANALYBGC_ANALYSIS 0.09%'. Counting cannot collide
-            # however many fall below the threshold.
-            drop = 0.100 + 0.072 * narrow
-            narrow += 1
-            # Leader now, label after the loop. One annotate carrying both would
-            # draw its own arrow at its own zorder, so the LAST segment's leader
-            # painted over the opaque background of a label already placed -- the
-            # arrow and the text it must not cross belonged to the same artist.
-            # Drawing every line first and every label second orders them properly
-            # whatever the share distribution turns out to be.
-            ax.annotate('', xy=(x + seg_w / 2, ys), xytext=(label_x, ys - drop),
-                        arrowprops=dict(arrowstyle='-', lw=0.7, color=col,
-                                        shrinkA=3, shrinkB=1), zorder=4)
-            labels.append((label_x, ys - drop, f'{name.split()[0]}  {share}%', col))
-        x += seg_w
-    for lx, ly, text, col in labels:
-        ax.text(lx, ly, text, ha='right', va='center', fontsize=7.2, color=col,
-                fontweight='bold', zorder=8,
-                bbox=dict(boxstyle='square,pad=0.22', facecolor='white',
-                          edgecolor='none'))
-    ax.text(x0 - 0.014, ys + hs / 2, 'CPU', ha='right', va='center', fontsize=7.8,
-            color=INK, fontweight='bold')
-    ax.text(x0 + span + 0.012, ys + hs / 2, '1,547\nCPU-h', ha='left', va='center',
-            fontsize=7.2, color=FAINT, linespacing=1.4)
-    ax.text(0.5, 0.055,
-            f'Cost runs opposite to the data: the stage that discards {m["drop_pct"]} of the '
-            'input is the most expensive, and BiG-SCAPE —\nquadratic in both time and '
-            'memory — is 0.07% of CPU. Segment widths are measured shares; stage boxes are '
-            'not to scale.',
-            ha='center', va='center', fontsize=7.7, color=INK, linespacing=1.6)
+    span, hs = n * w + (n - 1) * gap, 0.070
+    rows = [(0.400, 'wall_h', 'elapsed', lambda v: f'{v:.1f} h',
+             f"{totals['wall_h']:.1f} h"),
+            (0.268, 'cpu_used', 'CPU used  (realtime × %cpu)',
+             lambda v: f'{v:,.1f} CPU-h', f"{totals['cpu_used']:,.0f} CPU-h"),
+            (0.136, 'cpu_reserved', 'CPU reserved  (realtime × cpus)',
+             lambda v: f'{v:,.1f} CPU-h', f"{totals['cpu_reserved']:,.0f} CPU-h")]
+    for y, key, caption, fmt, total_text in rows:
+        _strip(ax, stages, x0, span, y, hs, key, totals[key], caption, fmt)
+        ax.text(x0 + span + 0.010, y + hs / 2, total_text, ha='left', va='center',
+                fontsize=7.2, color=FAINT)
+
+    ax.text(0.5, 0.048,
+            'The three strips disagree, and that is the point: fetch-and-screen is '
+            '75% of ELAPSED time and 68% of RESERVED cores but 40% of CPU USED — it '
+            'is network-bound on four\nallocated cores. Peak work disk is 150 GB and '
+            '95 GB of it is pplacer scratch inside the single GTDB-Tk task, set by '
+            "GTDB's reference data rather than by how many genomes reach it.\n"
+            'The report stages are under 1% of all three strips and are drawn '
+            'unlabelled.   * 72 families was measured at bigscape_min_bgc_length = 0, '
+            'the default at the time; the shipped default is now 2,000 bp, this run '
+            'contains one 1,001 bp single-CDS region, and it was never re-clustered.',
+            ha='center', va='center', fontsize=7.4, color=INK, linespacing=1.7)
 
 
 def figure_architecture(m, outdir):
@@ -465,8 +623,11 @@ def figure_architecture(m, outdir):
     fig.suptitle('ClusterQuest architecture: stages, artefacts and mechanisms',
                  fontsize=12, fontweight='bold', y=0.975)
     fig.text(0.5, 0.012,
-             f"All figures measured on the Enterobacterales GenBank run — "
-             f"{m['genomes']:,} genomes, {m['wall']}, {m['tasks']:,} tasks, 0 failures.",
+             f"All figures measured on the Enterobacterales RefSeq run — "
+             f"{m['genomes']:,} genomes, {m['wall']}, {m['tasks']:,} tasks, 0 failures. "
+             f"The same pipeline ran 1,349,504 GenBank genomes in 2 d 15 m; that run "
+             f"had no disk or memory sampler and no committed trace, so it cannot "
+             f"carry per-stage figures.",
              ha='center', fontsize=7.6, color=FAINT)
     fig.subplots_adjust(top=0.93, bottom=0.055, left=0.055, right=0.975)
     return save(fig, outdir, 'figS1_architecture')

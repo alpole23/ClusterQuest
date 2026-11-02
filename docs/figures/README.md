@@ -10,6 +10,7 @@ timestamp, so re-running gives byte-identical files.
 python scripts/figures/fig1_orf_recovery.py --outdir docs/figures
 python scripts/figures/fig2_prescreen.py    --outdir docs/figures
 python scripts/figures/fig3_partitioning.py --outdir docs/figures
+python scripts/figures/fig4_scalability.py  --outdir docs/figures
 python scripts/figures/fig5_architecture.py --outdir docs/figures   # 2 figures
 ```
 
@@ -115,10 +116,37 @@ evidence — so it is stated in words instead.
 
 ## Figure 3 — BiG-SCAPE partitioning
 
-The honest framing, and the one the data supports: partitioning is **1.7–3.7×
-slower** at every scale measured, because each partition re-pays BiG-SCAPE's
-fixed Pfam-load cost. What it buys is memory — **~3.0 TB** in one job at the
-121,000 BGCs a million genomes yields, against ~84 GB for the largest partition.
+The honest framing, and the one the data supports: partitioning costs
+**1.7–3.7× more compute** at every scale measured, because each partition re-pays
+BiG-SCAPE's fixed Pfam-load cost. What it buys is memory — **2,792 GB** in one job
+at the 117,000 BGCs a million genomes yields, against **1,396 GB** for the largest
+partition. A 2.0× saving.
+
+**That was 22.4× until 2026-11-02, and the correction is worth understanding.**
+The panel used `PARTITIONED_SHARE = 0.21` — the *Streptomyces* largest-partition
+share, 38 of 185 BGCs — against a BGC count projected from the *Erwiniaceae* rate.
+Share and population came from different taxa. Every share ever measured, all at
+the 0.60 pepM identity the pipeline ships:
+
+| run | largest partition | share |
+|---|---:|---:|
+| *Streptomyces* 185 BGCs | 38 | 20.5% |
+| Combined (Erw + Strep) 518 | 236 | 45.6% |
+| *Erwiniaceae* 5 kb, 333 | 236 | 70.9% |
+| *Erwiniaceae* 10 kb, 334 | 236 | **70.7%** ← matches the projection's basis |
+| Enterobacterales RefSeq, 1,302 | 942 | 72.4% |
+
+Real taxa cluster at ~71%: one dominant pepM lineage holds most of the BGCs, and
+that is what caps the saving. 20.5% was the most favourable of the five, measured
+on the one test set with no dominant component.
+
+**"1.7–3.7×" is compute, not wall time.** `bigscape_seconds_partitioned` is
+accumulated in a serial loop over partitions (`total_s += secs` in
+`bench_bigscape_partitioned.py`), so it is the sum of N subprocess elapsed times,
+while the one-job arm is a single process's elapsed time. No partitioned *wall*
+time is committed anywhere in this repository; under Nextflow the partitions run
+concurrently, so the true elapsed penalty is smaller and unmeasured. Panel A said
+"slower" until 2026-11-02.
 
 **The memory figures carry a 1.58× correction, applied 2026-10-08.** The
 benchmark recorded `/usr/bin/time -f %M`, which is `ru_maxrss`: for a parent plus
@@ -139,6 +167,53 @@ is extrapolated**. The quadratic was fitted on 1,500–4,000 BGCs; below ~4,000
 peak memory looks flat and the fit does not describe it, and 121,000 is a 12×
 reach. The figure must not read as 12× more measurement than exists.
 
+## Figure 4 — scalability on one workstation (`fig4_scalability.py`)
+
+Why the two scalability mechanisms exist: this pipeline was developed and run on a
+single 16-core / 56 GB box with no cluster, and the pepM pre-screen and BiG-SCAPE
+partitioning are what make a large taxon fit on it.
+
+**The three panels differ in evidential strength, and the figure says which is
+which rather than letting a uniform style imply they are equal.**
+
+| panel | claim | strength |
+|---|---|---|
+| A | pre-screen cuts antiSMASH CPU **5.5×** on *Erwiniaceae*, **443×** on Enterobacterales | *Erwiniaceae* both arms measured; the Enterobacterales without-screen bar is **hatched** — that arm was never run |
+| B | partitioning saves **10 GB / 1.8×** at 10,000 BGCs | projected from the measured memory curve and the measured partition shares; **no partitioned run has ever had its memory measured** |
+| C | and costs **1.7–3.7×** more BiG-SCAPE compute | measured, but cumulative compute, not elapsed time |
+
+**Panel A's claim is not "the screen saves 5×".** The saving is `1/retention`, and
+retention is a property of the taxon: *Erwiniaceae* keeps 10.76% of genomes and
+saves 5.5×, Enterobacterales keeps 0.113% and saves ~443×. A 95× difference in
+retention gives an 81× difference in saving, so a single number for "what the
+screen saves" would be quoting *Erwiniaceae*.
+
+**Panel A is `realtime × cpus` throughout, including *Erwiniaceae*, which is
+reported on `realtime × %cpu` everywhere else.** The GenBank Enterobacterales run
+has no committed trace and its per-process CPU figures are only recoverable as
+`realtime × cpus` — BIGSCAPE reports 1.0 CPU-h over a 7 m 21 s realtime, which is
+8.16 effective cores against its 8 allocated, a utilisation no real process
+reaches. Putting the two taxa on different bases in one panel is precisely the
+error this project has already published twice. On `× %cpu` the *Erwiniaceae*
+ratio reads 5.14× rather than 5.49×.
+
+**Panel B refuses to leave the measured range.** It interpolates between observed
+points rather than using the quadratic fit, so every gigabyte it prints sits
+between two sizes that were actually run. The shaded band spans all five measured
+partition shares (20.5–72.4%) and the solid line is the 72.4% that the largest real
+taxon measured — because the saving goes as `1/share²`, so the band is 5.6× at one
+end and 1.8× at the other and a single multiple would be a choice, not a result.
+
+**The honest limit, stated in the panel:** BiG-SCAPE's memory is flat below ~4,000
+BGCs and quadratic above it, and every run ever partitioned is at or below 1,302
+BGCs — inside the flat region. The measured memory saving from partitioning, on
+every run on record, is between 0.00 and 0.43 GB. The benefit is real arithmetic
+from a measured curve; it has never been demonstrated.
+
+**Panels B and C are split rather than drawn on one pair of axes.** They are two
+consequences of one intervention in different units, and a dual axis would invite a
+reader to compare a gigabyte against a second.
+
 ## Figure 5 — the three mechanisms, and S1 — full architecture (`fig5_architecture.py`)
 
 One generator, two figures, so they cannot drift:
@@ -146,23 +221,59 @@ One generator, two figures, so they cannot drift:
 | file | role | contents |
 |---|---|---|
 | `fig5_mechanisms` | main body | three panels, one per mechanism |
-| `figS1_architecture` | supplemental | the stage spine, artefacts and CPU strip, plus the same three mechanisms |
+| `figS1_architecture` | supplemental | the stage spine, artefacts, per-stage measurements and three proportional strips, plus the same three mechanisms |
 
-Every number is read from `docs/comparisons/enterobacterales_refseq/summary.json`
-at render time, so the figures cannot drift from the run that produced them.
+Every number is read at render time from the Enterobacterales **RefSeq** run's own
+records — `summary.json` for the funnel, `pipeline_trace.tsv.gz` for every
+per-stage task count, elapsed span and CPU figure, and `disk_samples.tsv` for every
+peak. Nothing is typed in by hand, so the figures cannot drift from the run.
 
-**The architecture has one defining fact and one surprise**, and both figures
-carry them. The funnel: 150,690 genomes → 1,309 pass the pepM screen (0.87%)
-→ 1,303 regions → 72 families, so 99.1% is discarded before anything expensive
-runs. The inversion: fetch-and-screen is 40.4% of CPU over 6,028 tasks while
-BiG-SCAPE — quadratic in both time and memory — is 0.7%. Moving and filtering
-data costs more than analysing it at this prevalence, which is why the screen is
-the architecture rather than an optimisation.
+**Why RefSeq and not the 8.9× larger GenBank run.** These figures sat on GenBank
+from 2026-10-28 until 2026-11-02. That run has no committed trace and no disk or
+memory sampler, so it can support a funnel and a CPU share and nothing else — and
+panel A's brief is real data for *every* step. Taking per-stage wall and memory
+from RefSeq while taking the funnel from GenBank would put two runs in one spine,
+which is the same error class as mixing two CPU bases.
 
-**The CPU strip is proportional and the stage boxes are not.** A 0.9% stage
-cannot be drawn as a box with a label in it, so correspondence is carried by
-colour — each stage box takes a tinted band in its segment's hue — and the
-caption says the widths are measured shares while the boxes are not to scale.
+**The funnel:** 150,690 genomes → 1,309 pass the pepM screen (0.87%) → 1,303
+regions → 72 families, so 99.13% is discarded before anything expensive runs.
+
+**Panel A draws three strips, because "which stage is expensive" has three
+different right answers.** A single strip would have to pick one, and an earlier
+version picked the one that supported its caption.
+
+| stage | tasks | elapsed | CPU used (`× %cpu`) | CPU reserved (`× cpus`) |
+|---|---:|---:|---:|---:|
+| `DOWNLOAD_GENOMES` | 6,032 | 32.5 h (**75.4%**) | 42.1 (40.4%) | 252.0 (**68.2%**) |
+| `ANTISMASH_ANALYSIS` | 35 | 5.5 h (12.8%) | 51.6 (**49.5%**) | 76.7 (20.8%) |
+| `CLUSTERING ∥ PHYLOGENY` | 19 | 4.9 h (11.4%) | 10.2 (9.8%) | 39.5 (10.7%) |
+| `BGC_ANALYSIS` + report | 12 | scattered | 0.3 (0.3%) | 1.0 (0.3%) |
+
+Fetch-and-screen wins on elapsed time and on reserved cores but loses on CPU
+actually used: it is network-bound on four allocated cores, so *reserving* them is
+most of what it does. BiG-SCAPE — quadratic in both time and memory — is 0.7% of
+CPU used, because the funnel hands it 1,303 regions out of 150,690 genomes.
+
+**Peak memory and disk are from the 60 s sampler, never from Nextflow's
+`peak_rss`.** That column sums RSS across the process tree: it reads 97 GB for
+GTDB-Tk and 18.7 GB for a BiG-SCAPE job that `ru_maxrss` puts near 2 GB, on a
+machine with 56 GB of RAM. Per stage the sampler gives 2 / 19 / 13 GB, and peak
+work-directory occupancy of 21 / 34 / **150** GB — 95 GB of that last figure is
+pplacer scratch inside the single GTDB-Tk task, set by GTDB's reference data rather
+than by how many genomes reach it.
+
+**The 72 families carries a caveat the figure prints.** It was measured at
+`bigscape_min_bgc_length = 0`, the default until 2026-10-30. The shipped default is
+2,000 bp, this run contains exactly one region below it (1,001 bp, one CDS), and it
+was never re-clustered. On the GenBank run removing the equivalent record moved the
+count 112 → 126, so this is not a rounding difference.
+
+**The strips are proportional and the stage boxes are not.** A 0.3% stage cannot be
+drawn as a box with a label in it, so correspondence is carried by colour — each
+stage box takes a tinted band in its segment's hue. Segment labels are *measured*
+for fit rather than gated on a width threshold: a fixed threshold dropped a 9.8%
+segment as too narrow while letting a 10.7% one overflow, because the two differ by
+a percent and their label lengths differ by three characters.
 
 ### Layout constraints worth knowing before editing
 

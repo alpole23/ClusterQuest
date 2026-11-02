@@ -2,12 +2,30 @@
 """Figure 3 — BiG-SCAPE partitioning: what it costs, what it buys, what it leaves alone.
 
 The honest claim, and the one the data supports: partitioning does NOT make
-clustering faster at any scale we have measured -- it is 1.7-3.7x SLOWER,
-because every partition re-pays BiG-SCAPE's fixed Pfam-load cost. What it buys
+clustering cheaper at any scale we have measured -- it costs 1.7-3.7x MORE
+COMPUTE, because every partition re-pays BiG-SCAPE's fixed Pfam-load cost.
+
+That is COMPUTE, not elapsed time, and the distinction is not pedantic.
+`bigscape_seconds_partitioned` in the partition_check files is accumulated in a
+serial loop over partitions (bench_bigscape_partitioned.py, `total_s += secs`),
+so it is the SUM of N subprocess elapsed times, while the one-job arm is a single
+process's elapsed time. No partitioned WALL time is committed anywhere in this
+repository. Under Nextflow the partitions run concurrently, so the real elapsed
+penalty is smaller than this and has never been measured. Panel A said "slower"
+until 2026-11-02, which asserted the wall-clock reading the data cannot support.
+
+What it buys
 is memory, and memory is the wall: at the ~117,000 BGCs a million genomes
 yields, one job needs ~2.8 TB, which is not a machine most groups have. It buys
 that without changing the clustering: family counts are identical and, at the
 scales where BiG-SCAPE reproduces itself exactly, so is every membership.
+
+HOW MUCH memory it buys was overstated here until 2026-11-02, by 11x. The panel
+used the Streptomyces partition share against an Erwiniaceae-rate BGC count --
+see the retraction on PARTITIONED_SHARE. On the consistent share the saving is
+1,396 GB and 2.0x, not 2,667 GB and 22.4x. 2.0x is still the difference between
+a machine that does not exist and a large-memory node, which is the claim that
+matters; but it is a different number and the earlier one was published.
 
 Two caveats the panels carry. The memory points are `ru_maxrss` from the scaling
 benchmark, which reports one process of eleven, so the curve is scaled by the
@@ -90,7 +108,28 @@ TARGET_BGCS = 117_000          # BGCs a million genomes yields at the controlled
                                # the superseded 2026-08 benchmark -- correct in KIND (this
                                # stage does consume BGCs, unlike GTDB-Tk, which was priced
                                # on the same number by mistake) but off the current basis.
-PARTITIONED_SHARE = 0.21       # largest component, Streptomyces-like diversity @0.60
+# Largest pepM component as a fraction of the input, at the 0.60 partition identity.
+#
+# A RETRACTION, 2026-11-02. This was 0.21 and the panel reported a 22.4x memory saving
+# (2,792 -> 125 GB). 0.21 is the STREPTOMYCES share -- 38 of 185 BGCs, pepm_strep.json
+# at threshold 0.6 -- and it is the most favourable of the five shares ever measured,
+# because that 185-BGC test set has no dominant pepM family. It was being applied to
+# TARGET_BGCS, which is projected from the ERWINIACEAE rate. Share and population came
+# from different taxa, which is the same class of error as pricing GTDB-Tk on a BGC
+# count: a figure needs its basis AND its population to agree.
+#
+# Every share measured, all at the 0.60 identity the pipeline ships:
+#
+#     Streptomyces              38 / 185   = 20.5%   <- what this used to be
+#     Combined (Erw + Strep)   236 / 518   = 45.6%
+#     Erwiniaceae  5 kb        236 / 333   = 70.9%
+#     Erwiniaceae 10 kb        236 / 334   = 70.7%   <- matches TARGET_BGCS's basis
+#     Enterobacterales RefSeq  942 / 1,302 = 72.4%   <- largest real taxon partitioned
+#
+# Real taxa cluster at ~71%: one dominant pepM lineage holds most of the BGCs, and
+# that is what caps the saving. Carried consistently the panel reads 1,396 GB and 2.0x.
+# The band across all five shares is drawn in fig4_scalability panel B.
+PARTITIONED_SHARE = 0.707      # Erwiniaceae 10 kb, 236/334 -- the basis TARGET_BGCS uses
 
 
 def mem_gb(n):
@@ -126,13 +165,13 @@ def panel_runtime(ax):
     b2 = ax.bar([i + w / 2 for i in x], part, w, label='partitioned', color=ACCENT)
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels)
-    ax.set_ylabel('BiG-SCAPE wall time (s)')
-    ax.set_title('The cost: partitioning is slower\nat every scale measured', pad=26)
+    ax.set_ylabel('BiG-SCAPE compute, seconds\n(partitioned arm is a serial sum)')
+    ax.set_title('The cost: more total compute\nat every scale measured', pad=26)
     ax.set_ylim(0, max(part) * 1.42)
     bar_values(ax, list(b1) + list(b2), fmt='{:.0f}')
     for i, (_, _, o, p, nparts) in enumerate(RUNTIMES):
-        ax.text(i, max(part) * 1.30, f'{p / o:.1f}× slower',
-                ha='center', fontsize=8.5, color=ACCENT, fontweight='bold')
+        ax.text(i, max(part) * 1.30, f'{p / o:.1f}×',
+                ha='center', fontsize=10, color=ACCENT, fontweight='bold')
         ax.text(i, max(part) * 1.21, f'{nparts} partitions',
                 ha='center', fontsize=7.3, color=FAINT)
     ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, -0.13))
@@ -142,7 +181,7 @@ def panel_memory(ax, measured):
     ns = [n for n, _ in measured]
     gbs = [gb for _, gb in measured]
     ax.plot(ns, gbs, 'o', color=INK, ms=4.5,
-            label=f'measured peak memory (%M x {MEM_RSS_TO_PSS})', zorder=5)
+            label=f'measured peak memory (ru_maxrss × {MEM_RSS_TO_PSS})', zorder=5)
 
     # The quadratic was fitted on 1,500-4,000 BGCs and only describes the regime
     # where growth has started -- below ~4,000 peak RSS looks flat and the fit
@@ -157,7 +196,8 @@ def panel_memory(ax, measured):
 
     part_n = int(TARGET_BGCS * PARTITIONED_SHARE)
     ax.plot(extrap, [mem_gb(int(n * PARTITIONED_SHARE)) for n in extrap],
-            '--', color=GOOD, lw=1.8, label='largest partition, extrapolated')
+            '--', color=GOOD, lw=1.8,
+            label=f'largest partition ({100 * PARTITIONED_SHARE:.0f}%), extrapolated')
 
     one_gb, part_gb = mem_gb(TARGET_BGCS), mem_gb(part_n)
     ax.plot([TARGET_BGCS], [one_gb], 'o', color=ACCENT, ms=7, zorder=6)
@@ -181,7 +221,7 @@ def panel_memory(ax, measured):
 
     ax.set_xlabel('BGCs clustered')
     ax.set_ylabel('peak memory (GB)')
-    ax.set_title(f'The gain: {one_gb - part_gb:,.0f} GB at the scale\n'
+    ax.set_title(f'The gain: {round(one_gb) - round(part_gb):,} GB at the scale\n'
                  'a million genomes reaches', pad=26)
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.20), fontsize=7.2, ncol=2)
     return one_gb, part_gb
@@ -236,8 +276,8 @@ def main():
         panel_label(ax, letter, dx=-0.13, dy=1.22)
 
     fig.suptitle(
-        'Partitioning BiG-SCAPE: a 1.7–3.7× runtime cost buys '
-        f'{one_gb - part_gb:,.0f} GB and changes no cluster assignment',
+        'Partitioning BiG-SCAPE: a 1.7–3.7× compute cost buys '
+        f'{round(one_gb) - round(part_gb):,} GB and changes no cluster assignment',
         fontsize=11.5, fontweight='bold', y=1.02)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     save(fig, args.outdir, 'fig3_partitioning')
