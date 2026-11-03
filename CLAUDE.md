@@ -12,6 +12,7 @@ conda activate nextflow    # Activate conda environment before running
 
 ```bash
 python scripts/configure_run.py                            # ask, then write a params file
+python scripts/check_machine.py                            # size the run to this machine
 nextflow run main.nf --taxon "Pantoea ananatis"           # Full pipeline
 nextflow run main.nf --workflow download --taxon "Streptomyces coelicolor"
 nextflow run main.nf --clustering bigscape                 # With clustering
@@ -37,9 +38,47 @@ cost to download and on disk, whether they fit, and which other `results*` direc
 already hold them. Two real runs were lost on 2026-11-02 to a default `outdir` with no
 cache and `run_gtdbtk` left on, which is 131 GB and about 5.5 hours.
 
+**The `local` profile is the portable floor, not this machine.** Every resource number
+in it is sized for the smallest supported box — **16 GB RAM / 4 cores** — because
+Nextflow's local executor does not run an oversized task slowly, it refuses to **admit**
+it:
+
+```
+Process requirement exceeds available memory -- req: 48 GB; avail: 12 GB
+[FAILED] completed=0 failed=0 cached=0
+```
+
+So every absolute in a profile is a hidden minimum machine spec, and the old
+`process_high_memory = '48 GB'` meant `-profile local` *silently required* a ≥48 GB box.
+`scripts/check_machine.py` reads the machine (cores, RAM, free disk, and the cgroup
+limits, because `/proc/meminfo` reports the **host** under a container), prices the
+planned run against it, and writes a `machine.config` that overrides the floor:
+
+```bash
+python scripts/check_machine.py          # or let configure_run.py call it
+nextflow run main.nf -profile local -c machine.config -params-file run.json
+```
+
+A `-c` file beats the profile **regardless of profile order** — config *load* order
+decides, not profile order — so overriding `local` by name is enough and the command
+keeps a single `-profile local`. `configure_run.py` runs this automatically, before the
+database report, because dropping GTDB-Tk removes 131 GB from what that report prices.
+
+The floor is 4 cores because `process_high` and `process_high_memory` request 8 cpus and
+the profile oversubscribes CPU 2×: 4 cores offer 8 slots and admit them exactly, 2 cores
+offer 4 and the task is refused. Below 16 GB the budgets still clamp arithmetically, but
+nothing has been validated there, so the script **refuses** rather than running something
+untested for hours. When the machine is merely small rather than unsupported it
+**degrades and asks** — the only degradation that changes the science is `run_gtdbtk`,
+and it is gated on **disk**, not memory.
+
+`-profile slurm` is deliberately untouched: a cluster profile declares capacity, not a
+property of whichever node you logged in to, so `check_machine.py` short-circuits on it
+and the SLURM numbers are restored explicitly in that profile.
+
 ## Operational traps
 
-Nine ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Ten ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -138,6 +177,24 @@ databases after they moved to a new drive. That check passed trivially, byte-ide
 no re-download; the bug it found was one nobody had predicted. *Brenneria* is a good
 choice: 58 RefSeq genomes of which 25 are BGC-positive, so every downstream stage actually
 executes rather than stopping at an empty screen.
+
+**Nextflow 26's config parser is a strict DSL, and it will not tell you what it
+dislikes.** Verified on 26.04.3, 2026-11-02, while trying to size the `local` profile
+from the machine inside `nextflow.config`:
+
+| What you write | What happens |
+|---|---|
+| `def x = ...` anywhere, including line 1 | `Variable declarations cannot be mixed with config statements` |
+| `if (...)` inside a config closure | `Unexpected input: 'if'` |
+| `(int)(a / b)` — a C-style cast | `Unable to parse config file`, **no line number** |
+| `Sizing.ramGb()` from `lib/*.groovy` | `Sizing is not defined` — `lib/` is not on the classpath while the config is parsed |
+
+Only bare expressions survive, which is why `executor.cpus =
+Runtime.runtime.availableProcessors() * 2` and `maxForks = Math.max(1,
+(Runtime.runtime.availableProcessors() - 2).intdiv(2))` can be derived in place while the
+memory budgets cannot, and why sizing lives in `scripts/check_machine.py` instead. Use
+`.intdiv()`, never `(int)`. If the config stops parsing with no line number, look for a
+cast before anything else.
 
 ## Cross-Taxon Result Reuse
 
@@ -255,7 +312,9 @@ Gene Cluster Family (GCF) clustering.
 
 ### PHYLOGENY
 
-Phylogenetic placement using GTDB-Tk. ⚠️ Requires ~140 GB disk and ~56-64 GB RAM.
+Phylogenetic placement using GTDB-Tk. ⚠️ Requires ~140 GB for the database plus ~150 GB
+of pplacer work scratch, so plan for **~300 GB free**. Memory is **not** the constraint.
+Measured on the RefSeq Enterobacterales run (`disk_samples.tsv`, 60 s samples, 2,608 of them): across the whole 3.6 h GTDB-Tk window `mem_used` peaked at **4 GB** and `MemAvailable` never fell below 51 GB of 56, while work disk climbed to **150 GB**. Disk gates this stage; RAM does not.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -814,7 +873,7 @@ ones published before 2026-11-02 (19,100 -> 15,060 at 48 GB, 22,100 -> 17,470 at
 | RAM budget | largest single BiG-SCAPE job |
 |-----------:|-----------------------------:|
 | 16 GB (`process_high`, **local** profile) | 8,350 BGCs |
-| 48 GB (`process_high`, default label) | 15,060 BGCs |
+| 48 GB (the `process_high` default before 2026-11-02) | 15,060 BGCs |
 | 64 GB (SLURM `withName: BIGSCAPE`) | 17,470 BGCs |
 | 128 GB | 24,880 BGCs |
 | 1 TB | 70,820 BGCs |
@@ -822,7 +881,9 @@ ones published before 2026-11-02 (19,100 -> 15,060 at 48 GB, 22,100 -> 17,470 at
 So a million genomes cannot be clustered in one pass. Partition by BGC class, or
 pre-cluster, before that point. **The 64 GB SLURM override caps the pipeline at ~17,500
 BGCs** — roughly 150,000 genomes at Erwiniaceae-level prevalence. **On this workstation
-the local profile gives BiG-SCAPE 16 GB, which caps it at ~8,350** — the binding limit
+`machine.config` gives BiG-SCAPE 16 GB on a box that has it, which caps it at ~8,350**
+(the `local` profile floor is 12 GB, ~7,000 BGCs, so that it fits a 16 GB laptop) — the
+binding limit
 here, and the one `scripts/figures/fig4_scalability.py` draws.
 
 **Database: ~0.74 TB at 121,000 BGCs.** Bytes per comparison converged to 101, so 7.3
@@ -4120,7 +4181,10 @@ timeline { enabled = false }
 nextflow run main.nf -preview -c no_reports.config --taxon "Pantoea"
 ```
 
-- **GTDB-Tk OOM**: Requires 56-64GB RAM; keep `--pplacer_cpus 1`
+- **GTDB-Tk OOM**: not a real failure mode on these runs — its sampled memory peak was
+  **4 GB**, not the 56-64 GB claimed here before 2026-11-02. What it actually exhausts is
+  **disk** (~150 GB of pplacer scratch). Keep `--pplacer_cpus 1`, which is about scratch
+  and runtime rather than RAM.
 - **Conda env conflicts**: Each tool has its own environment; don't mix in COLLECT_VERSIONS
 - **NCBI download corruption**: If GENBANK_TO_FASTA fails with "No sequences found", check for null-filled files:
   ```bash

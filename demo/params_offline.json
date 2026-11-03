@@ -1,0 +1,23 @@
+{
+  "workflow": "bgc_analysis",
+  "taxon": "Demo",
+  "input_genomes": "/home/alexp/pipeline/demo/genomes_offline",
+  "outdir": "results_demo",
+
+  "pepm_prescreen": true,
+  "recover_orfs": true,
+  "annotation_transfer": true,
+
+  "antismash_minimal": true,
+  "antismash_batch_size": 2,
+  "antismash_html": true,
+
+  "clustering": "bigscape",
+  "bigscape_cutoffs": "0.30",
+  "bigscape_partition": false,
+
+  "run_gtdbtk": false,
+  "skip_tree": true,
+
+  "check_db_updates": false
+}

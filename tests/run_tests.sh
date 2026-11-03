@@ -290,6 +290,17 @@ else
     fail "configure_run parameter checks failed:"; echo "$CFGCHK" | sed 's/^/      /'
 fi
 
+# Machine sizing. A budget larger than the machine it was computed for does not
+# slow a run down, it kills it on task admission -- so this is checked rather than
+# reasoned about. Includes a live `nextflow config` resolution of the generated
+# machine.config, which is the only check here that exercises Nextflow itself.
+if MACHCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_machine_sizing.py" 2>&1)"; then
+    pass "machine sizing fits every supported machine"
+    echo "$MACHCHK" | grep -E '^  SKIP' | sed 's/^/     /'
+else
+    fail "machine sizing checks failed:"; echo "$MACHCHK" | sed 's/^/      /'
+fi
+
 echo
 echo "================================"
 echo "  passed: $PASS   failed: $FAIL"

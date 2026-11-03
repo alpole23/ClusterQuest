@@ -2,7 +2,8 @@
 """Assign BGCs to BiG-SCAPE partitions by pepM sequence identity.
 
 BiG-SCAPE compares every BGC against every other and its memory goes quadratic
-above ~4,000 BGCs — `GB = 1.14 + 1.29e-7*n^2`, so ~1.9 TB at the 121,000 BGCs a
+above ~4,000 BGCs — `GB = 1.80 + 2.04e-7*n^2` on the tree-PSS basis, so ~3.0 TB
+at the 121,000 BGCs a
 million genomes would yield. Splitting the input first by pepM identity brings
 the largest job to ~84 GB while rebuilding the same GCF network (ARI 1.0000 on
 three independent sets at 185-518 BGCs; at 1,302 BGCs 3 of 1,302 members move,
@@ -292,19 +293,35 @@ def main():
         print(f'{len(orphans)} regions without a pepM hit, each its own partition')
 
     # The cap keeps one partition inside its own memory allocation, so derive it
-    # from that allocation by inverting the measured fit GB = 1.14 + 1.29e-7*n^2.
+    # from that allocation by inverting the measured fit.
+    #
+    # CORRECTED 2026-11-02. This used to invert GB = 1.14 + 1.29e-7*n^2, which is
+    # fitted on `/usr/bin/time -f %M` = ru_maxrss. For a parent plus waited-for
+    # children that reports the max of any ONE process, and BiG-SCAPE runs eleven.
+    # Tree-wide PSS -- which divides each shared page by its sharers, so the shared
+    # Pfam data is counted once -- measured 1.58x higher at five sizes (stable
+    # 1.51-1.65). What the machine has to hold is PSS, so the honest curve is
+    #
+    #     GB = 1.80 + 2.04e-7*n^2
+    #
+    # The old constants returned a cap ~26% too HIGH: 19,100 against 15,060 at
+    # 48 GB. nextflow.config has documented the corrected fit since 2026-11-02
+    # while this inversion did not use it, which was survivable only because the
+    # cap was set by hand for runs near it. It is not survivable once the memory
+    # allocation is sized automatically from the machine, because then this is the
+    # only thing standing between a 16 GB laptop and an OOM kill that discards the
+    # clustering. See docs/comparisons/bigscape_partition_equivalence/.
     #
     # Budget only part of the allocation, because the fit is being extrapolated
     # well past its data: it was measured to 10,000 BGCs, and 128 GB implies
-    # 31,000 — a 3.1x reach, 4.4x at 256 GB. The margin costs about 8% of the cap
-    # and buys ~19 GB of headroom at 128 GB, against an OOM kill that would throw
-    # away hours of clustering.
+    # ~22,900 — a 2.3x reach. The margin costs about 8% of the cap and buys real
+    # headroom, against an OOM kill that would throw away hours of clustering.
     if args.max_partition_size:
         cap = args.max_partition_size
         print(f'partition cap {cap:,} BGCs (explicit override)')
     else:
         budget = args.memory_gb * args.memory_margin
-        cap = int(((budget - 1.14) / 1.29e-7) ** 0.5)
+        cap = int(((budget - 1.80) / 2.04e-7) ** 0.5)
         print(f'partition cap {cap:,} BGCs (from {args.memory_gb:g} GB at '
               f'{args.memory_margin:.0%}; the fit is extrapolated '
               f'{cap / 10000:.1f}x past its data)')

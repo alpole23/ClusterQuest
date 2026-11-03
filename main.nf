@@ -120,9 +120,30 @@ def validateParams() {
         log.info "To be asked for them instead:  python scripts/configure_run.py"
     }
 
+    // The `local` profile carries the PORTABLE FLOOR -- resource requests sized for
+    // the smallest supported machine, 16 GB / 4 cores -- because Nextflow's local
+    // executor refuses to ADMIT a task that exceeds the machine, so any absolute in
+    // a profile is a hidden minimum spec. A bigger box needs machine.config to be
+    // used fully, and there is no way to tell from inside the run whether one was
+    // generated and skipped or never generated, so this is a notice either way.
+    def sized = workflow.configFiles.any { it.toString().contains('machine.config') }
+    if (!sized && (workflow.profile ?: '').contains('local')) {
+        log.info "Resources are the portable floor (sized for 16 GB / 4 cores), not this machine."
+        log.info "To size them here:  python scripts/check_machine.py   then add  -c machine.config"
+    }
+
     // Warnings
     if (params.run_gtdbtk) {
-        log.warn "GTDB-Tk is enabled. This requires ~140 GB disk space and ~56-64 GB RAM."
+        // Corrected 2026-11-02. The old figure read "~140 GB disk space and ~56-64 GB
+        // RAM" and had both wrong: it understated disk by leaving out pplacer scratch
+        // and overstated RAM by an order of magnitude. Measured on the RefSeq
+        // Enterobacterales run (disk_samples.tsv, 60 s samples, 2,608 of them): across
+        // the whole 3.6 h GTDB-Tk window mem_used peaked at 4 GB and MemAvailable never
+        // fell below 51 GB of 56, while work disk climbed to 150 GB. Disk gates this
+        // stage; RAM does not.
+        log.warn "GTDB-Tk is enabled: ~140 GB for the database plus ~150 GB of pplacer " +
+                 "work scratch (measured), so plan for ~300 GB free. Memory is not the " +
+                 "constraint -- its sampled peak was 4 GB."
     }
 
     if (params.reuse_antismash_from) {

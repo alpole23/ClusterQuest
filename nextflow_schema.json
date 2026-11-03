@@ -187,7 +187,7 @@
         "download_max_forks": {
             "type": "integer",
             "description": "Concurrent fetch tasks. MEASURED on the COMBINED fetch+screen stage, which is what this process actually does \u2014 a download-only probe overstates it, because the pepM screen runs inline before the next batch starts. Re-probed wired on 2026-1",
-            "default": 24,
+            "default": 12,
             "x-group": "Download Genome Options"
         },
         "gtdb_release": {

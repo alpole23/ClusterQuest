@@ -527,6 +527,54 @@ def summarise(answers, schema):
         print(f'  {k:38s} {_fmt(v)}{changed}')
 
 
+def machine_step(answers, schema, profile, out_dir):
+    """Size the run to the machine, applying what is needed to make it fit.
+
+    Runs AFTER the interview and BEFORE report_databases, because turning GTDB-Tk
+    off removes a 131 GB download from what the database report then prices.
+
+    Returns the path of the machine.config written, or None. Exits the process when
+    the machine cannot run the configuration at all -- there is no point writing a
+    params file for a run that dies on task admission.
+    """
+    import check_machine as cm
+
+    if profile != 'local':
+        print(f'\nprofile {profile!r}: machine sizing skipped. A cluster profile '
+              f'declares capacity, not a property of the submit host.')
+        return None
+
+    machine = cm.detect(outdir=answers.get('outdir', 'results'))
+    result = cm.assess(machine, answers, schema)
+    print('\n'.join(cm.report(result)))
+
+    if result['verdict'] == 'refused':
+        sys.exit('aborted: nothing written. The run would die on task admission '
+                 'rather than run slowly, so there is nothing useful to write.')
+
+    required = [d for d in result['degradations'] if not d.get('advisory')]
+    advisory = [d for d in result['degradations'] if d.get('advisory')]
+
+    if required:
+        names = ', '.join(f'{d["param"]}={_fmt(d["value"])}' for d in required)
+        if input(f'Apply {names} and continue? [no] ').strip().lower() not in ('y', 'yes'):
+            sys.exit('aborted: nothing written')
+        for d in required:
+            answers[d['param']] = d['value']
+        # Re-price with the degradation applied, so the config and the printed
+        # budgets describe the run that will actually happen.
+        result = cm.assess(machine, answers, schema)
+
+    for d in advisory:
+        if input(f'Also set {d["param"]}={_fmt(d["value"])}? [no] ').strip().lower() in ('y', 'yes'):
+            answers[d['param']] = d['value']
+
+    cfg = Path(out_dir) / 'machine.config'
+    cfg.write_text(cm.render_config(result))
+    print(f'wrote \033[1m{cfg}\033[0m')
+    return cfg
+
+
 def default_outfile(answers):
     slug = re.sub(r'[^A-Za-z0-9]+', '_', str(answers.get('taxon', 'run'))).strip('_').lower()
     stamp = datetime.now().strftime('%Y%m%d_%H%M')
@@ -565,6 +613,14 @@ def main():
     answers = interview(schema, args.advanced)
     summarise(answers, schema)
 
+    # -profile is asked here rather than just before launching, because it decides
+    # whether the machine gets sized at all and sizing can change `answers`.
+    profile = 'local' if args.print_only else (input('\nprofile [local] ').strip() or 'local')
+
+    # Before the database report, because dropping GTDB-Tk removes a 131 GB
+    # download from what that report prices.
+    machine_cfg = machine_step(answers, schema, profile, args.out.parent if args.out else Path('.'))
+
     # After the interview, not during it: which databases are needed depends on
     # clustering and run_gtdbtk, which are asked long after outdir.
     if not report_databases(answers, schema):
@@ -580,15 +636,18 @@ def main():
     out.write_text(json.dumps(answers, indent=2) + '\n')
     print(f'\nwrote \033[1m{out}\033[0m')
 
-    # -profile is a Nextflow option, not a pipeline parameter, so it cannot live in the
-    # params file and has to go on the command line. It is always included: a run
-    # without it gets the `standard` profile, which does NOT carry the local memory
-    # caps in nextflow.config, so BiG-SCAPE would ask for 32 GB on a 56 GB box.
-    profile = 'local'
-    if not args.print_only:
-        profile = input('\nprofile [local] ').strip() or 'local'
-    cmd = ['nextflow', 'run', str(ROOT / 'main.nf'),
-           '-profile', profile, '-params-file', str(out)]
+    # -profile is a Nextflow option, not a pipeline parameter, so it cannot live in
+    # the params file and has to go on the command line. It is always included: a run
+    # without it gets the `standard` profile, which does NOT carry the local caps.
+    #
+    # machine.config comes after it deliberately. A -c file beats the profile
+    # regardless of profile ORDER -- verified 2026-11-02 that config LOAD order
+    # decides -- so this restores the machine's own budgets over the portable floor
+    # the `local` profile declares.
+    cmd = ['nextflow', 'run', str(ROOT / 'main.nf'), '-profile', profile]
+    if machine_cfg:
+        cmd += ['-c', str(machine_cfg)]
+    cmd += ['-params-file', str(out)]
 
     print('\n\033[1mcommand\033[0m')
     print('  ' + ' '.join(cmd))
