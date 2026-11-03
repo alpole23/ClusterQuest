@@ -184,6 +184,27 @@ def main():
         check(got_val == b_here[key], f'{what} agrees with check_machine.py',
               '' if got_val == b_here[key] else f'config {got_val} vs script {b_here[key]}')
 
+    # 10b. The cgroup walk must find this process's OWN cgroup, not just the root.
+    #      Reading /sys/fs/cgroup/memory.max alone happens to work under Docker,
+    #      where the container's cgroup is its namespace root, and silently fails
+    #      for a systemd scope on the host -- measured 2026-11-02, a
+    #      `systemd-run --scope -p MemoryMax=16G` was detected as the host's
+    #      56.9 GB. Under a real limit the walk is also exercised end to end by
+    #      the systemd-run case in the sizing validation; here, assert the shape.
+    paths = cm._cgroup_paths()
+    root = Path('/sys/fs/cgroup')
+    if not root.is_dir():
+        print('  SKIP  cgroup walk reaches this process\'s own cgroup (no /sys/fs/cgroup)')
+    else:
+        ok = bool(paths) and paths[-1] == root and all(
+            p == root or root in p.parents for p in paths)
+        check(ok, "cgroup walk runs from this process's cgroup up to the root",
+              '' if ok else f'{[str(p) for p in paths[:4]]}')
+        # A limit found anywhere in the chain must be the minimum, not the first hit.
+        lim = cm._cgroup_ram_gb()
+        check(lim is None or lim > 0, 'cgroup memory limit is positive when present',
+              '' if (lim is None or lim > 0) else f'{lim}')
+
     # 11. The generated config must actually parse and resolve to the budgets it
     #     claims. Everything above is arithmetic about Nextflow; this is Nextflow.
     #     Skipped without a JVM, like the rest of the suite's nextflow checks.

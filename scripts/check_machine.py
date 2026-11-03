@@ -144,35 +144,79 @@ def _read_int(path):
     return int(text) if text.lstrip('-').isdigit() else None
 
 
+def _cgroup_paths():
+    """Every cgroup directory from this process's own cgroup up to the root.
+
+    The effective limit is the MINIMUM along that chain, and it is not necessarily
+    at the root. Reading only /sys/fs/cgroup/<file> happens to work under Docker,
+    where the container's cgroup IS the root of its namespace -- but not for a
+    systemd scope or slice on the host, where the limit sits at e.g.
+    /sys/fs/cgroup/user.slice/user-1000.slice/...scope/memory.max while the root
+    reads "max". Measured 2026-11-02: a `systemd-run --scope -p MemoryMax=16G` was
+    detected as the host's 56.9 GB until this walked the chain.
+    """
+    root = Path('/sys/fs/cgroup')
+    if not root.is_dir():
+        return []
+    rel = ''
+    try:
+        for line in Path('/proc/self/cgroup').read_text().splitlines():
+            parts = line.split(':', 2)
+            # cgroup v2 is the "0::<path>" line; v1 names a controller.
+            if len(parts) == 3 and (parts[0] == '0' or 'memory' in parts[1]):
+                rel = parts[2].lstrip('/')
+                if parts[0] == '0':
+                    break
+    except OSError:
+        pass
+
+    paths, here = [], (root / rel if rel else root)
+    while True:
+        paths.append(here)
+        if here == root or root not in here.parents:
+            break
+        here = here.parent
+    return paths
+
+
 def _cgroup_ram_gb():
-    """Container memory limit, or None.
+    """Container or scope memory limit, or None.
 
     Checked because /proc/meminfo reports the HOST under a container, so a 4 GB
-    container on a 64 GB host would otherwise be sized as a 64 GB machine and
-    then OOM-killed. cgroup v1 writes a ~8 EB sentinel rather than "max" when
-    unlimited, which the upper bound rejects.
+    container on a 64 GB host would otherwise be sized as a 64 GB machine and then
+    OOM-killed. cgroup v1 writes a ~8 EB sentinel rather than "max" when unlimited,
+    which the upper bound rejects.
     """
-    for path in ('/sys/fs/cgroup/memory.max',
-                 '/sys/fs/cgroup/memory/memory.limit_in_bytes'):
-        raw = _read_int(path)
-        if raw and 0 < raw < (1 << 50):
-            return raw / GIB
-    return None
+    limits = []
+    for d in _cgroup_paths():
+        for name in ('memory.max', 'memory.limit_in_bytes'):
+            raw = _read_int(d / name)
+            if raw and 0 < raw < (1 << 50):
+                limits.append(raw / GIB)
+    return min(limits) if limits else None
 
 
 def _cgroup_cores():
-    """Container CPU quota in whole cores, or None. cpu.max is "<quota> <period>"."""
-    try:
-        fields = Path('/sys/fs/cgroup/cpu.max').read_text().split()
-    except OSError:
-        return None
-    if len(fields) != 2 or fields[0] == 'max':
-        return None
-    try:
-        quota, period = int(fields[0]), int(fields[1])
-    except ValueError:
-        return None
-    return max(1, quota // period) if period > 0 else None
+    """Container or scope CPU quota in whole cores, or None.
+
+    cpu.max is "<quota> <period>". Walked up the chain for the same reason as
+    memory: a systemd scope's CPUQuota does not live at the cgroup root.
+    """
+    quotas = []
+    for d in _cgroup_paths():
+        try:
+            fields = (d / 'cpu.max').read_text().split()
+        except OSError:
+            continue
+        if len(fields) != 2 or fields[0] == 'max':
+            continue
+        try:
+            quota, period = int(fields[0]), int(fields[1])
+        except ValueError:
+            continue
+        if period > 0:
+            quotas.append(max(1, quota // period))
+    return min(quotas) if quotas else None
 
 
 def _host_ram_gb():
