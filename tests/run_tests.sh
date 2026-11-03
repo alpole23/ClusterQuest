@@ -290,6 +290,15 @@ else
     fail "configure_run parameter checks failed:"; echo "$CFGCHK" | sed 's/^/      /'
 fi
 
+# docs/parameters.md holds the measurements that used to sit above each default in
+# nextflow.config. Moving them out traded a truncated prompt for the risk of a stale
+# note, so the correspondence is checked rather than trusted.
+if PDOC="$("$SYS_PY" "$PROJECT_DIR/tests/check_parameter_docs.py" 2>&1)"; then
+    pass "parameter docs match nextflow.config"
+else
+    fail "parameter doc checks failed:"; echo "$PDOC" | sed 's/^/      /'
+fi
+
 # Machine sizing. A budget larger than the machine it was computed for does not
 # slow a run down, it kills it on task admission -- so this is checked rather than
 # reasoned about. Includes a live `nextflow config` resolution of the generated
