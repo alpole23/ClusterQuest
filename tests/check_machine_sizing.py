@@ -61,10 +61,16 @@ def main():
     # 1. No budget may exceed the machine. antiSMASH is checked at DOUBLE its
     #    request, because it escalates once on an OOM kill -- `memory = 6.GB *
     #    task.attempt` -- and the retry is admitted against the same machine.
+    #
+    #    gtdbtk_gb is DELIBERATELY EXEMPT, and test 1b below is why. It is a
+    #    measured requirement (~37 GiB, 2026-11-03), not a budget to be fitted:
+    #    clamping it to a small machine is what let a 16 GB declaration tell
+    #    Nextflow it could admit three 36.8 GiB shards at once. A machine that
+    #    cannot afford it must be told to turn GTDB-Tk OFF, which is test 1b.
     bad = []
     for cores, ram in MACHINES:
         b = cm.budgets(cores, ram)
-        for name in ('gtdbtk_gb', 'bigscape_gb', 'medium_gb'):
+        for name in ('bigscape_gb', 'medium_gb'):
             if b[name] > b['usable_gb'] + 1e-9:
                 bad.append(f'{cores}c/{ram}G {name}={b[name]:.1f} > usable {b["usable_gb"]:.1f}')
         if b['antismash_gb'] * 2 > b['usable_gb'] + 1e-9:
@@ -73,6 +79,44 @@ def main():
         if b['usable_gb'] >= ram:
             bad.append(f'{cores}c/{ram}G leaves the OS nothing')
     check(not bad, 'no budget exceeds the machine it was sized for', '; '.join(bad[:3]))
+
+    # 1b. A machine that cannot hold GTDB-Tk must be told to disable it, rather
+    #     than handed a budget that fits and a task that will not be admitted.
+    small = cm.assess(cm.detect(force_cores=8, force_ram_gb=32.0,
+                                force_disk_gb=20000, outdir='.'),
+                      dict(answers, run_gtdbtk=True), schema)
+    prop = [d for d in small['degradations'] if d['param'] == 'run_gtdbtk']
+    check(bool(prop), 'a 32 GB box is told to turn GTDB-Tk off',
+          f'degradations: {[d["param"] for d in small["degradations"]]}')
+    check(any('not be admitted' in d['why'] for d in prop),
+          'and told why -- the task would not be admitted at all')
+
+    big = cm.assess(cm.detect(force_cores=16, force_ram_gb=128.0,
+                              force_disk_gb=20000, outdir='.'),
+                    dict(answers, run_gtdbtk=True), schema)
+    check(not [d for d in big['degradations'] if d['param'] == 'run_gtdbtk'],
+          'a 128 GB box is not')
+
+    # 1c. The allocation has to be declared where it cannot be clamped away. Its
+    #     only label user is GTDBTK_CLASSIFY, but machine.config overrides labels,
+    #     so the authoritative figure is a withName -- which beats any withLabel.
+    labels = (ROOT / 'conf' / 'labels.config').read_text()
+    import re
+    blk = re.search(r"withName: 'GTDBTK_CLASSIFY' \{(.*?)\}", labels, re.S)
+    check(blk is not None and "'40 GB'" in blk.group(1),
+          'conf/labels.config declares GTDBTK_CLASSIFY memory by name',
+          blk.group(1).strip() if blk else 'no withName block')
+    check(f"{cm.GTDBTK_ALLOC_GB:.0f} GB" == '40 GB',
+          'and check_machine.py agrees with it',
+          f'{cm.GTDBTK_ALLOC_GB} GB')
+
+    # 1d. Nothing may still be telling a user that GTDB-Tk needs 4 GB. It needs
+    #     ~37 GiB; the 4 GB came from 60 s sampling that stepped over a 30 s spike.
+    main_nf_txt = (ROOT / 'main.nf').read_text()
+    check('sampled peak was 4 GB' not in main_nf_txt,
+          'main.nf no longer claims a 4 GB GTDB-Tk peak')
+    check(cm.GTDBTK_PEAK_GB > 30,
+          'and the recorded peak is the measured one', f'{cm.GTDBTK_PEAK_GB} GiB')
 
     # 2. The widest cpus request must be admissible. `process_high` and
     #    `process_high_memory` ask for 8, and the profile oversubscribes CPU 2x,
@@ -85,13 +129,14 @@ def main():
 
     # 3. This workstation's budgets must reproduce the absolutes they replaced, or
     #    the Enterobacterales re-run is not comparable to the committed trace.
-    #    GTDB-Tk is the one DELIBERATE change: 48 -> 16 GB, because 48 was never a
-    #    measurement and the sampled peak across its whole 3.6 h window was 4 GB.
+    #    GTDB-Tk went 48 -> 16 on 2026-11-02 on the strength of 60 s sampling, and
+    #    back to 40 on 2026-11-03 when 2-5 s sampling found the real ~37 GiB peak.
+    #    So the original 48 was nearer right than the correction, and 40 is measured.
     b = cm.budgets(16, 56.9)
     expected = {'bigscape_gb': 16.0, 'medium_gb': 8.0, 'antismash_gb': 6.0,
-                'antismash_forks': 7, 'executor_cpus': 32, 'gtdbtk_gb': 16.0}
+                'antismash_forks': 7, 'executor_cpus': 32, 'gtdbtk_gb': 40.0}
     bad = [f'{k}={b[k]} want {v}' for k, v in expected.items() if b[k] != v]
-    check(not bad, 'this box reproduces the pre-sizing values (GTDB-Tk 48->16 aside)',
+    check(not bad, 'this box reproduces the pre-sizing values (GTDB-Tk 48->40 aside)',
           '; '.join(bad))
 
     # 4. The floor refuses rather than clamps. Below it the arithmetic still works

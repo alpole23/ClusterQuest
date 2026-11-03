@@ -11,11 +11,18 @@ ADMIT it, and the run dies:
 
 So every absolute resource number in a profile is a hidden minimum machine spec.
 `-profile local` used to request 48 GB for GTDB-Tk and therefore silently required
-a >=48 GB box. That 48 GB was never a measurement: the RefSeq Enterobacterales run
-sampled free(1) every 60 s for 2,608 samples, and across the whole 3.6 h GTDB-Tk
-window (t=39.17->42.80 h, 206 samples) mem_used peaked at 4 GB while MemAvailable
-never fell below 51 GB of 56. What GTDB-Tk actually consumed was 150 GB of WORK
-DISK. Disk gates that stage, not RAM.
+a >=48 GB box.
+
+That 48 GB was cut to 4 GB on 2026-11-02, from the RefSeq Enterobacterales run's
+60-SECOND sampling (2,608 samples; 206 across the 3.6 h GTDB-Tk window), which
+showed mem_used peaking at 4 GB. On 2026-11-03 that was measured again at 5 s and
+2 s and the peak is ~37 GiB in a ~30-SECOND spike -- the 60 s sampling had simply
+stepped over it. Three independent instruments agree: PSS 36.8 GiB, system
+mem_used 38.8 GiB, Nextflow peak_rss 36.9 GB. So the 48 GB this script was written
+to mock was nearer the truth than the 4 GB that replaced it, and GTDB-Tk really
+does require a big box. It is now allocated 40 GB BY NAME in conf/labels.config.
+
+GTDB-Tk also consumes 150 GB of WORK DISK, which is unchanged. Both gate it now.
 
 This script therefore does two different jobs, and it is worth keeping them apart:
 
@@ -89,9 +96,16 @@ MIN_RAM_GB = 16.0
 BIGSCAPE_INTERCEPT_GB = 1.80
 BIGSCAPE_COEFF = 2.04e-7
 
-# GTDB-Tk, from docs/comparisons/enterobacterales_refseq/disk_samples.tsv.
-GTDBTK_SAMPLED_PEAK_GB = 4.0      # 206 samples across the 3.6 h window
-GTDBTK_WORK_SCRATCH_GB = 150.0    # what it actually needs, and it is disk
+# GTDB-Tk. Memory measured 2026-11-03 at 2-5 s; the earlier 4.0 came from 60 s
+# sampling that stepped over a ~30 s spike. Standalone at three sizes on the same
+# genomes, flags and database: 25 -> 10.67 GiB, 100 -> 34.44, 300 -> 36.22. It
+# SATURATES, so a smaller gtdbtk_shard_size buys no memory above ~100 genomes while
+# wall time stays fixed per shard at ~27 min (the ANI pre-screen sketches all
+# 143,614 reference genomes every time). Caveat: all measured genomes were
+# Erwiniaceae, one family; a broader taxon may place higher.
+GTDBTK_PEAK_GB = 36.8             # measured PSS peak, 301 genomes
+GTDBTK_ALLOC_GB = 40.0            # what conf/labels.config declares, by name
+GTDBTK_WORK_SCRATCH_GB = 150.0    # disk, unchanged
 # Peak work disk away from the GTDB-Tk window, same run: 22 GB during the
 # antiSMASH/ORF phase. That is NOT an input-scaled figure -- fetch batches are
 # deleted as they are screened, so what is resident is whatever antiSMASH and
@@ -348,10 +362,16 @@ def budgets(cores, ram_gb):
     usable = ram_gb - max(2.0, ram_gb * 0.12)
     return dict(
         usable_gb=usable,
-        # 4x the 4 GB sampled peak. Generous because the sampler was 60 s and a
-        # shorter spike could hide between samples; cheap because disk, not RAM,
-        # is what actually gates this stage.
-        gtdbtk_gb=max(4.0, min(usable, 16.0)),
+        # NOT clamped to the machine. Declaring less than GTDB-Tk measurably needs
+        # is the bug this script exists to prevent in the other direction: the
+        # local executor treats `memory` as an ADMISSION constraint and does not
+        # enforce it, so a 16 GB declaration let a 36.8 GiB task run while telling
+        # Nextflow it could admit three of them at once -- ~110 GiB on a 57 GB box,
+        # which any run over gtdbtk_shard_size genomes would have triggered.
+        # Declaring the true figure both reserves enough and caps concurrency at
+        # one shard for free. A machine that cannot afford it gets a degradation
+        # below, proposing run_gtdbtk = false, rather than a budget that lies.
+        gtdbtk_gb=GTDBTK_ALLOC_GB,
         # Capped at the 16 GB the local profile already gave BiG-SCAPE, so the
         # published 8,350-BGC ceiling is unchanged on a box that can afford it.
         bigscape_gb=max(4.0, min(usable, 16.0)),
@@ -438,7 +458,21 @@ def assess(machine, answers, schema, outdir_gb=None):
             f'untested, and the 60 s memory sampling behind these figures cannot '
             f'rule out a spike the remaining headroom would not absorb.')
 
-    # Disk is the gate on GTDB-Tk, and the only degradation that changes the
+    # RAM is now a gate on GTDB-Tk too, not just disk. Checked against USABLE rather
+    # than total, because the OS's share is not available to a task.
+    if disk['gtdbtk_planned'] and b['gtdbtk_gb'] > b['usable_gb']:
+        degradations.append(dict(
+            param='run_gtdbtk', value=False,
+            why=(f'GTDB-Tk needs {GTDBTK_ALLOC_GB:.0f} GB of RAM (measured peak '
+                 f'{GTDBTK_PEAK_GB:.1f} GiB in a ~30 s spike) and only '
+                 f'{b["usable_gb"]:.1f} GB is budgetable on this machine, so the '
+                 f'task would not be admitted at all'),
+            costs=('no GTDB-Tk taxonomy per GCF, so the HGT-candidate analysis '
+                   'and the taxonomy columns of the report are unavailable; '
+                   'clustering, BGC detection and the branch-point calls are '
+                   'unaffected')))
+
+    # Disk is the other gate on GTDB-Tk, and the only degradation that changes the
     # SCIENCE rather than the wall clock. Say so plainly.
     if disk['gtdbtk_planned'] and free_gb < disk['with_gtdbtk']:
         if free_gb >= disk['without_gtdbtk']:
@@ -551,7 +585,8 @@ def report(result):
         out.append(f'    note: {note}')
     out += ['',
             f'  Budgets ({b["usable_gb"]:.1f} GB budgetable after the OS share):',
-            f'    GTDB-Tk        {b["gtdbtk_gb"]:5.0f} GB   (sampled peak was 4 GB)',
+            f'    GTDB-Tk        {b["gtdbtk_gb"]:5.0f} GB   '
+            f'(measured peak {GTDBTK_PEAK_GB:.1f} GiB, ~30 s spike)',
             f'    BiG-SCAPE      {b["bigscape_gb"]:5.0f} GB   '
             f'(holds ~{result["bigscape_capacity"]:,} BGCs; '
             f'partition cap ~{result["bigscape_cap"]:,})',

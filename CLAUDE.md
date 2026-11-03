@@ -818,6 +818,30 @@ Two trace-reading traps found doing this, also recorded:
 - **Sum `CACHED` as well as `COMPLETED`.** After a `-resume`, the trace is rewritten
   and nearly every row is `CACHED`, carrying the realtime of the session that actually
   ran it. Filtering to `COMPLETED` returned one task and a `ZeroDivisionError`.
+- **`peak_rss` overstates in proportion to how much the process tree shares, and
+  you cannot tell which case you have without PSS.** Nextflow sums RSS across the
+  whole tree, counting every shared page once per process that maps it. Measured on
+  the 2026-11-03 Erwiniaceae run, same instrument, same run:
+
+  | task | procs | `peak_rss` | PSS | verdict |
+  |---|---:|---:|---:|---|
+  | `GTDBTK_CLASSIFY` | 11 | 36.9 GB | 36.8 GiB | truthful |
+  | `ANTISMASH` | 13-14 | 4.8-4.9 GB | 4.5-4.7 GiB | truthful |
+  | `BIGSCAPE` | 21 | 16 GB | **2.9 GiB** | 5.5x over |
+  | `BIGSCAPE_REFERENCES` | 18 | 16 GB | **2.6 GiB** | 6.1x over |
+
+  BiG-SCAPE's workers share one Pfam database, so its `peak_rss` is nearly pure
+  double-counting; GTDB-Tk's processes hold distinct resident data, so its is real.
+  Reading `peak_rss` as an artifact cost a day of treating a genuine 37 GiB
+  requirement as a 4 GB one. **Get PSS from `/proc/<pid>/smaps_rollup`**, which
+  divides each shared page by the number of processes mapping it, and sample at 5 s
+  or less -- a 60 s interval missed GTDB-Tk's ~30 s peak entirely.
+
+  Corollary for the BiG-SCAPE capacity fit `GB = 1.80 + 2.04e-7*n^2`: it predicts
+  1.82 GB at 335 BGCs where PSS measured 2.93 GiB, so the intercept is ~1.1 GiB low.
+  Re-solving at 16 GB gives ~8,000 BGCs rather than 8,343 -- about 4% tighter. The
+  intercept wants refitting against PSS.
+
 - **Never sum across a taxon's per-run traces.** Each run has written its own
   `pipeline_info/<taxon>/<UTC stamp>/pipeline_trace.tsv` since 2026-11-03, which is
   what stopped runs overwriting one another -- but because a `CACHED` row carries the
@@ -4272,9 +4296,22 @@ timeline { enabled = false }
 nextflow run main.nf -preview -c no_reports.config --taxon "Pantoea"
 ```
 
-- **GTDB-Tk OOM**: not a real failure mode on these runs — its sampled memory peak was
-  **4 GB**, not the 56-64 GB claimed here before 2026-11-02. What it actually exhausts is
-  **disk** (~150 GB of pplacer scratch). Keep `--pplacer_cpus 1`, which is about scratch
+- **GTDB-Tk needs ~37 GiB of RAM, not 4 GB** (measured 2026-11-03; this entry said
+  4 GB from 2026-11-02, and 56-64 GB before that). The 4 GB came from the RefSeq run's
+  `disk_samples.tsv`, which sampled every **60 seconds** — and the peak is a
+  **~30-second spike**, so that sampling walked straight through it. At 5 s and 2 s,
+  three independent instruments agree: PSS **36.8 GiB**, system `mem_used` 38.8 GiB
+  (MemAvailable fell 56.9 → 18.1), and Nextflow's `peak_rss` 36.9 GB. The original
+  56-64 GB figure was closer to the truth than the correction that replaced it.
+  `GTDBTK_CLASSIFY` is therefore allocated **40 GB** by name in `conf/labels.config`,
+  which also caps its concurrency to one shard by admission arithmetic. It will not be
+  admitted under ~44 GB; set `run_gtdbtk = false` there. Sharding is not a lever —
+  the cost saturates (25 genomes 10.7 GiB, 100 → 34.4, 300 → 36.2) while wall time is
+  fixed per shard at ~27 min, because the ANI pre-screen sketches all 143,614
+  reference genomes every time. Disk is still ~150 GB of pplacer scratch, and
+  `--pplacer_cpus 1` stays, which is about scratch and runtime rather than RAM.
+  **Every genome measured was Erwiniaceae, one family; re-measure before the
+  Actinomycetes and whole-Bacteria runs.**
   and runtime rather than RAM.
 - **Conda env conflicts**: Each tool has its own environment; don't mix in COLLECT_VERSIONS
 - **NCBI download corruption**: If GENBANK_TO_FASTA fails with "No sequences found", check for null-filled files:

@@ -205,16 +205,22 @@ def validateParams() {
 
     // Warnings
     if (params.run_gtdbtk) {
-        // Corrected 2026-11-02. The old figure read "~140 GB disk space and ~56-64 GB
-        // RAM" and had both wrong: it understated disk by leaving out pplacer scratch
-        // and overstated RAM by an order of magnitude. Measured on the RefSeq
-        // Enterobacterales run (disk_samples.tsv, 60 s samples, 2,608 of them): across
-        // the whole 3.6 h GTDB-Tk window mem_used peaked at 4 GB and MemAvailable never
-        // fell below 51 GB of 56, while work disk climbed to 150 GB. Disk gates this
-        // stage; RAM does not.
+        // Corrected twice. The original read "~140 GB disk space and ~56-64 GB RAM".
+        // On 2026-11-02 the RAM figure was cut to 4 GB from the RefSeq run's
+        // disk_samples.tsv -- and that was wrong, because those were 60-SECOND
+        // samples and the peak is a ~30-second spike. Sampling at 5 s and 2 s on
+        // 2026-11-03 found ~37 GiB by three independent instruments, so the original
+        // 56-64 GB was nearer the truth than the "correction" that replaced it.
+        //
+        // Disk still gates how much free space you need (~300 GB); RAM gates whether
+        // the task is ADMITTED at all. See the GTDBTK_CLASSIFY block in
+        // conf/labels.config for the measurements and the saturation curve.
         log.warn "GTDB-Tk is enabled: ~140 GB for the database plus ~150 GB of pplacer " +
-                 "work scratch (measured), so plan for ~300 GB free. Memory is not the " +
-                 "constraint -- its sampled peak was 4 GB."
+                 "work scratch (measured), so plan for ~300 GB free."
+        log.warn "It also needs ~37 GB of RAM in a ~30 s spike, so it is allocated " +
+                 "40 GB and will not be admitted on a machine under ~44 GB. Set " +
+                 "run_gtdbtk = false there. The 4 GB this warning used to quote came " +
+                 "from a 60 s sampler that missed the spike entirely."
     }
 
     if (params.reuse_antismash_from) {
