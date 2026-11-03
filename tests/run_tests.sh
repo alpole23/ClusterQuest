@@ -281,6 +281,15 @@ else
     fail "report JS handler checks failed:"; echo "$JSCHK" | sed 's/^/      /'
 fi
 
+# configure_run.py names parameters and choice lists for itself. A name the schema
+# does not declare makes that parameter silently unaskable; a choice main.nf rejects
+# sends the user into a validation error holding the wizard's own suggestion.
+if CFGCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_configure_run.py" 2>&1)"; then
+    pass "configure_run parameters match the schema"
+else
+    fail "configure_run parameter checks failed:"; echo "$CFGCHK" | sed 's/^/      /'
+fi
+
 echo
 echo "================================"
 echo "  passed: $PASS   failed: $FAIL"
