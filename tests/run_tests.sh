@@ -310,6 +310,15 @@ else
     fail "machine sizing checks failed:"; echo "$MACHCHK" | sed 's/^/      /'
 fi
 
+# Run reports are per-run since 2026-11-03. The writer and its four readers have to
+# agree on the path, because a reader that disagrees fails quietly -- VISUALIZE_RESULTS
+# just omits its resources panel.
+if INFOCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_pipeline_info_paths.py" 2>&1)"; then
+    pass "run report paths are per-run and every reader agrees"
+else
+    fail "pipeline_info path checks failed:"; echo "$INFOCHK" | sed 's/^/      /'
+fi
+
 # NCBI spells the same field two ways in the same filename, and the reader that
 # got it wrong wrote an empty taxonomy map for six days without failing a run.
 if NCBICHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_ncbi_report_parsing.py" 2>&1)"; then

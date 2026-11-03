@@ -250,7 +250,7 @@ results/
 │   ├── gcf_representatives.json        # GCF data with gene diagrams
 │   └── bigscape_statistics.json
 ├── gtdbtk_results/{taxon}/
-├── pipeline_info/{taxon}/              # trace, timeline, execution report
+├── pipeline_info/{taxon}/{stamp}/       # trace, timeline, execution report -- one dir per run
 └── main_analysis_results/{taxon}/
     ├── bgc_report.html                 # ← the report
     ├── genomes/                        # Per-genome pages (required by the report)

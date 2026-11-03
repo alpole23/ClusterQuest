@@ -99,8 +99,10 @@ that never executed and 2.6% of the bill.
 
 **The pilot's own trace no longer exists.** `trace`, `report` and `timeline` use
 `overwrite = true` under a per-taxon path, so rerunning the same taxon destroyed it —
-behaviour this repo documents as intended, which is correct for the common case and
-costly here. The cached rows survive only because they were copied forward into the new
+behaviour this repo documented as intended until 2026-11-03, when reports moved to
+`pipeline_info/<taxon>/<UTC stamp>/` and a rerun stopped being able to reach an
+earlier run's files. It was never correct for the common case: rerunning one taxon
+is exactly what comparing two runs means. The cached rows survive only because they were copied forward into the new
 trace.
 
 What can still be said about the pilot: it completed 1,052 tasks with no failures and
@@ -280,7 +282,8 @@ not three weeks in.
 
 ## Data
 
-Trace at `results/pipeline_info/Bacteria/pipeline_trace.tsv` (rerun; the pilot's was
-overwritten). Disk samples and logs under `/mnt/bigdisk/clusterquest/bench/`. Related:
+Trace committed here as `pipeline_trace.tsv` (a rerun; the pilot's own was
+overwritten under the pre-2026-11-03 single-path layout, which is why a `results/...`
+path is not quoted — that one is gitignored and not reproducible for a reader). Disk samples and logs under `/mnt/bigdisk/clusterquest/bench/`. Related:
 `recover_orfs_recalibration/`, `hgt_candidates/`,
 `enterobacterales_genbank/PREDICTIONS.md`.

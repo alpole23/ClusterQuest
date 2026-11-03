@@ -32,6 +32,16 @@ SCHEMA = ROOT / 'nextflow_schema.json'
 # the very setting the config tells you to use.
 NULLABLE = {'antismash_phosphonate_neighbourhood'}
 
+# Params whose resolved value is not a constant, so committing it as a schema default
+# would bake one run's wall clock into the repo. pipeline_info_dir ends in a UTC run
+# stamp since 2026-11-03, so `--write` would have produced
+# "results/pipeline_info/Erwiniaceae/20261103_150554" and a spurious diff on every
+# later regeneration. The non-write check never caught it: main() compares property
+# names and types only, never default values. The property itself must stay -- the
+# schema root sets additionalProperties = false, so dropping it would make
+# validateParameters() reject params.pipeline_info_dir on every run.
+VOLATILE_DEFAULT = {'pipeline_info_dir'}
+
 
 def resolved_params():
     """{name: value-as-written} straight from Nextflow's own config resolution."""
@@ -104,7 +114,7 @@ def build():
         if name in NULLABLE:
             typ = [typ, 'null'] if isinstance(typ, str) else typ
         spec = {'type': typ, 'description': docs.get(name, '')}
-        if default is not None:
+        if default is not None and name not in VOLATILE_DEFAULT:
             spec['default'] = default
         if groups.get(name):
             spec['x-group'] = groups[name]

@@ -290,8 +290,7 @@
         },
         "pipeline_info_dir": {
             "type": "string",
-            "description": "",
-            "default": "results/pipeline_info/Erwiniaceae"
+            "description": ""
         },
         "publish_mode": {
             "type": "string",

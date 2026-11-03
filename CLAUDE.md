@@ -383,10 +383,12 @@ results/
 │   └── reference_summary.json   # per-GCF nearest reference, per-reference nearest GCF
 ├── gtdbtk_results/${taxon}/     # GTDB-Tk phylogenetic placement
 ├── pipeline_info/
-│   ├── pipeline_trace.tsv       # Per-task timing and resource data
-│   ├── pipeline_report.html     # Nextflow execution report
-│   ├── pipeline_timeline.html   # Visual timeline
-│   └── software_versions.json   # Tool versions
+│   ├── software_versions.json   # Tool versions -- NOT taxon- or run-scoped: one
+│   │                            #   file per outdir, rewritten by every run
+│   └── ${taxon}/${stamp}/       # one directory per RUN; stamp is UTC yyyyMMdd_HHmmss
+│       ├── pipeline_trace.tsv   # Per-task timing and resource data
+│       ├── pipeline_report.html # Nextflow execution report
+│       └── pipeline_timeline.html  # Visual timeline
 └── main_analysis_results/${taxon}/
     ├── region_counts.tsv        # BGC counts per genome
     ├── region_tabulation.tsv    # Detailed BGC information
@@ -479,7 +481,9 @@ Benchmark the pipeline to estimate runtime for large-scale analyses (e.g., 3 mil
 
 3. **Analyze trace file**:
    ```bash
-   # Trace file location: results/pipeline_info/pipeline_trace.tsv
+   # Trace file location: results/pipeline_info/<Taxon>/<run stamp>/pipeline_trace.tsv
+   # Newest one with data rows, either layout:
+   #   bash scripts/run_status.sh    # prints the trace it chose
    # Contains: task_id, name, status, realtime, cpus, memory, peak_rss, peak_vmem
    ```
 
@@ -791,9 +795,15 @@ Two trace-reading traps found doing this, also recorded:
 - **Sum `CACHED` as well as `COMPLETED`.** After a `-resume`, the trace is rewritten
   and nearly every row is `CACHED`, carrying the realtime of the session that actually
   ran it. Filtering to `COMPLETED` returned one task and a `ZeroDivisionError`.
-- **A resume overwrites `pipeline_trace.tsv`.** There are no rotated copies. The
-  per-task timings of the original run survive only because `CACHED` rows preserve
-  them -- copy the trace aside before resuming a run you intend to benchmark.
+- **Never sum across a taxon's per-run traces.** Each run has written its own
+  `pipeline_info/<taxon>/<UTC stamp>/pipeline_trace.tsv` since 2026-11-03, which is
+  what stopped runs overwriting one another -- but because a `CACHED` row carries the
+  realtime of the session that actually ran the task, **the same task reappears in
+  every later session's trace**. Concatenating them multiplies the real work by the
+  number of resumes. Pick ONE trace per question, or deduplicate by task `hash`
+  first. This is the hazard the per-run directory created; the old advice to "copy
+  the trace aside before resuming" is retired, because a resumed run can no longer
+  reach an earlier session's file.
 
 The top-level `pepm_prescreen/summary.json` used to claim "a controlled A/B on one taxon
 with one code version has not been run". That caveat has been removed and the file now
@@ -4159,14 +4169,26 @@ This is set in `scripts/clustering/extract_gcf_representatives.py` (`antismash_l
 - **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module includes validation with `sync -f .` + retry logic (scoped, never a bare `sync` -- see the trap above), but if corruption persists, delete the cached work directory and re-run
 - **pyhmmer/BiG-SCAPE compatibility**: pyhmmer 0.12+ changed `profile.accession` from bytes to str, breaking BiG-SCAPE. The module pins `pyhmmer<0.11`
 - **GTDB-Tk duplicate taxon labels**: GTDB-Tk normalizes genome names case-insensitively. If two genomes have names differing only in case (e.g., `MDCuke` vs `MDcuke`), GTDB-Tk will fail with `NewickReaderDuplicateTaxonError`. The `create_name_map.py` script now handles this by tracking names case-insensitively and adding numeric suffixes to duplicates
-- **Run reports are scoped per taxon (fixed 2026-08-25)**: `trace`, `report` and
-  `timeline` all set `overwrite = true`, so with one shared path any later run — a
-  `-preview` included, which writes them while executing nothing — destroyed the previous
-  run's benchmark data. They now live under `params.pipeline_info_dir`
-  (`results/pipeline_info/<taxon>/`), defined once in `nextflow.config` and referenced by
-  both the report scopes and `subworkflows/bgc_analysis.nf` so the two cannot drift.
-  Analysing a new taxon no longer clobbers the last one; a repeat run of the *same* taxon
-  still overwrites, which is intended. A clobbered trace can still be rebuilt from
+- **Run reports are scoped per taxon and per run (taxon 2026-08-25, run 2026-11-03)**:
+  `trace`, `report` and `timeline` all set `overwrite = true`, so with one shared path
+  any later run — a `-preview` included, which writes them while executing nothing —
+  destroyed the previous run's benchmark data. They live under
+  `params.pipeline_info_dir` (`results/pipeline_info/<taxon>/<UTC yyyyMMdd_HHmmss>/`),
+  defined once in `nextflow.config` and referenced by both the report scopes and
+  `subworkflows/bgc_analysis.nf` so the two cannot drift.
+  Taxon scoping alone was not enough, and the claim that a same-taxon rerun
+  "still overwrites, which is intended" was wrong: rerunning ONE taxon is exactly what
+  comparing two runs means. Four 114-byte header-only traces in `results/pipeline_info/`
+  are previews that had already done it, and on 2026-11-03 two previews erased the
+  Erwiniaceae regression gate's trace, report and timeline an hour after it finished.
+  `overwrite = false` is **not** the alternative: measured on 26.10.5 it preserves the
+  old file and writes **nothing** for the new run — zero rows, no rotated copy — while
+  the run still reports `[SUCCESS]`. It changes which run you lose, silently. The
+  timestamp is therefore inlined in that one assignment, in UTC via `java.time`: a
+  second evaluation would split trace and report across two directories, the strict
+  config DSL rejects a `def` there, and local time would repeat an hour across the DST
+  fall-back. Known limit: two runs of one taxon into one outdir starting in the same
+  second still share a directory. A clobbered trace can still be rebuilt from
   Nextflow's cache: `nextflow log <run_name> -f task_id,hash,name,status,exit,submit,start,complete,realtime,cpus,memory,peak_rss,peak_vmem,pcpu,pmem,rchar,wchar`
   (note `pcpu`/`pmem` — the template parser rejects `%cpu`/`%mem`). Note
   `Utils.sanitizeTaxon` is not callable from config scope, so the taxon transform is
@@ -4211,8 +4233,11 @@ rm -rf work/                      # Remove intermediate files (keeps databases)
 du -sh work/                      # Check work dir size
 ```
 
-**Preview a run without destroying `pipeline_info/`** — put this in a scratch config and
-pass it with `-c`:
+**Keep a `-preview` from leaving a report directory behind** — since 2026-11-03 a
+preview can no longer destroy an earlier run's reports, each run having its own
+timestamp directory; it only adds one holding a header-only trace and ~1.85 MB of
+empty report and timeline. So this is tidiness now, not protection. Put it in a
+scratch config and pass it with `-c`:
 
 ```groovy
 trace    { enabled = false }
