@@ -310,6 +310,14 @@ else
     fail "machine sizing checks failed:"; echo "$MACHCHK" | sed 's/^/      /'
 fi
 
+# NCBI spells the same field two ways in the same filename, and the reader that
+# got it wrong wrote an empty taxonomy map for six days without failing a run.
+if NCBICHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_ncbi_report_parsing.py" 2>&1)"; then
+    pass "NCBI assembly report parses in both key spellings"
+else
+    fail "NCBI report parsing checks failed:"; echo "$NCBICHK" | sed 's/^/      /'
+fi
+
 echo
 echo "================================"
 echo "  passed: $PASS   failed: $FAIL"
