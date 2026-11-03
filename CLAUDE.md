@@ -123,15 +123,38 @@ JAVA_HOME=~/miniconda3/envs/nextflow PATH="$PATH:$HOME/miniconda3/envs/nextflow/
 Append rather than prepend, or the conda `python3` shadows the system one and the pyflakes
 check skips.
 
-**Never call a bare `sync` in a process script.** It flushes EVERY mounted filesystem,
-so one sick mount anywhere on the host hangs a task that never touched it. On a WSL2 box
-the Windows-served mounts do exactly that: the call parks in uninterruptible D state, no
-signal reaches it, and the task sits there until its time limit, ignores the SIGTERM, and
-leaves Nextflow with `IllegalThreadStateException: process hasn't exited` -- which aborts
-the **run**, not the task. It killed a Bacteria GenBank run ~8,800 fetch batches in, after
-the downloads had already succeeded, and left thirty-odd unkillable processes that only a
-VM restart cleared. Use `sync -f .`, which flushes just the filesystem holding the work
-directory.
+**Never call `sync` in a process script -- with or without `-f`.** A bare `sync`
+flushes EVERY mounted filesystem, so one sick mount anywhere on the host hangs a task
+that never touched it. On a WSL2 box the Windows-served mounts do exactly that: the
+call parks in uninterruptible D state, no signal reaches it, and the task sits there
+until its time limit, ignores the SIGTERM, and leaves Nextflow with
+`IllegalThreadStateException: process hasn't exited` -- which aborts the **run**, not
+the task. It killed a Bacteria GenBank run ~8,800 fetch batches in, after the
+downloads had already succeeded, and left thirty-odd unkillable processes that only a
+VM restart cleared.
+
+`sync -f .` was the fix, on the grounds that it flushes only the filesystem holding
+the work directory. **That is not true on this kernel, and this entry said it was
+"verified" for over two months.** Measured 2026-11-03, 55 minutes into an Erwiniaceae
+run: all four concurrent fetch tasks wedged in `sync -f .` for 55 minutes with the
+work filesystem perfectly healthy -- ext4 on a local `/dev/sde`, writable throughout,
+clean mount, no I/O errors, `Dirty` 136 kB, `Writeback` 0, and **zero sectors read or
+written over a 5 s window**. Nothing else on the box was blocked. Their kernel wait
+channel was `request_wait_answer`, which belongs to the FUSE/9p request path, and the
+only 9p mounts present are WSL2's Windows-served `/mnt/c` and `/usr/lib/wsl/drivers`.
+A `syncfs()` against a healthy local disk has no business waiting there.
+
+It cannot be bounded either: `timeout 120 sync -f . || true` does not help, because
+SIGTERM does not reach a D-state process and `timeout` then waits for a child that
+never exits. SIGTERM in fact moved all four from S to D.
+
+So it is gone from `modules/genome/fetch_rename_screen.nf` entirely, and
+`tests/check_no_sync.py` fails the suite if any process script reintroduces one.
+Nothing was lost: a corruption check reads through the page cache, so a flush changes
+nothing about what it sees; `datasets` validates its own package; `unzip` fails on a
+truncated archive; and Nextflow re-runs any task whose declared output is missing, so
+durability against a host crash was never this pipeline's problem to solve. **If you
+want a write to be durable, declare it as an output and let Nextflow stage it.**
 
 **`COLLECT_VERSIONS` searched the wrong directory for two months, and said nothing.**
 It looked for executables under `${workDir}/conda`, which stopped being where they live
@@ -4166,7 +4189,7 @@ This is set in `scripts/clustering/extract_gcf_representatives.py` (`antismash_l
 
 - **Duplicate gene names**: Some NCBI genomes have duplicate CDS feature names (e.g., `sapC`), causing antiSMASH to fail with "multiple CDS features have the same name"
 - **DIAMOND memory errors**: `malloc(): corrupted top size` errors during ClusterBlast indicate memory issues; try increasing memory allocation or reducing concurrent jobs
-- **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module includes validation with `sync -f .` + retry logic (scoped, never a bare `sync` -- see the trap above), but if corruption persists, delete the cached work directory and re-run
+- **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module validates every `.gbff` starts with `LOCUS` and refetches up to three cycles; if corruption persists, delete the cached work directory and re-run. There is deliberately **no `sync` of any kind** in that path any more -- not even `sync -f .`, which hung four tasks for 55 minutes on a healthy filesystem on 2026-11-03. See the `sync` trap above
 - **pyhmmer/BiG-SCAPE compatibility**: pyhmmer 0.12+ changed `profile.accession` from bytes to str, breaking BiG-SCAPE. The module pins `pyhmmer<0.11`
 - **GTDB-Tk duplicate taxon labels**: GTDB-Tk normalizes genome names case-insensitively. If two genomes have names differing only in case (e.g., `MDCuke` vs `MDcuke`), GTDB-Tk will fail with `NewickReaderDuplicateTaxonError`. The `create_name_map.py` script now handles this by tracking names case-insensitively and adding numeric suffixes to duplicates
 - **Run reports are scoped per taxon and per run (taxon 2026-08-25, run 2026-11-03)**:

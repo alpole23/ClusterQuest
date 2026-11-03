@@ -310,6 +310,14 @@ else
     fail "machine sizing checks failed:"; echo "$MACHCHK" | sed 's/^/      /'
 fi
 
+# `sync` has killed two runs of this pipeline, and `sync -f .` -- the documented fix --
+# turned out not to scope to the work filesystem at all. Neither form may return.
+if SYNCCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_no_sync.py" 2>&1)"; then
+    pass "no process script calls sync"
+else
+    fail "sync check failed:"; echo "$SYNCCHK" | sed 's/^/      /'
+fi
+
 # Run reports are per-run since 2026-11-03. The writer and its four readers have to
 # agree on the path, because a reader that disagrees fails quietly -- VISUALIZE_RESULTS
 # just omits its resources panel.
