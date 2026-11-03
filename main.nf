@@ -91,6 +91,33 @@ def validateParams() {
         }
     }
 
+    // `publish_mode = 'link'` hard-links published output into outdir, and a hard
+    // link cannot cross a filesystem. Point outdir at a second drive, leave the work
+    // directory at Nextflow's default ./work, and EVERY publish fails with
+    //
+    //     Invalid cross-device link
+    //
+    // after the task has already run -- so the compute is paid for and then thrown
+    // away. Hit on 2026-11-02 with outdir on /mnt/bigdisk and work on /. Checked here,
+    // where it costs nothing and names both remedies, rather than 30 s in.
+    //
+    // null means undeterminable (an unreadable parent, an exotic filesystem); only a
+    // definite false blocks the run.
+    if (params.publish_mode == 'link') {
+        if (Utils.sameFileStore(params.outdir, workDir) == false) {
+            errors << ("publish_mode 'link' needs outdir and the work directory on ONE " +
+                       "filesystem -- a hard link cannot cross devices.\n" +
+                       "        outdir: ${params.outdir}\n" +
+                       "        work:   ${workDir}\n" +
+                       "      Either move the work directory beside outdir, keeping the " +
+                       "hard links and their storage saving:\n" +
+                       "        -w ${file(params.outdir).toAbsolutePath().parent}/work\n" +
+                       "      or publish by copying, which costs a second copy of every " +
+                       "published file:\n" +
+                       "        add \"publish_mode\": \"copy\" to the params file")
+        }
+    }
+
     // Report errors
     if (errors) {
         log.error "=" * 60

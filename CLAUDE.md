@@ -78,7 +78,7 @@ and the SLURM numbers are restored explicitly in that profile.
 
 ## Operational traps
 
-Ten ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Eleven ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -195,6 +195,46 @@ Runtime.runtime.availableProcessors() * 2` and `maxForks = Math.max(1,
 memory budgets cannot, and why sizing lives in `scripts/check_machine.py` instead. Use
 `.intdiv()`, never `(int)`. If the config stops parsing with no line number, look for a
 cast before anything else.
+
+**An `outdir` on a second drive fails EVERY publish, after the task has run.**
+`publish_mode = 'link'` hard-links published output into `outdir`, and a hard link cannot
+cross a filesystem. Leave the work directory at Nextflow's default `./work`, point
+`outdir` at another drive, and every publish dies:
+
+```
+ERROR nextflow.file.FilePublisher - Failed to publish file: ...
+Caused by: java.nio.file.FileSystemException: ... Invalid cross-device link
+```
+
+Four retries each, then the run aborts — **with the task's compute already paid for**.
+Hit on 2026-11-02 with `outdir` on `/mnt/bigdisk` (a separate 12 TB disk) and `work` on
+`/`. Every earlier large run passed `-w /mnt/bigdisk/clusterquest/work_gb` by hand, which
+is why this took until the first run that did not.
+
+Two fixes went in, because the second does not make the first unnecessary:
+
+- `main.nf` **refuses at validation** when `publish_mode == 'link'` and the two are on
+  different filesystems, naming both remedies. It compares `Files.getFileStore` on each
+  path's nearest existing ancestor (`Utils.sameFileStore`), and an undeterminable answer
+  does not block the run.
+- `scripts/check_machine.py` **declares `workDir` beside `outdir`** in the generated
+  `machine.config` whenever Nextflow's default would be on the wrong filesystem, so the
+  wizard's own command never hits it. A sibling (`<outdir>/../work`) is preferred so the
+  work tree stays out of the published output; an `outdir` that *is* a mount point falls
+  back to `<outdir>/work`, which a naive `parent / 'work'` gets silently wrong.
+
+`'copy'` also fixes it and is the wrong default here: hard links are **68% of this
+pipeline's storage saving** (~52 → ~16 MB/genome), so copying would double published
+storage and break the ~2 TB projection for a million genomes. Moving the work directory
+keeps the saving.
+
+**And the single free-space probe was measuring the wrong disk.** `check_machine.py`
+prices 150 GB of GTDB-Tk pplacer scratch plus `3.1 GB × forks` of antiSMASH scratch —
+all of which lands in the **work** directory — against free space probed at `outdir`.
+With the two on different filesystems that comparison is meaningless: here it read
+12,172 GB at `/mnt/bigdisk` while the scratch would have gone to `/`. Putting them on one
+filesystem is what makes the one probe true, which is a second reason to prefer it over
+`'copy'`.
 
 ## Cross-Taxon Result Reuse
 
@@ -932,9 +972,12 @@ in `work/`, renamed published — 35.3 MB/genome, 68% of all storage. Two change
   Hard links mean a published file and its `work/` counterpart share an inode, so
   `results/` costs no extra disk. Verified: the published copy survives
   `nextflow clean -f`, the inode's link count simply drops to 1. Needs `outdir` and
-  `workDir` on one filesystem — set `'copy'` if they are not, or if anything edits
-  published files in place, since a write through a hard link also rewrites the cached
-  task output and corrupts `-resume`.
+  `workDir` on one filesystem — **enforced since 2026-11-02**: `main.nf` refuses the
+  combination at validation and `check_machine.py` declares a `workDir` beside `outdir`
+  to satisfy it, rather than falling back to `'copy'` and giving up the saving. See the
+  operational trap above. Set `'copy'` anyway if anything edits published files in place,
+  since a write through a hard link also rewrites the cached task output and corrupts
+  `-resume`.
 - **The download no longer publishes the genomes**, only the metadata that `main.nf`'s
   `bgc_analysis` entry reads. The `*.gbff` payload was republished by the renaming step
   anyway.

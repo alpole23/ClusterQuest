@@ -226,4 +226,31 @@ class Utils {
         }
         return digest.digest().encodeHex().toString().take(12)
     }
+
+    /**
+     * Whether two paths live on the same filesystem.
+     *
+     * Each is walked up to its nearest EXISTING ancestor first, because neither
+     * need exist yet -- an outdir is created by the run that is being validated.
+     *
+     * Returns null when it cannot be determined, so a caller can decline to block
+     * a run over a question it could not answer.
+     */
+    static Boolean sameFileStore(a, b) {
+        try {
+            def storeOf = { p ->
+                def q = java.nio.file.Paths.get(p.toString()).toAbsolutePath()
+                while (q != null && !java.nio.file.Files.exists(q)) {
+                    q = q.getParent()
+                }
+                q == null ? null : java.nio.file.Files.getFileStore(q)
+            }
+            def sa = storeOf(a)
+            def sb = storeOf(b)
+            (sa == null || sb == null) ? null : (sa == sb)
+        }
+        catch (Exception e) {
+            null
+        }
+    }
 }

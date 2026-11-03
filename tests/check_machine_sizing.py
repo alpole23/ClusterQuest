@@ -236,6 +236,86 @@ def main():
                 check(not missing, 'generated config resolves to its own budgets',
                       f'missing {missing}' if missing else '')
 
+    # ── the work directory and publish_mode = 'link' ────────────────────────
+    #
+    # `link` hard-links published output into outdir, and a hard link cannot cross
+    # a filesystem. An outdir on a second drive with the work directory left at
+    # Nextflow's default ./work therefore fails EVERY publish with `Invalid
+    # cross-device link` -- AFTER the task has run, so the compute is paid for and
+    # thrown away. Hit for real on 2026-11-02 with outdir on /mnt/bigdisk.
+    #
+    # Devices are stubbed rather than probed: a test that needed two real
+    # filesystems would skip on any single-drive machine, which is most of them,
+    # and this is the logic that has to hold everywhere.
+    real_device = cm._device
+    try:
+        DEVS = {'/work/here': 1, '/drive2': 2}
+
+        def fake_device(path):
+            s = str(Path(path).absolute())
+            for prefix, dev in sorted(DEVS.items(), key=lambda kv: -len(kv[0])):
+                if s == prefix or s.startswith(prefix + '/'):
+                    return dev
+            return 1          # anything else shares the cwd's device
+
+        cm._device = fake_device
+
+        # Same filesystem: nothing to declare. Declaring a work directory that
+        # Nextflow would have chosen anyway is noise in every single-drive config.
+        got, why = cm.work_dir_for('/work/here/results')
+        check(got is None and why is None,
+              'same filesystem declares no workDir',
+              '' if got is None else f'got {got!r}')
+
+        # Different filesystem: a work directory beside outdir, and it must land on
+        # OUTDIR's device -- that is the whole point. The sibling is preferred so
+        # the work tree stays out of the published output.
+        got, why = cm.work_dir_for('/drive2/clusterquest/results')
+        ok = got is not None and fake_device(got) == fake_device('/drive2/clusterquest/results')
+        check(ok, 'cross-filesystem outdir gets a workDir on its own device',
+              '' if ok else f'got {got!r}')
+        sibling = got == Path('/drive2/clusterquest/work')
+        check(sibling, 'the work directory is a sibling of outdir, not inside it',
+              '' if sibling else f'got {got!r}')
+        reasoned = bool(why) and 'cross devices' in (why or '')
+        check(reasoned, 'the reason names the hard-link limit',
+              '' if reasoned else f'why={why!r}')
+
+        # outdir AT the mount point: its parent is on the other device, so the
+        # sibling would be wrong and it has to fall back to inside outdir. This is
+        # the case a naive `outdir.parent / "work"` gets silently wrong.
+        got, _ = cm.work_dir_for('/drive2')
+        inside = got == Path('/drive2/work')
+        check(inside, 'outdir at a mount point falls back to a work dir inside it',
+              '' if inside else f'got {got!r}')
+
+        # And the rendered config has to actually carry it.
+        res = cm.assess(cm.detect(force_cores=16, force_ram_gb=56.9,
+                                  force_disk_gb=12000,
+                                  outdir='/drive2/clusterquest/results'),
+                        dict(answers, outdir='/drive2/clusterquest/results'), schema)
+        rendered = cm.render_config(res)
+        declared = "workDir = '/drive2/clusterquest/work'" in rendered
+        check(declared, 'the generated config declares the work directory',
+              '' if declared else 'absent from render_config output')
+
+        res_same = cm.assess(cm.detect(force_cores=16, force_ram_gb=56.9,
+                                       force_disk_gb=12000,
+                                       outdir='/work/here/results'),
+                             dict(answers, outdir='/work/here/results'), schema)
+        check('workDir' not in cm.render_config(res_same),
+              'a single-filesystem machine gets no workDir line')
+    finally:
+        cm._device = real_device
+
+    # main.nf must refuse this before the first task rather than after it. The
+    # check lives in validateParams() and reads params.publish_mode, so a grep is
+    # the cheap guard against it being dropped; TEST 1/2 above exercise it live.
+    main_nf = (ROOT / 'main.nf').read_text()
+    check("sameFileStore(params.outdir, workDir)" in main_nf
+          and 'publish_mode' in main_nf,
+          'main.nf refuses a cross-device link before running anything')
+
     return 1 if FAIL else 0
 
 
