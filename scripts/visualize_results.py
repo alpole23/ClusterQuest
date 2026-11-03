@@ -157,8 +157,11 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
         return ''.join(cutoff_block(cuts, c, render(by_cutoff.get(c))) for c in cuts)
 
     bigscape_stats_section = build_bigscape_stats_section(
-        bigscape_stats_html, taxon_clean,
-        _switch(network_by_cutoff, lambda h: h or '', gcf_network_html))
+        bigscape_stats_html, taxon_clean)
+    # The close-family network goes to the GCF characterisation pane, not here: it is a
+    # caveat on that pane's table. Built with the other per-cutoff sections because the
+    # selector switches it.
+    gcf_network_section = _switch(network_by_cutoff, lambda h: h or '', gcf_network_html)
 
     versions_html = _build_versions_html(versions_data)
 
@@ -192,7 +195,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
     priority_section = build_gcf_characterisation_section(
         gcf_characterisation, bioprofile_path, gcf_hrefs, branch_point_path, gcf_data,
-        reference_summary)
+        reference_summary, gcf_network_section)
     regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
     consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary,
                                                         gcf_hrefs, per_cds_path)
