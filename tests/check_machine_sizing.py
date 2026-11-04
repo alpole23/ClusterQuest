@@ -118,6 +118,20 @@ def main():
           'and check_machine.py agrees with it',
           f'{cm.GTDBTK_ALLOC_GB} GB')
 
+    # The time limit has to be declared on the withName too. GTDBTK_CLASSIFY inherits
+    # 24h from process_high_memory, neither profile overrides `time`, and the process
+    # declares no errorStrategy and carries no retry label -- so a time kill ends the
+    # RUN with the whole antiSMASH phase already paid for. The only completed
+    # Bacteria-wide shard in the repo took 8h43m51s and gtdbtk_scaling/ projects 52.9 h
+    # for a full 5,000-genome shard, so 24h is not enough on either basis.
+    check(blk is not None and 'time' in blk.group(1),
+          'the withName block declares `time`, not just memory',
+          'a time kill terminates the run: no errorStrategy, no retry label')
+    hours = re.search(r"time\s*=\s*'(\d+)h'", blk.group(1)) if blk else None
+    check(hours is not None and int(hours.group(1)) >= 48,
+          'and allows at least 48h, clearing the measured 8h43m shard',
+          f"{hours.group(1)}h" if hours else 'no time directive')
+
     # 1d. Nothing may still be telling a user that GTDB-Tk needs 4 GB. It needs
     #     ~37 GiB; the 4 GB came from 60 s sampling that stepped over a 30 s spike.
     main_nf_txt = (ROOT / 'main.nf').read_text()

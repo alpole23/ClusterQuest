@@ -13,14 +13,18 @@ So every absolute resource number in a profile is a hidden minimum machine spec.
 `-profile local` used to request 48 GB for GTDB-Tk and therefore silently required
 a >=48 GB box.
 
-That 48 GB was cut to 4 GB on 2026-11-02, from the RefSeq Enterobacterales run's
-60-SECOND sampling (2,608 samples; 206 across the 3.6 h GTDB-Tk window), which
-showed mem_used peaking at 4 GB. On 2026-11-03 that was measured again at 5 s and
-2 s and the peak is ~37 GiB in a ~30-SECOND spike -- the 60 s sampling had simply
-stepped over it. Three independent instruments agree: PSS 36.8 GiB, system
-mem_used 38.8 GiB, Nextflow peak_rss 36.9 GB. So the 48 GB this script was written
-to mock was nearer the truth than the 4 GB that replaced it, and GTDB-Tk really
-does require a big box. It is now allocated 40 GB BY NAME in conf/labels.config.
+That 48 GB was cut to 4 GB on 2026-11-02 from the RefSeq Enterobacterales run,
+and the 4 GB was a CORRECT measurement of a configuration this pipeline no longer
+uses: `--skip_ani_screen` was hardcoded in modules/phylogeny/gtdbtk.nf from the
+initial release until b99b0b1 (2026-10-08), so that run had no skani stage -- and
+skani is the stage that owns the memory peak. docs/comparisons/gtdbtk_headroom/
+corroborates from the other side: its pplacer-only phase ran at 3 of 56 GB.
+
+With the screen on, which is the default since b99b0b1, the peak is ~38 GiB:
+measured here at 38.2 GiB system mem_used over 300 genomes, and already measured
+by gtdbtk_headroom/ as 38 of 56 GB over 2,530 -- same instrument, 8x the input,
+same figure. So the 48 GB this script was written to mock was right all along, and
+it is allocated 48 GB BY NAME in conf/labels.config.
 
 GTDB-Tk also consumes 150 GB of WORK DISK, which is unchanged. Both gate it now.
 
@@ -103,12 +107,17 @@ BIGSCAPE_COEFF = 2.04e-7
 # wall time stays fixed per shard at ~27 min (the ANI pre-screen sketches all
 # 143,614 reference genomes every time). Caveat: all measured genomes were
 # Erwiniaceae, one family; a broader taxon may place higher.
-# 38.8 GiB is system mem_used (MemTotal - MemAvailable), which is what the machine
-# must actually hold; Pss_Anon agreed at 36.9. docs/comparisons/gtdbtk_headroom/ had
-# already measured the same peak as 41.7 GB PSS in skani -- 41.7 decimal GB IS
-# 38.8 GiB -- and recorded it as input-independent, set by sketching GTDB's reference
-# set. 48 rather than 40 because 40 leaves 3% headroom on a ~30 s spike whose size
-# tracks the reference data, and the slurm profile enforces memory as a cgroup.
+# System mem_used (MemTotal - MemAvailable) -- what the machine must actually hold.
+# 38.2 GiB measured over 300 genomes; Pss_Anon agreed at 36.9 GiB.
+# docs/comparisons/gtdbtk_headroom/ measured 38 of 56 GB by the SAME instrument over
+# 2,530 genomes, which is the real corroboration. (Its 41.7 figure is total Pss in
+# MiB -- 42,737 MiB = 41.74 GiB, as that file's own scratch_mb 95,716 -> "93.5 GB"
+# proves -- so it is a different accounting basis and must not be compared with this
+# one. Commits b7b96a7 and a858d13 did exactly that and called 41.7 decimal GB.)
+#
+# 48 rather than 40 for two reasons that survive: gtdbtk_headroom's 41.74 GiB PSS at
+# 2,530 genomes ALREADY EXCEEDS 40 GB, and the slurm profile enforces memory as a
+# cgroup, where a 3% margin on a short excursion is an OOM kill.
 GTDBTK_PEAK_GB = 38.8             # measured peak the machine must hold
 GTDBTK_ALLOC_GB = 48.0            # what conf/labels.config declares, by name
 GTDBTK_WORK_SCRATCH_GB = 150.0    # disk, unchanged

@@ -206,22 +206,22 @@ def validateParams() {
     // Warnings
     if (params.run_gtdbtk) {
         // Corrected twice. The original read "~140 GB disk space and ~56-64 GB RAM".
-        // On 2026-11-02 the RAM figure was cut to 4 GB from the RefSeq run's
-        // disk_samples.tsv -- and that was wrong, because those were 60-SECOND
-        // samples and the peak is a ~30-second spike. Sampling at 5 s and 2 s on
-        // 2026-11-03 found ~37 GiB by three independent instruments, so the original
-        // 56-64 GB was nearer the truth than the "correction" that replaced it.
+        // On 2026-11-02 the RAM figure was cut to 4 GB from the RefSeq run -- a
+        // correct measurement of a configuration the pipeline had already abandoned:
+        // `--skip_ani_screen` was hardcoded until b99b0b1 (2026-10-08), so that run
+        // had no skani stage, and skani is what owns the peak. With the screen on,
+        // the default since then, it is ~38 GiB.
         //
         // Disk still gates how much free space you need (~300 GB); RAM gates whether
         // the task is ADMITTED at all. See the GTDBTK_CLASSIFY block in
-        // conf/labels.config for the measurements and the saturation curve.
+        // conf/labels.config and docs/comparisons/gtdbtk_memory_scaling/.
         log.warn "GTDB-Tk is enabled: ~140 GB for the database plus ~150 GB of pplacer " +
                  "work scratch (measured), so plan for ~300 GB free."
-        log.warn "It also needs ~39 GiB of RAM in a ~30 s spike -- skani sketching " +
-                 "the GTDB reference set, not pplacer -- so it is allocated 48 GB and " +
-                 "will not be admitted on a machine under ~52 GB. Set " +
-                 "run_gtdbtk = false there. The 4 GB this warning used to quote came " +
-                 "from a 60 s sampler that stepped over the spike."
+        log.warn "It also needs ~38 GiB of RAM -- skani's all-vs-all ANI screen, not " +
+                 "pplacer -- so it is allocated 48 GB and will not be admitted on a " +
+                 "machine under ~52 GB. Set run_gtdbtk = false there, or " +
+                 "gtdbtk_skip_ani_screen = true, which removes the stage that owns " +
+                 "the peak (and is what the old 4 GB figure measured)."
     }
 
     if (params.reuse_antismash_from) {

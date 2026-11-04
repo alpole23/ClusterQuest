@@ -377,7 +377,7 @@ Gene Cluster Family (GCF) clustering.
 
 Phylogenetic placement using GTDB-Tk. ⚠️ Requires ~140 GB for the database plus ~150 GB
 of pplacer work scratch, so plan for **~300 GB free**. Memory is **not** the constraint.
-Measured on the RefSeq Enterobacterales run (`disk_samples.tsv`, 60 s samples, 2,608 of them): across the whole 3.6 h GTDB-Tk window `mem_used` peaked at **4 GB** and `MemAvailable` never fell below 51 GB of 56, while work disk climbed to **150 GB**. Disk gates this stage; RAM does not.
+Measured on the RefSeq Enterobacterales run (`disk_samples.tsv`, 60 s samples, 2,608 of them): across the whole 3.6 h GTDB-Tk window `mem_used` peaked at **4 GB** and `MemAvailable` never fell below 51 GB of 56, while work disk climbed to **150 GB**. Every one of those figures reproduces from the committed file — but they describe a configuration this pipeline abandoned. `--skip_ani_screen` was hardcoded until **b99b0b1 (2026-10-08)**, so that run had no skani stage, and skani's all-vs-all ANI screen is what owns the memory. With the screen on, the default since then, RAM peaks at **~38 GiB** and gates **admission**; disk still sizes the free-space requirement (~300 GB). See `docs/comparisons/gtdbtk_memory_scaling/`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -818,29 +818,35 @@ Two trace-reading traps found doing this, also recorded:
 - **Sum `CACHED` as well as `COMPLETED`.** After a `-resume`, the trace is rewritten
   and nearly every row is `CACHED`, carrying the realtime of the session that actually
   ran it. Filtering to `COMPLETED` returned one task and a `ZeroDivisionError`.
-- **`peak_rss` overstates in proportion to how much the process tree shares, and
-  you cannot tell which case you have without PSS.** Nextflow sums RSS across the
-  whole tree, counting every shared page once per process that maps it. Measured on
-  the 2026-11-03 Erwiniaceae run, same instrument, same run:
+- **`peak_rss` overstates whenever the process tree SHARES pages or MAPS FILES, and
+  only PSS tells you which case you are in — but PSS is not the end of it either.**
+  Nextflow sums RSS across the tree at each sample. Measured on 2026-11-03, same
+  instrument, same run:
 
   | task | procs | `peak_rss` | PSS | verdict |
   |---|---:|---:|---:|---|
-  | `GTDBTK_CLASSIFY` | 11 | 36.9 GB | 36.8 GiB | truthful |
+  | `BIGSCAPE` | 21 | 16 GB | **2.9 GiB** | 5.5× over — workers share one Pfam database |
+  | `BIGSCAPE_REFERENCES` | 18 | 16 GB | **2.6 GiB** | 6.1× over |
   | `ANTISMASH` | 13-14 | 4.8-4.9 GB | 4.5-4.7 GiB | truthful |
-  | `BIGSCAPE` | 21 | 16 GB | **2.9 GiB** | 5.5x over |
-  | `BIGSCAPE_REFERENCES` | 18 | 16 GB | **2.6 GiB** | 6.1x over |
+  | `GTDBTK_CLASSIFY` | 11 | 36.9 GB | 36.8 GiB | truthful **only here** — see below |
 
-  BiG-SCAPE's workers share one Pfam database, so its `peak_rss` is nearly pure
-  double-counting; GTDB-Tk's processes hold distinct resident data, so its is real.
-  Reading `peak_rss` as an artifact cost a day of treating a genuine 37 GiB
-  requirement as a 4 GB one. **Get PSS from `/proc/<pid>/smaps_rollup`**, which
-  divides each shared page by the number of processes mapping it, and sample at 5 s
-  or less -- a 60 s interval missed GTDB-Tk's ~30 s peak entirely.
+  **GTDB-Tk is the trap inside the trap.** Its `peak_rss` matched PSS on that run
+  because the run reached **zero pplacer invocations** — every genome was ANI-decided,
+  so there was no forked placement tree and no file-backed `--scratch_dir` mapping to
+  double-count. On a shard that DOES reach the tree it is wildly inflated: the
+  committed `bacteria_reference_pilot/pipeline_trace.tsv` reads **`peak_rss` 99.9 GB
+  at `%mem` 168.5%** on a 56.9 GB box. So `gtdbtk_headroom/`'s original "the 97 GB
+  peak_rss was never real" was correct for tree-path runs, and reading one
+  zero-pplacer run as a refutation of it was wrong.
 
-  Corollary for the BiG-SCAPE capacity fit `GB = 1.80 + 2.04e-7*n^2`: it predicts
-  1.82 GB at 335 BGCs where PSS measured 2.93 GiB, so the intercept is ~1.1 GiB low.
-  Re-solving at 16 GB gives ~8,000 BGCs rather than 8,343 -- about 4% tighter. The
-  intercept wants refitting against PSS.
+  PSS has its own failure: it counts clean file-backed mmap pages, which are
+  reclaimable and not a requirement. One GTDB-Tk stage read **54.2 GiB of PSS while
+  the kernel reported 54.6 GiB AVAILABLE**, and the same process showed RSS 54.6 GiB
+  against `Pss_Anon` **0.76 GiB**. **Use `Pss_Anon` or system `mem_used`** for "what
+  must this machine hold", and never compare a figure in one basis with a figure in
+  another — the memory-side version of the CPU-basis rule above. Commits `b7b96a7`
+  and `a858d13` broke exactly that rule by equating `gtdbtk_headroom/`'s 41.7 GiB
+  total-PSS with a 38.8 GiB `mem_used`, having misread its MiB columns as decimal GB.
 
 - **Never sum across a taxon's per-run traces.** Each run has written its own
   `pipeline_info/<taxon>/<UTC stamp>/pipeline_trace.tsv` since 2026-11-03, which is
@@ -4296,13 +4302,18 @@ timeline { enabled = false }
 nextflow run main.nf -preview -c no_reports.config --taxon "Pantoea"
 ```
 
-- **GTDB-Tk needs ~37 GiB of RAM, not 4 GB** (measured 2026-11-03; this entry said
-  4 GB from 2026-11-02, and 56-64 GB before that). The 4 GB came from the RefSeq run's
-  `disk_samples.tsv`, which sampled every **60 seconds** — and the peak is a
-  **~30-second spike**, so that sampling walked straight through it. At 5 s and 2 s,
-  three independent instruments agree: PSS **36.8 GiB**, system `mem_used` 38.8 GiB
-  (MemAvailable fell 56.9 → 18.1), and Nextflow's `peak_rss` 36.9 GB. The original
-  56-64 GB figure was closer to the truth than the correction that replaced it.
+- **GTDB-Tk needs ~38 GiB of RAM, and the 4 GB was never a mis-measurement.** This
+  entry said 4 GB from 2026-11-02 and 56-64 GB before that. The 4 GB was *correct for
+  the configuration it measured*: `--skip_ani_screen` was hardcoded in
+  `modules/phylogeny/gtdbtk.nf` from the initial release until **b99b0b1
+  (2026-10-08)**, so the RefSeq run had no skani stage — and skani's all-vs-all ANI
+  screen is the stage that owns the peak. `gtdbtk_headroom/` corroborates from the
+  other side: its pplacer-only phase ran at 3 of 56 GB. With the screen on, the
+  default since b99b0b1, the peak is **38.2 GiB** system `mem_used` over 300 genomes —
+  and `gtdbtk_headroom/` had already measured **38 of 56 GB** by the same instrument
+  over 2,530, which is the real corroboration. So the original 56-64 GB was right and
+  the 2026-11-02 cut was the error. (Commits `b7b96a7` and `a858d13` instead blamed
+  60-second sampling for missing a 30-second spike. That explanation is wrong.)
   `GTDBTK_CLASSIFY` is therefore allocated **48 GB** by name in `conf/labels.config`,
   which also caps its concurrency to one shard by admission arithmetic. It will not be
   admitted under ~52 GB; set `run_gtdbtk = false` there. 48 rather than 40 because the
@@ -4326,14 +4337,18 @@ nextflow run main.nf -preview -c no_reports.config --taxon "Pantoea"
   **Memory and time have different drivers, and only memory gated the allocation.**
   Measured both ways at 300 genomes held constant (`docs/comparisons/gtdbtk_memory_scaling/`):
 
-  | varied | | | peak | wall |
-  |---|---|---|---:|---:|
-  | count, one family | 25 | | 10.67 GiB | 25m |
-  | | 100 | | 34.44 GiB | 27m |
-  | | 300 | | 36.22 GiB | 27m |
-  | diversity, 300 genomes | 1 family | | 36.3 GiB | 0h27m |
-  | | 8 families | | 38.2 GiB | 2h07m |
-  | | 29 phyla | | 38.2 GiB | >5h02m |
+  | varied | | peak PSS | peak `mem_used` | wall |
+  |---|---|---:|---:|---:|
+  | count, one family | 25 | 10.67 GiB | 12.02 GiB | 25m |
+  | | 100 | 34.44 GiB | **37.18 GiB** | 27m |
+  | | 300 | 36.22 GiB | 36.25 GiB | 27m |
+  | diversity, 300 genomes | 1 family | 36.22 GiB | 36.25 GiB | 0h27m |
+  | | 8 families | — | 38.17 GiB | 2h07m |
+  | | 29 phyla | 36.88 (anon) | 38.25 GiB | >5h49m |
+
+  Note 100 and 300 are **within noise of each other and not ordered** — by `mem_used`
+  the 100-genome arm is the higher of the two. An earlier version of this table showed
+  a clean rise to a plateau only by putting PSS and `mem_used` in one column.
 
   Memory saturates by ~100 genomes and is then **flat across diversity**, so 40 GB
   holds for every planned run and **sharding is not a memory lever**: 5000 → 300 saves
