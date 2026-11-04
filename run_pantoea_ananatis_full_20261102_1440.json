@@ -1,0 +1,14 @@
+{
+  "workflow": "full",
+  "outdir": "results",
+  "taxon": "Pantoea ananatis",
+  "assembly_source": "GenBank",
+  "assembly_reference_only": false,
+  "pepm_prescreen": true,
+  "recover_orfs": true,
+  "antismash_minimal": false,
+  "clustering": "bigscape",
+  "bigscape_cutoffs": "0.30",
+  "bigscape_partition": false,
+  "run_gtdbtk": true
+}

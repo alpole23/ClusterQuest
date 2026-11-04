@@ -61,7 +61,7 @@
   "caveats": [
     "antiSMASH CPU-minutes are the comparable column. Whole-pipeline totals fold in RECOVER_ORFS, whose asymmetry is intrinsic to screening rather than a separate effect.",
     "2,863 genomes, not the 2,771 of the 2026-09 runs: the NCBI download grew. Counts are therefore not directly comparable to the older Erwiniaceae records.",
-    "The traces here were written by a -resume, which rewrites pipeline_trace.tsv in place. Nearly every row is CACHED and carries the realtime of the session that actually ran it, so any re-analysis must sum CACHED as well as COMPLETED."
+    "The traces here were written by a -resume, which rewrites pipeline_trace.tsv in place. Nearly every row is CACHED and carries the realtime of the session that actually ran it, so any re-analysis must sum CACHED as well as COMPLETED. (Written under the pre-2026-11-03 single-path layout; runs since then write their own pipeline_info/<taxon>/<UTC stamp>/ and a resume no longer rewrites an earlier session's trace -- but the CACHED rule still applies WITHIN each trace, and traces from different runs must never be summed, because a cached task recurs in every later session's trace.)"
   ],
   "files": {
     "trace_screen_off.tsv": "Nextflow trace, screen-off arm",

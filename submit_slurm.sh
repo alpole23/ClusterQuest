@@ -81,14 +81,35 @@ echo "=============================================="
 echo "End time:    $(date)"
 echo "Exit code:   ${EXIT_CODE}"
 
-if [ -f "${OUTDIR}/pipeline_info/pipeline_trace.tsv" ]; then
-    TOTAL_TASKS=$(tail -n +2 "${OUTDIR}/pipeline_info/pipeline_trace.tsv" | wc -l)
-    COMPLETED=$(tail -n +2 "${OUTDIR}/pipeline_info/pipeline_trace.tsv" | grep -c "COMPLETED")
-    FAILED=$(tail -n +2 "${OUTDIR}/pipeline_info/pipeline_trace.tsv" | grep -c "FAILED")
-    echo "Tasks:       ${COMPLETED}/${TOTAL_TASKS} completed, ${FAILED} failed"
+# The directory the pipeline names for this taxon, sanitised exactly as
+# nextflow.config does. Derived once and reused below, so one file cannot carry two
+# different taxon-to-directory transforms (the report check used `tr \' \' \'_\'`,
+# which differs for any other punctuation).
+TAXON_DIR=$(printf '%s' "${TAXON}" \
+            | sed -e 's/[^a-zA-Z0-9_]/_/g' -e 's/__*/_/g' -e 's/^_//' -e 's/_$//')
+
+# The trace is at pipeline_info/<Taxon>/<run stamp>/pipeline_trace.tsv. This block
+# tested ${OUTDIR}/pipeline_info/pipeline_trace.tsv, which stopped existing when the
+# directory gained a taxon level -- so the summary has been omitting the task count
+# ever since, as a quietly failing `if` rather than an error. Scoped to THIS job's
+# taxon: an unscoped glob would report another taxon's counts under this header,
+# newest-first across the whole outdir. Both layouts, so older outdirs still read.
+TRACE=$(ls -1t "${OUTDIR}/pipeline_info/${TAXON_DIR}"/*/pipeline_trace.tsv \
+               "${OUTDIR}/pipeline_info/${TAXON_DIR}"/pipeline_trace.tsv 2>/dev/null | head -1)
+if [ -n "${TRACE}" ]; then
+    # CACHED counts as completed. After a -resume nearly every row is CACHED, and
+    # `grep -c COMPLETED` counted those as neither completed nor failed, so the
+    # numbers did not add up. Status is field 4 of the configured trace fields.
+    awk -F'\t' 'NR>1 {
+        n++
+        if ($4 == "COMPLETED" || $4 == "CACHED") ok++; else bad++
+    } END {
+        printf "Tasks:       %d/%d completed, %d not complete\n", ok, n, bad
+    }' "${TRACE}"
+    echo "Trace:       ${TRACE}"
 fi
 
-if [ -f "${OUTDIR}/main_analysis_results/$(echo ${TAXON} | tr ' ' '_')/main_data_visualization/bgc_report.html" ]; then
+if [ -f "${OUTDIR}/main_analysis_results/${TAXON_DIR}/main_data_visualization/bgc_report.html" ]; then
     echo "Report:      ${OUTDIR}/main_analysis_results/*/main_data_visualization/bgc_report.html"
 fi
 

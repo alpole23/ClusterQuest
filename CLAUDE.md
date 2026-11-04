@@ -12,6 +12,7 @@ conda activate nextflow    # Activate conda environment before running
 
 ```bash
 python scripts/configure_run.py                            # ask, then write a params file
+python scripts/check_machine.py                            # size the run to this machine
 nextflow run main.nf --taxon "Pantoea ananatis"           # Full pipeline
 nextflow run main.nf --workflow download --taxon "Streptomyces coelicolor"
 nextflow run main.nf --clustering bigscape                 # With clustering
@@ -37,9 +38,47 @@ cost to download and on disk, whether they fit, and which other `results*` direc
 already hold them. Two real runs were lost on 2026-11-02 to a default `outdir` with no
 cache and `run_gtdbtk` left on, which is 131 GB and about 5.5 hours.
 
+**The `local` profile is the portable floor, not this machine.** Every resource number
+in it is sized for the smallest supported box — **16 GB RAM / 4 cores** — because
+Nextflow's local executor does not run an oversized task slowly, it refuses to **admit**
+it:
+
+```
+Process requirement exceeds available memory -- req: 48 GB; avail: 12 GB
+[FAILED] completed=0 failed=0 cached=0
+```
+
+So every absolute in a profile is a hidden minimum machine spec, and the old
+`process_high_memory = '48 GB'` meant `-profile local` *silently required* a ≥48 GB box.
+`scripts/check_machine.py` reads the machine (cores, RAM, free disk, and the cgroup
+limits, because `/proc/meminfo` reports the **host** under a container), prices the
+planned run against it, and writes a `machine.config` that overrides the floor:
+
+```bash
+python scripts/check_machine.py          # or let configure_run.py call it
+nextflow run main.nf -profile local -c machine.config -params-file run.json
+```
+
+A `-c` file beats the profile **regardless of profile order** — config *load* order
+decides, not profile order — so overriding `local` by name is enough and the command
+keeps a single `-profile local`. `configure_run.py` runs this automatically, before the
+database report, because dropping GTDB-Tk removes 131 GB from what that report prices.
+
+The floor is 4 cores because `process_high` and `process_high_memory` request 8 cpus and
+the profile oversubscribes CPU 2×: 4 cores offer 8 slots and admit them exactly, 2 cores
+offer 4 and the task is refused. Below 16 GB the budgets still clamp arithmetically, but
+nothing has been validated there, so the script **refuses** rather than running something
+untested for hours. When the machine is merely small rather than unsupported it
+**degrades and asks** — the only degradation that changes the science is `run_gtdbtk`,
+and it is gated on **disk**, not memory.
+
+`-profile slurm` is deliberately untouched: a cluster profile declares capacity, not a
+property of whichever node you logged in to, so `check_machine.py` short-circuits on it
+and the SLURM numbers are restored explicitly in that profile.
+
 ## Operational traps
 
-Nine ways to lose a run that look like nothing is wrong. Every one of these was hit.
+Eleven ways to lose a run that look like nothing is wrong. Every one of these was hit.
 
 **Pass booleans in a `-params-file`, never as `--flag true`.** On the CLI
 `--bigscape_partition true` sets the **string** `"true"`, and `"false"` is **truthy in
@@ -84,15 +123,38 @@ JAVA_HOME=~/miniconda3/envs/nextflow PATH="$PATH:$HOME/miniconda3/envs/nextflow/
 Append rather than prepend, or the conda `python3` shadows the system one and the pyflakes
 check skips.
 
-**Never call a bare `sync` in a process script.** It flushes EVERY mounted filesystem,
-so one sick mount anywhere on the host hangs a task that never touched it. On a WSL2 box
-the Windows-served mounts do exactly that: the call parks in uninterruptible D state, no
-signal reaches it, and the task sits there until its time limit, ignores the SIGTERM, and
-leaves Nextflow with `IllegalThreadStateException: process hasn't exited` -- which aborts
-the **run**, not the task. It killed a Bacteria GenBank run ~8,800 fetch batches in, after
-the downloads had already succeeded, and left thirty-odd unkillable processes that only a
-VM restart cleared. Use `sync -f .`, which flushes just the filesystem holding the work
-directory.
+**Never call `sync` in a process script -- with or without `-f`.** A bare `sync`
+flushes EVERY mounted filesystem, so one sick mount anywhere on the host hangs a task
+that never touched it. On a WSL2 box the Windows-served mounts do exactly that: the
+call parks in uninterruptible D state, no signal reaches it, and the task sits there
+until its time limit, ignores the SIGTERM, and leaves Nextflow with
+`IllegalThreadStateException: process hasn't exited` -- which aborts the **run**, not
+the task. It killed a Bacteria GenBank run ~8,800 fetch batches in, after the
+downloads had already succeeded, and left thirty-odd unkillable processes that only a
+VM restart cleared.
+
+`sync -f .` was the fix, on the grounds that it flushes only the filesystem holding
+the work directory. **That is not true on this kernel, and this entry said it was
+"verified" for over two months.** Measured 2026-11-03, 55 minutes into an Erwiniaceae
+run: all four concurrent fetch tasks wedged in `sync -f .` for 55 minutes with the
+work filesystem perfectly healthy -- ext4 on a local `/dev/sde`, writable throughout,
+clean mount, no I/O errors, `Dirty` 136 kB, `Writeback` 0, and **zero sectors read or
+written over a 5 s window**. Nothing else on the box was blocked. Their kernel wait
+channel was `request_wait_answer`, which belongs to the FUSE/9p request path, and the
+only 9p mounts present are WSL2's Windows-served `/mnt/c` and `/usr/lib/wsl/drivers`.
+A `syncfs()` against a healthy local disk has no business waiting there.
+
+It cannot be bounded either: `timeout 120 sync -f . || true` does not help, because
+SIGTERM does not reach a D-state process and `timeout` then waits for a child that
+never exits. SIGTERM in fact moved all four from S to D.
+
+So it is gone from `modules/genome/fetch_rename_screen.nf` entirely, and
+`tests/check_no_sync.py` fails the suite if any process script reintroduces one.
+Nothing was lost: a corruption check reads through the page cache, so a flush changes
+nothing about what it sees; `datasets` validates its own package; `unzip` fails on a
+truncated archive; and Nextflow re-runs any task whose declared output is missing, so
+durability against a host crash was never this pipeline's problem to solve. **If you
+want a write to be durable, declare it as an output and let Nextflow stage it.**
 
 **`COLLECT_VERSIONS` searched the wrong directory for two months, and said nothing.**
 It looked for executables under `${workDir}/conda`, which stopped being where they live
@@ -138,6 +200,64 @@ databases after they moved to a new drive. That check passed trivially, byte-ide
 no re-download; the bug it found was one nobody had predicted. *Brenneria* is a good
 choice: 58 RefSeq genomes of which 25 are BGC-positive, so every downstream stage actually
 executes rather than stopping at an empty screen.
+
+**Nextflow 26's config parser is a strict DSL, and it will not tell you what it
+dislikes.** Verified on 26.04.3, 2026-11-02, while trying to size the `local` profile
+from the machine inside `nextflow.config`:
+
+| What you write | What happens |
+|---|---|
+| `def x = ...` anywhere, including line 1 | `Variable declarations cannot be mixed with config statements` |
+| `if (...)` inside a config closure | `Unexpected input: 'if'` |
+| `(int)(a / b)` — a C-style cast | `Unable to parse config file`, **no line number** |
+| `Sizing.ramGb()` from `lib/*.groovy` | `Sizing is not defined` — `lib/` is not on the classpath while the config is parsed |
+
+Only bare expressions survive, which is why `executor.cpus =
+Runtime.runtime.availableProcessors() * 2` and `maxForks = Math.max(1,
+(Runtime.runtime.availableProcessors() - 2).intdiv(2))` can be derived in place while the
+memory budgets cannot, and why sizing lives in `scripts/check_machine.py` instead. Use
+`.intdiv()`, never `(int)`. If the config stops parsing with no line number, look for a
+cast before anything else.
+
+**An `outdir` on a second drive fails EVERY publish, after the task has run.**
+`publish_mode = 'link'` hard-links published output into `outdir`, and a hard link cannot
+cross a filesystem. Leave the work directory at Nextflow's default `./work`, point
+`outdir` at another drive, and every publish dies:
+
+```
+ERROR nextflow.file.FilePublisher - Failed to publish file: ...
+Caused by: java.nio.file.FileSystemException: ... Invalid cross-device link
+```
+
+Four retries each, then the run aborts — **with the task's compute already paid for**.
+Hit on 2026-11-02 with `outdir` on `/mnt/bigdisk` (a separate 12 TB disk) and `work` on
+`/`. Every earlier large run passed `-w /mnt/bigdisk/clusterquest/work_gb` by hand, which
+is why this took until the first run that did not.
+
+Two fixes went in, because the second does not make the first unnecessary:
+
+- `main.nf` **refuses at validation** when `publish_mode == 'link'` and the two are on
+  different filesystems, naming both remedies. It compares `Files.getFileStore` on each
+  path's nearest existing ancestor (`Utils.sameFileStore`), and an undeterminable answer
+  does not block the run.
+- `scripts/check_machine.py` **declares `workDir` beside `outdir`** in the generated
+  `machine.config` whenever Nextflow's default would be on the wrong filesystem, so the
+  wizard's own command never hits it. A sibling (`<outdir>/../work`) is preferred so the
+  work tree stays out of the published output; an `outdir` that *is* a mount point falls
+  back to `<outdir>/work`, which a naive `parent / 'work'` gets silently wrong.
+
+`'copy'` also fixes it and is the wrong default here: hard links are **68% of this
+pipeline's storage saving** (~52 → ~16 MB/genome), so copying would double published
+storage and break the ~2 TB projection for a million genomes. Moving the work directory
+keeps the saving.
+
+**And the single free-space probe was measuring the wrong disk.** `check_machine.py`
+prices 150 GB of GTDB-Tk pplacer scratch plus `3.1 GB × forks` of antiSMASH scratch —
+all of which lands in the **work** directory — against free space probed at `outdir`.
+With the two on different filesystems that comparison is meaningless: here it read
+12,172 GB at `/mnt/bigdisk` while the scratch would have gone to `/`. Putting them on one
+filesystem is what makes the one probe true, which is a second reason to prefer it over
+`'copy'`.
 
 ## Cross-Taxon Result Reuse
 
@@ -255,7 +375,9 @@ Gene Cluster Family (GCF) clustering.
 
 ### PHYLOGENY
 
-Phylogenetic placement using GTDB-Tk. ⚠️ Requires ~140 GB disk and ~56-64 GB RAM.
+Phylogenetic placement using GTDB-Tk. ⚠️ Requires ~140 GB for the database plus ~150 GB
+of pplacer work scratch, so plan for **~300 GB free**. Memory is **not** the constraint.
+Measured on the RefSeq Enterobacterales run (`disk_samples.tsv`, 60 s samples, 2,608 of them): across the whole 3.6 h GTDB-Tk window `mem_used` peaked at **4 GB** and `MemAvailable` never fell below 51 GB of 56, while work disk climbed to **150 GB**. Every one of those figures reproduces from the committed file — but they describe a configuration this pipeline abandoned. `--skip_ani_screen` was hardcoded until **b99b0b1 (2026-10-08)**, so that run had no skani stage, and skani's all-vs-all ANI screen is what owns the memory. With the screen on, the default since then, RAM peaks at **~38 GiB** and gates **admission**; disk still sizes the free-space requirement (~300 GB). See `docs/comparisons/gtdbtk_memory_scaling/`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -284,10 +406,12 @@ results/
 │   └── reference_summary.json   # per-GCF nearest reference, per-reference nearest GCF
 ├── gtdbtk_results/${taxon}/     # GTDB-Tk phylogenetic placement
 ├── pipeline_info/
-│   ├── pipeline_trace.tsv       # Per-task timing and resource data
-│   ├── pipeline_report.html     # Nextflow execution report
-│   ├── pipeline_timeline.html   # Visual timeline
-│   └── software_versions.json   # Tool versions
+│   ├── software_versions.json   # Tool versions -- NOT taxon- or run-scoped: one
+│   │                            #   file per outdir, rewritten by every run
+│   └── ${taxon}/${stamp}/       # one directory per RUN; stamp is UTC yyyyMMdd_HHmmss
+│       ├── pipeline_trace.tsv   # Per-task timing and resource data
+│       ├── pipeline_report.html # Nextflow execution report
+│       └── pipeline_timeline.html  # Visual timeline
 └── main_analysis_results/${taxon}/
     ├── region_counts.tsv        # BGC counts per genome
     ├── region_tabulation.tsv    # Detailed BGC information
@@ -380,7 +504,9 @@ Benchmark the pipeline to estimate runtime for large-scale analyses (e.g., 3 mil
 
 3. **Analyze trace file**:
    ```bash
-   # Trace file location: results/pipeline_info/pipeline_trace.tsv
+   # Trace file location: results/pipeline_info/<Taxon>/<run stamp>/pipeline_trace.tsv
+   # Newest one with data rows, either layout:
+   #   bash scripts/run_status.sh    # prints the trace it chose
    # Contains: task_id, name, status, realtime, cpus, memory, peak_rss, peak_vmem
    ```
 
@@ -692,9 +818,45 @@ Two trace-reading traps found doing this, also recorded:
 - **Sum `CACHED` as well as `COMPLETED`.** After a `-resume`, the trace is rewritten
   and nearly every row is `CACHED`, carrying the realtime of the session that actually
   ran it. Filtering to `COMPLETED` returned one task and a `ZeroDivisionError`.
-- **A resume overwrites `pipeline_trace.tsv`.** There are no rotated copies. The
-  per-task timings of the original run survive only because `CACHED` rows preserve
-  them -- copy the trace aside before resuming a run you intend to benchmark.
+- **`peak_rss` overstates whenever the process tree SHARES pages or MAPS FILES, and
+  only PSS tells you which case you are in — but PSS is not the end of it either.**
+  Nextflow sums RSS across the tree at each sample. Measured on 2026-11-03, same
+  instrument, same run:
+
+  | task | procs | `peak_rss` | PSS | verdict |
+  |---|---:|---:|---:|---|
+  | `BIGSCAPE` | 21 | 16 GB | **2.9 GiB** | 5.5× over — workers share one Pfam database |
+  | `BIGSCAPE_REFERENCES` | 18 | 16 GB | **2.6 GiB** | 6.1× over |
+  | `ANTISMASH` | 13-14 | 4.8-4.9 GB | 4.5-4.7 GiB | truthful |
+  | `GTDBTK_CLASSIFY` | 11 | 36.9 GB | 36.8 GiB | truthful **only here** — see below |
+
+  **GTDB-Tk is the trap inside the trap.** Its `peak_rss` matched PSS on that run
+  because the run reached **zero pplacer invocations** — every genome was ANI-decided,
+  so there was no forked placement tree and no file-backed `--scratch_dir` mapping to
+  double-count. On a shard that DOES reach the tree it is wildly inflated: the
+  committed `bacteria_reference_pilot/pipeline_trace.tsv` reads **`peak_rss` 99.9 GB
+  at `%mem` 168.5%** on a 56.9 GB box. So `gtdbtk_headroom/`'s original "the 97 GB
+  peak_rss was never real" was correct for tree-path runs, and reading one
+  zero-pplacer run as a refutation of it was wrong.
+
+  PSS has its own failure: it counts clean file-backed mmap pages, which are
+  reclaimable and not a requirement. One GTDB-Tk stage read **54.2 GiB of PSS while
+  the kernel reported 54.6 GiB AVAILABLE**, and the same process showed RSS 54.6 GiB
+  against `Pss_Anon` **0.76 GiB**. **Use `Pss_Anon` or system `mem_used`** for "what
+  must this machine hold", and never compare a figure in one basis with a figure in
+  another — the memory-side version of the CPU-basis rule above. Commits `b7b96a7`
+  and `a858d13` broke exactly that rule by equating `gtdbtk_headroom/`'s 41.7 GiB
+  total-PSS with a 38.8 GiB `mem_used`, having misread its MiB columns as decimal GB.
+
+- **Never sum across a taxon's per-run traces.** Each run has written its own
+  `pipeline_info/<taxon>/<UTC stamp>/pipeline_trace.tsv` since 2026-11-03, which is
+  what stopped runs overwriting one another -- but because a `CACHED` row carries the
+  realtime of the session that actually ran the task, **the same task reappears in
+  every later session's trace**. Concatenating them multiplies the real work by the
+  number of resumes. Pick ONE trace per question, or deduplicate by task `hash`
+  first. This is the hazard the per-run directory created; the old advice to "copy
+  the trace aside before resuming" is retired, because a resumed run can no longer
+  reach an earlier session's file.
 
 The top-level `pepm_prescreen/summary.json` used to claim "a controlled A/B on one taxon
 with one code version has not been run". That caveat has been removed and the file now
@@ -814,7 +976,7 @@ ones published before 2026-11-02 (19,100 -> 15,060 at 48 GB, 22,100 -> 17,470 at
 | RAM budget | largest single BiG-SCAPE job |
 |-----------:|-----------------------------:|
 | 16 GB (`process_high`, **local** profile) | 8,350 BGCs |
-| 48 GB (`process_high`, default label) | 15,060 BGCs |
+| 48 GB (the `process_high` default before 2026-11-02) | 15,060 BGCs |
 | 64 GB (SLURM `withName: BIGSCAPE`) | 17,470 BGCs |
 | 128 GB | 24,880 BGCs |
 | 1 TB | 70,820 BGCs |
@@ -822,7 +984,9 @@ ones published before 2026-11-02 (19,100 -> 15,060 at 48 GB, 22,100 -> 17,470 at
 So a million genomes cannot be clustered in one pass. Partition by BGC class, or
 pre-cluster, before that point. **The 64 GB SLURM override caps the pipeline at ~17,500
 BGCs** — roughly 150,000 genomes at Erwiniaceae-level prevalence. **On this workstation
-the local profile gives BiG-SCAPE 16 GB, which caps it at ~8,350** — the binding limit
+`machine.config` gives BiG-SCAPE 16 GB on a box that has it, which caps it at ~8,350**
+(the `local` profile floor is 12 GB, ~7,000 BGCs, so that it fits a 16 GB laptop) — the
+binding limit
 here, and the one `scripts/figures/fig4_scalability.py` draws.
 
 **Database: ~0.74 TB at 121,000 BGCs.** Bytes per comparison converged to 101, so 7.3
@@ -871,9 +1035,12 @@ in `work/`, renamed published — 35.3 MB/genome, 68% of all storage. Two change
   Hard links mean a published file and its `work/` counterpart share an inode, so
   `results/` costs no extra disk. Verified: the published copy survives
   `nextflow clean -f`, the inode's link count simply drops to 1. Needs `outdir` and
-  `workDir` on one filesystem — set `'copy'` if they are not, or if anything edits
-  published files in place, since a write through a hard link also rewrites the cached
-  task output and corrupts `-resume`.
+  `workDir` on one filesystem — **enforced since 2026-11-02**: `main.nf` refuses the
+  combination at validation and `check_machine.py` declares a `workDir` beside `outdir`
+  to satisfy it, rather than falling back to `'copy'` and giving up the saving. See the
+  operational trap above. Set `'copy'` anyway if anything edits published files in place,
+  since a write through a hard link also rewrites the cached task output and corrupts
+  `-resume`.
 - **The download no longer publishes the genomes**, only the metadata that `main.nf`'s
   `bgc_analysis` entry reads. The `*.gbff` payload was republished by the renaming step
   anyway.
@@ -4052,17 +4219,29 @@ This is set in `scripts/clustering/extract_gcf_representatives.py` (`antismash_l
 
 - **Duplicate gene names**: Some NCBI genomes have duplicate CDS feature names (e.g., `sapC`), causing antiSMASH to fail with "multiple CDS features have the same name"
 - **DIAMOND memory errors**: `malloc(): corrupted top size` errors during ClusterBlast indicate memory issues; try increasing memory allocation or reducing concurrent jobs
-- **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module includes validation with `sync -f .` + retry logic (scoped, never a bare `sync` -- see the trap above), but if corruption persists, delete the cached work directory and re-run
+- **NCBI dehydrated download corruption**: The `--dehydrated` download mode can produce null-filled files due to network timeouts. The module validates every `.gbff` starts with `LOCUS` and refetches up to three cycles; if corruption persists, delete the cached work directory and re-run. There is deliberately **no `sync` of any kind** in that path any more -- not even `sync -f .`, which hung four tasks for 55 minutes on a healthy filesystem on 2026-11-03. See the `sync` trap above
 - **pyhmmer/BiG-SCAPE compatibility**: pyhmmer 0.12+ changed `profile.accession` from bytes to str, breaking BiG-SCAPE. The module pins `pyhmmer<0.11`
 - **GTDB-Tk duplicate taxon labels**: GTDB-Tk normalizes genome names case-insensitively. If two genomes have names differing only in case (e.g., `MDCuke` vs `MDcuke`), GTDB-Tk will fail with `NewickReaderDuplicateTaxonError`. The `create_name_map.py` script now handles this by tracking names case-insensitively and adding numeric suffixes to duplicates
-- **Run reports are scoped per taxon (fixed 2026-08-25)**: `trace`, `report` and
-  `timeline` all set `overwrite = true`, so with one shared path any later run — a
-  `-preview` included, which writes them while executing nothing — destroyed the previous
-  run's benchmark data. They now live under `params.pipeline_info_dir`
-  (`results/pipeline_info/<taxon>/`), defined once in `nextflow.config` and referenced by
-  both the report scopes and `subworkflows/bgc_analysis.nf` so the two cannot drift.
-  Analysing a new taxon no longer clobbers the last one; a repeat run of the *same* taxon
-  still overwrites, which is intended. A clobbered trace can still be rebuilt from
+- **Run reports are scoped per taxon and per run (taxon 2026-08-25, run 2026-11-03)**:
+  `trace`, `report` and `timeline` all set `overwrite = true`, so with one shared path
+  any later run — a `-preview` included, which writes them while executing nothing —
+  destroyed the previous run's benchmark data. They live under
+  `params.pipeline_info_dir` (`results/pipeline_info/<taxon>/<UTC yyyyMMdd_HHmmss>/`),
+  defined once in `nextflow.config` and referenced by both the report scopes and
+  `subworkflows/bgc_analysis.nf` so the two cannot drift.
+  Taxon scoping alone was not enough, and the claim that a same-taxon rerun
+  "still overwrites, which is intended" was wrong: rerunning ONE taxon is exactly what
+  comparing two runs means. Four 114-byte header-only traces in `results/pipeline_info/`
+  are previews that had already done it, and on 2026-11-03 two previews erased the
+  Erwiniaceae regression gate's trace, report and timeline an hour after it finished.
+  `overwrite = false` is **not** the alternative: measured on 26.10.5 it preserves the
+  old file and writes **nothing** for the new run — zero rows, no rotated copy — while
+  the run still reports `[SUCCESS]`. It changes which run you lose, silently. The
+  timestamp is therefore inlined in that one assignment, in UTC via `java.time`: a
+  second evaluation would split trace and report across two directories, the strict
+  config DSL rejects a `def` there, and local time would repeat an hour across the DST
+  fall-back. Known limit: two runs of one taxon into one outdir starting in the same
+  second still share a directory. A clobbered trace can still be rebuilt from
   Nextflow's cache: `nextflow log <run_name> -f task_id,hash,name,status,exit,submit,start,complete,realtime,cpus,memory,peak_rss,peak_vmem,pcpu,pmem,rchar,wchar`
   (note `pcpu`/`pmem` — the template parser rejects `%cpu`/`%mem`). Note
   `Utils.sanitizeTaxon` is not callable from config scope, so the taxon transform is
@@ -4107,8 +4286,11 @@ rm -rf work/                      # Remove intermediate files (keeps databases)
 du -sh work/                      # Check work dir size
 ```
 
-**Preview a run without destroying `pipeline_info/`** — put this in a scratch config and
-pass it with `-c`:
+**Keep a `-preview` from leaving a report directory behind** — since 2026-11-03 a
+preview can no longer destroy an earlier run's reports, each run having its own
+timestamp directory; it only adds one holding a header-only trace and ~1.85 MB of
+empty report and timeline. So this is tidiness now, not protection. Put it in a
+scratch config and pass it with `-c`:
 
 ```groovy
 trace    { enabled = false }
@@ -4120,7 +4302,72 @@ timeline { enabled = false }
 nextflow run main.nf -preview -c no_reports.config --taxon "Pantoea"
 ```
 
-- **GTDB-Tk OOM**: Requires 56-64GB RAM; keep `--pplacer_cpus 1`
+- **GTDB-Tk needs ~38 GiB of RAM, and the 4 GB was never a mis-measurement.** This
+  entry said 4 GB from 2026-11-02 and 56-64 GB before that. The 4 GB was *correct for
+  the configuration it measured*: `--skip_ani_screen` was hardcoded in
+  `modules/phylogeny/gtdbtk.nf` from the initial release until **b99b0b1
+  (2026-10-08)**, so the RefSeq run had no skani stage — and skani's all-vs-all ANI
+  screen is the stage that owns the peak. `gtdbtk_headroom/` corroborates from the
+  other side: its pplacer-only phase ran at 3 of 56 GB. With the screen on, the
+  default since b99b0b1, the peak is **38.2 GiB** system `mem_used` over 300 genomes —
+  and `gtdbtk_headroom/` had already measured **38 of 56 GB** by the same instrument
+  over 2,530, which is the real corroboration. So the original 56-64 GB was right and
+  the 2026-11-02 cut was the error. (Commits `b7b96a7` and `a858d13` instead blamed
+  60-second sampling for missing a 30-second spike. That explanation is wrong.)
+  `GTDBTK_CLASSIFY` is therefore allocated **48 GB** by name in `conf/labels.config`,
+  which also caps its concurrency to one shard by admission arithmetic. It will not be
+  admitted under ~52 GB; set `run_gtdbtk = false` there. 48 rather than 40 because the
+  peak is 38.8 GiB — 40 GiB would leave 3% headroom on a ~30 s spike whose size tracks
+  the **GTDB reference data**, and release 232 is already flagged as available; the
+  slurm profile enforces `memory` as a cgroup, where 3% is an OOM kill. **48 GB is what
+  the profile asked for before the 2026-11-02 cut to 16: the original was right and the
+  cut was the error.** Disk is still ~150 GB of pplacer scratch, and `--pplacer_cpus 1`
+  stays, which is about scratch and runtime rather than RAM.
+
+  **This repo already knew.** `docs/comparisons/gtdbtk_headroom/` measured 41.7 GB PSS
+  in skani — 41.7 decimal GB *is* 38.8 GiB, the same number — and recorded it as
+  "input-independent", "set by sketching GTDB's 143,614 REFERENCE genomes" and "the
+  genuine memory ceiling … at any input size". It also recorded pplacer's 54.2 GB PSS
+  and explained it as the file-backed scratch mapping rather than a requirement. So the
+  4 GB figure contradicted a committed comparison here for two months and nothing
+  caught it. **Before re-measuring a resource figure, grep `docs/comparisons/` for it:
+  the answer may already be committed, and a contradiction between two files in this
+  repo is a louder signal than either file alone.**
+
+  **Memory and time have different drivers, and only memory gated the allocation.**
+  Measured both ways at 300 genomes held constant (`docs/comparisons/gtdbtk_memory_scaling/`):
+
+  | varied | | peak PSS | peak `mem_used` | wall |
+  |---|---|---:|---:|---:|
+  | count, one family | 25 | 10.67 GiB | 12.02 GiB | 25m |
+  | | 100 | 34.44 GiB | **37.18 GiB** | 27m |
+  | | 300 | 36.22 GiB | 36.25 GiB | 27m |
+  | diversity, 300 genomes | 1 family | 36.22 GiB | 36.25 GiB | 0h27m |
+  | | 8 families | — | 38.17 GiB | 2h07m |
+  | | 29 phyla | 36.88 (anon) | 38.25 GiB | >5h49m |
+
+  Note 100 and 300 are **within noise of each other and not ordered** — by `mem_used`
+  the 100-genome arm is the higher of the two. An earlier version of this table showed
+  a clean rise to a plateau only by putting PSS and `mem_used` in one column.
+
+  Memory saturates by ~100 genomes and is then **flat across diversity**, so 40 GB
+  holds for every planned run and **sharding is not a memory lever**: 5000 → 300 saves
+  nothing, 5000 → 25 saves 26 GiB at 12× the shards, each paying the ANI screen's
+  ~27-35 min fixed cost over all 143,614 reference genomes.
+
+  The reason one is flat and one is not: **memory is the all-vs-all ANI screen** —
+  every arm's peak falls inside the ANI window, before the first pplacer starts, and
+  the one-family arm ran *zero* pplacer invocations yet still peaked at 36.3 GiB —
+  while **time is pplacer**, which is memory-cheap because `--scratch_dir` spills to
+  disk. GTDB-Tk 2.x places against a split reference (one backbone plus 8 class-level
+  subtrees, pplacer once per subtree holding queries), so breadth sets how many
+  traversals happen: 7m, 1h17m, 8m, 1h01m, 1h27m for arm C's five completed runs.
+
+  **Do not read those wall times as a forecast.** The arms round-robin across
+  families, oversampling rare lineages, so their tree-path genomes are maximally
+  novel. For a real-run estimate use `docs/comparisons/gtdbtk_ani_screen_genbank/`:
+  450 actual GenBank Enterobacterales genomes, 44 min, 5.3% ANI fall-through.
+  and runtime rather than RAM.
 - **Conda env conflicts**: Each tool has its own environment; don't mix in COLLECT_VERSIONS
 - **NCBI download corruption**: If GENBANK_TO_FASTA fails with "No sequences found", check for null-filled files:
   ```bash

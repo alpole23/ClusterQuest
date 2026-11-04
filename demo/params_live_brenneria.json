@@ -1,0 +1,25 @@
+{
+  "workflow": "full",
+  "taxon": "Brenneria",
+  "assembly_source": "RefSeq",
+  "outdir": "results_demo",
+
+  "pepm_prescreen": true,
+  "recover_orfs": true,
+  "annotation_transfer": true,
+
+  "antismash_minimal": true,
+  "antismash_batch_size": 2,
+  "antismash_html": true,
+
+  "clustering": "bigscape",
+  "bigscape_cutoffs": "0.30",
+  "bigscape_partition": false,
+
+  "run_gtdbtk": false,
+  "skip_tree": true,
+
+  "check_db_updates": false,
+  "download_batch_size": 25,
+  "download_max_forks": 24
+}

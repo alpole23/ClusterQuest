@@ -426,10 +426,27 @@ Process labels for resource allocation:
 | Label | CPUs | Memory | Time |
 |-------|------|--------|------|
 | `process_local` | 1 | 1 GB | 1h |
-| `process_low` | 1 | 2 GB | 1h |
-| `process_medium` | 4 | 8 GB | 4h |
-| `process_high` | 8 | 32 GB | 8h |
-| `process_high_memory` | 8 | 128 GB | 24h |
+| `process_low` | 1 | 2 GB | 12h |
+| `process_medium` | 4 | 8 GB | 2h |
+| `process_high` | 8 | 12 GB | 8h |
+| `process_high_memory` | 8 | 12 GB | 24h |
+
+Restated from `conf/labels.config` on 2026-11-04. Four cells had been wrong —
+`process_high` and `process_high_memory` both declare 12 GB, not 32 and 128, and
+`process_low`/`process_medium` declare 12h/2h, not 1h/4h — because the table recorded
+values a profile supplies rather than the defaults the file declares.
+(`process_local` declares no `time` in that file; its 1h is unverified here.)
+
+These are the **default layer**: a run given no profile at all. Profiles override them,
+and a `withName` beats every `withLabel`:
+
+| selector | where | effect |
+|---|---|---|
+| `withName: GTDBTK_CLASSIFY` | `conf/labels.config` | **48 GB, `time = '72h'`** — measured; beats every row above in every profile |
+| `withName: ANTISMASH` | `conf/labels.config` | 2 cpus, `6.GB * task.attempt`, `maxForks 7`, `time = '8h'` |
+| `process_high_memory` | `local` profile | 12 GB (no member — GTDB-Tk takes the `withName`) |
+| `process_high_memory` | `slurm` profile | `highmem` queue, 128 GB (likewise no member) |
+| any label | `machine.config` | sized to the host by `scripts/check_machine.py`; cannot reach the `withName` |
 
 Error handling labels:
 - `tolerant`: `errorStrategy = 'ignore'`

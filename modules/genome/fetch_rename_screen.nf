@@ -157,22 +157,40 @@ process FETCH_RENAME_SCREEN {
     if [ "\$FETCHED" = yes ]; then
         unzip -q batch.zip
     fi
-    # syncfs on the work directory, never a bare `sync`. A bare sync flushes
-    # EVERY mounted filesystem, and on a WSL2 host that includes mounts served
-    # from the Windows side; when one of those stalls the call parks in
-    # uninterruptible D state and no signal reaches it. That killed a Bacteria
-    # GenBank run ~8,800 batches in. The download itself had succeeded -- every
-    # failed task's stderr ends "valid data package, 100%" -- and the task then
-    # sat in sync past process_medium's 2 h limit, ignored the SIGTERM, and left
-    # Nextflow with `IllegalThreadStateException: process hasn't exited`, which
-    # aborts the run rather than the task. Thirty-odd unkillable syncs survived
-    # it and only a VM restart cleared them.
+    # NO SYNC HERE, OF ANY KIND. Removed 2026-11-03; do not reintroduce it.
     #
-    # Everything this task writes is under the work directory, so `-f .` flushes
-    # exactly the filesystem that matters and touches no other. Verified on the
-    # host that hung: `sync -f` on the work directory returns immediately while
-    # a bare `sync` never does. Needs GNU coreutils >= 8.24 for `-f`.
-    sync -f .
+    # A bare `sync` flushes EVERY mounted filesystem, and on a WSL2 host that
+    # includes mounts served from the Windows side; when one of those stalls the
+    # call parks in uninterruptible D state and no signal reaches it. That killed
+    # a Bacteria GenBank run ~8,800 batches in: the download itself had succeeded
+    # -- every failed task's stderr ends "valid data package, 100%" -- and the
+    # task then sat in sync past process_medium's 2 h limit, ignored the SIGTERM,
+    # and left Nextflow with `IllegalThreadStateException: process hasn't exited`,
+    # which aborts the run rather than the task.
+    #
+    # `sync -f .` was the fix, on the stated grounds that everything this task
+    # writes is under the work directory so `-f` flushes only the filesystem that
+    # matters. THAT IS NOT TRUE ON THIS KERNEL. Measured 2026-11-03, 55 minutes
+    # into an Erwiniaceae run: all four concurrent fetch tasks wedged in
+    # `sync -f .` for 55 minutes with the work filesystem perfectly healthy --
+    # ext4 on a local /dev/sde, writable throughout, clean mount, no I/O errors,
+    # Dirty 136 kB, Writeback 0, and zero sectors read or written over a 5 s
+    # window. Nothing else on the box was blocked. Their kernel wait channel was
+    # `request_wait_answer`, which belongs to the FUSE/9p request path, and the
+    # only 9p mounts present are WSL2's Windows-served /mnt/c and
+    # /usr/lib/wsl/drivers. A syncfs against a healthy local disk has no business
+    # waiting there, so `-f` is not confining the call.
+    #
+    # Nor can it be bounded: `timeout 120 sync -f . || true` does not help,
+    # because SIGTERM does not reach a D-state process and `timeout` then waits
+    # for a child that never exits. SIGTERM in fact moved all four from S to D.
+    #
+    # Nothing is lost by dropping it. The corruption check below reads through
+    # the page cache, so a flush changes nothing about what it sees; `datasets`
+    # has already validated the package; `unzip` fails on a truncated archive;
+    # and Nextflow re-runs any task whose declared output is missing, so
+    # durability against a host crash was never this pipeline's problem to solve.
+    # The LOCUS check and the refetch loop are what actually catch corruption.
 
     # Null-filled files are what a timed-out transfer leaves behind. Delete and
     # refetch; a valid GenBank file starts with LOCUS.
@@ -192,7 +210,6 @@ process FETCH_RENAME_SCREEN {
         datasets download genome accession --inputfile ${accessions} --include gbff \\
             --assembly-source ${params.assembly_source} --filename batch.zip || true
         unzip -qo batch.zip || true
-        sync -f .
     done
 
     FOUND=\$(find ncbi_dataset/data -name '*.gbff' -type f | wc -l)

@@ -12,7 +12,7 @@ HTML report covering:
 
 Usage:
     python scripts/benchmark_analysis.py \\
-        --trace results/pipeline_info/pipeline_trace.tsv \\
+        --trace results/pipeline_info/<Taxon>/<run stamp>/pipeline_trace.tsv \\
         --outdir results/benchmark \\
         [--n_genomes 2548] \\
         [--targets 10000,100000,500000,1000000,5000000] \\
@@ -652,7 +652,8 @@ def main():
         epilog=__doc__,
     )
     parser.add_argument('--trace',        required=True,
-                        help='Nextflow trace TSV (results/pipeline_info/pipeline_trace.tsv)')
+                        help='Nextflow trace TSV '
+                             '(results/pipeline_info/<Taxon>/<run stamp>/pipeline_trace.tsv)')
     parser.add_argument('--outdir',       default='results/benchmark',
                         help='Output directory (default: results/benchmark)')
     parser.add_argument('--n_genomes',    type=int, default=None,

@@ -148,8 +148,11 @@ allocation changed mid-run from 4 cpus to 1.
 
 **Caveat on the fetch figure:** trace files are written with `overwrite = true`, so each
 restart discarded the previous session's trace. Only 45% of fetch batches survive in the
-archived traces and the total is scaled from those. Archive `pipeline_trace.tsv` before
-every restart if a complete accounting matters.
+archived traces and the total is scaled from those. (Fixed 2026-11-03: every run now
+writes its own `pipeline_info/<taxon>/<UTC stamp>/`, so a restart no longer discards
+the previous session's trace, and `scripts/bench_trace_archive.sh` takes a glob that
+follows the new directory. The 45% figure above stands as a record of the run as it
+was actually executed.)
 
 ## Result
 

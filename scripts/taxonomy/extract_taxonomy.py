@@ -173,42 +173,83 @@ def get_lineage_entrez(tax_ids, email="pipeline@example.com"):
     return results
 
 
-def main(assembly_report, taxdump_dir, output_file):
-    print("=" * 60)
-    print("TAXONOMY EXTRACTION - Hybrid taxonkit + Entrez approach")
-    print("=" * 60)
+def _first(mapping, *names):
+    """The first of `names` present in `mapping`. NCBI spells fields two ways."""
+    for name in names:
+        if name in mapping:
+            return mapping[name]
+    return None
 
-    # Read assembly report to get all taxIds
-    print("\nReading assembly report...")
+
+def read_assembly_report(assembly_report):
+    """Parse NCBI's assembly data report -> ({accession: info}, {taxIds}).
+
+    TWO SPELLINGS, ONE FILENAME. `datasets download genome` ships an
+    assembly_data_report.jsonl inside its archive using protobuf's lowerCamelCase
+    keys -- taxId, organismName, infraspecificNames. `datasets summary genome
+    ... --as-json-lines` writes the same records with snake_case keys -- tax_id,
+    organism_name, infraspecific_names. NCBI_FETCH_METADATA moved from the first
+    to the second in f884c0e (2026-10-27) so each date shard could retry on its
+    own, and kept the filename. This reader went on asking for taxId, got None
+    from every record, skipped all of them and wrote an empty map: three runs
+    published a taxonomy tree reading `total_genomes: 0` and Nextflow called
+    every one of them a success.
+
+    Both spellings are accepted, because either tool may have written the file.
+    """
     assemblies = {}
     tax_ids = set()
+    records = 0
 
     with open(assembly_report, 'r') as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
+            records += 1
             record = json.loads(line)
+            organism_info = record.get('organism') or {}
 
             accession = record.get('accession')
-            organism_info = record.get('organism', {})
-            tax_id = organism_info.get('taxId')
-            organism_name = organism_info.get('organismName', '')
+            tax_id = _first(organism_info, 'tax_id', 'taxId')
+            organism_name = _first(organism_info, 'organism_name',
+                                   'organismName') or ''
+            infraspecific = _first(organism_info, 'infraspecific_names',
+                                   'infraspecificNames') or {}
 
             if not accession or not tax_id:
                 continue
 
-            # Extract strain information
-            infraspecific = organism_info.get('infraspecificNames', {})
-            strain = infraspecific.get('strain', '')
-
             assemblies[accession] = {
                 'taxId': tax_id,
                 'organism': organism_name,
-                'strain': strain
+                'strain': infraspecific.get('strain', '')
             }
             tax_ids.add(tax_id)
 
+    # Records in, nothing out, is a format mismatch -- not a taxon with no
+    # genomes, which arrives as a report with no records at all. Saying so costs
+    # a failed run. Staying quiet cost a published figure of zero for six days,
+    # which is worse, because a number nobody questioned is not an absence.
+    if records and not assemblies:
+        raise ValueError(
+            f'{assembly_report}: {records} records, not one with both an '
+            f'accession and a tax id. The keys this reader knows are '
+            f'tax_id/taxId, organism_name/organismName and '
+            f'infraspecific_names/infraspecificNames -- NCBI has most likely '
+            f'renamed one again. Refusing to write an empty taxonomy map from '
+            f'a report that is not empty.')
+
+    return assemblies, tax_ids
+
+
+def main(assembly_report, taxdump_dir, output_file):
+    print("=" * 60)
+    print("TAXONOMY EXTRACTION - Hybrid taxonkit + Entrez approach")
+    print("=" * 60)
+
+    print("\nReading assembly report...")
+    assemblies, tax_ids = read_assembly_report(assembly_report)
     print(f"Found {len(assemblies)} assemblies with {len(tax_ids)} unique taxIds")
 
     # Step 1: Query taxonkit for all taxIds (fast, local)
@@ -299,4 +340,7 @@ if __name__ == "__main__":
     parser.add_argument("output_file", help="Path to output JSON file")
     args = parser.parse_args()
 
-    main(args.assembly_report, args.taxdump_dir, args.output_file)
+    try:
+        main(args.assembly_report, args.taxdump_dir, args.output_file)
+    except ValueError as exc:
+        sys.exit(f'ERROR: {exc}')

@@ -290,6 +290,51 @@ else
     fail "configure_run parameter checks failed:"; echo "$CFGCHK" | sed 's/^/      /'
 fi
 
+# docs/parameters.md holds the measurements that used to sit above each default in
+# nextflow.config. Moving them out traded a truncated prompt for the risk of a stale
+# note, so the correspondence is checked rather than trusted.
+if PDOC="$("$SYS_PY" "$PROJECT_DIR/tests/check_parameter_docs.py" 2>&1)"; then
+    pass "parameter docs match nextflow.config"
+else
+    fail "parameter doc checks failed:"; echo "$PDOC" | sed 's/^/      /'
+fi
+
+# Machine sizing. A budget larger than the machine it was computed for does not
+# slow a run down, it kills it on task admission -- so this is checked rather than
+# reasoned about. Includes a live `nextflow config` resolution of the generated
+# machine.config, which is the only check here that exercises Nextflow itself.
+if MACHCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_machine_sizing.py" 2>&1)"; then
+    pass "machine sizing fits every supported machine"
+    echo "$MACHCHK" | grep -E '^  SKIP' | sed 's/^/     /'
+else
+    fail "machine sizing checks failed:"; echo "$MACHCHK" | sed 's/^/      /'
+fi
+
+# `sync` has killed two runs of this pipeline, and `sync -f .` -- the documented fix --
+# turned out not to scope to the work filesystem at all. Neither form may return.
+if SYNCCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_no_sync.py" 2>&1)"; then
+    pass "no process script calls sync"
+else
+    fail "sync check failed:"; echo "$SYNCCHK" | sed 's/^/      /'
+fi
+
+# Run reports are per-run since 2026-11-03. The writer and its four readers have to
+# agree on the path, because a reader that disagrees fails quietly -- VISUALIZE_RESULTS
+# just omits its resources panel.
+if INFOCHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_pipeline_info_paths.py" 2>&1)"; then
+    pass "run report paths are per-run and every reader agrees"
+else
+    fail "pipeline_info path checks failed:"; echo "$INFOCHK" | sed 's/^/      /'
+fi
+
+# NCBI spells the same field two ways in the same filename, and the reader that
+# got it wrong wrote an empty taxonomy map for six days without failing a run.
+if NCBICHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_ncbi_report_parsing.py" 2>&1)"; then
+    pass "NCBI assembly report parses in both key spellings"
+else
+    fail "NCBI report parsing checks failed:"; echo "$NCBICHK" | sed 's/^/      /'
+fi
+
 echo
 echo "================================"
 echo "  passed: $PASS   failed: $FAIL"

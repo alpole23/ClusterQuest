@@ -23,10 +23,44 @@
 set -u
 ROOT=${1:-/mnt/bigdisk/clusterquest}
 newest() { ls -1t $1 2>/dev/null | head -1; }
+
+# Newest trace that actually HAS a data row. Per-run stamp directories accumulate
+# since 2026-11-03, and a `-preview` or an aborted run leaves a NEWER directory
+# holding a header-only trace -- picking purely by mtime would then report
+# "0 tasks, 0 not complete" for a perfectly healthy live run. Not hypothetical:
+# four 114-byte header-only traces sit in results/pipeline_info/ right now, left by
+# previews under the old single-path layout.
+newest_trace() {
+    for f in $(ls -1t $1 2>/dev/null); do
+        [ -f "$f" ] && [ "$(head -2 "$f" | wc -l)" -ge 2 ] && { echo "$f"; return; }
+    done
+}
+
 TAXON=${2:-}
+TAXON_AUTO=0
+# Sanitised the way nextflow.config names the directory, so a caller may pass the
+# taxon as it appears in a params file. It also has to happen before the globs
+# below: `newest` deliberately leaves its argument unquoted so two patterns
+# word-split into one `ls`, and a taxon containing a space would split with them.
+if [ -n "$TAXON" ]; then
+    TAXON=$(printf '%s' "$TAXON" \
+            | sed -e 's/[^a-zA-Z0-9_]/_/g' -e 's/__*/_/g' -e 's/^_//' -e 's/_$//')
+fi
 if [ -z "$TAXON" ]; then
-    T=$(newest "$ROOT/results/pipeline_info/*/pipeline_trace.tsv")
-    TAXON=$(basename "$(dirname "${T:-/none/unknown}")")
+    TAXON_AUTO=1
+    # The trace moved to pipeline_info/<Taxon>/<run stamp>/pipeline_trace.tsv on
+    # 2026-11-03. BOTH layouts are matched, because every outdir written before that
+    # still holds the old one and this script has to read those too -- `newest` takes
+    # its argument unquoted, so two patterns word-split into one `ls -1t`, which
+    # sorts by mtime and so never depends on the stamp's format sorting.
+    #
+    # The taxon is then the FIRST segment under pipeline_info, which is true of both
+    # layouts. A chain of `dirname` is not: one level up is the taxon in the old
+    # layout and the run stamp in the new one.
+    T=$(newest_trace "$ROOT/results/pipeline_info/*/*/pipeline_trace.tsv $ROOT/results/pipeline_info/*/pipeline_trace.tsv")
+    REL=${T#"$ROOT/results/pipeline_info/"}
+    TAXON=${REL%%/*}
+    TAXON=${TAXON:-none}
 fi
 # Newest log that is actually a PIPELINE log: every run prints [WORKDIR] at start,
 # where a sampler's or archiver's log never does. Picking purely by mtime chose the
@@ -113,7 +147,8 @@ printf "  diamond %s   prodigal %s   antismash %s   bigscape %s   gtdbtk %s\n" \
     "$(count_proc '/bin/gtdbtk( |$)')"
 
 echo "--- task failures (from the trace) ---"
-TRACE="$ROOT/results/pipeline_info/$TAXON/pipeline_trace.tsv"
+# Newest trace with data, across both layouts, as above.
+TRACE=$(newest_trace "$ROOT/results/pipeline_info/$TAXON/*/pipeline_trace.tsv $ROOT/results/pipeline_info/$TAXON/pipeline_trace.tsv")
 if [ -f "$TRACE" ]; then
     awk -F'\t' 'NR>1 {
         n++
@@ -123,7 +158,14 @@ if [ -f "$TRACE" ]; then
         printf "  %d tasks, %d not complete, %d non-zero exit\n", n, bad, nz
     }' "$TRACE"
 else
-    echo "  (no trace at $TRACE)"
+    # $TRACE is empty on a miss, so printing it said "(no trace at )". Say what was
+    # actually searched instead, and do not name a taxon that was never found: auto
+    # detection falls back to the literal string `none`.
+    if [ "$TAXON_AUTO" = 1 ] && [ "$TAXON" = none ]; then
+        echo "  (no trace with data rows under $ROOT/results/pipeline_info/)"
+    else
+        echo "  (no trace with data rows under $ROOT/results/pipeline_info/$TAXON/, either layout)"
+    fi
 fi
 
 echo "--- errors in log ---"

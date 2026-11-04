@@ -1,0 +1,104 @@
+{
+  "question": "GTDB-Tk was cut to a 16 GB allocation on the strength of a 4 GB 'sampled peak'. That 4 GB turned out to be a correct measurement of a configuration the pipeline had already abandoned -- `--skip_ani_screen` was hardcoded until b99b0b1 (2026-10-08), removing the skani stage that owns the peak -- so the allocation had to be re-derived with the screen on. Two things then had to be established before the Enterobacterales and Actinomycetes runs: does the peak scale with genome COUNT (in which case a smaller gtdbtk_shard_size is the fix), and does it scale with taxonomic DIVERSITY (in which case a figure measured on one family says nothing about an order or a phylum-spanning run)?",
+  "answer": "Neither, in the way that would have mattered. Memory plateaus by about 100 genomes and is FLAT across diversity: 36.25 GiB system mem_used for one family, 38.17 for eight families, 38.25 for 29 phyla, all at a fixed 300 genomes. So 48 GB holds for every planned run and sharding is not a memory lever. What diversity drives is TIME, steeply: the same 300 genomes took 27 min for one family, 2h07m for eight, and over 5h49m for 29 phyla without finishing. Memory and time have different drivers, and only the memory question gated the allocation.",
+  "mechanism": "The two costs sit in different stages. MEMORY is the all-vs-all ANI screen: every arm's peak falls inside the ANI window and BEFORE the first pplacer starts (arm C peaked 17:24:59, first pplacer 17:35:56), and the one-family arms ran ZERO pplacer invocations yet still peaked at 36.25 GiB. It plateaus with query count rather than being strictly fixed -- 25 genomes cost 12.02 GiB -- so what is established is the plateau, not a constant reference-sketch load. TIME is pplacer, which is memory-cheap because --scratch_dir spills to disk. GTDB-Tk 2.x places against a split reference -- one backbone plus 8 class-level subtrees, pplacer once per subtree holding queries -- and each traversal costs ~1 h almost REGARDLESS of how many queries ride along: in arm C, 13 queries took 78 min while 7 took 9 min and single pairs took 62-88 min, because the cost is caching the subtree (pplacer logs a 26.92 GB likelihood cache per invocation). So tree-path time is roughly 1 h x (distinct classes represented), capped at 8 subtrees, and NOT proportional to the query count.",
+  "design": "Count and diversity varied separately. COUNT: 25 / 100 / 300 genomes, all Erwiniaceae, same files, flags and database. DIVERSITY: 300 genomes held constant while breadth varied -- 300 Erwiniaceae (1 family), 300 round-robined across Enterobacterales' 8 families, 300 round-robined across 29 phyla of the Bacteria pilot (including 23 Actinomycetota, so Goal 3's clade is bracketed). All arms used the pipeline's own invocation: gtdbtk classify_wf --cpus 8 --pplacer_cpus 1 --min_perc_aa 10 --scratch_dir scratch_tmp, ANI screen ON, against release226. Genomes converted with the pipeline's own scripts/genome/genbank_to_fasta.py and sanitised as the module does. Strictly sequential: two concurrent shards at ~37 GiB would have measured swap.",
+  "instruments": "Three, because the first two are each wrong in a different way, and MIXING THEM is a fourth error this record previously committed. Nextflow's peak_rss sums RSS across the process tree: a 5.5x overstatement for BiG-SCAPE (21 workers sharing a Pfam database, 16 GB against 2.9 GiB PSS), and for GTDB-Tk it matched PSS here ONLY because these runs reached zero pplacer invocations -- on a tree-path shard the committed bacteria_reference_pilot trace reads peak_rss 99.9 GB at %mem 168.5% on a 56.9 GB box. Total Pss counts clean file-backed mmap pages, which are reclaimable and not a requirement: one stage read 54.2 GiB of PSS while the kernel reported 54.6 GiB AVAILABLE, and the same process showed RSS 54.6 GiB against Pss_Anon 0.76 GiB. The headline figures here are system mem_used (MemTotal - MemAvailable), corroborated by Pss_Anon, sampled every 2-5 s. Each table states its instrument; an earlier version of this file put PSS and mem_used in one column, which made an unordered pair look like a clean plateau.",
+  "measured": {
+    "count_series_erwiniaceae": [
+      {
+        "genomes": 25,
+        "peak_pss_gib": 10.67,
+        "peak_mem_used_gib": 12.02,
+        "wall_min": 25,
+        "pplacer_runs": 0
+      },
+      {
+        "genomes": 100,
+        "peak_pss_gib": 34.44,
+        "peak_mem_used_gib": 37.18,
+        "wall_min": 27,
+        "pplacer_runs": null
+      },
+      {
+        "genomes": 300,
+        "peak_pss_gib": 36.22,
+        "peak_mem_used_gib": 36.25,
+        "wall_min": 27,
+        "pplacer_runs": 0
+      }
+    ],
+    "diversity_series_300_genomes": [
+      {
+        "arm": "A",
+        "breadth": "1 family (Erwiniaceae)",
+        "peak_mem_used_gib": 36.25,
+        "peak_pss_gib": 36.22,
+        "wall": "0h27m",
+        "pplacer_runs": 0,
+        "completed": true
+      },
+      {
+        "arm": "B",
+        "breadth": "8 families (Enterobacterales)",
+        "peak_mem_used_gib": 38.17,
+        "wall": "2h07m",
+        "pplacer_runs": 2,
+        "completed": true,
+        "classified": 300,
+        "ani_resolved": 285,
+        "to_tree_path": 15
+      },
+      {
+        "arm": "C",
+        "breadth": "29 phyla (Bacteria-wide)",
+        "peak_mem_used_gib": 38.25,
+        "peak_pss_anon_gib": 36.88,
+        "wall": ">5h49m",
+        "completed": false,
+        "pplacer_runs": "7 started, 6 completed -- backbone plus 5 of the 6 class-level subtrees GTDB-Tk selected (9 exist: 1 backbone + 8 class-level)",
+        "to_tree_path": 27,
+        "last_log_line": "2026-11-03 22:42:21",
+        "stopped_because": "memory was already answered and flat; the rest would only have refined a time figure this design overstates anyway"
+      }
+    ],
+    "arm_c_pplacer_run_durations": [
+      "backbone 7.0m (27 queries)",
+      "class tree 7: 77.9m (13 queries)",
+      "tree 8: 9.0m (7 queries)",
+      "tree 5: 61.6m (2 queries)",
+      "tree 2: 87.8m (2 queries)",
+      "tree 3: 63.1m",
+      "7th started, killed"
+    ],
+    "pipeline_run_cross_check": {
+      "genomes": 301,
+      "pss_gib": 36.8,
+      "mem_used_gib": 38.8,
+      "nextflow_peak_rss": "36.9 GB",
+      "declared_at_the_time": "16 GB",
+      "note": "Ran under a 16 GB declaration only because the local executor treats `memory` as an admission constraint it does not enforce. It reached ZERO pplacer invocations -- all 300 genomes were ANI-decided -- which is why its peak_rss happened to equal its PSS.",
+      "pplacer_runs": 0
+    },
+    "swap": "never material -- 0.33 GiB peak across all arms, so no figure here is a swap-capped ceiling",
+    "count_series_note": "100 and 300 are within noise and NOT ordered -- by mem_used the 100-genome arm is the higher. The plateau is reached by ~100 genomes; the shape of the rise below 25 and between 25 and 100 is unmeasured.",
+    "pplacer_scratch": "82.0 GiB of REAL blocks on arm C (88.0 GB decimal), reached during placement and then flat -- consistent with the 93.5 GiB floor already recorded in gtdbtk_headroom/. An earlier version of this file said 18.4 GB, measured while the file was still sparse. Scratch is a floor paid at the first placement, not a function of how many genomes are placed."
+  },
+  "consequences": {
+    "allocation": "GTDBTK_CLASSIFY is allocated 48 GB by name in conf/labels.config. By name rather than through its process_high_memory label -- of which it is the only user -- because a generated machine.config overrides labels. 48 rather than 40: the peak is 38.8 GiB, so 40 GiB leaves 3% headroom on a ~30 s spike whose size tracks the GTDB reference data, and release 232 is already flagged as available. The local executor would only queue differently, but the slurm profile enforces memory as a cgroup where 3% is an OOM kill. 48 GB is also what the profile requested before the 2026-11-02 cut to 16: that original figure was right and the cut was the error.",
+    "concurrency_fixed_for_free": "There is no maxForks on GTDBTK_CLASSIFY, so admission is memory arithmetic. At 16 GB a 57 GB box admitted THREE shards demanding ~115 GiB, which any run above gtdbtk_shard_size = 5000 genomes would have triggered. At 48 GB the same arithmetic yields one.",
+    "minimum_spec": "GTDB-Tk will not be admitted under ~52 GB. It fails at admission with a clear message rather than being OOM-killed mid-placement; main.nf warns first and check_machine.py proposes run_gtdbtk = false. This workstation (56.9 GB, 50.1 budgetable) still qualifies.",
+    "sharding_is_not_a_memory_lever": "Count plateaus by ~100 genomes and holds out to 2,530 (36.2 GiB at 300 here; ~38 GiB mem_used at 2,530 in gtdbtk_headroom/), so a smaller shard is not a memory lever. NOTHING IS MEASURED AT THE 5,000-GENOME SHARD SIZE ITSELF; extrapolating the 300 -> 2,530 drift suggests roughly 43 GiB at 5,000, which 48 GB covers and 40 GB would not.",
+    "time_limit": "GTDBTK_CLASSIFY inherited time = '24h' from process_high_memory -- neither profile overrides time -- and declares no errorStrategy and no retry label, so a time kill ends the RUN with the antiSMASH phase already paid for. Raised to 72h by name. Two figures bracket a full shard and disagree in form: the only completed Bacteria-wide shard in the repo measured 8h43m51s (bacteria_reference_pilot/pipeline_trace.tsv), while gtdbtk_scaling/ projects 52.9 h from a slope fitted at N=8 and N=64. The arms here contradict that slope's shape -- cost tracks distinct classes, not query count -- which implies a ceiling nearer 9-10 h. 72h clears both rather than betting on either.",
+    "skip_ani_screen_interaction": "The 48 GB assumes gtdbtk_skip_ani_screen = false, the default. Setting it true removes the skani stage that owns the peak and drops the requirement to ~2-4 GiB -- that is exactly the configuration the old 4 GB figure measured -- at which point the 48 GB declaration blocks admission on a machine that could run it. Lower it by hand there."
+  },
+  "caveats": [
+    "THE ARMS OVERSTATE TIME. Round-robining across families oversamples rare lineages -- arm B drew on Gallaecimonadaceae (3 genomes available) and Bruguierivoracaceae (27) beside Enterobacteriaceae -- so its tree-path genomes are maximally novel and expensive to place. A real run samples NCBI's distribution, dominated by taxa with close references. For a real-run time estimate use gtdbtk_ani_screen_genbank/summary.json instead: 450 actual GenBank Enterobacterales genomes, 44 min, 5.3% fall-through.",
+    "Arm C spans 29 of the 57 phyla in the Bacteria pilot's taxonomy map, because only 4,193 of 22,871 genomes were retained with files on disk. Broad, but not the full breadth a whole-Bacteria run would place, so it disfavours rather than excludes a diversity effect on memory.",
+    "Arm C was stopped at 5h02m with 5 of up to 9 pplacer runs done, so its wall time is a lower bound. Its MEMORY peak is not: that fell at 17:24:59, inside the ANI window, before the first pplacer started.",
+    "Memory saturates with count rather than being constant -- 25 genomes cost 10.67 GiB. Nothing here measures below 25 or between 25 and 100, so the shape of the rise is unknown and only the plateau is established.",
+    "One machine, one GTDB release (226). The plateau and a 57 GiB box's ceiling would look alike on a single host; swap stayed at 0.33 GiB throughout, which argues against a ceiling, but a second machine would settle it."
+  ],
+  "recommendation": "Keep 40 GB. It is measured, it is flat across every diversity tested, and it fixes the concurrency hazard by admission arithmetic. Re-measure before a whole-Bacteria run only if the ANI fall-through rate proves far higher than the 5.3% measured on real GenBank Enterobacterales -- and re-measure TIME rather than memory, which is the figure the arms could not pin down.",
+  "relationship_to_gtdbtk_headroom": "THIS DID NOT DISCOVER THE MECHANISM -- gtdbtk_headroom/ did, and it is committed in this repo. That comparison measured 41.7 GB PSS in skani at t=449 s over 11 processes and recorded it as 'input-independent', 'set by sketching GTDB's 143,614 REFERENCE genomes' and 'the genuine memory ceiling ... at any input size'. 41.7 decimal GB is 38.8 GiB, which is the peak mem_used measured here to one decimal place -- an independent reproduction on a different input a month later. It also already recorded pplacer's 54.2 GB PSS and explained it as the file-backed scratch mapping rather than a requirement, which is the exact trap re-encountered here. The 4 GB figure in CLAUDE.md and main.nf therefore contradicted a committed comparison in this repo for two months, and the inconsistency was never caught. WHAT THIS ADDS: the DIVERSITY dimension, which gtdbtk_headroom did not vary (it changed only genome count); the pplacer-per-class-level-subtree time model; and the finding that a 60 s sampling interval is itself the reason the 4 GB figure was believable."
+}
