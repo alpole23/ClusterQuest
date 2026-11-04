@@ -4303,15 +4303,55 @@ nextflow run main.nf -preview -c no_reports.config --taxon "Pantoea"
   three independent instruments agree: PSS **36.8 GiB**, system `mem_used` 38.8 GiB
   (MemAvailable fell 56.9 → 18.1), and Nextflow's `peak_rss` 36.9 GB. The original
   56-64 GB figure was closer to the truth than the correction that replaced it.
-  `GTDBTK_CLASSIFY` is therefore allocated **40 GB** by name in `conf/labels.config`,
+  `GTDBTK_CLASSIFY` is therefore allocated **48 GB** by name in `conf/labels.config`,
   which also caps its concurrency to one shard by admission arithmetic. It will not be
-  admitted under ~44 GB; set `run_gtdbtk = false` there. Sharding is not a lever —
-  the cost saturates (25 genomes 10.7 GiB, 100 → 34.4, 300 → 36.2) while wall time is
-  fixed per shard at ~27 min, because the ANI pre-screen sketches all 143,614
-  reference genomes every time. Disk is still ~150 GB of pplacer scratch, and
-  `--pplacer_cpus 1` stays, which is about scratch and runtime rather than RAM.
-  **Every genome measured was Erwiniaceae, one family; re-measure before the
-  Actinomycetes and whole-Bacteria runs.**
+  admitted under ~52 GB; set `run_gtdbtk = false` there. 48 rather than 40 because the
+  peak is 38.8 GiB — 40 GiB would leave 3% headroom on a ~30 s spike whose size tracks
+  the **GTDB reference data**, and release 232 is already flagged as available; the
+  slurm profile enforces `memory` as a cgroup, where 3% is an OOM kill. **48 GB is what
+  the profile asked for before the 2026-11-02 cut to 16: the original was right and the
+  cut was the error.** Disk is still ~150 GB of pplacer scratch, and `--pplacer_cpus 1`
+  stays, which is about scratch and runtime rather than RAM.
+
+  **This repo already knew.** `docs/comparisons/gtdbtk_headroom/` measured 41.7 GB PSS
+  in skani — 41.7 decimal GB *is* 38.8 GiB, the same number — and recorded it as
+  "input-independent", "set by sketching GTDB's 143,614 REFERENCE genomes" and "the
+  genuine memory ceiling … at any input size". It also recorded pplacer's 54.2 GB PSS
+  and explained it as the file-backed scratch mapping rather than a requirement. So the
+  4 GB figure contradicted a committed comparison here for two months and nothing
+  caught it. **Before re-measuring a resource figure, grep `docs/comparisons/` for it:
+  the answer may already be committed, and a contradiction between two files in this
+  repo is a louder signal than either file alone.**
+
+  **Memory and time have different drivers, and only memory gated the allocation.**
+  Measured both ways at 300 genomes held constant (`docs/comparisons/gtdbtk_memory_scaling/`):
+
+  | varied | | | peak | wall |
+  |---|---|---|---:|---:|
+  | count, one family | 25 | | 10.67 GiB | 25m |
+  | | 100 | | 34.44 GiB | 27m |
+  | | 300 | | 36.22 GiB | 27m |
+  | diversity, 300 genomes | 1 family | | 36.3 GiB | 0h27m |
+  | | 8 families | | 38.2 GiB | 2h07m |
+  | | 29 phyla | | 38.2 GiB | >5h02m |
+
+  Memory saturates by ~100 genomes and is then **flat across diversity**, so 40 GB
+  holds for every planned run and **sharding is not a memory lever**: 5000 → 300 saves
+  nothing, 5000 → 25 saves 26 GiB at 12× the shards, each paying the ANI screen's
+  ~27-35 min fixed cost over all 143,614 reference genomes.
+
+  The reason one is flat and one is not: **memory is the all-vs-all ANI screen** —
+  every arm's peak falls inside the ANI window, before the first pplacer starts, and
+  the one-family arm ran *zero* pplacer invocations yet still peaked at 36.3 GiB —
+  while **time is pplacer**, which is memory-cheap because `--scratch_dir` spills to
+  disk. GTDB-Tk 2.x places against a split reference (one backbone plus 8 class-level
+  subtrees, pplacer once per subtree holding queries), so breadth sets how many
+  traversals happen: 7m, 1h17m, 8m, 1h01m, 1h27m for arm C's five completed runs.
+
+  **Do not read those wall times as a forecast.** The arms round-robin across
+  families, oversampling rare lineages, so their tree-path genomes are maximally
+  novel. For a real-run estimate use `docs/comparisons/gtdbtk_ani_screen_genbank/`:
+  450 actual GenBank Enterobacterales genomes, 44 min, 5.3% ANI fall-through.
   and runtime rather than RAM.
 - **Conda env conflicts**: Each tool has its own environment; don't mix in COLLECT_VERSIONS
 - **NCBI download corruption**: If GENBANK_TO_FASTA fails with "No sequences found", check for null-filled files:

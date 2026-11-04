@@ -217,10 +217,11 @@ def validateParams() {
         // conf/labels.config for the measurements and the saturation curve.
         log.warn "GTDB-Tk is enabled: ~140 GB for the database plus ~150 GB of pplacer " +
                  "work scratch (measured), so plan for ~300 GB free."
-        log.warn "It also needs ~37 GB of RAM in a ~30 s spike, so it is allocated " +
-                 "40 GB and will not be admitted on a machine under ~44 GB. Set " +
+        log.warn "It also needs ~39 GiB of RAM in a ~30 s spike -- skani sketching " +
+                 "the GTDB reference set, not pplacer -- so it is allocated 48 GB and " +
+                 "will not be admitted on a machine under ~52 GB. Set " +
                  "run_gtdbtk = false there. The 4 GB this warning used to quote came " +
-                 "from a 60 s sampler that missed the spike entirely."
+                 "from a 60 s sampler that stepped over the spike."
     }
 
     if (params.reuse_antismash_from) {

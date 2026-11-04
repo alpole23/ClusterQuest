@@ -91,6 +91,14 @@ def main():
     check(any('not be admitted' in d['why'] for d in prop),
           'and told why -- the task would not be admitted at all')
 
+    # 56.9 GB is this workstation: usable 50.1 > 48, so it must still be offered.
+    here = cm.assess(cm.detect(force_cores=16, force_ram_gb=56.9,
+                               force_disk_gb=20000, outdir='.'),
+                     dict(answers, run_gtdbtk=True), schema)
+    check(not [d for d in here['degradations'] if d['param'] == 'run_gtdbtk'],
+          'this 56.9 GB workstation still gets GTDB-Tk at 48 GB',
+          f'usable {cm.budgets(16, 56.9)["usable_gb"]:.1f} GB vs {cm.GTDBTK_ALLOC_GB:.0f}')
+
     big = cm.assess(cm.detect(force_cores=16, force_ram_gb=128.0,
                               force_disk_gb=20000, outdir='.'),
                     dict(answers, run_gtdbtk=True), schema)
@@ -103,10 +111,10 @@ def main():
     labels = (ROOT / 'conf' / 'labels.config').read_text()
     import re
     blk = re.search(r"withName: 'GTDBTK_CLASSIFY' \{(.*?)\}", labels, re.S)
-    check(blk is not None and "'40 GB'" in blk.group(1),
+    check(blk is not None and "'48 GB'" in blk.group(1),
           'conf/labels.config declares GTDBTK_CLASSIFY memory by name',
           blk.group(1).strip() if blk else 'no withName block')
-    check(f"{cm.GTDBTK_ALLOC_GB:.0f} GB" == '40 GB',
+    check(f"{cm.GTDBTK_ALLOC_GB:.0f} GB" == '48 GB',
           'and check_machine.py agrees with it',
           f'{cm.GTDBTK_ALLOC_GB} GB')
 
@@ -130,13 +138,15 @@ def main():
     # 3. This workstation's budgets must reproduce the absolutes they replaced, or
     #    the Enterobacterales re-run is not comparable to the committed trace.
     #    GTDB-Tk went 48 -> 16 on 2026-11-02 on the strength of 60 s sampling, and
-    #    back to 40 on 2026-11-03 when 2-5 s sampling found the real ~37 GiB peak.
-    #    So the original 48 was nearer right than the correction, and 40 is measured.
+    #    back to 48 on 2026-11-03 when 2-5 s sampling found the real 38.8 GiB peak --
+    #    the SAME figure docs/comparisons/gtdbtk_headroom/ had recorded as 41.7 GB PSS
+    #    in skani. So the original 48 was right all along and the correction was the
+    #    error; 40 was briefly tried and leaves only 3% headroom.
     b = cm.budgets(16, 56.9)
     expected = {'bigscape_gb': 16.0, 'medium_gb': 8.0, 'antismash_gb': 6.0,
-                'antismash_forks': 7, 'executor_cpus': 32, 'gtdbtk_gb': 40.0}
+                'antismash_forks': 7, 'executor_cpus': 32, 'gtdbtk_gb': 48.0}
     bad = [f'{k}={b[k]} want {v}' for k, v in expected.items() if b[k] != v]
-    check(not bad, 'this box reproduces the pre-sizing values (GTDB-Tk 48->40 aside)',
+    check(not bad, 'this box reproduces the pre-sizing values (GTDB-Tk 48->16->48)',
           '; '.join(bad))
 
     # 4. The floor refuses rather than clamps. Below it the arithmetic still works

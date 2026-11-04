@@ -103,8 +103,14 @@ BIGSCAPE_COEFF = 2.04e-7
 # wall time stays fixed per shard at ~27 min (the ANI pre-screen sketches all
 # 143,614 reference genomes every time). Caveat: all measured genomes were
 # Erwiniaceae, one family; a broader taxon may place higher.
-GTDBTK_PEAK_GB = 36.8             # measured PSS peak, 301 genomes
-GTDBTK_ALLOC_GB = 40.0            # what conf/labels.config declares, by name
+# 38.8 GiB is system mem_used (MemTotal - MemAvailable), which is what the machine
+# must actually hold; Pss_Anon agreed at 36.9. docs/comparisons/gtdbtk_headroom/ had
+# already measured the same peak as 41.7 GB PSS in skani -- 41.7 decimal GB IS
+# 38.8 GiB -- and recorded it as input-independent, set by sketching GTDB's reference
+# set. 48 rather than 40 because 40 leaves 3% headroom on a ~30 s spike whose size
+# tracks the reference data, and the slurm profile enforces memory as a cgroup.
+GTDBTK_PEAK_GB = 38.8             # measured peak the machine must hold
+GTDBTK_ALLOC_GB = 48.0            # what conf/labels.config declares, by name
 GTDBTK_WORK_SCRATCH_GB = 150.0    # disk, unchanged
 # Peak work disk away from the GTDB-Tk window, same run: 22 GB during the
 # antiSMASH/ORF phase. That is NOT an input-scaled figure -- fetch batches are
