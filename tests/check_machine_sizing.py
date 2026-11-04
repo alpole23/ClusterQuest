@@ -305,6 +305,27 @@ def main():
                 check(not missing, 'generated config resolves to its own budgets',
                       f'missing {missing}' if missing else '')
 
+        # GTDB-Tk's memory must resolve per PROFILE, and only a live resolution can
+        # prove it: the directive is a withName, which beats every withLabel, so a
+        # grep over any one file cannot tell you what a profile actually requests.
+        # That precedence silently cut the cluster request from 128 GB to 48 when the
+        # withName was introduced on 2026-11-03, because the slurm profile set the
+        # value on the LABEL and GTDB-Tk is its only member.
+        #
+        # 48 GB locally, where `memory` is an admission hint nothing enforces, and
+        # 128 GB on SLURM, where it is an enforced cgroup and a full 5,000-genome
+        # shard -- the one configuration never measured -- extrapolates to ~43 GiB.
+        for profile, want in (('local', "memory = '48 GB'"), ('slurm', "memory = '128 GB'")):
+            out = subprocess.run([nf, 'config', '-profile', profile, str(ROOT)],
+                                 capture_output=True, text=True, timeout=600)
+            blk = re.search(r"withName:GTDBTK_CLASSIFY \{(.*?)\n   \}", out.stdout, re.S)
+            body = blk.group(1) if blk else ''
+            check(want in body, f"-profile {profile} resolves GTDB-Tk to {want.split(chr(39))[1]}",
+                  ' '.join(body.split())[:90] or 'no withName block resolved')
+            check("time = '72h'" in body,
+                  f'-profile {profile} keeps the 72h time limit',
+                  'a time kill ends the run: no errorStrategy, no retry label')
+
     # ── the work directory and publish_mode = 'link' ────────────────────────
     #
     # `link` hard-links published output into outdir, and a hard link cannot cross
