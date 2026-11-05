@@ -19,7 +19,7 @@ from utils.antismash_parser import (
     find_antismash_json, extract_domain_hits, load_antismash_json,
     extract_genes_from_region, find_record_index, build_record_index_map
 )
-from utils.gene_diagram import generate_gene_svg
+from utils.gene_diagram import generate_gene_svg, mark_for
 
 
 def load_kcb_lookup(tabulation_file):
@@ -301,6 +301,14 @@ def extract_gcf_representatives(bigscape_dir, antismash_dir, output_file, taxon=
                     product = parsed_product
 
                 if genes:
+                    # Label pepM and the coupling enzyme on the arrows. The consensus
+                    # diagram has done this since it was written; this one did not, so
+                    # two drawings of the same cluster highlighted different genes --
+                    # audit item #12. Accessions come from the clusterhmmer hits, which
+                    # is where the Pfam identifiers live.
+                    for g in genes:
+                        g['mark'] = mark_for(
+                            h.get('identifier', '') for h in g.get('clusterhmmer_hits', []))
                     svg_diagram = generate_gene_svg(genes, region_start, region_end)
 
                 # Find the correct record index for the antiSMASH anchor
@@ -312,7 +320,12 @@ def extract_gcf_representatives(bigscape_dir, antismash_dir, output_file, taxon=
             # Link is relative from taxon results folder to antismash_results
             # Path: main_analysis_results/{taxon}/ -> antismash_results/{taxon}/{genome}/
             # Anchor format: #r{record_index}c{region_number}
-            antismash_link = f"../../antismash_results/{taxon_name}/{genome_name}/index.html#r{record_index}c{region_number}" if genome_name else None
+            # Stored RELATIVE TO OUTDIR, with no '../' prefix: this value is rendered
+            # at two different depths (bgc_report.html and gcf/GCF-<id>.html) and
+            # baking one destination's prefix in here is what broke the per-family
+            # links. Each renderer prepends its own. Audit item #13, 2026-11-05.
+            antismash_link = (f"antismash_results/{taxon_name}/{genome_name}/index.html"
+                              f"#r{record_index}c{region_number}") if genome_name else None
 
             # Look up KCB hit for this representative BGC
             # Key format: (genome, region_name) where region_name = "{record_index}.{region_number}"

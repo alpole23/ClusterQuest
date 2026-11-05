@@ -8,6 +8,26 @@ import java.security.MessageDigest
  * Usage in main.nf: sanitizeTaxon(name) - uses local function definition
  */
 class Utils {
+
+    /**
+     * antiSMASH detection rule names, as passed to --hmmdetection-limit-to-rule-names.
+     *
+     * Defined HERE rather than in the module that builds the flag, because the report
+     * states the detection scope in its header and a reader has to be able to trust
+     * that it matches what actually ran. Re-typing "phosphonate" in the report is how
+     * those two drift apart -- the same failure mode as COLLECT_VERSIONS searching a
+     * directory that had moved, which reported every tool as "not installed" for two
+     * months without failing.
+     *
+     * NOT a parameter yet, and that is deliberate: it is an input to
+     * `antismashParamsHash`, so making it settable means a changed value must
+     * invalidate every cached antiSMASH result. Today it cannot vary, so it cannot
+     * drift. When other natural-product classes are supported, promote it to a param
+     * AND add it to that hash in the same change -- otherwise `--reuse_antismash_from`
+     * will serve phosphonate-only results for a run that asked for more.
+     */
+    static final String ANTISMASH_RULE_NAMES = 'phosphonate'
+
     /**
      * Sanitize taxon name for use in file paths and directory names.
      * Replaces special characters with underscores for filesystem safety.

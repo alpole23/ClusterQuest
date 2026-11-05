@@ -13,7 +13,7 @@ import sqlite3
 from utils.constants import load_coupling_classes, COUPLING_COLORS, KCB_THRESHOLDS
 from utils.coupling_confidence import BACKGROUND_CEILING_PCT
 from bgc_coupling_annotation import AMBIGUOUS_MARGIN
-from utils.gene_diagram import generate_gene_svg
+from utils.gene_diagram import generate_gene_svg, mark_for
 from viz.report_assets import MAX_PANES, MAX_CUTOFFS
 
 
@@ -68,7 +68,16 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                     sim_val = float(top_sim)
                 except (TypeError, ValueError):
                     sim_val = None
-                sim_txt = f'{sim_val:.0f}%' if sim_val is not None else ('?' if top_hit else '')
+                # float('nan') is NOT None, so an `is not None` guard formatted it and
+                # the column read "nan%" -- 36 times in the audited report. A NaN here
+                # means the similarity was never computed, usually because the region
+                # has no KnownClusterBlast hit at all, so it is an ABSENT value and
+                # must render as one. NaN != NaN is the standard test and needs no
+                # import. Audit item #16, 2026-11-05.
+                if sim_val is not None and sim_val != sim_val:
+                    sim_val = None
+                sim_txt = (f'{sim_val:.0f}%' if sim_val is not None
+                           else ('?' if top_hit else '-'))
                 if top_hit:
                     name = top_hit[:28] + ('…' if len(top_hit) > 28 else '')
                     tone = '#1d6fa5' if cleared else '#6c757d'
@@ -140,6 +149,16 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                   'title="Click to sort; click again to reverse"')
             gcf_header = (f'<th {th}>GCF Family</th><th {th}>Members</th>'
                           if has_gcf_data else '')
+            # Column widths are authoritative under `table-layout: fixed`, so they must
+            # follow the conditional GCF columns -- a colgroup with the wrong number of
+            # <col> elements silently misaligns every column after the mismatch. Genome
+            # and the KnownClusterBlast description take the most, holding the longest
+            # values. Audit item #15, 2026-11-05.
+            _widths = ([20, 14, 11, 7, 9, 6, 17, 9, 7] if has_gcf_data
+                       else [24, 16, 13, 9, 20, 11, 7])
+            regions_cols = ('<colgroup>'
+                            + ''.join(f'<col style="width:{w}%">' for w in _widths)
+                            + '</colgroup>')
             gcf_description = (' Follow a GCF badge to that family’s page.'
                                if has_gcf_data else '')
             kcb_floor = KCB_THRESHOLDS['low']
@@ -161,7 +180,8 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                 <input type="text" id="novelSearch" placeholder="Search by genome, strain, region, GCF or MIBiG ID (e.g. BGC0000904)" onkeyup="filterNovelBGCs()">
             </div>
             <div class="table-container">
-                <table id="novelTable">
+                <table id="novelTable" class="fit-table">
+                    {regions_cols}
                     <thead>
                         <tr>
                             <th {th}>Genome</th>
@@ -257,11 +277,12 @@ def build_overview_stats(stats, kcb_stats, gcf_data, rarefaction_stats=None):
         gcfs = gcf_data['gcfs']
         summary = gcf_data.get('summary', {})
         total_gcfs = summary.get('total', len(gcfs))
-        singletons = summary.get('singletons',
-                                 sum(1 for g in gcfs if g.get('is_singleton')))
         largest = max((g.get('member_count', 0) for g in gcfs), default=0)
-        diversity.append(_stat_tile(total_gcfs, 'Gene cluster families',
-                                    f'{singletons} seen in one genome'))
+        # The singleton count is deliberately absent: at cross-taxon scope it is
+        # dominated by how many clades were sampled rather than by diversity, so on
+        # the Summary card it misleads. It stays in the BiG-SCAPE statistics pane,
+        # where the sampling context is on the same screen. Audit #4, 2026-11-04.
+        diversity.append(_stat_tile(total_gcfs, 'Gene cluster families'))
         diversity.append(_stat_tile(f'{largest:,}', 'Largest family'))
     if rarefaction_stats and rarefaction_stats.get('chao2'):
         c = rarefaction_stats['chao2']
@@ -569,7 +590,10 @@ def build_gcf_support_rows(coupling_support_path, coupling_annotation_path,
             return None
 
         rows_html = []
-        for i, fid in enumerate(sorted(per_gcf, key=lambda k: -len(per_gcf[k]))):
+        # Sorted by GCF ID, not by member count: a reader arrives here from the
+        # characterisation table carrying a family number, and scanning for it in a
+        # size-ordered list is the whole cost of the lookup. Audit #21, 2026-11-04.
+        for i, fid in enumerate(sorted(per_gcf)):
             vals = per_gcf[fid]
             cls = gcf_class.get(fid, 'Unknown')
             med = statistics.median(vals)
@@ -939,6 +963,34 @@ def build_pipeline_tab(resource_usage_html, partition_section_html, versions_htm
             {versions_html}'''
 
 
+def _core_cell(row):
+    """The "Shares core" cell: other families with an identical rule-core domain set.
+
+    This exists because whole-region distance cannot answer "is this the same
+    chemistry". BiG-SCAPE compares whole regions and most of a region is flanking
+    context, so a family can share its entire core cassette with another and still sit
+    far away: measured on the mixed Pantoea/Streptomyces run, GCF-18 (one Streptomyces
+    region) and GCF-1 (77 Pantoea pantaphos regions) have the SAME three core domains
+    -- PF13714 pepM, PF00682 HMGL-like synthase, PF22617 -- at whole-profile Jaccard
+    0.583, and nothing in the report connected them. Audit item #11.
+
+    A SET, not a nearest neighbour. Cores are small, so exact ties are normal rather
+    than exceptional -- four families tie with GCF-18 -- and naming one of them would
+    assert a relationship the data does not single out.
+    """
+    ids = [g for g in (row.get('same_core_gcfs') or '').split(';') if g]
+    if not ids:
+        # Meaningful rather than missing: no other family in the run carries this core.
+        return ('<span style="color:#bbb;" title="No other family in this run has an '
+                'identical rule-core domain set">—</span>')
+    shown = ', '.join(f'GCF-{g}' for g in ids[:3])
+    more = f' +{len(ids) - 3}' if len(ids) > 3 else ''
+    core = row.get('core_domains') or ''
+    return (f'<span style="color:#1d6fa5;" title="Identical rule core: {core}. '
+            f'Same chemistry, different tailoring or context — not a duplicate '
+            f'family.">{shown}{more}</span>')
+
+
 def _twin_cell(other, differing):
     """The "Same chemistry as" cell: `=` only when the profiles really are equal.
 
@@ -1277,6 +1329,8 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
         f'<td style="padding:7px 10px;font-size:.85em;text-align:right;'
         f'vertical-align:top;">{enzyme_cell(r)}</td>'
         f'<td style="padding:7px 10px;font-size:.85em;vertical-align:top;">'
+        f'{_core_cell(r)}</td>'
+        f'<td style="padding:7px 10px;font-size:.85em;vertical-align:top;">'
         + (_twin_cell(*twin[r["gcf"]]) if r["gcf"] in twin
            else '<span style="color:#bbb;">—</span>')
         + '</td>'
@@ -1302,7 +1356,8 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
             conserved enzyme on a divergent cluster.
         </p>
         <div class="table-container">
-        <table style="width:100%;border-collapse:collapse;font-size:.9em;">
+        <table class="fit-table" style="border-collapse:collapse;font-size:.9em;">
+            <colgroup><col style="width:6%"><col style="width:14%"><col style="width:9%"><col style="width:9%"><col style="width:13%"><col style="width:10%"><col style="width:12%"><col style="width:8%"><col style="width:9%"><col style="width:10%"></colgroup>
             <thead><tr style="background:#e9ecef;">
                 <th style="text-align:left;padding:6px 10px;">Family</th>
                 <th style="text-align:left;padding:6px 10px;"
@@ -1328,6 +1383,14 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
                     title="Identity of the coupling enzyme to the nearest characterised
                     reference of its class, with that reference named">Coupling enzyme
                     %ID</th>
+                <th style="text-align:left;padding:6px 10px;"
+                    title="Other families whose RULE-CORE domains are identical to this
+                    one's. BiG-SCAPE compares whole regions and ~79% of a region is
+                    flanking context, so two families can share their entire core
+                    chemistry and still sit far apart on whole-region distance -- the
+                    pantaphos cassette in Pantoea and in Streptomyces is the measured
+                    case. A match means the same chemistry with different tailoring
+                    or context; it is NOT a duplicate family.">Shares core</th>
                 <th style="text-align:left;padding:6px 10px;" title="Another family with the
                     same core/tailoring/lipid/transport domains. A split between two such
                     families is not biosynthetic.">Same chemistry as</th>
@@ -1576,15 +1639,13 @@ def _consensus_diagram(fam, fam_rows, s):
     # the reader is looking for -- the hallmark, and the enzyme that decides which
     # pathway runs downstream -- and in a 40-gene region neither was findable
     # without hovering over every arrow in turn.
-    MARKS = [('PF13714', 'pepM'), ('PF00682', 'synthase'), ('PF02775', 'Ppd'),
-             ('PF02776', 'Ppd'), ('PF00465', 'reductase'), ('PF00155', 'transaminase')]
     genes = []
     for r in sorted(placed, key=lambda r: int(r['scaffold_start'])):
         role = r.get('role') or 'other'
         prev = float(r['prevalence'] or 0)
         name = r['consensus_product']
         accs = {a.split('.')[0].strip() for a in (r.get('domain_accessions') or '').split(';')}
-        mark = next((lbl for acc, lbl in MARKS if acc in accs), '')
+        mark = mark_for(accs)
         genes.append({
             'start': int(r['scaffold_start']), 'end': int(r['scaffold_end']),
             'strand': int(r.get('scaffold_strand') or 1),
@@ -1674,7 +1735,7 @@ def _consensus_block(fam, fam_rows, s, gcf_hrefs=None, member_sets=None):
                      f'members moved it by less than a point.">annotation '
                      f'{after}%</span>')
 
-    def row(g, indent=False):
+    def row(g, indent=False, cassette=''):
         prev = float(g['prevalence'] or 0)
         role = g.get('role') or 'other'
         fg, bg, _ = _ROLE_STYLE.get(role, _ROLE_STYLE['other'])
@@ -1702,6 +1763,8 @@ def _consensus_block(fam, fam_rows, s, gcf_hrefs=None, member_sets=None):
             f'<td style="padding:5px 9px;white-space:nowrap;">'
             f'<span style="background:{bg};color:{fg};padding:1px 7px;'
             f'border-radius:9px;font-size:.82em;">{role}</span></td>'
+            f'<td style="padding:5px 9px;font-size:.84em;white-space:nowrap;">'
+            f'{cassette}</td>'
             f'<td style="padding:5px 9px;font-size:.85em;color:#555;">'
             f'{_html.escape(g.get("domains") or "—")}</td>'
             f'<td style="padding:5px 9px;">'
@@ -1713,34 +1776,45 @@ def _consensus_block(fam, fam_rows, s, gcf_hrefs=None, member_sets=None):
             f'title="prevalence {prev:.2f}">{count}</span></div></td>'
             f'<td style="padding:5px 9px;font-size:.85em;">{prov}</td></tr>')
 
-    def band(label, note=''):
-        return (f'<tr><td colspan="5" style="padding:9px 9px 4px;background:#f3f5f6;'
-                f'font-size:.82em;font-weight:600;letter-spacing:.04em;'
-                f'text-transform:uppercase;color:#5a6a78;">{label}'
-                f'<span style="font-weight:400;text-transform:none;letter-spacing:0;'
-                f'color:#8a97a3;"> {note}</span></td></tr>')
+    # ONE SEQUENCE, IN GENOMIC ORDER -- the same order as the diagram directly above
+    # it. The table used to be banded into "Cluster — core", "Cluster — variable" and
+    # "Neighbourhood", which reordered the genes relative to the figure they annotate,
+    # so a reader matching the third arrow to its row had to hunt across three blocks.
+    # Audit item #18, 2026-11-05.
+    #
+    # The bands carried real information, so it moves into the row rather than being
+    # dropped: each gene now states its own cassette position, and a gene in a
+    # multi-gene co-occurrence event names that event. Nothing the bands said is lost.
+    _co_of = {}
+    for n, ev in enumerate(events, start=1):
+        if len(ev) > 1:
+            ms = (member_sets or {}).get(str(fam), {})
+            shared = set().union(*(ms.get(g['group'], set()) for g in ev))
+            for g in ev:
+                _co_of[id(g)] = (n, len(ev), len(shared))
 
-    body = [band('Cluster — core', f'· {len(core)} genes in \u226590% of members')]
-    body += [row(g) for g in core]
-    if variable:
-        body.append(band('Cluster — variable',
-                         f'· {len(variable)} genes in {len(events)} independent event'
-                         f'{"s" if len(events) != 1 else ""}'))
-        for ev in events:
-            if len(ev) > 1:
-                ms = (member_sets or {}).get(str(fam), {})
-                u = set().union(*(ms.get(g['group'], set()) for g in ev))
-                body.append(
-                    f'<tr><td colspan="5" style="padding:6px 9px 2px;font-size:.84em;'
-                    f'color:#1d6fa5;">&#9492; co-occurring &mdash; {len(ev)} genes in the '
-                    f'same {len(u)} member{"s" if len(u) != 1 else ""}, so one event</td></tr>')
-                body += [row(g, indent=True) for g in ev]
-            else:
-                body.append(row(ev[0]))
-    if flank:
-        body.append(band('Neighbourhood',
-                         f'· {len(flank)} genes outside the cassette'))
-        body += [row(g) for g in flank]
+    _flank_ids = {id(g) for g in flank}
+
+    def _cassette_cell(g):
+        if id(g) in _flank_ids:
+            return ('<span style="color:#8a97a3;" title="Outside the conserved cassette '
+                    '— a neighbouring gene the region boundary caught">flank</span>')
+        core_g = float(g.get('prevalence') or 0) >= 0.9
+        label = ('<span title="In at least 90% of members">core</span>' if core_g
+                 else '<span style="color:#8a5a0c;" title="In fewer than 90% of '
+                      'members">variable</span>')
+        co = _co_of.get(id(g))
+        if co:
+            n, size, shared = co
+            label += (f'<span style="color:#1d6fa5;font-size:.85em;" title="One of '
+                      f'{size} genes present in the same {shared} members, so a single '
+                      f'gain or loss event rather than {size} independent ones">'
+                      f' ·e{n}</span>')
+        return label
+
+    body = [row(g, cassette=_cassette_cell(g))
+            for g in sorted(core + variable + flank,
+                            key=lambda r: int(r.get('scaffold_start') or 0))]
 
     return (f'''
     <details style="margin:0 0 10px;border:1px solid #e3e6e8;border-radius:5px;">
@@ -1755,6 +1829,9 @@ def _consensus_block(fam, fam_rows, s, gcf_hrefs=None, member_sets=None):
             <thead><tr style="background:#eef1f2;">
                 <th style="text-align:left;padding:5px 9px;">Gene</th>
                 <th style="text-align:left;padding:5px 9px;">Role</th>
+                <th style="text-align:left;padding:5px 9px;"
+                    title="Where the gene sits relative to the conserved cassette, and
+                    whether it shares a gain/loss event with others">Cassette</th>
                 <th style="text-align:left;padding:5px 9px;">Domains</th>
                 <th style="text-align:left;padding:5px 9px;">Prevalence</th>
                 <th style="text-align:left;padding:5px 9px;">Naming</th>

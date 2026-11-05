@@ -275,9 +275,32 @@ REPORT_CSS = """\
         .table-container {
             max-height: 560px;
             overflow-y: auto;
+            /* overflow-x too, or a wide table pushes the WHOLE PAGE sideways instead of
+               scrolling inside its own box. With .fit-table below nothing should
+               overflow, but a backstop that scrolls the box is always better than one
+               that scrolls the document. Audit items #8 and #15, 2026-11-05. */
+            overflow-x: auto;
             border: 1px solid #ddd;
             border-radius: 8px;
         }
+
+        /* Tables that must fit the page width. `table-layout: auto` sizes columns to
+           their content, so one long genome name (Streptomyces_xiaopingdaonensis_DUT_180)
+           or KnownClusterBlast description widened the table past the viewport and the
+           reader had to scroll left and right to read one row.
+           Fixed layout makes the <colgroup> widths authoritative instead.
+           Long values WRAP rather than being clipped: an ellipsis would hide data, and
+           several of these cells carry no tooltip to recover it from. Rows get taller;
+           nothing becomes unreadable. */
+        .fit-table { table-layout: fixed; width: 100%; }
+        .fit-table th, .fit-table td {
+            overflow-wrap: anywhere;
+            white-space: normal;
+            vertical-align: top;
+        }
+        /* Numbers must not break mid-value: 18.5% split across two lines reads as two
+           numbers. These columns are narrow by construction, so nowrap cannot overflow. */
+        .fit-table th.num, .fit-table td.num { white-space: nowrap; }
 
         /* Search Box */
         .search-box {
@@ -399,35 +422,20 @@ REPORT_JS = """\
             setTimeout(function () { cells.forEach(c => { c.style.background = ''; }); }, 1600);
         }
 
-            const input = document.getElementById('genomeSearch');
-            const filter = searchNorm(input.value);
-            const tbody = document.getElementById('genomeTableBody');
-            const rows = tbody.getElementsByTagName('tr');
-
-            for (let i = 0; i < rows.length; i++) {
-                const cells = rows[i].getElementsByTagName('td');
-                let found = false;
-                for (let j = 0; j < cells.length; j++) {
-                    if (searchMatches(cells[j].textContent, filter)) {
-                        found = true;
-                        break;
-                    }
-                }
-                rows[i].style.display = found ? '' : 'none';
-            }
-        }
-
-        // Genome names use underscores (Pantoea_ananatis_LMG_5342) but people type
-        // spaces. Collapse both to a single space on each side so "LMG 5342",
-        // "LMG_5342" and "lmg  5342" all match the same row.
-        // Filters the Genomes tab. This was previously missing entirely: the search
-        // box called filterGenomes(), which was never defined, so typing there threw
-        // a ReferenceError and filtered nothing.
         // ---- Genome table: rendered from JSON, not from a 1,735-row DOM ----------
         // The fully-rendered table was 612 KB, the largest single element in the report,
         // parsed and painted on load though almost nobody scrolls past the first screen.
         // Rows now live in a JSON island and are rendered on demand; search runs over the
         // array, so it still covers every genome rather than only the rendered ones.
+        //
+        // THE DOM-BASED filterGenomes() THIS REPLACED WAS LEFT BEHIND. Its `function`
+        // header was deleted and its body kept, so this string carried a bare statement
+        // block and then a stray closing brace -- and a SyntaxError ANYWHERE in here kills
+        // the WHOLE <script> block. Both search boxes, the gene-diagram hover labels, the
+        // taxonomy tree and this row renderer all stopped working, while the report still
+        // rendered, still published, and reported success. Found 2026-11-04 by a report
+        // audit, confirmed as `Uncaught SyntaxError: Unexpected token '}'`.
+        // tests/check_report_js.py now parses this constant, so it cannot ship again.
         const GENOME_RENDER_CAP = 500;
         let _genomeRows = null;
 
@@ -517,6 +525,9 @@ REPORT_JS = """\
         function filterGenomes()   { _debounce('genomes', _filterGenomes,   150); }
         function filterNovelBGCs() { _debounce('novel',   _filterNovelBGCs, 150); }
 
+        // Genome names use underscores (Pantoea_ananatis_LMG_5342) but people type
+        // spaces. Collapse both to a single space on each side so "LMG 5342",
+        // "LMG_5342" and "lmg  5342" all match the same row.
         function searchNorm(text) {
             return text.toLowerCase().replace(/[_\\s]+/g, ' ').trim();
         }

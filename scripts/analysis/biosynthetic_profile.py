@@ -161,6 +161,31 @@ def main():
     profiles = {fid: profile(m) for fid, m in fams.items()}
     sets = {fid: set(p) for fid, p in profiles.items()}
 
+    # CORE-ONLY sets, reported separately from the whole filtered profile.
+    #
+    # The whole-profile comparison answers "was this split non-biosynthetic", and it
+    # cannot answer "is this the same chemistry": BiG-SCAPE compares whole regions, so
+    # ~79% of what separates two families is flanking context. Measured on the mixed
+    # Pantoea/Streptomyces run: GCF-18 (one Streptomyces region) and GCF-1 (77 Pantoea
+    # pantaphos regions) share an IDENTICAL core -- PF13714 pepM, PF00682 HMGL-like
+    # synthase, PF22617 -- at whole-profile Jaccard 0.583, so nothing in the report
+    # connected them and the nearest whole-profile neighbour was an unrelated GCF-20.
+    # That was audit item #11.
+    #
+    # Reported as a SET of families sharing the core, not as a nearest neighbour.
+    # Cores are small -- three domains here -- so exact ties are the norm rather than
+    # the exception: four families tie at core Jaccard 1.000 with GCF-18, and `max()`
+    # would have named whichever one came first and implied a relationship the data
+    # does not single out.
+    core_sets = {fid: {d for d in profiles[fid] if category(d) == 'core'}
+                 for fid in profiles}
+    same_core = {
+        fid: sorted((o for o in core_sets
+                     if o != fid and core_sets[o] and core_sets[o] == core_sets[fid]),
+                    key=lambda f: (len(f), f))
+        for fid in core_sets
+    }
+
     # Nearest other family by filtered content. A family that is chemically
     # indistinguishable from another was split by something else.
     nearest = {}
@@ -186,6 +211,11 @@ def main():
             'transport': cats.get('transport', 0),
             'domains': ';'.join(f'{d}({name(d) or "?"})'
                                 for d in sorted(p, key=lambda x: (-p[x], x))),
+            'core_domains': ';'.join(f'{d}({name(d) or "?"})'
+                                     for d in sorted(core_sets[fid])),
+            # Other families with the SAME core domain set. Empty is meaningful: this
+            # family's core chemistry is not duplicated anywhere else in the run.
+            'same_core_gcfs': ';'.join(same_core[fid]),
             'nearest_gcf': other,
             'nearest_similarity': f'{sim:.3f}',
             'differing_domains': diff_txt if sim >= SIMILAR else '',

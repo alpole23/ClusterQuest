@@ -13,7 +13,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'scripts'))
-from utils.report_lint import undefined_handlers, check_report  # noqa: E402
+from utils.report_lint import (  # noqa: E402
+    undefined_handlers, check_report, unbalanced_braces)
 
 CASES = [
     # (name, html, expected undefined handlers)
@@ -27,6 +28,12 @@ CASES = [
      '<a onclick="toggleNode(\'n\')"></a><select onchange="sortGCFs(this.value)"></select>'
      '<script>function toggleNode(x) {}</script>',
      ['sortGCFs']),
+    # The 2026-11-04 failure: the handler IS defined, so the undefined-handler check
+    # passes -- but a stray brace makes the whole block a SyntaxError and nothing runs.
+    ("orphaned function body — defined handler, dead script",
+     '<input onkeyup="filterGenomes()"><script>function filterGenomes() {}\n'
+     'const x = 1;\n}</script>',
+     []),
     ("method calls are not our business",
      '<button onclick="this.form.reset()"></button>',
      []),
@@ -42,6 +49,24 @@ CASES = [
 ]
 
 
+# A brace that closes nothing is a SyntaxError, and one anywhere in a <script> kills
+# every script in the document. Braces are legal inside strings, template literals,
+# both comment forms and regex literals, so each of those must NOT trip it -- a checker
+# that cries wolf on `const r = /[}]/g` would be turned off within a week.
+BRACE_CASES = [
+    ("stray brace at top level",        "function a(){}\n}\n",            2),
+    ("orphaned body, the real bug",     "function a(){}\n\nconst i = 1;\nfor (;;) {}\n}", 5),
+    ("balanced",                        "function a(){ if (x) { y() } }",  None),
+    ("brace in a string",               'const s = "}";',                  None),
+    ("brace in a single-quoted string", "const s = '}';",                  None),
+    ("brace in a template literal",     "const t = `}`;",                  None),
+    ("brace in a line comment",         "// }\nfunction a(){}",            None),
+    ("brace in a block comment",        "/* } */ function a(){}",          None),
+    ("brace in a regex",                "const r = /[}]/g;",               None),
+    ("division is not a regex",         "const q = a / b; const w = c / d;", None),
+]
+
+
 def main():
     failures = []
     for name, html, expected in CASES:
@@ -49,7 +74,33 @@ def main():
         if got != expected:
             failures.append(f"{name}: expected {expected}, got {got}")
 
-    # check_report must turn a finding into a readable message
+    for name, js, expected in BRACE_CASES:
+        got = unbalanced_braces(js)
+        if got != expected:
+            failures.append(f"braces/{name}: expected {expected}, got {got}")
+
+    # check_report must name the offending script block, not just say "broken"
+    msgs = check_report('<script>function a(){}\n}</script>')
+    if not msgs or 'closes nothing' not in msgs[0]:
+        failures.append(f"check_report did not report the stray brace: {msgs}")
+
+    # a JSON island is data; its braces are not code
+    island = '<script type="application/json" id="d">{"a": 1}</script>'
+    if check_report(island):
+        failures.append("check_report flagged a JSON data island")
+
+    # and the shipped constant itself must parse
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'report_assets',
+        str(Path(__file__).resolve().parent.parent / 'scripts' / 'viz' / 'report_assets.py'))
+    ra = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ra)
+    bad = unbalanced_braces(ra.REPORT_JS)
+    if bad is not None:
+        failures.append(f"REPORT_JS has a brace that closes nothing at line {bad}")
+
+    # check_report must also still describe an undefined handler
     msgs = check_report('<input onkeyup="nope()">')
     if not msgs or 'nope()' not in msgs[0]:
         failures.append(f"check_report did not describe the problem: {msgs}")

@@ -2,6 +2,70 @@
 """Gene diagram SVG generation for BGC visualization."""
 
 
+# A submitted product that names nothing. These are what NCBI deposits carry when the
+# depositor supplied no function, and they are the case where the domain name is the
+# only informative label available.
+_GENERIC_PRODUCTS = (
+    'hypothetical protein', 'unnamed protein product', 'putative protein',
+    'uncharacterized protein', 'predicted protein', 'protein of unknown function',
+)
+
+
+def _is_generic(product):
+    return (product or '').strip().lower() in _GENERIC_PRODUCTS
+
+
+def _domain_label(gene):
+    """Best domain name for a gene, from whichever field its caller populated.
+
+    The two diagram callers carry domain information differently: the representative
+    diagram (clustering/extract_gcf_representatives.py) passes antiSMASH's
+    `clusterhmmer_hits`, each with an `hmm` name and a `score`; the consensus diagram
+    (viz/report_sections.py) passes a pre-joined `domains` string. Both are read here
+    so the tooltip behaves the same in either figure.
+    """
+    hits = gene.get('clusterhmmer_hits') or []
+    if hits:
+        try:
+            best = max(hits, key=lambda h: float(h.get('score') or 0))
+        except (TypeError, ValueError):
+            best = hits[0]
+        name = (best.get('hmm') or best.get('description') or '').strip()
+        if name:
+            return name
+    doms = (gene.get('domains') or '').strip()
+    if doms and doms != '\u2014':
+        return doms.split(';')[0].strip()
+    return ''
+
+
+# Which genes earn a label on the arrow: the pepM hallmark and the coupling enzyme
+# that decides which pathway runs downstream. In a 40-gene region neither was findable
+# without hovering over every arrow in turn.
+#
+# Shared deliberately. The consensus diagram (viz/report_sections.py) carried this list
+# and the representative diagram (clustering/extract_gcf_representatives.py) carried
+# none, so the two drawings of one cluster marked different genes -- the representative
+# marked nothing at all, which is audit item #12. One list, two callers.
+PEPM_AND_COUPLING_MARKS = [
+    ('PF13714', 'pepM'),
+    ('PF00682', 'synthase'),
+    ('PF02775', 'Ppd'),
+    ('PF02776', 'Ppd'),
+    ('PF00465', 'reductase'),
+    ('PF00155', 'transaminase'),
+]
+
+
+def mark_for(accessions):
+    """Arrow label for a gene carrying these Pfam accessions, '' if it is not a marker.
+
+    Accessions may carry a version suffix (PF13714.9); only the base is compared.
+    """
+    accs = {str(a).split('.')[0].strip() for a in accessions if a}
+    return next((lbl for acc, lbl in PEPM_AND_COUPLING_MARKS if acc in accs), '')
+
+
 def _n(v):
     """A pixel coordinate, rounded to 0.1 px and with a trailing '.0' dropped.
 
@@ -64,10 +128,28 @@ def generate_gene_svg(genes, region_start, region_end, width=900, height=80):
         half_height = arrow_height / 2
         body_half_height = arrow_height / 3  # Body is narrower than arrowhead
 
-        # Tooltip text
-        tooltip = f"{gene['locus_tag']}: {gene['product']}"
+        # Tooltip text.
+        #
+        # `product` is the SUBMITTED annotation, which antismash_parser defaults to
+        # 'hypothetical protein' when the depositor gave none -- and 28.7% of GenBank
+        # Erwiniaceae genomes carry no CDS products at all. The gene TABLE beside this
+        # diagram shows the domain-derived name instead, so for the same gene the two
+        # disagreed: ctg11_88 hovered as "hypothetical protein" while the table called
+        # it phosphoenolpyruvate mutase. Both were true of different sources, and a
+        # figure contradicting the table under it is worse than either alone.
+        #
+        # So the domain name is appended when it adds something. Neither source is
+        # discarded: the submitted product is what the depositor claimed, the domain is
+        # what the HMM found, and a reader comparing the diagram to the table now sees
+        # the table's term in both places. Audit item #9, 2026-11-05.
+        dom = _domain_label(gene)
+        product = gene['product']
+        if dom and dom.lower() not in product.lower():
+            product = (f'{dom} [domain]' if _is_generic(product)
+                       else f'{product} — {dom} [domain]')
+        tooltip = f"{gene['locus_tag']}: {product}"
         if gene.get('gene_name'):
-            tooltip = f"{gene['gene_name']} ({gene['locus_tag']}): {gene['product']}"
+            tooltip = f"{gene['gene_name']} ({gene['locus_tag']}): {product}"
 
         if gene['strand'] == 1:  # Forward strand (right-pointing arrow)
             if gene_width > arrow_tip_width:

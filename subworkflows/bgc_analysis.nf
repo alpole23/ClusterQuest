@@ -193,6 +193,7 @@ workflow BGC_ANALYSIS {
 
             VISUALIZE_RESULTS(
                 taxon,
+                Utils.ANTISMASH_RULE_NAMES,
                 counts_ch,
                 tabulation_ch,
                 assembly_info,
