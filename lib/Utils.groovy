@@ -19,12 +19,29 @@ class Utils {
      * directory that had moved, which reported every tool as "not installed" for two
      * months without failing.
      *
+     * `ANTISMASH` does NOT read this constant, and that is not an oversight.
+     * `modules/analysis/antismash.nf` keeps the literal `'phosphonate'` in its script
+     * block, and `tests/check_rule_names.py` fails if the two stop agreeing.
+     *
+     * Interpolating this constant there instead was tried on 2026-11-05 and reverted
+     * the same day. Nextflow hashes the UNEVALUATED script block, so editing that line
+     * changed every ANTISMASH task hash although the rendered command stayed
+     * byte-identical -- and `-resume` on the mixed Pantoea/Streptomyces run started
+     * re-running all four antiSMASH tasks plus GTDB-Tk downstream, ~3 h, to recompute
+     * results it already held. This is the cache-invalidation note further down read in
+     * the other direction: interpolating a value into a script block invalidates
+     * NOTHING when the value changes, and invalidates EVERYTHING when the line does.
+     * A check is the cheap way to hold two spellings together; interpolation costs the
+     * most expensive cache in the pipeline.
+     *
      * NOT a parameter yet, and that is deliberate: it is an input to
      * `antismashParamsHash`, so making it settable means a changed value must
      * invalidate every cached antiSMASH result. Today it cannot vary, so it cannot
      * drift. When other natural-product classes are supported, promote it to a param
      * AND add it to that hash in the same change -- otherwise `--reuse_antismash_from`
-     * will serve phosphonate-only results for a run that asked for more.
+     * will serve phosphonate-only results for a run that asked for more. Note the
+     * params hash is what governs CROSS-RUN reuse and it never contained this line's
+     * text, so the revert above does not affect `--reuse_antismash_from` either way.
      */
     static final String ANTISMASH_RULE_NAMES = 'phosphonate'
 

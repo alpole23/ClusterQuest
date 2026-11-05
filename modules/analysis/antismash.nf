@@ -61,11 +61,8 @@ process ANTISMASH {
     path "as_out/*", emit: result_dir, optional: true
 
     script:
-    // Detection rules come from Utils.ANTISMASH_RULE_NAMES so the report's header can
-    // state the same value rather than restating it. See the note on that constant
-    // before making it a parameter.
-    def hmmdetection_flag =
-        "--hmmdetection-limit-to-rule-names ${Utils.ANTISMASH_RULE_NAMES}"
+    // Phosphonate-only detection — hardcoded
+    def hmmdetection_flag = '--hmmdetection-limit-to-rule-names phosphonate'
 
     // Build minimal mode flag
     def minimal_flag = params.antismash_minimal ? '--minimal' : ''
