@@ -5,6 +5,10 @@ process VISUALIZE_RESULTS {
 
     input:
     val taxon
+    // The rule names antiSMASH was actually given, from Utils.ANTISMASH_RULE_NAMES.
+    // A `val` input rather than an interpolation so it is part of the task hash:
+    // change the detection scope and the report is regenerated to say so.
+    val detection_rules
     path counts_file
     path tabulation_file
     path assembly_info
@@ -81,6 +85,7 @@ process VISUALIZE_RESULTS {
     python ${projectDir}/scripts/visualize_results.py ${counts_arg} ${tab_arg} ${assembly_arg} ${name_map_arg} ${taxonomy_map_arg} ${taxonomy_tree_arg} ${bigscape_stats_arg} ${bigscape_db_arg} ${gcf_data_arg} ${gtdbtk_summary_arg} ${trace_arg} ${versions_arg} ${mibig_arg} ${skip_tree_arg} ${gcf_tree_arg} ${gcf_tree_svg_arg} ${coupling_annotation_arg} ${coupling_support_arg} ${novelty_arg} ${reference_summary_arg} ${branch_point_arg} ${bioprofile_arg} \\
         ${consensus_arg} ${per_cds_arg} \\
         ${transfer_summary_arg} ${pepm_json_arg} --outdir . --taxon "${taxon}" \\
+        --detection_rules "${detection_rules}" \\
         --bigscape_cutoff ${(params.bigscape_cutoffs.toString().split(',')[0]).trim()}
     """
 }

@@ -108,12 +108,20 @@ def generate_bigscape_stats_html(bigscape_stats_file, mibig_included=False):
     '''
 
 
-def generate_gcf_visualization_html(gcf_data_file, taxon, hrefs=None):
+def generate_gcf_visualization_html(gcf_data_file, taxon, hrefs=None,
+                                    href_prefix='../../'):
     '''Master table of gene cluster families, plus each family's detail HTML.
 
     Returns (master_table_html, {family_id: detail_html}). The caller writes the
     detail HTML to one page per family and passes their hrefs back in, so the report
     carries a row per family rather than a collapsed gene table per family.
+
+    `href_prefix` is how far the DESTINATION sits below outdir, and it has to be
+    supplied because this one function feeds two depths: the master table lands in
+    main_analysis_results/<taxon>/bgc_report.html, two levels down, while the detail
+    HTML lands in main_analysis_results/<taxon>/gcf/GCF-<id>.html, three. The
+    "View in antiSMASH" link on every per-family page was broken for exactly that
+    reason -- it carried the report's prefix. Audit item #13, 2026-11-05.
     '''
     hrefs = hrefs or {}
     import os
@@ -168,7 +176,15 @@ def generate_gcf_visualization_html(gcf_data_file, taxon, hrefs=None):
         region_number = gcf.get('region_number', 1)
         svg_diagram = gcf.get('svg_diagram', '')
         genes = gcf.get('genes', [])
-        antismash_link = gcf.get('antismash_link', '')
+        # Stored relative to outdir. Older gcf_representatives.json files baked the
+        # report's own '../../' in, so strip any leading '../' before applying this
+        # destination's prefix -- that keeps a re-render working against a JSON written
+        # before the producer was fixed, without re-running BiG-SCAPE extraction.
+        antismash_link = (gcf.get('antismash_link') or '').lstrip()
+        if antismash_link:
+            while antismash_link.startswith('../'):
+                antismash_link = antismash_link[3:]
+            antismash_link = href_prefix + antismash_link
 
         badge_class = 'singleton' if is_singleton else 'cluster'
         badge_text = 'Singleton' if is_singleton else f'{member_count} BGCs'

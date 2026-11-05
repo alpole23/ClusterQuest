@@ -261,7 +261,7 @@ def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=N
     </p>
     {f"""
     <div id="heatmap-container" style="width: 100%; overflow-x: auto; margin-bottom: 30px;">
-        <canvas id="heatmap-canvas" style="max-width: 100%;"></canvas>
+        <canvas id="heatmap-canvas"></canvas>
     </div>
     <script>
         (function() {{
@@ -271,8 +271,24 @@ def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=N
             const cellWidth = 45; const cellHeight = 22;
             const labelWidth = 180; const labelHeight = 120;
             const rows = data.rows; const cols = data.columns;
-            canvas.width = labelWidth + cols.length * cellWidth + 80;
-            canvas.height = labelHeight + rows.length * cellHeight + 20;
+
+            // Draw at device resolution, not CSS resolution. The backing store used to
+            // be sized in CSS pixels, so on any display with devicePixelRatio > 1 --
+            // which is most laptops -- the browser upscaled a 1x bitmap and every label
+            // came out soft. `max-width: 100%` made it worse by also scaling the canvas
+            // DOWN to the container, a second resample on top of the first; the
+            // container already scrolls (overflow-x: auto), so nothing needed fitting.
+            // Audit item #22, 2026-11-05.
+            const cssW = labelWidth + cols.length * cellWidth + 80;
+            const cssH = labelHeight + rows.length * cellHeight + 20;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+            canvas.style.width = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            // Every coordinate below is in CSS pixels; this maps them onto the
+            // higher-resolution backing store once, so the drawing code is unchanged.
+            ctx.scale(dpr, dpr);
             let maxVal = 1;
             rows.forEach(row => {{ row.values.forEach(v => {{ if (v > maxVal) maxVal = v; }}); }});
             function getColor(value) {{
@@ -280,7 +296,7 @@ def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=N
                 const intensity = Math.min(1, value / maxVal);
                 return `rgb(${{Math.round(255 - intensity*212)}}, ${{Math.round(255 - intensity*165)}}, ${{Math.round(255 - intensity*95)}})`;
             }}
-            ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white'; ctx.fillRect(0, 0, cssW, cssH);
             ctx.save(); ctx.font = '10px sans-serif'; ctx.fillStyle = '#333';
             cols.forEach((col, i) => {{
                 ctx.save(); ctx.translate(labelWidth + i*cellWidth + cellWidth/2, labelHeight-5);

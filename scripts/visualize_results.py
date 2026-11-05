@@ -51,7 +51,6 @@ from viz.report_sections import (build_bigscape_stats_section,
                                  _build_versions_html, build_coupling_table_rows,
                                  build_biosynthetic_phylogeny_section,
                                  build_no_clustering_notice, build_gcf_trees_tab,
-                                 build_consensus_clusters_section,
                                  consensus_blocks_by_family, build_tabbed_nav,
                                  build_gcf_characterisation_section,
                                  build_all_regions_section, build_pipeline_tab)
@@ -90,6 +89,7 @@ def db_cutoffs(db_path):
 
 
 def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
+                         detection_rules='',
                          bigscape_stats_html='',
                          gcf_network_html='',
                          # Multi-cutoff: the ordered cutoffs the database holds, the
@@ -137,6 +137,27 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             break
     provenance = (f'{_n_genomes:,} genomes · generated {_generated}{_as_ver}'
                   if _n_genomes else f'generated {_generated}{_as_ver}')
+
+    # The detection scope belongs in the header, not in one pane's prose: it governs
+    # every region in every pane, and a reader who reaches GCF characterisation
+    # without having read Summary would otherwise never learn that only one rule was
+    # searched. It also reads the value antiSMASH was actually given
+    # (Utils.ANTISMASH_RULE_NAMES) rather than restating it, so the two cannot drift.
+    #
+    # Also the reason "no MIBiG match" is weak evidence of novelty here: MIBiG holds
+    # few characterised phosphonate pathways, so a miss is expected. That belongs with
+    # the scope rather than beside the KCB table, where it reads as a caveat about the
+    # table rather than about the search.
+    scope_html = ''
+    if detection_rules:
+        scope_html = (
+            '<p style="text-align:center;color:#888;font-size:0.85em;'
+            'margin:0 0 10px;">Detection limited to the antiSMASH '
+            f'<strong>{detection_rules}</strong> rule'
+            f'{"s" if "," in detection_rules else ""} '
+            f'(<code>--hmmdetection-limit-to-rule-names {detection_rules}</code>) — '
+            'no other BGC class was searched for, so a missing MIBiG match is '
+            'expected rather than evidence of novelty.</p>')
 
     # Whether pepM identity could partition BiG-SCAPE is operational, so it sits
     # with the pipeline diagnostics rather than with the chemistry.
@@ -197,8 +218,6 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
         gcf_characterisation, bioprofile_path, gcf_hrefs, branch_point_path, gcf_data,
         reference_summary, gcf_network_section)
     regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
-    consensus_html   = build_consensus_clusters_section(consensus_clusters, transfer_summary,
-                                                        gcf_hrefs, per_cds_path)
     phylogeny_key    = _switch(coupling_rows_by_cutoff,
                                build_biosynthetic_phylogeny_section,
                                build_biosynthetic_phylogeny_section(coupling_table_rows))
@@ -209,7 +228,12 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     # A run without --clustering bigscape has none of the family sections at all, and
     # the group would vanish from the rail with no explanation. One pane says why.
-    if not (bigscape_stats_section or consensus_html):
+    #
+    # Tested on priority_section rather than on the old consensus pane: that pane is
+    # gone (audit #2/#19) and building a large HTML string purely to check its
+    # truthiness was always the wrong test. GCF characterisation is present whenever
+    # clustering ran, which is the condition this actually cares about.
+    if not (bigscape_stats_section or priority_section):
         phylogeny_key = build_no_clustering_notice()
 
     # The rail, and the panes it switches between. Order here is the order on the
@@ -222,63 +246,33 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
         cuts, primary=primary_cutoff,
         note='switches the family network, rarefaction curve and coupling table')
 
+    # Three groups, ten panes, regrouped on audit request (#2, 2026-11-05).
+    #
+    # "All detected regions" and "Genomes" join Overview: both are run-level inventories
+    # -- every region, every genome -- and neither is about family structure, which is
+    # what the other two groups are for. That empties the old 'BGCs' and 'Genomes'
+    # groups, so they are gone.
+    #
+    # 'Consensus gene content' is gone as a PANE, not as content (#19). It rendered the
+    # same per-family table that gcf/GCF-<id>.html already carries, so the report held
+    # two copies; the per-family page is the one that keeps it, because that is where a
+    # reader arrives from GCF characterisation. consensus_blocks_by_family() still runs
+    # and still feeds those pages -- only build_consensus_clusters_section() is no
+    # longer called.
+    #
+    # 'Cutoff comparison' is not in the audited layout because it only appears on a
+    # multi-cutoff run and that run had one cutoff. It sits last in this group rather
+    # than being dropped.
+    #
+    # Pane numbering is global and the CSS pairs #tabN with #contentN, so the numbers
+    # below are decided by this order. Nothing may depend on a particular N.
     tabs_html = build_tabbed_nav([
         ('Overview', [
-            ('Summary',                   f'''            <p style="color: #666; font-size: 0.9em; margin: 4px 0 2px;">
-                <em>Detection is restricted to the antiSMASH <strong>phosphonate</strong> rule
-                (<code>--hmmdetection-limit-to-rule-names phosphonate</code>), so every region in this
-                report is a phosphonate BGC and no other BGC class was searched for. "No MIBiG match" should be read
-                against that: MIBiG holds few characterised phosphonate pathways, so a miss is expected
-                and is weaker evidence of novelty than it would be for a well-represented class.</em>
-            </p>
-            {overview_stats}
+            ('Summary',                   f'''{overview_stats}
             {kcb_mapping_section}
             {rarefaction_section}'''),
             ('Pipeline & resources',      pipeline_tab),
-        ]),
-        ('BGCs', [
-            ('GCF characterisation',      priority_section),
             ('All detected regions',      regions_section),
-        ]),
-        ('Gene cluster families', [
-            ('Consensus gene content',    consensus_html),
-            # The tree and the class table are one subject: branch colours on the
-            # tree ARE the classes in the table, and splitting them put a legend in
-            # one pane and the figure it explains in another.
-            ('Biosynthetic phylogeny',    phylogeny_key + gcf_trees_tab),
-            ('BiG-SCAPE statistics',      bigscape_stats_section),
-            ('Cutoff comparison',         cutoff_comparison),
-            ('Coupling enzyme support',   support_section),
-            # 'Family representatives' is gone: it answered the same question as
-            # Consensus gene content, which answers it better. Both present ONE REAL
-            # MEMBER -- they differ only in which member (BiG-SCAPE's exemplar against
-            # the member carrying the greatest summed prevalence) -- and the consensus
-            # one is chosen on the question being asked and carries prevalence bands,
-            # cassette boundaries, role colouring and the full gene table beside it.
-            #
-            # Not for size: the pane was 34 KB of 6.68 MB and held no diagrams itself,
-            # only cards linking out. The representative's own diagram lives on the
-            # per-family page under gcf/, which is unchanged, and GCF Characterisation
-            # links each family's region straight to its antiSMASH page.
-        ]),
-        ('Phylogeny', [
-            ('Taxonomic distribution',    f'''            <h3>Taxonomic Distribution of BGCs</h3>
-            <p style="color: #666; margin-bottom: 20px;">
-                <em>Expandable NCBI taxonomy tree showing BGC statistics at each taxonomic level. Click on nodes to expand/collapse.
-                Species nodes expand to show individual genomes with their BGC counts.</em>
-            </p>
-            {tree_html if tree_html else '<div class="info-box warning"><p>Taxonomy tree data not available.</p></div>'}
-            <script id="taxonomyGenomeData" type="application/json">{taxonomy_genome_json}</script>'''),
-            ('GCF distribution across taxa', f'''            <h3>GCF Distribution Across Taxa</h3>
-            <p style="color: #666; margin-bottom: 20px;">
-                <em>Which Gene Cluster Families are confined to one genus and which are widespread,
-                using GTDB-Tk taxonomy where available. The GTDB-Tk tree itself is not drawn here —
-                the Newick files are published under <code>gtdbtk_results/</code> for iTOL, FigTree
-                or Dendroscope.</em>
-            </p>
-            {tree_section}'''),
-        ]),
-        ('Genomes', [
             ('Genomes',                   f'''            <h2>All Genomes</h2>
             <p style="color: #666; margin-bottom: 15px;">
                 <em>Searchable table of all analyzed genomes. Click genome names for detailed metadata pages.</em>
@@ -311,6 +305,41 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             </div>
             <script id="genomeData" type="application/json">{genome_data_json}</script>'''),
         ]),
+        ('Gene cluster families', [
+            ('GCF characterisation',      priority_section),
+            ('BiG-SCAPE statistics',      bigscape_stats_section),
+            ('Coupling enzyme support',   support_section),
+            # 'Family representatives' is gone: it answered the same question as
+            # Consensus gene content, which answers it better. Both present ONE REAL
+            # MEMBER -- they differ only in which member (BiG-SCAPE's exemplar against
+            # the member carrying the greatest summed prevalence) -- and the consensus
+            # one is chosen on the question being asked and carries prevalence bands,
+            # cassette boundaries, role colouring and the full gene table beside it.
+            #
+            # Not for size: the pane was 34 KB of 6.68 MB and held no diagrams itself,
+            # only cards linking out. The representative's own diagram lives on the
+            # per-family page under gcf/, which is unchanged, and GCF Characterisation
+            # links each family's region straight to its antiSMASH page.
+            ('Cutoff comparison',         cutoff_comparison),
+        ]),
+        ('Phylogeny', [
+            ('Biosynthetic phylogeny',    phylogeny_key + gcf_trees_tab),
+            ('Taxonomic distribution',    f'''            <h3>Taxonomic Distribution of BGCs</h3>
+            <p style="color: #666; margin-bottom: 20px;">
+                <em>Expandable NCBI taxonomy tree showing BGC statistics at each taxonomic level. Click on nodes to expand/collapse.
+                Species nodes expand to show individual genomes with their BGC counts.</em>
+            </p>
+            {tree_html if tree_html else '<div class="info-box warning"><p>Taxonomy tree data not available.</p></div>'}
+            <script id="taxonomyGenomeData" type="application/json">{taxonomy_genome_json}</script>'''),
+            ('GCF distribution across taxa', f'''            <h3>GCF Distribution Across Taxa</h3>
+            <p style="color: #666; margin-bottom: 20px;">
+                <em>Which Gene Cluster Families are confined to one genus and which are widespread,
+                using GTDB-Tk taxonomy where available. The GTDB-Tk tree itself is not drawn here —
+                the Newick files are published under <code>gtdbtk_results/</code> for iTOL, FigTree
+                or Dendroscope.</em>
+            </p>
+            {tree_section}'''),
+        ]),
     ], cutoff_bar=cutoff_bar)
 
     html_content = f'''
@@ -330,6 +359,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
     <p style="text-align: center; color: #888; font-size: 0.85em; margin: -6px 0 4px;">
         {provenance}
     </p>
+{scope_html}
 
     <div class="tabs">
 {tabs_html}
@@ -373,6 +403,10 @@ def main():
     parser.add_argument('--gcf_tree', type=Path, help='Path to GCF biosynthetic NJ tree PNG from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_tree_svg', type=Path, help='Path to GCF biosynthetic NJ tree SVG (preferred over PNG for quality)')
     parser.add_argument('--pepm_json', type=Path, help='pepm_all_by_all.json from PEPM_ALL_BY_ALL')
+    parser.add_argument('--detection_rules', type=str, default='',
+                        help='antiSMASH rule names the run searched for, as passed to '
+                             '--hmmdetection-limit-to-rule-names. Stated in the report '
+                             'header so the detection scope travels with the report.')
     parser.add_argument('--coupling_annotation', type=Path, help='Path to phosphonate_itol_coupling.txt from GCF_BIOSYNTHETIC_TREE')
     parser.add_argument('--gcf_characterisation', type=Path, help='gcf_characterisation.tsv from GCF_CHARACTERISATION')
     # The cutoff the families were built at. Every section that reads the BiG-SCAPE
@@ -525,7 +559,10 @@ def main():
     gcf_hrefs = {}
     if args.gcf_data and args.gcf_data.exists():
         print(f"Generating GCF visualization...")
-        _, gcf_cards = generate_gcf_visualization_html(str(args.gcf_data), args.taxon)
+        # gcf/GCF-<id>.html sits one level below the report, so its antiSMASH links
+        # need one more '..' than the report's. Audit item #13.
+        _, gcf_cards = generate_gcf_visualization_html(
+            str(args.gcf_data), args.taxon, href_prefix='../../../')
         gcf_hrefs = create_gcf_pages(
             args.outdir, args.taxon, gcf_cards,
             consensus_blocks=consensus_blocks_by_family(args.consensus_clusters,
@@ -672,6 +709,7 @@ def main():
         # positional arguments into a thirty-parameter signature.
         generate_html_report(args.outdir, args.taxon, table_header, table_rows, stats,
                             tree_html=tree_html,
+                            detection_rules=args.detection_rules,
                             bigscape_stats_html=bigscape_stats_html,
                             phylo_tree_generated=phylo_tree_generated,
                             genome_table=genome_table,
