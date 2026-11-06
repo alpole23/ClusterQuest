@@ -18,11 +18,23 @@ def _is_generic(product):
 def _domain_label(gene):
     """Best domain name for a gene, from whichever field its caller populated.
 
-    The two diagram callers carry domain information differently: the representative
-    diagram (clustering/extract_gcf_representatives.py) passes antiSMASH's
-    `clusterhmmer_hits`, each with an `hmm` name and a `score`; the consensus diagram
-    (viz/report_sections.py) passes a pre-joined `domains` string. Both are read here
-    so the tooltip behaves the same in either figure.
+    The two diagram callers build their gene dicts independently, so this reads every
+    field either one populates rather than assuming a shape:
+
+    - `clusterhmmer_hits` (representative diagram, via
+      utils/antismash_parser.extract_genes_from_region): a list of dicts carrying `hmm`
+      -- the Pfam domain NAME, e.g. `PEP_mutase` -- alongside `identifier`, the
+      accession. Preferred, because it is the field the per-gene table is built from.
+    - `domains`: antiSMASH's `sec_met_domain` qualifier, which that same parser carries
+      through as a **list of strings**. A `;`-joined string is accepted too.
+    - neither: the consensus diagram (viz/report_sections.py) sets no domain field at
+      all, because its `product` already states the consensus name. '' is correct there
+      and the caller appends nothing.
+
+    The list case is why this function existed for a day without working: it was
+    written assuming a pre-joined string and raised
+    `AttributeError: 'list' object has no attribute 'strip'` on the first real run of
+    the representative diagram. Check the producer, not the docstring you wrote.
     """
     hits = gene.get('clusterhmmer_hits') or []
     if hits:
@@ -33,9 +45,17 @@ def _domain_label(gene):
         name = (best.get('hmm') or best.get('description') or '').strip()
         if name:
             return name
-    doms = (gene.get('domains') or '').strip()
-    if doms and doms != '\u2014':
-        return doms.split(';')[0].strip()
+    doms = gene.get('domains') or ''
+    parts = ([str(d) for d in doms] if isinstance(doms, (list, tuple, set))
+             else str(doms).split(';'))
+    for part in parts:
+        # antiSMASH writes sec_met_domain as the NAME followed by its evidence:
+        #   'ATP-grasp (E-value: 7.5e-08, bitscore: 23.1, seeds: 20, tool: ...)'
+        # A tooltip wants the name. The whole string shipped into one for a day and
+        # read as a paragraph of numbers glued to a gene product.
+        part = part.split(' (')[0].strip()
+        if part and part != '\u2014':
+            return part
     return ''
 
 

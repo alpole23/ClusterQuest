@@ -335,6 +335,23 @@ else
     fail "NCBI report parsing checks failed:"; echo "$NCBICHK" | sed 's/^/      /'
 fi
 
+# The detection scope is spelled in three places, and the report's header claims to
+# describe what antiSMASH ran. Single-sourcing it by interpolation re-ran every cached
+# antiSMASH task, so a literal plus this check is the cheap way to keep them together.
+if RULECHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_rule_names.py" 2>&1)"; then
+    pass "antiSMASH detection rule names agree everywhere"
+else
+    fail "detection rule name checks failed:"; echo "$RULECHK" | sed 's/^/      /'
+fi
+
+# A helper shared by two producers is only exercised when both run. Two type errors
+# shipped past every static check here and raised on the first real render.
+if SHAPECHK="$("$SYS_PY" "$PROJECT_DIR/tests/check_report_data_shapes.py" 2>&1)"; then
+    pass "report helpers accept every producer's data shape"
+else
+    fail "report data shape checks failed:"; echo "$SHAPECHK" | sed 's/^/      /'
+fi
+
 echo
 echo "================================"
 echo "  passed: $PASS   failed: $FAIL"

@@ -177,12 +177,15 @@ def main():
     # the exception: four families tie at core Jaccard 1.000 with GCF-18, and `max()`
     # would have named whichever one came first and implied a relationship the data
     # does not single out.
+    # Family ids are `family.id` from SQLite, so they are INTEGERS -- sorted() orders
+    # them numerically and the caller stringifies. An earlier revision sorted them with
+    # `key=lambda f: (len(f), f)`, a key for string ids, which raised
+    # `TypeError: object of type 'int' has no len()` on the first real run.
     core_sets = {fid: {d for d in profiles[fid] if category(d) == 'core'}
                  for fid in profiles}
     same_core = {
-        fid: sorted((o for o in core_sets
-                     if o != fid and core_sets[o] and core_sets[o] == core_sets[fid]),
-                    key=lambda f: (len(f), f))
+        fid: sorted(o for o in core_sets
+                    if o != fid and core_sets[o] and core_sets[o] == core_sets[fid])
         for fid in core_sets
     }
 
@@ -215,7 +218,8 @@ def main():
                                      for d in sorted(core_sets[fid])),
             # Other families with the SAME core domain set. Empty is meaningful: this
             # family's core chemistry is not duplicated anywhere else in the run.
-            'same_core_gcfs': ';'.join(same_core[fid]),
+            # Bare ids, as `nearest_gcf` is; the report prefixes `GCF-`.
+            'same_core_gcfs': ';'.join(str(g) for g in same_core[fid]),
             'nearest_gcf': other,
             'nearest_similarity': f'{sim:.3f}',
             'differing_domains': diff_txt if sim >= SIMILAR else '',
