@@ -16,7 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'scripts'))
 from utils.report_lint import (  # noqa: E402
-    undefined_handlers, check_report, unbalanced_braces)
+    undefined_handlers, check_report, unbalanced_braces,
+    dangling_handler_targets, duplicate_definitions)
 
 CASES = [
     # (name, html, expected undefined handlers)
@@ -66,6 +67,63 @@ BRACE_CASES = [
     ("brace in a block comment",        "/* } */ function a(){}",          None),
     ("brace in a regex",                "const r = /[}]/g;",               None),
     ("division is not a regex",         "const q = a / b; const w = c / d;", None),
+]
+
+
+# ── A handler can point at nothing, and can be declared twice ───────────────────
+#
+# Both rules live in `utils/report_lint` rather than here, because the report
+# generator must REFUSE to write a report carrying either -- a check that only runs
+# when someone passes a report path to this script would not have caught the one that
+# shipped. What is covered here is the rules' own behaviour.
+#
+# The shipped failure: `viz/taxonomy.py` put `onclick="toggleNode(<id>)"` on every
+# node header, while the `<div class="node-children" id=...>` it targets was emitted
+# only for a node with children or species-rank genomes. A lineage terminating at
+# genus or above -- which `taxonomy/extract_taxonomy.py` produces when `ranks`
+# outruns `lineage_names` -- therefore carried a handler aimed at an id no element
+# had, and clicking it raised
+#     TypeError: Cannot read properties of null (reading 'previousElementSibling')
+# into the console and left the page untouched. Same silent shape as A2-7 below.
+#
+# And `toggleNode` was declared TWICE: here in REPORT_JS and again in the tree's own
+# <script>. Since `visualize_results.py` emits {tabs_html} before REPORT_JS, the
+# second declaration replaced the first, so the copy that ran was the UNGUARDED one
+# while the guarded copy was dead. Neither copy was wrong on its own; their number
+# was. That is why the duplicate rule is about any handler name, not about this one.
+#
+# (name, html, expected dangling targets, expected duplicate definitions)
+TARGET_CASES = [
+    ("expandable node — its target is in the document",
+     '<div onclick="toggleNode(\'n1\')"></div><div class="node-children" id="n1"></div>'
+     '<script>function toggleNode(i) {}</script>',
+     [], []),
+    ("leaf node — the handler that pointed nowhere",
+     '<div onclick="toggleNode(\'n1\')"></div><div class="node-children" id="n1"></div>'
+     '<div onclick="toggleNode(\'n2\')"></div>'
+     '<script>function toggleNode(i) {}</script>',
+     [('toggleNode', 'n2')], []),
+    # What inference alone cannot see: with no surviving target there is nothing to
+    # recognise the contract from, which is why `toggleNode` is also declared in
+    # report_lint._ID_ARG_HANDLERS.
+    ("every target missing — the most broken document of all",
+     '<div onclick="toggleNode(\'n1\')"></div><div onclick="toggleNode(\'n2\')"></div>'
+     '<script>function toggleNode(i) {}</script>',
+     [('toggleNode', 'n1'), ('toggleNode', 'n2')], []),
+    # A quoted argument is not automatically an element id, and a rule that assumed so
+    # would flag every handler that takes a string.
+    ("a string argument that is not an element id",
+     '<select onchange="sortGCFs(\'name\')"></select>'
+     '<script>function sortGCFs(k) {}</script>',
+     [], []),
+    ("two declarations — the taxonomy duplicate",
+     '<script>function toggleNode(i) {}</script><script>function toggleNode(i) {}</script>',
+     [], [('toggleNode', 2)]),
+    # A JSON island is data; a `function` inside it declares nothing.
+    ("a declaration inside a JSON island is data",
+     '<script type="application/json" id="d">{"js": "function toggleNode(i) {}"}</script>'
+     '<script>function toggleNode(i) {}</script>',
+     [], []),
 ]
 
 
@@ -206,6 +264,24 @@ def main():
         if got != expected:
             failures.append(f"{name}: expected {expected}, got {got}")
 
+    for name, html, dangling, dupes in TARGET_CASES:
+        got = dangling_handler_targets(html)
+        if got != dangling:
+            failures.append(f"targets/{name}: expected {dangling}, got {got}")
+        got = duplicate_definitions(html)
+        if got != dupes:
+            failures.append(f"duplicates/{name}: expected {dupes}, got {got}")
+
+    # Both have to reach check_report, which is what the report generator calls.
+    msgs = check_report('<div onclick="toggleNode(\'gone\')"></div>'
+                        '<div class="node-children" id="here"></div>'
+                        '<script>function toggleNode(i) {}</script>')
+    if not msgs or "toggleNode('gone')" not in msgs[0]:
+        failures.append(f"check_report did not name the dangling target: {msgs}")
+    msgs = check_report('<script>function f() {}</script><script>function f() {}</script>')
+    if not msgs or 'defined 2 times' not in msgs[0]:
+        failures.append(f"check_report did not report the duplicate: {msgs}")
+
     for name, js, expected in BRACE_CASES:
         got = unbalanced_braces(js)
         if got != expected:
@@ -248,6 +324,7 @@ def main():
             print(f"  - {f}")
         return 1
     print(f"report JS checks OK ({len(CASES)} linter cases, "
+          f"{len(TARGET_CASES)} handler-target cases, "
           f"{len(ISLAND_CONSUMERS)} island consumers"
           f"{f', {len(sys.argv) - 1} report(s)' if len(sys.argv) > 1 else ''})")
     return 0

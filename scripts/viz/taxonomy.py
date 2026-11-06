@@ -148,13 +148,28 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
         node_id = f"node_{hashlib.md5(node_key).hexdigest()[:12]}"
         has_children = len(children) > 0
         has_genomes = len(genomes) > 0 and rank == 'species'
+        # One condition, four uses, because the `.node-children` div below is emitted
+        # only when it holds and everything on the header has to agree with that. The
+        # handler used to go on EVERY header, so a node that bottoms out above species
+        # rank carried `onclick="toggleNode(<id>)"` pointing at an id no element had,
+        # and clicking it raised
+        #     TypeError: Cannot read properties of null (reading 'previousElementSibling')
+        # — console-only, with the page unchanged, which is the same silent shape as the
+        # dead Genomes search box (audit 2, A2-7). Reachable whenever a lineage
+        # terminates at genus or above: `taxonomy/extract_taxonomy.py` writes an empty
+        # name where `ranks` outruns `lineage_names`, and `aggregate_taxonomy.py` skips
+        # that rank and hangs the genome on the node it had reached.
+        expandable = has_children or has_genomes
 
-        toggle_icon = '&#9660;' if (has_children or has_genomes) else '&#9679;'
-        toggle_class = 'toggle' if (has_children or has_genomes) else 'leaf'
+        toggle_icon = '&#9660;' if expandable else '&#9679;'
+        toggle_class = 'toggle' if expandable else 'leaf'
+        # The CSS half of this already existed — `.node-header.leaf { cursor: default; }`
+        # below — so a leaf was already drawn as unclickable while still being wired.
+        toggle_click = (f' onclick="toggleNode(\'{node_id}\')"') if expandable else ''
 
         html = f'''
         <div class="tree-node level-{level}">
-            <div class="node-header {toggle_class}" onclick="toggleNode('{node_id}')">
+            <div class="node-header {toggle_class}"{toggle_click}>
                 <span class="toggle-icon">{toggle_icon}</span>
                 <span class="node-name"><strong>{name}</strong> <em>({rank})</em></span>
                 <span class="node-stats">
@@ -163,7 +178,7 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
                 </span>
             </div>'''
 
-        if has_children or has_genomes:
+        if expandable:
             html += f'<div class="node-children" id="{node_id}">'
 
             for child_name, child_node in children.items():
@@ -188,6 +203,17 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
         html += '</div>'
         return html
 
+    # The tree's behaviour is REPORT_JS's, not this module's. `toggleNode` and the
+    # collapse-on-load handler used to be emitted here too, inside this block's own
+    # <script>, and `visualize_results.py` writes {tabs_html} BEFORE
+    # <script>{REPORT_JS}</script> — so a second `function toggleNode` declaration
+    # overwrote this one at parse time and the copy that ran was always REPORT_JS's.
+    # The two had drifted: this one guarded `if (element)` and REPORT_JS's did not,
+    # while REPORT_JS's is the one that lazily renders `.genome-list-lazy` on first
+    # expand, which this one never learnt to do. So the surviving copy was the
+    # unguarded one, and keeping a dead definition beside it hid that. REPORT_JS keeps
+    # both jobs (and now the guard); `tests/check_report_js.py` fails the suite if any
+    # handler is ever declared twice in one report again.
     tree_html = f'''
     <div class="taxonomy-tree-container">
         <style>
@@ -283,32 +309,6 @@ def generate_taxonomy_tree_html(taxonomy_tree_data):
                 color: #999;
             }}
         </style>
-        <script>
-            function toggleNode(nodeId) {{
-                const element = document.getElementById(nodeId);
-                if (element) {{
-                    const header = element.previousElementSibling;
-                    const icon = header.querySelector('.toggle-icon');
-                    if (element.style.display === 'none') {{
-                        element.style.display = 'block';
-                        icon.innerHTML = '&#9660;';
-                    }} else {{
-                        element.style.display = 'none';
-                        icon.innerHTML = '&#9654;';
-                    }}
-                }}
-            }}
-            document.addEventListener('DOMContentLoaded', function() {{
-                const nodeChildren = document.querySelectorAll('.node-children');
-                nodeChildren.forEach((node, index) => {{
-                    if (index > 0) {{
-                        node.style.display = 'none';
-                        const icon = node.previousElementSibling.querySelector('.toggle-icon');
-                        if (icon) icon.innerHTML = '&#9654;';
-                    }}
-                }});
-            }});
-        </script>
         {render_node(tree)}
     </div>'''
 

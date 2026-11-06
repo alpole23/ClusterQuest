@@ -763,8 +763,22 @@ REPORT_JS = """\
             container.dataset.rendered = '1';
         }
 
+        // The taxonomy tree's only `toggleNode`. `viz/taxonomy.py` used to emit a
+        // second declaration inside the tree's own <script>, and because
+        // visualize_results.py writes {tabs_html} before <script>{REPORT_JS}</script>,
+        // THIS declaration overwrote it -- so the copy that ran was always this one,
+        // and the `if (element)` guard the other copy carried never applied to
+        // anything. This copy is the one worth keeping, because only it renders the
+        // deferred genome list below; the guard came with the duplicate's deletion.
         function toggleNode(nodeId) {
             const element = document.getElementById(nodeId);
+            // Nothing to toggle: a node with no children and no species-rank genomes
+            // gets no `.node-children` div. `viz/taxonomy.py` now withholds the
+            // handler from such a header as well, so this should be unreachable -- but
+            // `null.previousElementSibling` is a TypeError that only the console sees,
+            // leaving the tree looking merely unresponsive, which is too quiet a
+            // failure to leave guarded in one place only.
+            if (!element) return;
             const header = element.previousElementSibling;
             const icon = header.querySelector('.toggle-icon');
             if (element.style.display === 'none') {

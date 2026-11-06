@@ -19,6 +19,7 @@ These checks run against the finished HTML, which is the only place the JS fragm
 are all present at once.
 """
 
+import collections
 import re
 
 # `onclick="foo(...)"` — a bare identifier immediately followed by '('. Deliberately
@@ -35,6 +36,22 @@ _SCRIPTS = re.compile(
 
 # Callable without a `function NAME(` definition in the document.
 _BROWSER_GLOBALS = {'alert', 'confirm', 'prompt', 'print', 'open', 'close', 'requestAnimationFrame'}
+
+# `onclick="toggleNode('node_abc')"` -- a handler whose first argument is a quoted
+# string literal. Attributes here are double-quoted, so the literal inside is
+# single-quoted.
+_HANDLER_ARG = re.compile(
+    r'\bon(?:click|keyup|keydown|keypress|change|input|submit|focus|blur)\s*=\s*'
+    r'"\s*([A-Za-z_$][\w$]*)\s*\(\s*\'([^\']*)\'')
+_ELEMENT_ID = re.compile(r'\bid\s*=\s*"([^"]*)"')
+
+# Handlers whose first argument IS an element id. `dangling_handler_targets` infers
+# this per document, so the set is not a list to keep up to date; it exists for the
+# one shape inference cannot read -- a document in which EVERY one of a handler's
+# targets is missing offers nothing to recognise the contract from, so the check
+# would pass the most broken report of all. `toggleNode` is named because that is
+# the failure this was written for.
+_ID_ARG_HANDLERS = {'toggleNode'}
 
 
 def undefined_handlers(html):
@@ -124,6 +141,57 @@ def unbalanced_braces(js):
     return None
 
 
+def dangling_handler_targets(html):
+    """(handler, id) pairs where an inline handler names an element that is not there.
+
+    `onclick="toggleNode(\'node_x\')"` with no `id="node_x"` anywhere is a click that
+    throws a TypeError into the console and changes nothing on the page, while the
+    report renders, publishes and reports success -- the same silent shape as a
+    handler wired to a function nothing defines, which is why it belongs beside it.
+
+    It shipped on every taxonomy node whose lineage stopped above species rank:
+    `viz/taxonomy.py` put the handler on EVERY node header while the
+    `<div class="node-children" id=...>` it targets was emitted only for nodes with
+    children or species-rank genomes.
+
+    A handler counts as id-taking when at least one of its literals is an id in this
+    document, which keeps the rule general rather than a list of names to maintain;
+    `_ID_ARG_HANDLERS` covers the all-missing case that inference cannot see. Ids are
+    read from the whole document rather than from rendered elements only, so a
+    handler pointing at something built at runtime is not flagged.
+    """
+    ids = set(_ELEMENT_ID.findall(html))
+    literals = {}
+    for name, arg in _HANDLER_ARG.findall(html):
+        literals.setdefault(name, set()).add(arg)
+    out = []
+    for name, args in sorted(literals.items()):
+        if name not in _ID_ARG_HANDLERS and not (args & ids):
+            continue            # its argument is some other string, not an element id
+        out += [(name, a) for a in sorted(args - ids)]
+    return out
+
+
+def duplicate_definitions(html):
+    """(name, count) for every handler this document defines more than once.
+
+    JavaScript lets a later `function f()` replace an earlier one without a word, so
+    two definitions are not an error -- they are a coin toss decided by assembly
+    order. `toggleNode` was defined twice for months: once in REPORT_JS and once in
+    the taxonomy tree\'s own <script>. `visualize_results.py` emits the tree before
+    REPORT_JS, so REPORT_JS won, and the guarded copy -- the one that checked its
+    element existed -- was the one being discarded. Both copies looked fine on their
+    own; only their number was the bug.
+
+    Counted inside executable <script> blocks only, so a `function` that happens to
+    appear in a JSON island or in prose is data, not a definition.
+    """
+    counts = collections.Counter()
+    for body in _SCRIPTS.findall(html):
+        counts.update(_FUNC_DEF.findall(body))
+    return sorted((n, c) for n, c in counts.items() if c > 1)
+
+
 def check_report(html):
     """Return a list of human-readable problems with the assembled report."""
     problems = []
@@ -132,6 +200,21 @@ def check_report(html):
         problems.append(
             "inline event handlers call JavaScript functions that are never defined: "
             + ", ".join(f"{n}()" for n in missing))
+
+    dangling = dangling_handler_targets(html)
+    if dangling:
+        shown = ", ".join(f"{n}('{t}')" for n, t in dangling[:5])
+        more = f" (+{len(dangling) - 5} more)" if len(dangling) > 5 else ""
+        problems.append(
+            "inline event handlers name element ids that the document never defines: "
+            f"{shown}{more} -- clicking one raises a TypeError into the console and "
+            "leaves the page unchanged")
+
+    for name, count in duplicate_definitions(html):
+        problems.append(
+            f"{name}() is defined {count} times in this report. A later definition "
+            f"replaces an earlier one silently, so which copy runs is decided by the "
+            f"order the page is assembled in -- delete all but one")
 
     # One SyntaxError anywhere disables EVERY script in the document, so this is
     # checked per <script> block to name the offending one.
