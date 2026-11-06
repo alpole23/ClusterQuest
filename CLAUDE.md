@@ -1205,7 +1205,7 @@ scripts/
 ├── viz/                # Visualization modules — every report section lives here;
 │   │                     # visualize_results.py only orchestrates them
 │   ├── tree_viz.py       # Prunes the GTDB-Tk tree to the analysed genomes (Bio.Phylo)
-│   ├── tables.py         # Genome tables, summary statistics, distribution table
+│   ├── tables.py         # Genome tables, summary statistics
 │   ├── clustering.py     # BiG-SCAPE stats + GCF representative HTML
 │   ├── taxonomy.py       # Interactive taxonomy tree
 │   ├── distribution.py   # GCF × genus heatmap, genus-specific / widespread tables
@@ -1641,7 +1641,7 @@ while being dead. Every section builder is now imported from `viz/`:
 
 | Import from | Provides |
 |-------------|----------|
-| `viz.tables` | genome table, summary statistics, BGC distribution table |
+| `viz.tables` | genome table, summary statistics |
 | `viz.clustering` | BiG-SCAPE statistics, GCF representative visualisation |
 | `viz.taxonomy` | interactive taxonomy tree |
 | `viz.tree_viz` | `prepare_phylo_tree_for_js` (+ the Newick parse/prune helpers behind it) |

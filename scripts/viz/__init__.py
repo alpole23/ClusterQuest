@@ -2,8 +2,7 @@
 
 from .tables import (
     generate_genome_table_html,
-    calculate_summary_statistics,
-    create_bgc_distribution_table
+    calculate_summary_statistics
 )
 from .clustering import (
     generate_bigscape_stats_html,
@@ -33,7 +32,6 @@ __all__ = [
     # tables
     'generate_genome_table_html',
     'calculate_summary_statistics',
-    'create_bgc_distribution_table',
     # clustering
     'generate_bigscape_stats_html',
     'generate_gcf_visualization_html',

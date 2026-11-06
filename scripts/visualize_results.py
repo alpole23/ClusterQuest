@@ -35,8 +35,7 @@ from viz.gcf_network import (generate_gcf_network_html,
 from viz.cutoff_comparison import build_cutoff_comparison_section
 from utils.constants import COUPLING_COLORS, COUPLING_ORDER
 from viz.gcf_pages import create_gcf_pages, family_meta
-from viz.tables import (calculate_summary_statistics, create_bgc_distribution_table,
-                        generate_genome_table_html)
+from viz.tables import calculate_summary_statistics, generate_genome_table_html
 from viz.taxonomy import generate_taxonomy_tree_html
 from viz.report_assets import REPORT_CSS, REPORT_JS
 from viz.distribution import generate_bgc_distribution_html
@@ -88,7 +87,7 @@ def db_cutoffs(db_path):
         return []
 
 
-def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_html='',
+def generate_html_report(outdir, taxon, stats, tree_html='',
                          detection_rules='',
                          bigscape_stats_html='',
                          gcf_network_html='',
@@ -455,8 +454,6 @@ def main():
         with open(args.taxonomy_tree, 'r') as f:
             taxonomy_tree_data = json.load(f)
 
-    table_header = ''
-    table_rows = ''
     stats = {}
     tree_html = ''
     taxonomy_genome_json = '{}'
@@ -480,10 +477,6 @@ def main():
             print(f"Generating genome table HTML...")
             genome_table = generate_genome_table_html(args.counts, args.assembly_info,
                                                       args.name_map, taxonomy_map_data)
-
-        # Create interactive table
-        print(f"Creating interactive BGC distribution table...")
-        table_header, table_rows = create_bgc_distribution_table(args.counts, args.outdir)
 
     # Generate taxonomy tree visualization
     if taxonomy_tree_data:
@@ -700,7 +693,7 @@ def main():
 
     if args.counts or args.tabulation:
         print(f"Generating HTML report...")
-        # Everything past the first five goes by KEYWORD. This call used to pass
+        # Everything past the first three goes by KEYWORD. This call used to pass
         # phylo_tree_generated, genome_table, resource_usage_html and
         # phylo_tree_data positionally; inserting gcf_network_html into the
         # signature silently shifted all four onto the wrong parameters, and the
@@ -708,7 +701,7 @@ def main():
         # keyword, which raised TypeError. Had it not been, the report would have
         # rendered with the network slot holding a boolean. Do not reintroduce
         # positional arguments into a thirty-parameter signature.
-        generate_html_report(args.outdir, args.taxon, table_header, table_rows, stats,
+        generate_html_report(args.outdir, args.taxon, stats,
                             tree_html=tree_html,
                             detection_rules=args.detection_rules,
                             bigscape_stats_html=bigscape_stats_html,
