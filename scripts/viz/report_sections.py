@@ -101,7 +101,11 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                               f'tabular-nums;">{acc}</a>' if acc
                               else '<span style="color:#ccc;">—</span>')
                 sort_sim = f'{sim_val:.4f}' if sim_val is not None else '-1'
-                edge_badge = '<span style="background: #e74c3c; color: white; padding: 1px 5px; border-radius: 3px; font-size: 0.75em;">edge</span>' if str(contig_edge).lower() == 'true' else ''
+                edge_badge = ('<span title="This region runs to the end of its contig, '
+                              'so the cluster may be truncated" '
+                              'style="background: #e74c3c; color: white; padding: 1px 5px; '
+                              'border-radius: 3px; font-size: 0.75em;">edge</span>'
+                              if str(contig_edge).lower() == 'true' else '')
                 antismash_link = f'../../antismash_results/{taxon_clean}/{genome}/index.html#r{record_index}c{region}'
                 gcf_cell = ''
                 if has_gcf_data:
@@ -114,7 +118,9 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                         # red GCF-1 here is the red GCF-1 in the tree.
                         cls = (gcf_classes or {}).get(fid)
                         badge_bg = COUPLING_COLORS.get(cls, '#3498db')
-                        badge_title = f' title="Coupling class: {cls}"' if cls else ''
+                        badge_title = (f' title="Coupling class: {cls} — click for '
+                                       f'this family’s page"' if cls
+                                       else ' title="Click for this family’s page"')
                         # The badge links to the family's own page, which carries the
                         # representative cluster and the consensus gene content.
                         href = (gcf_hrefs or {}).get(str(fid), '')
@@ -147,6 +153,19 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
             kcb_mapping_section = ''''''
             th = ('onclick="sortRegions(this)" style="cursor:pointer;" '
                   'title="Click to sort; click again to reverse"')
+            # Right-aligned variant. This used to be spelled `{th} style="...;
+            # text-align:right;"`, which renders TWO style attributes on one tag --
+            # and a duplicate attribute is not merged, the FIRST wins and the rest are
+            # discarded. So text-align:right never applied: the Similarity header sat
+            # left-aligned above right-aligned numbers. Build one attribute instead.
+            th_right = th.replace('style="cursor:pointer;"',
+                                  'style="cursor:pointer;text-align:right;"')
+            # "edge" was explained only in the paragraph A2-5 deleted. Same treatment
+            # as the KCB floor: the fact rides on the column instead of the prose.
+            th_edge = th.replace(
+                'title="Click to sort',
+                'title="Marked when the region runs to the end of its contig, so the '
+                'cluster may be truncated. Click to sort')
             gcf_header = (f'<th {th}>GCF Family</th><th {th}>Members</th>'
                           if has_gcf_data else '')
             # Column widths are authoritative under `table-layout: fixed`, so they must
@@ -159,23 +178,32 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
             regions_cols = ('<colgroup>'
                             + ''.join(f'<col style="width:{w}%">' for w in _widths)
                             + '</colgroup>')
-            gcf_description = (' Follow a GCF badge to that family’s page.'
-                               if has_gcf_data else '')
             kcb_floor = KCB_THRESHOLDS['low']
-            n_cleared = sum(1 for b in novel_bgcs if b.get('kcb_hit'))
+            # The floor and the blue/grey convention used to be stated in a paragraph
+            # above this table. Audit 2 (A2-5) deleted the paragraph; the fact rides on
+            # a column header instead, because the COLOUR is the only thing separating a
+            # hit that cleared the floor from one that did not, and an unexplained colour
+            # is not a saving. It goes on `Best KCB hit` rather than `Similarity`:
+            # `kcb_cell` tints the cluster name and the similarity it prints from one
+            # `tone` value above, while the separate Similarity column renders plain.
+            #
+            # Two things ride along by necessity. The floor is interpolated from
+            # KCB_THRESHOLDS, as the paragraph did, so it cannot go stale in one place
+            # and not the other. And the sort hint is repeated verbatim from `th` below:
+            # that tooltip is the ONLY thing telling a reader the headers are clickable,
+            # so a per-column title has to carry it rather than replace it.
+            #
+            # The per-cell titles on each similarity value ("at or above the N% floor" /
+            # "below the N% floor") stay. They explain one row; this explains the column,
+            # and only the header is reachable without guessing which row to hover --
+            # a row reading "no hit" carries no tooltip at all.
+            th_kcb = ('onclick="sortRegions(this)" style="cursor:pointer;" '
+                      'title="Best KnownClusterBlast match and its % identity. '
+                      f'Blue is at or above the {kcb_floor}% floor; grey is below it, '
+                      'too weak to call the cluster known. '
+                      'Click to sort; click again to reverse"')
             novel_bgcs_tab_content = f'''
-            <h2>Detected BGC regions</h2>
-            <p style="color: #666; margin-bottom: 15px; max-width: 78ch;">
-                <em>Every region found. <strong>Sort by any column</strong> — sorting on
-                <strong>MIBiG ID</strong> or <strong>Best KCB hit</strong> groups the regions that
-                matched the same characterised cluster. Of {len(novel_bgcs):,} regions,
-                {n_cleared:,} have a KnownClusterBlast hit at or above the {kcb_floor}% floor
-                (shown in blue); the rest are greyed, because a hit below the floor is too weak
-                to call the cluster known, and a region with no hit at all says "no hit". For
-                phosphonate chemistry a miss is weak evidence of novelty — MIBiG holds few
-                characterised pathways. "edge" marks a region on a contig boundary, which may be
-                incomplete.{gcf_description}</em>
-            </p>
+            <h2>Detected BGC regions ({len(novel_bgcs):,})</h2>
             <div class="search-box">
                 <input type="text" id="novelSearch" placeholder="Search by genome, strain, region, GCF or MIBiG ID (e.g. BGC0000904)" onkeyup="filterNovelBGCs()">
             </div>
@@ -187,11 +215,11 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
                             <th {th}>Genome</th>
                             <th {th}>antiSMASH Region</th>
                             <th {th}>Product Type</th>
-                            <th {th}>Contig Edge</th>
+                            <th {th_edge}>Contig Edge</th>
                             {gcf_header}
-                            <th {th}>Best KCB hit</th>
+                            <th {th_kcb}>Best KCB hit</th>
                             <th {th}>MIBiG ID</th>
-                            <th {th} style="cursor:pointer;text-align:right;">Similarity</th>
+                            <th {th_right}>Similarity</th>
                         </tr>
                     </thead>
                     <tbody id="novelTableBody">
@@ -201,12 +229,16 @@ def _build_kcb_content(kcb_stats, taxon_clean, gcf_data, gcf_classes=None, gcf_h
             </div>'''
         elif kcb_stats.get('total_regions', 0) > 0:
             kcb_mapping_section = ''''''
+            # Heading matches the nav label and the three other branches. These two
+            # said "Potentially Novel BGCs" -- the pane's old name -- which went
+            # unnoticed while build_all_regions_section prefixed an <h2> of its own.
+            # With that wrapper gone (A2-4) the pane is whatever this says.
             novel_bgcs_tab_content = '''
-            <h2>Potentially Novel BGCs</h2>
+            <h2>Detected BGC regions</h2>
             <p style="color: #666;">All detected BGC regions matched characterized clusters in the MIBiG database. No potentially novel BGCs identified.</p>'''
         else:
             novel_bgcs_tab_content = '''
-            <h2>Potentially Novel BGCs</h2>
+            <h2>Detected BGC regions</h2>
             <p style="color: #666;">No KnownClusterBlast data available. Run antiSMASH with <code>--antismash_cb_knownclusters true</code> to identify potentially novel BGCs.</p>'''
 
     return {
@@ -1402,34 +1434,15 @@ def build_gcf_characterisation_section(ranking_path, bioprofile_path=None,
     </div>'''
 
 
-def build_all_regions_section(all_regions_html, n_regions=0):
-    """Every region found, as its own pane rather than a fold in the ranking.
-
-    The ranking has one row per family and this has one per region — 72 against
-    1,303 on Enterobacterales. Presenting them as equals buries the actionable part
-    under a table where every row says the same thing, which is what the old "Novel
-    BGCs" tab did at 30.7% of the whole report. It used to be hidden in a
-    `<details>` under the ranking for that reason; a pane of its own separates them
-    without hiding it.
-    """
-    if not all_regions_html:
-        return ''
-    # Count the rows actually rendered here. `n_regions` counts every region in the
-    # tabulation, but this table holds only those below the KnownClusterBlast floor
-    # -- 1,196 of 1,309 on Enterobacterales -- so using it labelled the table with a
-    # total that did not match the rows under it.
-    shown = max(0, all_regions_html.count('<tr') - all_regions_html.count('<thead'))
-    count = f' ({shown:,})' if shown else ''
-    return f'''
-            <h2>All detected regions{count}</h2>
-            <p style="color:#666;font-size:.9em;max-width:70ch;">
-                Every region whose best KnownClusterBlast hit falls below the similarity
-                floor — which for phosphonate chemistry is nearly all of them. The rest are
-                under <strong>Known-cluster matches</strong>. Use this to locate a specific
-                contig or genome; use <strong>Novelty assessment</strong> to decide what
-                to work on.
-            </p>
-            {all_regions_html}'''
+# The regions pane used to be assembled by `build_all_regions_section(html, n_regions)`
+# here, which prefixed the table block with its own <h2> and a paragraph. The pane
+# therefore rendered TWO headings -- "All detected regions (177)" from the wrapper and
+# "Detected BGC regions" from the table block below it -- and the paragraph described
+# the table as holding only sub-floor hits, which stopped being true when the column
+# started showing every hit regardless of similarity. Audit 2 (A2-4) removed the outer
+# heading and the paragraph; nothing was left for the wrapper to add, so the pane now
+# takes `_build_kcb_content`'s block directly and the region count rides on the one
+# surviving <h2>. Removed 2026-11-05.
 
 
 # ─── Consensus gene content ──────────────────────────────────────────────────

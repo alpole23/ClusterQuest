@@ -250,14 +250,10 @@ def generate_bgc_distribution_html(gcf_data, taxonomy_map, gtdbtk_summary_path=N
         '''
 
     return f'''
-    <p style="color: #666; margin-bottom: 20px;">
-        <em>Analysis of BGC distribution across taxonomic groups. Taxonomy source: <strong>{taxonomy_source}</strong>.
-        Shows which Gene Cluster Families (GCFs) are taxon-specific vs widespread.</em>
-    </p>
-
     <h3>GCF × Genus Heatmap</h3>
     <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
         Top 30 GCFs (rows) vs top 20 genera (columns). Color intensity = number of BGCs.
+        Genera from <strong>{taxonomy_source}</strong>, here and in the two tables below.
     </p>
     {f"""
     <div id="heatmap-container" style="width: 100%; overflow-x: auto; margin-bottom: 30px;">

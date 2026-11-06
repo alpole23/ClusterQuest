@@ -494,6 +494,7 @@ REPORT_JS = """\
             const input = document.getElementById('genomeSearch');
             const filter = input ? searchNorm(input.value) : '';
             const rows = genomeRows();
+            if (!rows.length) return;          // no JSON island: leave the server-rendered rows alone
             const matched = filter
                 ? rows.filter(function (r) { return r.some(function (c) { return searchMatches(c, filter); }); })
                 : rows;
@@ -528,8 +529,26 @@ REPORT_JS = """\
         // Genome names use underscores (Pantoea_ananatis_LMG_5342) but people type
         // spaces. Collapse both to a single space on each side so "LMG 5342",
         // "LMG_5342" and "lmg  5342" all match the same row.
+        //
+        // String() is load-bearing, not defensive. This helper is fed from two places
+        // with different types: the regions table passes DOM textContent, always a
+        // String, while the Genomes table searches the JSON island, whose rows are
+        // array-of-arrays straight from json.dumps -- and column 4 is
+        // `int(total_bgcs)` (viz/tables.py), a BARE JSON NUMBER. `(3).toLowerCase` is
+        // undefined, so every Genomes query threw
+        //     TypeError: text.toLowerCase is not a function
+        // at the first row whose four string columns all missed the query -- row 0 for
+        // five of six queries measured on the mixed run, row 1 for the one whose first
+        // row matched on name and short-circuited `some` before reaching column 4.
+        // `filter` then abandons the whole scan, so rows that HAD matched earlier are
+        // discarded too and nothing is rendered. The empty query never reaches a
+        // numeric cell, which is why the table looked fine on load, died on the first
+        // keystroke and recovered when the box was cleared. It was silent because
+        // filterGenomes() runs inside a 150 ms setTimeout and an exception in a timer
+        // task is reported to the console and discarded. Audit 2, A2-7, 2026-11-05.
         function searchNorm(text) {
-            return text.toLowerCase().replace(/[_\\s]+/g, ' ').trim();
+            return String(text === null || text === undefined ? '' : text)
+                .toLowerCase().replace(/[_\\s]+/g, ' ').trim();
         }
 
         // Whether a cell matches the query. Plain substring, except that a query

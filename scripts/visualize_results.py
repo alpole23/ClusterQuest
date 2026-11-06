@@ -53,7 +53,7 @@ from viz.report_sections import (build_bigscape_stats_section,
                                  build_no_clustering_notice, build_gcf_trees_tab,
                                  consensus_blocks_by_family, build_tabbed_nav,
                                  build_gcf_characterisation_section,
-                                 build_all_regions_section, build_pipeline_tab)
+                                 build_pipeline_tab)
 
 
 def embed_image(svg_path=None, png_path=None):
@@ -155,9 +155,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             'margin:0 0 10px;">Detection limited to the antiSMASH '
             f'<strong>{detection_rules}</strong> rule'
             f'{"s" if "," in detection_rules else ""} '
-            f'(<code>--hmmdetection-limit-to-rule-names {detection_rules}</code>) — '
-            'no other BGC class was searched for, so a missing MIBiG match is '
-            'expected rather than evidence of novelty.</p>')
+            f'(<code>--hmmdetection-limit-to-rule-names {detection_rules}</code>)</p>')
 
     # Whether pepM identity could partition BiG-SCAPE is operational, so it sits
     # with the pipeline diagnostics rather than with the chemistry.
@@ -212,12 +210,15 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     # Built after the placeholder defaults above, not before: these consume
     # coupling_table_rows and would otherwise interpolate a literal "None".
-    # Region count for the collapsed listing's summary line.
-    n_regions = sum(1 for _ in (table_rows or '').split('<tr')) - 1 if table_rows else 0
     priority_section = build_gcf_characterisation_section(
         gcf_characterisation, bioprofile_path, gcf_hrefs, branch_point_path, gcf_data,
         reference_summary, gcf_network_section)
-    regions_section  = build_all_regions_section(novel_bgcs_tab_content, n_regions)
+    # The regions pane IS the table block. `build_all_regions_section` used to wrap
+    # it in a second <h2> plus a paragraph restating the KnownClusterBlast floor, so
+    # the pane rendered two headings; audit 2 (A2-4) removed the outer one and the
+    # wrapper had nothing left to add. The surviving <h2> and the region count live in
+    # `_build_kcb_content`, beside the table they describe.
+    regions_section  = novel_bgcs_tab_content
     phylogeny_key    = _switch(coupling_rows_by_cutoff,
                                build_biosynthetic_phylogeny_section,
                                build_biosynthetic_phylogeny_section(coupling_table_rows))
@@ -248,7 +249,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
 
     # Three groups, ten panes, regrouped on audit request (#2, 2026-11-05).
     #
-    # "All detected regions" and "Genomes" join Overview: both are run-level inventories
+    # "Detected BGC regions" and "Genomes" join Overview: both are run-level inventories
     # -- every region, every genome -- and neither is about family structure, which is
     # what the other two groups are for. That empties the old 'BGCs' and 'Genomes'
     # groups, so they are gone.
@@ -272,7 +273,7 @@ def generate_html_report(outdir, taxon, table_header, table_rows, stats, tree_ht
             {kcb_mapping_section}
             {rarefaction_section}'''),
             ('Pipeline & resources',      pipeline_tab),
-            ('All detected regions',      regions_section),
+            ('Detected BGC regions',      regions_section),
             ('Genomes',                   f'''            <h2>All Genomes</h2>
             <p style="color: #666; margin-bottom: 15px;">
                 <em>Searchable table of all analyzed genomes. Click genome names for detailed metadata pages.</em>

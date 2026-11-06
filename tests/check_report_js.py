@@ -9,6 +9,8 @@ Usage:
 
 Exits 0 when the linter behaves and any supplied reports are clean.
 """
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -67,8 +69,138 @@ BRACE_CASES = [
 ]
 
 
+def _REPORT_JS():
+    """The shipped REPORT_JS string, loaded without importing the viz package."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'report_assets',
+        str(Path(__file__).resolve().parent.parent / 'scripts' / 'viz' / 'report_assets.py'))
+    ra = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ra)
+    return ra.REPORT_JS
+
+
+# ── The JSON island is not all strings, and the JS reading it must know ──────
+#
+# `viz/tables.py` ships the Genomes table as array-of-arrays from json.dumps, and one
+# column is `int(total_bgcs)` -- a BARE JSON NUMBER. `searchNorm` called
+# `text.toLowerCase()` on whichever cell it was handed, so every Genomes query threw
+#     TypeError: text.toLowerCase is not a function
+# at the first row whose four string columns all missed the query, `filter` abandoned
+# the whole scan, and nothing was rendered. Typing killed the box; clearing it brought
+# the table back, because the empty query never reaches a numeric cell.
+#
+# Nothing in this suite could see it. The handler IS defined, the braces ARE balanced,
+# and a TypeError thrown inside a 150 ms setTimeout is reported to the console and
+# discarded -- the page simply stops changing. Audit 2, A2-7, 2026-11-05.
+#
+# So this pins the CONTRACT rather than the spelling of the fix: that the producer
+# really does emit a non-string column, and that every JS helper fed an island cell
+# coerces before treating it as a string. `esc` is included because it was already
+# written this way; it is the pattern `searchNorm` should have followed.
+ISLAND_CONSUMERS = ('searchNorm', 'esc')
+
+# Called on a String. Any of these applied straight to the parameter is the bug.
+STRING_METHODS = ('toLowerCase', 'toUpperCase', 'trim', 'replace', 'indexOf',
+                  'split', 'charAt', 'slice', 'startsWith', 'endsWith',
+                  'substring', 'includes', 'match', 'padStart')
+
+
+def _js_function(js, name):
+    """The source of `function <name>(param) { ... }`, by brace matching."""
+    i = js.find(f'function {name}(')
+    if i < 0:
+        return None, None
+    param = js[js.find('(', i) + 1:js.find(')', i)].strip()
+    j = js.find('{', i)
+    depth = 0
+    for k in range(j, len(js)):
+        if js[k] == '{':
+            depth += 1
+        elif js[k] == '}':
+            depth -= 1
+            if depth == 0:
+                return js[j:k + 1], param
+    return None, param
+
+
+def island_coercion(js):
+    """Problems with how the island consumers handle a non-string cell."""
+    out = []
+    for name in ISLAND_CONSUMERS:
+        body, param = _js_function(js, name)
+        if body is None:
+            out.append(f'{name}() is gone from REPORT_JS; if the island consumers '
+                       f'changed, update ISLAND_CONSUMERS here')
+            continue
+        if 'String(' not in body:
+            out.append(f'{name}({param}) does not coerce with String(). The Genomes '
+                       f'JSON island carries a bare JSON number (int(total_bgcs) in '
+                       f'viz/tables.py), and a string method on it raises TypeError '
+                       f'silently inside the search debounce')
+        for meth in STRING_METHODS:
+            if f'{param}.{meth}(' in body:
+                out.append(f'{name}() calls {param}.{meth}() directly on its '
+                           f'parameter; wrap it in String(...) first')
+    return out
+
+
+def island_producer_has_a_number():
+    """The reason the coercion is required, asserted at the producer.
+
+    The cast is NOT in the island row itself -- that row is
+    `[[r['genome_name'], ..., r['total_bgcs'], ...]]`, all dict lookups. The number
+    is made one step earlier, where the dict is built (`'total_bgcs': int(...)`), so
+    a check that reads only the row expression finds nothing and passes while the bug
+    is live. Follow the field names.
+    """
+    tables = (Path(__file__).resolve().parent.parent
+              / 'scripts' / 'viz' / 'tables.py').read_text(encoding='utf-8')
+    i = tables.find('data = [[')
+    if i < 0:
+        return ["viz/tables.py no longer builds the Genomes island with "
+                "`data = [[...]]`; re-check which of its columns are non-strings"]
+    row = tables[i:tables.find(']]', i)]
+    fields = re.findall(r"r\['([^']+)'\]", row)
+    if not fields:
+        return [f"could not read the island's column fields out of {row!r}"]
+    numeric = [f for f in fields
+               if re.search(rf"'{re.escape(f)}'\s*:\s*(?:int|float)\s*\(", tables)]
+    if not numeric:
+        return [f"none of the Genomes island columns {fields} is assigned a numeric "
+                f"cast in viz/tables.py. If every column is now a string the String() "
+                f"coercion above is merely harmless -- but confirm it before relaxing "
+                f"this check, because json.dumps emits whatever type it is handed"]
+    return []
+
+
+def island_in_report_has_a_number(html):
+    """Same contract, read off a real rendered report rather than the source."""
+    m = re.search(r'<script id="genomeData" type="application/json">(.*?)</script>',
+                  html, re.S)
+    if not m:
+        return []                      # no Genomes island in this report; nothing to say
+    try:
+        rows = json.loads(m.group(1))
+    except ValueError as exc:
+        return [f'genomeData island is not valid JSON: {exc}']
+    if not rows:
+        return []
+    kinds = {i: type(v).__name__ for i, v in enumerate(rows[0])}
+    nonstr = {i: k for i, k in kinds.items() if k != 'str'}
+    if not nonstr:
+        return []                      # all strings here; the coercion is still correct
+    body, param = _js_function(_REPORT_JS(), 'searchNorm')
+    if body and 'String(' not in body:
+        return [f'genomeData carries non-string columns {nonstr} and searchNorm does '
+                f'not coerce -- every Genomes query will throw']
+    return []
+
+
 def main():
     failures = []
+    failures += island_coercion(_REPORT_JS())
+    failures += island_producer_has_a_number()
     for name, html, expected in CASES:
         got = undefined_handlers(html)
         if got != expected:
@@ -90,13 +222,7 @@ def main():
         failures.append("check_report flagged a JSON data island")
 
     # and the shipped constant itself must parse
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        'report_assets',
-        str(Path(__file__).resolve().parent.parent / 'scripts' / 'viz' / 'report_assets.py'))
-    ra = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(ra)
-    bad = unbalanced_braces(ra.REPORT_JS)
+    bad = unbalanced_braces(_REPORT_JS())
     if bad is not None:
         failures.append(f"REPORT_JS has a brace that closes nothing at line {bad}")
 
@@ -110,7 +236,10 @@ def main():
         if not path.exists():
             failures.append(f"{path}: no such report")
             continue
-        for problem in check_report(path.read_text(encoding='utf-8')):
+        html = path.read_text(encoding='utf-8')
+        for problem in check_report(html):
+            failures.append(f"{path.name}: {problem}")
+        for problem in island_in_report_has_a_number(html):
             failures.append(f"{path.name}: {problem}")
 
     if failures:
@@ -118,7 +247,8 @@ def main():
         for f in failures:
             print(f"  - {f}")
         return 1
-    print(f"report JS checks OK ({len(CASES)} linter cases"
+    print(f"report JS checks OK ({len(CASES)} linter cases, "
+          f"{len(ISLAND_CONSUMERS)} island consumers"
           f"{f', {len(sys.argv) - 1} report(s)' if len(sys.argv) > 1 else ''})")
     return 0
 

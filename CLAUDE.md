@@ -1450,7 +1450,7 @@ clustering shows fewer entries rather than entries opening onto nothing.
 | group | panes |
 |---|---|
 | **Overview** | Summary (stat tiles, KCB mapping, rarefaction curve) · Pipeline & resources |
-| **BGCs** | GCF characterisation · All detected regions |
+| **BGCs** | GCF characterisation · Detected BGC regions |
 | **Gene cluster families** | Consensus gene content · Biosynthetic phylogeny (class key + family-centre tree) · BiG-SCAPE statistics · Coupling enzyme support |
 | **Phylogeny** | Taxonomic distribution · GCF distribution across taxa |
 | **Genomes** | Genomes |
